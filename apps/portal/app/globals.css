@@ -1,0 +1,24 @@
+@import 'tailwindcss';
+
+/**
+ * Tailwind bekommt KEINE eigene Farbpalette, sondern übernimmt unsere
+ * Design-Tokens. Dadurch gibt es genau eine Quelle für das Aussehen:
+ * packages/ui/src/styles/tokens.css
+ */
+@theme inline {
+  --color-background: var(--wh-color-background);
+  --color-surface: var(--wh-color-surface);
+  --color-surface-muted: var(--wh-color-surface-muted);
+  --color-border-subtle: var(--wh-color-border);
+  --color-content: var(--wh-color-text);
+  --color-content-muted: var(--wh-color-text-muted);
+  --color-accent: var(--wh-color-accent);
+  --color-accent-subtle: var(--wh-color-accent-subtle);
+
+  --font-sans: var(--wh-font-sans);
+  --font-mono: var(--wh-font-mono);
+
+  --radius-token-sm: var(--wh-radius-sm);
+  --radius-token-md: var(--wh-radius-md);
+  --radius-token-lg: var(--wh-radius-lg);
+}

@@ -1,0 +1,43 @@
+{
+  "meta": {
+    "title": "WebHeaven – Webhosting, Domains und Websites",
+    "description": "Webhosting, Domainregistrierung und Website-Verwaltung – einfach genug für alle, sicher genug für den Ernstfall."
+  },
+  "nav": {
+    "skipToContent": "Zum Inhalt springen",
+    "language": "Sprache",
+    "german": "Deutsch",
+    "english": "English"
+  },
+  "home": {
+    "badge": "In Entwicklung – Phase 3",
+    "title": "Websites, Domains und Hosting an einem Ort",
+    "subtitle": "WebHeaven kümmert sich um die Technik im Hintergrund, damit du dich um deine Website kümmern kannst.",
+    "primaryAction": "Domain suchen",
+    "secondaryAction": "Pakete ansehen",
+    "featuresTitle": "Was WebHeaven können wird",
+    "features": {
+      "hosting": {
+        "title": "Hosting mit SSL",
+        "description": "Website, Datenbank und Verschlüsselung – automatisch eingerichtet, ohne Serverkenntnisse."
+      },
+      "domains": {
+        "title": "Domains",
+        "description": "Verfügbarkeit und Preise für .com, .ch und .de auf einen Blick, Registrierung mit einem Klick."
+      },
+      "cms": {
+        "title": "backendHeaven",
+        "description": "Ein eigenes CMS mit visuellem Editor – nur die Funktionen, die man wirklich braucht."
+      }
+    },
+    "demoTitle": "Design-System",
+    "demoDescription": "Alle Farben, Abstände und Schriftgrössen stammen aus einer einzigen Datei. Wenn Logo und Firmenfarben feststehen, ändert sich nur diese – und das ganze Produkt zieht nach.",
+    "demoFieldLabel": "Deine Wunschdomain",
+    "demoFieldHint": "Nur der Name, ohne Endung – die Endungen prüfen wir für dich.",
+    "demoFieldPlaceholder": "meinefirma"
+  },
+  "footer": {
+    "status": "Frühe Entwicklungsphase – noch kein Produktivbetrieb.",
+    "docs": "Dokumentation im Repository"
+  }
+}
