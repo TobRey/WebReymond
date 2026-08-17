@@ -1,0 +1,152 @@
+/**
+ * WebHeaven Design-Tokens
+ * =======================
+ *
+ * DIES IST DIE EINZIGE DATEI, in der Farben, Abstände, Radien und Typografie
+ * definiert werden. Wenn Logo und Firmenfarben feststehen, werden NUR die
+ * Werte hier ersetzt – Portal, Adminbereich und backendHeaven ziehen automatisch nach.
+ *
+ * Regel: Niemals feste Farbwerte (#hex) in Komponenten schreiben. Immer var(--wh-...).
+ *
+ * Aufbau:
+ *   1. Grundpalette   – rohe Farbwerte, neutral benannt
+ *   2. Semantik       – wofür eine Farbe verwendet wird (das benutzen Komponenten)
+ *   3. Form & Raum    – Abstände, Radien, Schatten
+ *   4. Typografie
+ *   5. Dunkelmodus    – überschreibt nur die Semantik, nie die Grundpalette
+ */
+
+:root {
+  /* ---------------------------------------------------------------- */
+  /* 1. Grundpalette (Platzhalter bis Logo/Firmenfarben feststehen)    */
+  /* ---------------------------------------------------------------- */
+  --wh-palette-neutral-0: #ffffff;
+  --wh-palette-neutral-50: #f8f9fa;
+  --wh-palette-neutral-100: #f1f3f5;
+  --wh-palette-neutral-200: #e5e8eb;
+  --wh-palette-neutral-300: #d4d9de;
+  --wh-palette-neutral-500: #868e96;
+  --wh-palette-neutral-700: #495057;
+  --wh-palette-neutral-900: #1a1d20;
+  --wh-palette-neutral-950: #0f1113;
+
+  /* Eine einzige Akzentfarbe – bewusst sparsam (siehe ARCHITECTURE.md, Design) */
+  --wh-palette-accent-100: #e7f0ff;
+  --wh-palette-accent-400: #6096ff;
+  --wh-palette-accent-500: #2f6bd8;
+  --wh-palette-accent-600: #2557b3;
+
+  --wh-palette-success-500: #2f9e44;
+  --wh-palette-warning-500: #e8963a;
+  --wh-palette-danger-500: #d64545;
+
+  /* ---------------------------------------------------------------- */
+  /* 2. Semantik – nur diese Namen werden in Komponenten verwendet     */
+  /* ---------------------------------------------------------------- */
+  --wh-color-background: var(--wh-palette-neutral-0);
+  --wh-color-surface: var(--wh-palette-neutral-0);
+  --wh-color-surface-muted: var(--wh-palette-neutral-50);
+  --wh-color-border: var(--wh-palette-neutral-200);
+  --wh-color-border-strong: var(--wh-palette-neutral-300);
+
+  --wh-color-text: var(--wh-palette-neutral-900);
+  --wh-color-text-muted: var(--wh-palette-neutral-500);
+  --wh-color-text-inverted: var(--wh-palette-neutral-0);
+
+  --wh-color-accent: var(--wh-palette-accent-500);
+  --wh-color-accent-hover: var(--wh-palette-accent-600);
+  --wh-color-accent-subtle: var(--wh-palette-accent-100);
+  --wh-color-focus: var(--wh-palette-accent-400);
+
+  --wh-color-success: var(--wh-palette-success-500);
+  --wh-color-warning: var(--wh-palette-warning-500);
+  --wh-color-danger: var(--wh-palette-danger-500);
+
+  /* ---------------------------------------------------------------- */
+  /* 3. Form & Raum                                                    */
+  /* ---------------------------------------------------------------- */
+  --wh-space-1: 0.25rem;
+  --wh-space-2: 0.5rem;
+  --wh-space-3: 0.75rem;
+  --wh-space-4: 1rem;
+  --wh-space-6: 1.5rem;
+  --wh-space-8: 2rem;
+  --wh-space-12: 3rem;
+  --wh-space-16: 4rem;
+  --wh-space-24: 6rem;
+
+  --wh-radius-sm: 0.375rem;
+  --wh-radius-md: 0.625rem;
+  --wh-radius-lg: 1rem;
+  --wh-radius-full: 9999px;
+
+  /* Sparsam und weich – keine harten Schlagschatten */
+  --wh-shadow-sm: 0 1px 2px rgb(15 17 19 / 0.04);
+  --wh-shadow-md: 0 4px 16px rgb(15 17 19 / 0.06);
+
+  --wh-transition: 150ms ease;
+
+  /* ---------------------------------------------------------------- */
+  /* 4. Typografie                                                     */
+  /* ---------------------------------------------------------------- */
+  --wh-font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --wh-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --wh-text-xs: 0.75rem;
+  --wh-text-sm: 0.875rem;
+  --wh-text-base: 1rem;
+  --wh-text-lg: 1.125rem;
+  --wh-text-xl: 1.5rem;
+  --wh-text-2xl: 2rem;
+  --wh-text-3xl: 2.75rem;
+
+  --wh-leading-tight: 1.2;
+  --wh-leading-normal: 1.6;
+
+  /* Maximale Breite für gut lesbaren Fliesstext */
+  --wh-measure: 68ch;
+}
+
+/* ------------------------------------------------------------------ */
+/* 5. Dunkelmodus – nur Semantik wird umgehängt                        */
+/* ------------------------------------------------------------------ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --wh-color-background: var(--wh-palette-neutral-950);
+    --wh-color-surface: var(--wh-palette-neutral-900);
+    --wh-color-surface-muted: #16191c;
+    --wh-color-border: #2a2f34;
+    --wh-color-border-strong: #3a4046;
+
+    --wh-color-text: var(--wh-palette-neutral-100);
+    --wh-color-text-muted: #9aa3ab;
+    --wh-color-text-inverted: var(--wh-palette-neutral-950);
+
+    --wh-color-accent: var(--wh-palette-accent-400);
+    --wh-color-accent-hover: #7fabff;
+    --wh-color-accent-subtle: #17233a;
+
+    --wh-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+    --wh-shadow-md: 0 4px 16px rgb(0 0 0 / 0.35);
+  }
+}
+
+:root[data-theme='dark'] {
+  --wh-color-background: var(--wh-palette-neutral-950);
+  --wh-color-surface: var(--wh-palette-neutral-900);
+  --wh-color-surface-muted: #16191c;
+  --wh-color-border: #2a2f34;
+  --wh-color-border-strong: #3a4046;
+
+  --wh-color-text: var(--wh-palette-neutral-100);
+  --wh-color-text-muted: #9aa3ab;
+  --wh-color-text-inverted: var(--wh-palette-neutral-950);
+
+  --wh-color-accent: var(--wh-palette-accent-400);
+  --wh-color-accent-hover: #7fabff;
+  --wh-color-accent-subtle: #17233a;
+
+  --wh-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+  --wh-shadow-md: 0 4px 16px rgb(0 0 0 / 0.35);
+}

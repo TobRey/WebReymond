@@ -1,0 +1,161 @@
+/**
+ * Basiskomponenten – ausschliesslich aus Design-Tokens aufgebaut.
+ * Keine festen Farbwerte, keine Magic Numbers. Wer hier ein #hex sieht, hat einen Fehler gefunden.
+ */
+
+/* -------------------------------------------------------------------- */
+/* Grundlagen                                                            */
+/* -------------------------------------------------------------------- */
+
+.wh-body {
+  margin: 0;
+  background: var(--wh-color-background);
+  color: var(--wh-color-text);
+  font-family: var(--wh-font-sans);
+  font-size: var(--wh-text-base);
+  line-height: var(--wh-leading-normal);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Sichtbarer Fokus für Tastaturbedienung – nie entfernen (Barrierefreiheit). */
+.wh-body :focus-visible {
+  outline: 2px solid var(--wh-color-focus);
+  outline-offset: 2px;
+  border-radius: var(--wh-radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wh-body * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* -------------------------------------------------------------------- */
+/* Button                                                                */
+/* -------------------------------------------------------------------- */
+
+.wh-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--wh-space-2);
+  padding: var(--wh-space-3) var(--wh-space-6);
+  border: 1px solid transparent;
+  border-radius: var(--wh-radius-md);
+  font-family: inherit;
+  font-size: var(--wh-text-sm);
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background-color var(--wh-transition),
+    border-color var(--wh-transition),
+    color var(--wh-transition);
+}
+
+.wh-button:disabled,
+.wh-button[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wh-button--primary {
+  background: var(--wh-color-accent);
+  color: var(--wh-color-text-inverted);
+}
+
+.wh-button--primary:hover:not(:disabled) {
+  background: var(--wh-color-accent-hover);
+}
+
+.wh-button--secondary {
+  background: var(--wh-color-surface);
+  border-color: var(--wh-color-border-strong);
+  color: var(--wh-color-text);
+}
+
+.wh-button--secondary:hover:not(:disabled) {
+  background: var(--wh-color-surface-muted);
+}
+
+.wh-button--ghost {
+  background: transparent;
+  color: var(--wh-color-text-muted);
+}
+
+.wh-button--ghost:hover:not(:disabled) {
+  background: var(--wh-color-surface-muted);
+  color: var(--wh-color-text);
+}
+
+/* -------------------------------------------------------------------- */
+/* Card                                                                  */
+/* -------------------------------------------------------------------- */
+
+.wh-card {
+  background: var(--wh-color-surface);
+  border: 1px solid var(--wh-color-border);
+  border-radius: var(--wh-radius-lg);
+  padding: var(--wh-space-6);
+  box-shadow: var(--wh-shadow-sm);
+}
+
+.wh-card__title {
+  margin: 0 0 var(--wh-space-2);
+  font-size: var(--wh-text-lg);
+  font-weight: 600;
+  line-height: var(--wh-leading-tight);
+}
+
+.wh-card__description {
+  margin: 0;
+  color: var(--wh-color-text-muted);
+  font-size: var(--wh-text-sm);
+}
+
+/* -------------------------------------------------------------------- */
+/* Input                                                                 */
+/* -------------------------------------------------------------------- */
+
+.wh-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wh-space-2);
+}
+
+.wh-field__label {
+  font-size: var(--wh-text-sm);
+  font-weight: 500;
+}
+
+.wh-field__hint {
+  color: var(--wh-color-text-muted);
+  font-size: var(--wh-text-xs);
+}
+
+.wh-field__error {
+  color: var(--wh-color-danger);
+  font-size: var(--wh-text-xs);
+}
+
+.wh-input {
+  width: 100%;
+  padding: var(--wh-space-3) var(--wh-space-4);
+  background: var(--wh-color-surface);
+  border: 1px solid var(--wh-color-border-strong);
+  border-radius: var(--wh-radius-md);
+  color: var(--wh-color-text);
+  font-family: inherit;
+  font-size: var(--wh-text-base);
+  transition: border-color var(--wh-transition);
+}
+
+.wh-input::placeholder {
+  color: var(--wh-color-text-muted);
+}
+
+.wh-input[aria-invalid='true'] {
+  border-color: var(--wh-color-danger);
+}

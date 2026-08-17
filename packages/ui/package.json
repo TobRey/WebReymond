@@ -1,0 +1,32 @@
+{
+  "name": "@webheaven/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Design-Tokens und Basiskomponenten für WebHeaven und backendHeaven",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./tokens.css": "./src/styles/tokens.css",
+    "./components.css": "./src/styles/components.css"
+  },
+  "files": [
+    "dist",
+    "src/styles"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo \"(noch keine Tests – Komponenten werden in Phase 6 getestet)\""
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.7",
+    "react": "19.2.8",
+    "typescript": "5.9.3"
+  }
+}
