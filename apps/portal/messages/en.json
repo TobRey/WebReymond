@@ -1,0 +1,43 @@
+{
+  "meta": {
+    "title": "WebHeaven – Web hosting, domains and websites",
+    "description": "Web hosting, domain registration and website management – simple enough for everyone, secure enough for the real world."
+  },
+  "nav": {
+    "skipToContent": "Skip to content",
+    "language": "Language",
+    "german": "Deutsch",
+    "english": "English"
+  },
+  "home": {
+    "badge": "In development – phase 3",
+    "title": "Websites, domains and hosting in one place",
+    "subtitle": "WebHeaven takes care of the technology in the background, so you can take care of your website.",
+    "primaryAction": "Search a domain",
+    "secondaryAction": "See the plans",
+    "featuresTitle": "What WebHeaven will do",
+    "features": {
+      "hosting": {
+        "title": "Hosting with SSL",
+        "description": "Website, database and encryption – set up automatically, no server knowledge required."
+      },
+      "domains": {
+        "title": "Domains",
+        "description": "Availability and prices for .com, .ch and .de at a glance, registered in a single click."
+      },
+      "cms": {
+        "title": "backendHeaven",
+        "description": "Our own CMS with a visual editor – only the features people actually need."
+      }
+    },
+    "demoTitle": "Design system",
+    "demoDescription": "Every colour, spacing and font size comes from a single file. Once the logo and brand colours are decided, only that file changes – and the whole product follows.",
+    "demoFieldLabel": "Your preferred domain",
+    "demoFieldHint": "Just the name, without the ending – we check the endings for you.",
+    "demoFieldPlaceholder": "mycompany"
+  },
+  "footer": {
+    "status": "Early development – not in production yet.",
+    "docs": "Documentation in the repository"
+  }
+}

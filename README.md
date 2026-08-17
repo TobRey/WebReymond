@@ -4,9 +4,9 @@ WebHeaven ist eine im Aufbau befindliche Webhosting-Plattform aus der Schweiz:
 Webdesign, Domainregistrierung, Webhosting, Datei-Hosting, Datenbanken, Website-Verwaltung –
 mit einem eigenen CMS namens **backendHeaven** und einem visuellen Website-Builder.
 
-> **Aktueller Stand: Phase 0 (Planung) abgeschlossen.**
-> In diesem Repository liegen bisher **nur Entscheidungsdokumente, noch kein Anwendungscode**.
-> Das ist Absicht: Zuerst Architektur, Kosten und Reihenfolge klären, dann bauen.
+> **Aktueller Stand: Phase 3 – das Grundgerüst steht und läuft lokal.**
+> Portal (zweisprachig), API, Design-System, Datenbank und automatische Tests sind vorhanden.
+> Noch **nicht** gebaut: Anmeldung, Hosting-Verwaltung, Domains, Zahlungen – siehe [ROADMAP.md](ROADMAP.md).
 
 ---
 
@@ -21,7 +21,47 @@ mit einem eigenen CMS namens **backendHeaven** und einem visuellen Website-Build
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Wie WebHeaven später auf den Server kommt |
 | [BACKUP.md](BACKUP.md) | Was gesichert wird, wohin, und wie ein Restore getestet wird |
 | [docs/branding-domains.md](docs/branding-domains.md) | Domainprüfung, Namensalternativen, Markenrisiko |
+| [docs/phase-2-entwicklungsumgebung.md](docs/phase-2-entwicklungsumgebung.md) | Windows-11-Anleitung: WSL2, Node, pnpm, Git, Docker, VS Code |
 | [docs/decisions/](docs/decisions/) | Kurze Begründungen der wichtigsten Technikentscheidungen (ADRs) |
+
+## Lokal starten
+
+Voraussetzung: einmalig [docs/phase-2-entwicklungsumgebung.md](docs/phase-2-entwicklungsumgebung.md)
+durcharbeiten (WSL2, Node 22, pnpm, Docker).
+
+```bash
+pnpm install     # Bibliotheken laden
+pnpm db:up       # PostgreSQL starten (Docker)
+pnpm dev         # Portal + API starten
+```
+
+| Adresse | Was |
+|---|---|
+| http://localhost:3000 | Portal (leitet auf `/de` weiter) |
+| http://localhost:3000/en | dieselbe Seite auf Englisch |
+| http://localhost:3001/health | API-Statusmeldung |
+
+Beenden mit **Strg + C**, danach `pnpm db:down`.
+
+| Befehl | Wofür |
+|---|---|
+| `pnpm test` | Alle automatischen Tests |
+| `pnpm typecheck` | Typprüfung ohne Ausführung |
+| `pnpm lint` | Code-Regeln prüfen |
+| `pnpm build` | Produktionsbuild wie in der CI |
+| `pnpm format` | Einheitliche Formatierung |
+
+## Aufbau des Repositories
+
+```
+apps/
+  portal/     Next.js – öffentliche Website, Kundenportal, Adminbereich (Port 3000)
+  api/        Fastify – Geschäftslogik und Autorisierung (Port 3001)
+packages/
+  ui/         Design-Tokens und Basiskomponenten
+  shared/     gemeinsame Typen und Validierungsschemas
+docs/         Anleitungen und Entscheidungen
+```
 
 ## Die Kurzfassung der Architektur
 
