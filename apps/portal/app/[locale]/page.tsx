@@ -1,4 +1,5 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
+import Link from 'next/link';
 import { Button, Card, Input, Logo } from '@webheaven/ui';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { routing } from '@/i18n/routing';
@@ -31,14 +32,22 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <header className="border-b border-border-subtle">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
           <Logo />
-          <LanguageSwitcher
-            currentLocale={locale}
-            labels={{
-              german: tNav('german'),
-              english: tNav('english'),
-              language: tNav('language'),
-            }}
-          />
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher
+              currentLocale={locale}
+              labels={{
+                german: tNav('german'),
+                english: tNav('english'),
+                language: tNav('language'),
+              }}
+            />
+            <Link
+              href={`/${locale}/anmelden`}
+              className="rounded-token-sm px-3 py-1.5 text-sm text-content-muted hover:text-content"
+            >
+              {tNav('login')}
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -52,7 +61,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           </h1>
           <p className="mt-5 max-w-2xl text-lg text-content-muted">{t('subtitle')}</p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Button variant="primary">{t('primaryAction')}</Button>
+            <Link href={`/${locale}/registrieren`}>
+              <Button variant="primary">{tNav('register')}</Button>
+            </Link>
             <Button variant="secondary">{t('secondaryAction')}</Button>
           </div>
         </section>

@@ -19,7 +19,28 @@ jobs:
   quality:
     name: Lint, Typen, Tests, Build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+
+    # Die Tests laufen gegen eine echte PostgreSQL-Datenbank, nicht gegen eine
+    # Attrappe – sonst würde eine kaputte Migration erst auf dem Server auffallen.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: webheaven
+          POSTGRES_PASSWORD: webheaven_ci_only
+          POSTGRES_DB: webheaven_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U webheaven -d webheaven_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgresql://webheaven:webheaven_ci_only@127.0.0.1:5432/webheaven_test
+      DATABASE_URL: postgresql://webheaven:webheaven_ci_only@127.0.0.1:5432/webheaven_test
 
     steps:
       - name: Code auschecken

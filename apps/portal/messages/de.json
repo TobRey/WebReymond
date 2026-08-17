@@ -7,10 +7,12 @@
     "skipToContent": "Zum Inhalt springen",
     "language": "Sprache",
     "german": "Deutsch",
-    "english": "English"
+    "english": "English",
+    "login": "Anmelden",
+    "register": "Konto erstellen"
   },
   "home": {
-    "badge": "In Entwicklung – Phase 3",
+    "badge": "In Entwicklung – Phase 4",
     "title": "Websites, Domains und Hosting an einem Ort",
     "subtitle": "WebHeaven kümmert sich um die Technik im Hintergrund, damit du dich um deine Website kümmern kannst.",
     "primaryAction": "Domain suchen",
@@ -39,5 +41,62 @@
   "footer": {
     "status": "Frühe Entwicklungsphase – noch kein Produktivbetrieb.",
     "docs": "Dokumentation im Repository"
+  },
+  "auth": {
+    "common": {
+      "pending": "Einen Moment …",
+      "genericError": "Das hat leider nicht geklappt. Bitte prüfe deine Angaben.",
+      "networkError": "Keine Verbindung zum Server. Bitte später erneut versuchen.",
+      "backToLogin": "Zurück zur Anmeldung"
+    },
+    "fields": {
+      "name": "Name",
+      "email": "E-Mail-Adresse",
+      "password": "Passwort",
+      "newPassword": "Neues Passwort",
+      "passwordHint": "Mindestens 12 Zeichen. Ein ganzer Satz ist sicherer als ein kurzes Kryptogramm."
+    },
+    "login": {
+      "title": "Anmelden",
+      "description": "Melde dich bei deinem WebHeaven-Konto an.",
+      "submit": "Anmelden",
+      "invalidCredentials": "E-Mail-Adresse oder Passwort stimmt nicht.",
+      "tooManyAttempts": "Zu viele Versuche. Bitte warte einige Minuten.",
+      "forgotPassword": "Passwort vergessen?",
+      "noAccount": "Noch kein Konto?"
+    },
+    "register": {
+      "title": "Konto erstellen",
+      "description": "In einer Minute eingerichtet – ohne Kreditkarte.",
+      "submit": "Konto erstellen",
+      "haveAccount": "Du hast bereits ein Konto?"
+    },
+    "forgot": {
+      "title": "Passwort vergessen",
+      "description": "Wir senden dir einen Link, mit dem du ein neues Passwort setzen kannst.",
+      "submit": "Link anfordern",
+      "sent": "Falls ein Konto mit dieser Adresse existiert, ist der Link unterwegs. Prüfe auch den Spam-Ordner."
+    },
+    "reset": {
+      "title": "Neues Passwort setzen",
+      "description": "Wähle ein Passwort, das du noch nirgends verwendest.",
+      "submit": "Passwort speichern",
+      "missingToken": "Dieser Link ist unvollständig. Fordere bitte einen neuen an.",
+      "invalidToken": "Dieser Link ist abgelaufen oder wurde bereits verwendet."
+    }
+  },
+  "dashboard": {
+    "loading": "Wird geladen …",
+    "greeting": "Willkommen, {name}",
+    "email": "E-Mail-Adresse",
+    "role": "Rolle",
+    "roles": {
+      "user": "Benutzer",
+      "customer": "Kunde",
+      "admin": "Administrator"
+    },
+    "signOut": "Abmelden",
+    "comingSoonTitle": "Hier entsteht dein Hosting",
+    "comingSoonDescription": "Domains, Websites, Dateien und Datenbanken folgen in den nächsten Phasen."
   }
 }

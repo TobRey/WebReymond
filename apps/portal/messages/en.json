@@ -7,10 +7,12 @@
     "skipToContent": "Skip to content",
     "language": "Language",
     "german": "Deutsch",
-    "english": "English"
+    "english": "English",
+    "login": "Log in",
+    "register": "Create account"
   },
   "home": {
-    "badge": "In development – phase 3",
+    "badge": "In development – phase 4",
     "title": "Websites, domains and hosting in one place",
     "subtitle": "WebHeaven takes care of the technology in the background, so you can take care of your website.",
     "primaryAction": "Search a domain",
@@ -39,5 +41,62 @@
   "footer": {
     "status": "Early development – not in production yet.",
     "docs": "Documentation in the repository"
+  },
+  "auth": {
+    "common": {
+      "pending": "One moment …",
+      "genericError": "That did not work. Please check your details.",
+      "networkError": "No connection to the server. Please try again later.",
+      "backToLogin": "Back to login"
+    },
+    "fields": {
+      "name": "Name",
+      "email": "Email address",
+      "password": "Password",
+      "newPassword": "New password",
+      "passwordHint": "At least 12 characters. A whole sentence beats a short cryptic string."
+    },
+    "login": {
+      "title": "Log in",
+      "description": "Log in to your WebHeaven account.",
+      "submit": "Log in",
+      "invalidCredentials": "Email address or password is incorrect.",
+      "tooManyAttempts": "Too many attempts. Please wait a few minutes.",
+      "forgotPassword": "Forgot your password?",
+      "noAccount": "No account yet?"
+    },
+    "register": {
+      "title": "Create account",
+      "description": "Set up in a minute – no credit card needed.",
+      "submit": "Create account",
+      "haveAccount": "Already have an account?"
+    },
+    "forgot": {
+      "title": "Forgot password",
+      "description": "We will send you a link to set a new password.",
+      "submit": "Request link",
+      "sent": "If an account exists for this address, the link is on its way. Check your spam folder too."
+    },
+    "reset": {
+      "title": "Set a new password",
+      "description": "Choose a password you do not use anywhere else.",
+      "submit": "Save password",
+      "missingToken": "This link is incomplete. Please request a new one.",
+      "invalidToken": "This link has expired or was already used."
+    }
+  },
+  "dashboard": {
+    "loading": "Loading …",
+    "greeting": "Welcome, {name}",
+    "email": "Email address",
+    "role": "Role",
+    "roles": {
+      "user": "User",
+      "customer": "Customer",
+      "admin": "Administrator"
+    },
+    "signOut": "Log out",
+    "comingSoonTitle": "Your hosting will live here",
+    "comingSoonDescription": "Domains, websites, files and databases follow in the next phases."
   }
 }

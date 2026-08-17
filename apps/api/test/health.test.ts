@@ -2,17 +2,19 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { healthResponseSchema, pingResponseSchema } from '@webheaven/shared';
 import { loadConfig } from '../src/config.js';
-import { buildServer } from '../src/server.js';
+import { createTestServer, type TestContext } from './helpers.js';
+import { TEST_DATABASE_URL } from './global-setup.js';
 
+let ctx: TestContext;
 let app: FastifyInstance;
 
 beforeAll(async () => {
-  app = await buildServer(loadConfig({ NODE_ENV: 'test', LOG_LEVEL: 'fatal' }));
-  await app.ready();
+  ctx = await createTestServer();
+  app = ctx.app;
 });
 
 afterAll(async () => {
-  await app.close();
+  await ctx.close();
 });
 
 describe('GET /health', () => {
@@ -54,11 +56,23 @@ describe('unbekannte Route', () => {
 });
 
 describe('Konfiguration', () => {
+  const minimal = { DATABASE_URL: TEST_DATABASE_URL, AUTH_SECRET: 'x'.repeat(32) };
+
   it('lehnt einen unsinnigen Port ab', () => {
-    expect(() => loadConfig({ API_PORT: '99999' })).toThrow(/Ungültige Konfiguration/);
+    expect(() => loadConfig({ ...minimal, API_PORT: '99999' })).toThrow(/Ungültige Konfiguration/);
   });
 
   it('lauscht standardmässig nur lokal', () => {
-    expect(loadConfig({}).API_HOST).toBe('127.0.0.1');
+    expect(loadConfig(minimal).API_HOST).toBe('127.0.0.1');
+  });
+
+  it('startet nicht ohne Datenbankverbindung', () => {
+    expect(() => loadConfig({ AUTH_SECRET: 'x'.repeat(32) })).toThrow(/DATABASE_URL/);
+  });
+
+  it('startet nicht ohne ausreichend langen AUTH_SECRET', () => {
+    expect(() => loadConfig({ DATABASE_URL: TEST_DATABASE_URL, AUTH_SECRET: 'kurz' })).toThrow(
+      /AUTH_SECRET/,
+    );
   });
 });

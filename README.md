@@ -4,9 +4,10 @@ WebHeaven ist eine im Aufbau befindliche Webhosting-Plattform aus der Schweiz:
 Webdesign, Domainregistrierung, Webhosting, Datei-Hosting, Datenbanken, Website-Verwaltung –
 mit einem eigenen CMS namens **backendHeaven** und einem visuellen Website-Builder.
 
-> **Aktueller Stand: Phase 3 – das Grundgerüst steht und läuft lokal.**
-> Portal (zweisprachig), API, Design-System, Datenbank und automatische Tests sind vorhanden.
-> Noch **nicht** gebaut: Anmeldung, Hosting-Verwaltung, Domains, Zahlungen – siehe [ROADMAP.md](ROADMAP.md).
+> **Aktueller Stand: Phase 4 – Konten und Anmeldung funktionieren.**
+> Registrierung, Login, Logout, Passwort-Reset, Rollen, Rate-Limits und Audit-Log sind fertig
+> und getestet. Noch **nicht** gebaut: Zwei-Faktor-Oberfläche, Hosting-Verwaltung, Domains,
+> Zahlungen – siehe [ROADMAP.md](ROADMAP.md).
 
 ---
 
@@ -30,9 +31,13 @@ Voraussetzung: einmalig [docs/phase-2-entwicklungsumgebung.md](docs/phase-2-entw
 durcharbeiten (WSL2, Node 22, pnpm, Docker).
 
 ```bash
-pnpm install     # Bibliotheken laden
-pnpm db:up       # PostgreSQL starten (Docker)
-pnpm dev         # Portal + API starten
+pnpm install                 # Bibliotheken laden
+cp .env.example .env         # Konfiguration anlegen …
+chmod 600 .env               # … und vor fremden Blicken schützen
+openssl rand -base64 48      # Ergebnis als AUTH_SECRET in die .env eintragen
+pnpm db:up                   # PostgreSQL starten (Docker)
+pnpm db:migrate              # Tabellen anlegen
+pnpm dev                     # Portal + API starten
 ```
 
 | Adresse | Was |
@@ -40,6 +45,9 @@ pnpm dev         # Portal + API starten
 | http://localhost:3000 | Portal (leitet auf `/de` weiter) |
 | http://localhost:3000/en | dieselbe Seite auf Englisch |
 | http://localhost:3001/health | API-Statusmeldung |
+| http://localhost:3000/de/registrieren | Konto erstellen |
+| http://localhost:3000/de/anmelden | Anmelden |
+| http://localhost:3000/de/dashboard | Kundenbereich (nur angemeldet) |
 
 Beenden mit **Strg + C**, danach `pnpm db:down`.
 
@@ -50,6 +58,9 @@ Beenden mit **Strg + C**, danach `pnpm db:down`.
 | `pnpm lint` | Code-Regeln prüfen |
 | `pnpm build` | Produktionsbuild wie in der CI |
 | `pnpm format` | Einheitliche Formatierung |
+| `pnpm db:migrate` | Datenbankänderung erzeugen und einspielen |
+| `pnpm db:deploy` | Migrationen auf einem Server einspielen |
+| `pnpm db:studio` | Datenbank im Browser ansehen |
 
 ## Aufbau des Repositories
 
