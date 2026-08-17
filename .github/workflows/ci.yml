@@ -1,0 +1,89 @@
+name: CI
+
+# Läuft bei jedem Push auf main und bei jedem Pull Request.
+# Regel aus README.md: Zusammengeführt wird nur, wenn dieser Lauf grün ist.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Ein neuer Push auf denselben Branch bricht den vorherigen Lauf ab.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Lint, Typen, Tests, Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v5
+
+      - name: pnpm einrichten
+        uses: pnpm/action-setup@v4
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Abhängigkeiten installieren
+        run: pnpm install --frozen-lockfile
+
+      # Portal und API greifen auf die gebauten Pakete zu – deshalb zuerst.
+      - name: Gemeinsame Pakete bauen
+        run: pnpm build:packages
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typen prüfen
+        run: pnpm typecheck
+
+      - name: Tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  secrets:
+    name: Keine Secrets im Code
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v5
+
+      # Einfache Gegenprobe gegen die häufigsten Versehen.
+      # Ersetzt keinen Secret-Scanner, fängt aber den klassischen Fehler ab.
+      - name: Nach offensichtlichen Secrets suchen
+        run: |
+          if grep -rEnI \
+            -e 'sk_live_[A-Za-z0-9]' \
+            -e 'pk_live_[A-Za-z0-9]' \
+            -e 'BEGIN [A-Z ]*PRIVATE KEY' \
+            -e 'AKIA[0-9A-Z]{16}' \
+            --exclude-dir=.git \
+            --exclude-dir=node_modules \
+            --exclude=ci.yml \
+            . ; then
+            echo "::error::Möglicher Zugangsschlüssel im Code gefunden."
+            exit 1
+          fi
+          echo "Keine offensichtlichen Secrets gefunden."
+
+      - name: Prüfen, dass keine .env-Datei eingecheckt ist
+        run: |
+          if git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.env\.example$'; then
+            echo "::error::Eine .env-Datei ist im Repository. Sofort entfernen und Schlüssel rotieren."
+            exit 1
+          fi
+          echo "Keine .env-Datei im Repository."
