@@ -1,0 +1,60 @@
+# --- Secrets: NIEMALS committen ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+secrets/
+credentials.json
+
+# --- Node / Build ---
+node_modules/
+.pnpm-store/
+dist/
+build/
+out/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# --- Tests / Coverage ---
+coverage/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
+# --- Logs ---
+*.log
+npm-debug.log*
+pnpm-debug.log*
+logs/
+
+# --- Datenbank / lokale Daten ---
+*.sqlite
+*.sqlite3
+*.db
+pgdata/
+docker-data/
+*.dump
+*.sql.gz
+
+# --- Backups (gehören nie ins Repository) ---
+backup/
+backups/
+*.tar.gz
+*.zip
+
+# --- Editor / Betriebssystem ---
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
