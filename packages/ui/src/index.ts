@@ -9,3 +9,4 @@
 export { Button, type ButtonProps } from './components/Button.js';
 export { Card, type CardProps } from './components/Card.js';
 export { Input, type InputProps } from './components/Input.js';
+export { Logo, type LogoProps } from './components/Logo.js';

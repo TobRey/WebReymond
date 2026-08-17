@@ -1,5 +1,5 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { Button, Card, Input } from '@webheaven/ui';
+import { Button, Card, Input, Logo } from '@webheaven/ui';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { routing } from '@/i18n/routing';
 
@@ -26,11 +26,11 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         {tNav('skipToContent')}
       </a>
 
+      <div className="wh-brandbar" />
+
       <header className="border-b border-border-subtle">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
-          <span className="text-lg font-semibold tracking-tight">
-            Web<span className="text-accent">Heaven</span>
-          </span>
+          <Logo />
           <LanguageSwitcher
             currentLocale={locale}
             labels={{
