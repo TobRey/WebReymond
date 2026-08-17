@@ -18,5 +18,6 @@ als „ersetzt durch“ markiert.
 | [0007](0007-hetzner-cx23.md) | Hetzner Cloud CX23 als erster Server | akzeptiert |
 | [0008](0008-stripe-zuerst.md) | Stripe als erster Zahlungsanbieter | akzeptiert |
 | [0009](0009-backendheaven-mandantenfaehig.md) | backendHeaven mandantenfähig statt Installation je Kunde | akzeptiert |
+| [0010](0010-design-tokens-und-tailwind.md) | Design-Tokens als einzige Quelle, Tailwind nur als Werkzeug | akzeptiert |
 
 Format je Datei: Kontext → Entscheidung → Begründung → Alternativen → Konsequenzen → Wiedervorlage.

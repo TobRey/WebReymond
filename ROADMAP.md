@@ -10,14 +10,16 @@ ihre **Definition of Done** erfüllt und getestet ist. Danach: Commit, Tag, kurz
 - **E-Mail nach hinten (Phase 19)** – wird extern eingekauft und ist deshalb kein Blocker.
 - **Datenmodell/RBAC als eigene Phase (5)** – Mandantentrennung ist zu wichtig für ein Nebenprodukt.
 
+Legende: ✅ fertig · ⏳ wartet auf dich · 📄 Anleitung liegt bereit · (ohne Zeichen) noch nicht begonnen
+
 ---
 
 | # | Phase | Definition of Done | Kosten |
 |---|---|---|---|
 | **0** | **Planung** ✅ | Architektur, Kosten, Sicherheitsarchitektur, Phasen dokumentiert und freigegeben | 0 |
-| **1** | Marke, Domain, Konten | Domainverfügbarkeit selbst geprüft, Name entschieden, Domain registriert, Konten bei GitHub/Hetzner/Registrar bestehen, 2FA überall aktiv | ~CHF 13 einmalig |
-| **2** | Lokale Entwicklungsumgebung | WSL2 (Ubuntu), Node.js 22, Docker Desktop, Git, VS Code installiert; `git clone` und ein Testcommit funktionieren | 0 |
-| **3** | Repo-Skelett + CI | Monorepo mit Portal/API/Worker-Gerüst, Design-Tokens, DE/EN-Kataloge, PostgreSQL per Docker Compose, CI läuft grün | 0 |
+| **1** | Marke, Domain, Konten ⏳ | Domainverfügbarkeit selbst geprüft, Name entschieden, Domain registriert, Konten bei GitHub/Hetzner/Registrar bestehen, 2FA überall aktiv | ~CHF 13 einmalig |
+| **2** | Lokale Entwicklungsumgebung 📄 | Anleitung liegt vor ([docs/phase-2-entwicklungsumgebung.md](docs/phase-2-entwicklungsumgebung.md)); erledigt, sobald `pnpm dev` auf deinem PC läuft | 0 |
+| **3** | Repo-Skelett + CI ✅ | Monorepo mit Portal und API, Design-Tokens, DE/EN-Kataloge, PostgreSQL per Docker Compose, 21 Tests, CI-Workflow | 0 |
 | **4** | Authentifizierung | Registrierung, Login, Logout, Passwort-Reset, TOTP-MFA, Rate-Limits, Audit-Log – alles mit Tests | 0 |
 | **5** | Datenmodell + RBAC + Mandantentrennung | Rollen, Policy-Schicht, Migrationen, IDOR-Tests grün (Fremdzugriff schlägt nachweislich fehl) | 0 |
 | **6** | Portal- und Adminoberfläche | Navigation, Design-System, responsiv, mobil getestet, DE/EN umschaltbar, noch ohne echte Hostingdaten | 0 |
