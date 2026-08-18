@@ -9,10 +9,13 @@ Kurzfassung der Entscheidung steht in [ADR 0011](decisions/0011-markenname-webre
 
 **WebReymond**
 
-| Adresse | Rolle | Status |
-|---|---|---|
-| **webreymond.ch** | Hauptadresse – Portal, E-Mail, Rechnungen | registriert |
-| **webreymond.com** | Zweitadresse, leitet auf `.ch` weiter | registriert |
+| Adresse | Rolle | Registrar | Bezahlt | Status |
+|---|---|---|---|---|
+| **webreymond.ch** | Hauptadresse – Portal, E-Mail, Rechnungen | Metanet | CHF 4.90 (Aktion 1. Jahr) | registriert |
+| **webreymond.com** | Zweitadresse, leitet auf `.ch` weiter | Metanet | noch nachzutragen | registriert |
+
+> Die **Verlängerungspreise** sind noch offen und in [COSTS.md](../COSTS.md) als solche markiert.
+> Für die spätere Kalkulation zählt ausschliesslich dieser Preis, nicht der Aktionspreis.
 
 Das CMS heisst **backendReymond**.
 
