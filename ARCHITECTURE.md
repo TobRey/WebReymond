@@ -5,7 +5,7 @@ Es wird in jeder Phase fortgeschrieben.
 
 ## 1. Leitgedanken
 
-1. **Eine Oberfläche für Kunden.** Kunden sehen nur WebHeaven. HestiaCP ist ein internes Werkzeug und
+1. **Eine Oberfläche für Kunden.** Kunden sehen nur WebReymond. HestiaCP ist ein internes Werkzeug und
    aus dem Internet nicht erreichbar.
 2. **Klein starten, gross werden können.** Alles läuft zunächst auf einem einzigen Server, ist aber so
    getrennt, dass einzelne Teile später auf eigene Server umziehen können.
@@ -26,11 +26,11 @@ Es wird in jeder Phase fortgeschrieben.
          ┌───────────────────┼────────────────────────┐
          │                   │                        │
          ▼                   ▼                        ▼
-  Kundenwebsites      WebHeaven Portal          backendHeaven
+  Kundenwebsites      WebReymond Portal          backendReymond
   statisch / PHP-FPM   (Next.js, :3000)      (mandantenfähige Laufzeit)
   je Kunde ein            │                        │
   Linux-Benutzer          ▼                        │
-                    WebHeaven API  (Fastify, :3001)│
+                    WebReymond API  (Fastify, :3001)│
                           │                        │
               ┌───────────┼──────────────┬─────────┘
               ▼           ▼              ▼
@@ -56,10 +56,10 @@ Nur `nginx` ist von aussen erreichbar. Portal, API, Worker und Datenbank lausche
 | **Portal** | Next.js (App Router), React, TypeScript | Kundenportal, Administratorbereich, öffentliche Website |
 | **API** | Fastify, Zod, OpenAPI | Geschäftslogik, Autorisierung, alle Datenzugriffe |
 | **Worker** | Node.js + pg-boss | Provisioning-Jobs, Webhooks, wiederkehrende Aufgaben |
-| **Datenbank** | PostgreSQL 17 + Prisma | WebHeaven-Daten, Jobs, Audit-Log |
+| **Datenbank** | PostgreSQL 17 + Prisma | WebReymond-Daten, Jobs, Audit-Log |
 | **Hosting-Layer** | HestiaCP (ohne Mail-Teile) | nginx, PHP-FPM, Linux-Benutzer, SSL, MariaDB, Kunden-Backups |
 | **Kundendatenbanken** | MariaDB (von Hestia verwaltet) | Datenbanken der Kundenwebsites |
-| **backendHeaven** | TypeScript, mandantenfähig | CMS + Website-Auslieferung für viele Kundenwebsites |
+| **backendReymond** | TypeScript, mandantenfähig | CMS + Website-Auslieferung für viele Kundenwebsites |
 | **Backups** | restic → Hetzner Storage Box | verschlüsselte Off-Site-Sicherung |
 
 ## 4. Warum diese Technik?
@@ -75,7 +75,7 @@ Funktionsumfang ist das einfacher zu pflegen als drei getrennte Frontends.
 minutenlang; Webhooks von Stripe müssen unabhängig vom UI-Deployment erreichbar sein. Eine getrennte
 API lässt sich ausserdem später auf einen eigenen Server verschieben, ohne das Portal anzufassen.
 
-**PostgreSQL für WebHeaven, MariaDB für Kunden.** PostgreSQL bietet die Transaktionssicherheit, die
+**PostgreSQL für WebReymond, MariaDB für Kunden.** PostgreSQL bietet die Transaktionssicherheit, die
 wir für Bestellungen und Provisioning brauchen. MariaDB bleibt, weil PHP-Anwendungen der Kunden es
 erwarten und Hestia es ohnehin mitbringt. Die beiden Welten sind strikt getrennt.
 
@@ -92,7 +92,7 @@ löst Probleme, die wir bei einem Server nicht haben.
 
 **HestiaCP ohne Mail-Komponenten.** Spart rund 1 GB RAM und entfernt das grösste Betriebsrisiko
 (Spam, Blacklisting, Mail-Queues). E-Mail für Kunden wird bei einem spezialisierten Anbieter
-eingekauft und über die WebHeaven-Oberfläche verwaltet – siehe [COSTS.md](COSTS.md).
+eingekauft und über die WebReymond-Oberfläche verwaltet – siehe [COSTS.md](COSTS.md).
 
 ## 5. Mandantenmodell (Mandantentrennung)
 
@@ -102,12 +102,12 @@ Drei Ebenen, die zusammenwirken:
 |---|---|
 | **Betriebssystem** | Jeder Hostingkunde hat einen eigenen Linux-Benutzer, ein eigenes Home-Verzeichnis und einen eigenen PHP-FPM-Pool mit `open_basedir`. |
 | **Datenbank (Kunde)** | Eigene MariaDB-Datenbank + eigener Datenbankbenutzer je Kunde, Rechte nur auf die eigene Datenbank. |
-| **Anwendung (WebHeaven / backendHeaven)** | Jede Abfrage geht über eine Repository-Schicht, die `tenantId` verpflichtend verlangt. `tenantId` kommt **immer** aus der Session, nie aus dem Request. |
+| **Anwendung (WebReymond / backendReymond)** | Jede Abfrage geht über eine Repository-Schicht, die `tenantId` verpflichtend verlangt. `tenantId` kommt **immer** aus der Session, nie aus dem Request. |
 
 Zusätzlich: Autorisierungstests, die gezielt versuchen, auf fremde Objekte zuzugreifen (IDOR-Tests).
 Ein Test, der ohne Berechtigung Daten sieht, ist ein Release-Blocker.
 
-## 6. Provisioning: wie WebHeaven den Server steuert
+## 6. Provisioning: wie WebReymond den Server steuert
 
 Der gefährlichste Teil des Systems. Deshalb strikt geregelt:
 
@@ -135,9 +135,9 @@ registerDomain → createHostingAccount → createWebDirectory → setPermission
 Schlägt Schritt 4 fehl, bleibt die Domain registriert (Schritt 1 wird nicht rückgängig gemacht –
 Domains gehen nie verloren). Der Job bleibt wiederaufnehmbar.
 
-## 7. backendHeaven: mandantenfähig statt „eine Installation pro Kunde“
+## 7. backendReymond: mandantenfähig statt „eine Installation pro Kunde“
 
-**Entscheidung:** Eine backendHeaven-Laufzeit bedient viele Kundenwebsites. Die Zuordnung erfolgt
+**Entscheidung:** Eine backendReymond-Laufzeit bedient viele Kundenwebsites. Die Zuordnung erfolgt
 über die angefragte Domain.
 
 Begründung: Ein eigener Node-Prozess je Kunde bräuchte 150–250 MB RAM – bei 4 GB wären nach etwa
@@ -166,8 +166,8 @@ Deutsch und Englisch ab dem ersten Tag. Keine Texte direkt im Code, sondern Nach
 ## 9. Design-System
 
 Zentrale Design-Tokens als CSS-Variablen (Farben, Abstände, Radien, Typografie, Schatten).
-Logo und Firmenfarben werden später an genau einer Stelle eingetragen und wirken sich auf WebHeaven
-und backendHeaven gleichzeitig aus. Stil: viel Weissraum, klare Typografie, wenige Farben, dezente
+Logo und Firmenfarben werden später an genau einer Stelle eingetragen und wirken sich auf WebReymond
+und backendReymond gleichzeitig aus. Stil: viel Weissraum, klare Typografie, wenige Farben, dezente
 Animationen, kleine Komponentenbibliothek.
 
 ## 10. Performance-Grundsätze

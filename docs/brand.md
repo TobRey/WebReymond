@@ -36,7 +36,7 @@ Im Dunkelmodus wechselt der Akzent automatisch auf das hellere Blau `#60A5FA`.
 ## Logo
 
 Aufbau: eine offene Wolkenkontur mit einem **W** darin, im Verlauf Türkis → Blau.
-Der Schriftzug setzt **Web** in Deep Navy und **Heaven** im selben Verlauf.
+Der Schriftzug setzt **Web** in Deep Navy und **Reymond** im selben Verlauf.
 
 Umgesetzt als React-Komponente in
 [`packages/ui/src/components/Logo.tsx`](../packages/ui/src/components/Logo.tsx):
@@ -54,13 +54,13 @@ Umgesetzt als React-Komponente in
 > `apps/portal/public/` abzulegen.
 
 Der Schriftzug hat eine einfarbige Rückfallebene: Beherrscht ein Browser `background-clip: text`
-nicht, erscheint „Heaven" schlicht in Blau statt unsichtbar.
+nicht, erscheint „Reymond" schlicht in Blau statt unsichtbar.
 
 ## Verwendungsregeln
 
 **Tun**
 
-- Farben ausschliesslich über die Tokens verwenden (`var(--wh-color-accent)` statt `#2563EB`)
+- Farben ausschliesslich über die Tokens verwenden (`var(--wr-color-accent)` statt `#2563EB`)
 - Türkis sparsam einsetzen: Logo, Markenstreifen, gelegentliche Grafik
 - Viel Weissraum lassen; die Marke wirkt durch Ruhe, nicht durch Farbmenge
 
@@ -74,5 +74,5 @@ nicht, erscheint „Heaven" schlicht in Blau statt unsichtbar.
 ## Wenn sich die Marke ändert
 
 Farbwerte in `tokens.css` anpassen, `pnpm build` ausführen, fertig – Portal, Adminbereich und später
-backendHeaven übernehmen die Änderung automatisch. Genau dafür ist die Token-Ebene da
+backendReymond übernehmen die Änderung automatisch. Genau dafür ist die Token-Ebene da
 (siehe [ADR 0010](decisions/0010-design-tokens-und-tailwind.md)).

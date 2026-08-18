@@ -1,9 +1,9 @@
 /**
- * WebHeaven UI – wenige, gut gepflegte Komponenten.
+ * WebReymond UI – wenige, gut gepflegte Komponenten.
  *
  * Styling kommt ausschliesslich aus:
- *   @webheaven/ui/tokens.css      (Farben, Abstände, Typografie)
- *   @webheaven/ui/components.css  (die Klassen dieser Komponenten)
+ *   @webreymond/ui/tokens.css      (Farben, Abstände, Typografie)
+ *   @webreymond/ui/components.css  (die Klassen dieser Komponenten)
  */
 
 export { Button, type ButtonProps } from './components/Button.js';

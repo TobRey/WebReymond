@@ -3,7 +3,7 @@
 **Status:** akzeptiert (Phase 0, August 2026)
 
 ## Kontext
-WebHeaven braucht eine schnelle, moderne Oberfläche (öffentliche Website, Kundenportal,
+WebReymond braucht eine schnelle, moderne Oberfläche (öffentliche Website, Kundenportal,
 Adminbereich) und eine API, die Provisioning-Aufträge, Webhooks und Anbieter-Integrationen abwickelt.
 
 ## Entscheidung
@@ -17,7 +17,7 @@ Adminbereich) und eine API, die Provisioning-Aufträge, Webhooks und Anbieter-In
 - Eine getrennte API überlebt Deployments des Portals: Stripe-Webhooks und laufende
   Provisioning-Jobs werden nicht durch einen UI-Build unterbrochen.
 - Die API lässt sich später ohne Umbau auf einen eigenen Server verschieben.
-- OpenAPI-Beschreibung erlaubt es, später einen typisierten Client (auch für backendHeaven) zu
+- OpenAPI-Beschreibung erlaubt es, später einen typisierten Client (auch für backendReymond) zu
   erzeugen.
 
 ## Alternativen

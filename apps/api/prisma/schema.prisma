@@ -1,4 +1,4 @@
-// WebHeaven – Datenmodell
+// WebReymond – Datenmodell
 //
 // Die Tabellen user, session, account, verification und twoFactor entsprechen
 // exakt dem, was die Authentifizierungsbibliothek erwartet. Feldnamen dürfen
@@ -27,7 +27,7 @@ model User {
   emailVerified Boolean   @default(false)
   image         String?
 
-  /// "user" | "customer" | "admin" – siehe @webheaven/shared.
+  /// "user" | "customer" | "admin" – siehe @webreymond/shared.
   /// Wird NIE aus einer Anfrage übernommen, sondern nur serverseitig gesetzt.
   role String @default("customer")
 

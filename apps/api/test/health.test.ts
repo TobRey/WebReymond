@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { healthResponseSchema, pingResponseSchema } from '@webheaven/shared';
+import { healthResponseSchema, pingResponseSchema } from '@webreymond/shared';
 import { loadConfig } from '../src/config.js';
 import { createTestServer, type TestContext } from './helpers.js';
 import { TEST_DATABASE_URL } from './global-setup.js';

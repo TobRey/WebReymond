@@ -100,7 +100,7 @@ describe('Anmeldung', () => {
 
     expect(response.statusCode).toBe(200);
     const cookies = cookieHeader(response);
-    expect(cookies).toContain('webheaven');
+    expect(cookies).toContain('webreymond');
   });
 
   it('scheitert mit falschem Passwort', async () => {
@@ -160,7 +160,7 @@ describe('GET /v1/me', () => {
     const response = await ctx.app.inject({
       method: 'GET',
       url: '/v1/me',
-      headers: { cookie: 'webheaven.session_token=frei-erfunden' },
+      headers: { cookie: 'webreymond.session_token=frei-erfunden' },
     });
 
     expect(response.statusCode).toBe(401);

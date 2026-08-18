@@ -1,9 +1,9 @@
 import { defineRouting } from 'next-intl/routing';
-import { DEFAULT_LOCALE, LOCALES } from '@webheaven/shared';
+import { DEFAULT_LOCALE, LOCALES } from '@webreymond/shared';
 
 /**
- * Sprachen kommen aus @webheaven/shared, damit Portal, API und später
- * backendHeaven garantiert dieselbe Liste verwenden.
+ * Sprachen kommen aus @webreymond/shared, damit Portal, API und später
+ * backendReymond garantiert dieselbe Liste verwenden.
  */
 export const routing = defineRouting({
   locales: [...LOCALES],

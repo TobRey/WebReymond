@@ -11,13 +11,14 @@ als „ersetzt durch“ markiert.
 |---|---|---|
 | [0001](0001-monorepo.md) | Monorepo statt mehrerer Repositories | akzeptiert |
 | [0002](0002-nextjs-und-fastify.md) | Next.js für die Oberfläche, Fastify als eigene API | akzeptiert |
-| [0003](0003-postgresql-und-prisma.md) | PostgreSQL + Prisma für WebHeaven, MariaDB für Kunden | akzeptiert |
+| [0003](0003-postgresql-und-prisma.md) | PostgreSQL + Prisma für WebReymond, MariaDB für Kunden | akzeptiert |
 | [0004](0004-pgboss-statt-redis.md) | Job-Queue mit pg-boss statt Redis/BullMQ | akzeptiert |
 | [0005](0005-better-auth.md) | Better Auth statt externem Login-Dienst | akzeptiert |
 | [0006](0006-hestiacp-ohne-mail.md) | HestiaCP als Hosting-Layer, ohne Mail-Komponenten | akzeptiert |
 | [0007](0007-hetzner-cx23.md) | Hetzner Cloud CX23 als erster Server | akzeptiert |
 | [0008](0008-stripe-zuerst.md) | Stripe als erster Zahlungsanbieter | akzeptiert |
-| [0009](0009-backendheaven-mandantenfaehig.md) | backendHeaven mandantenfähig statt Installation je Kunde | akzeptiert |
+| [0009](0009-backendreymond-mandantenfaehig.md) | backendReymond mandantenfähig statt Installation je Kunde | akzeptiert |
 | [0010](0010-design-tokens-und-tailwind.md) | Design-Tokens als einzige Quelle, Tailwind nur als Werkzeug | akzeptiert |
+| [0011](0011-markenname-webreymond.md) | Markenname WebReymond statt WebHeaven | akzeptiert |
 
 Format je Datei: Kontext → Entscheidung → Begründung → Alternativen → Konsequenzen → Wiedervorlage.

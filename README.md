@@ -1,8 +1,8 @@
-# WebHeaven
+# WebReymond
 
-WebHeaven ist eine im Aufbau befindliche Webhosting-Plattform aus der Schweiz:
+WebReymond ist eine im Aufbau befindliche Webhosting-Plattform aus der Schweiz:
 Webdesign, Domainregistrierung, Webhosting, Datei-Hosting, Datenbanken, Website-Verwaltung –
-mit einem eigenen CMS namens **backendHeaven** und einem visuellen Website-Builder.
+mit einem eigenen CMS namens **backendReymond** und einem visuellen Website-Builder.
 
 > **Aktueller Stand: Phase 4 – Konten und Anmeldung funktionieren.**
 > Registrierung, Login, Logout, Passwort-Reset, Rollen, Rate-Limits und Audit-Log sind fertig
@@ -19,7 +19,7 @@ mit einem eigenen CMS namens **backendHeaven** und einem visuellen Website-Build
 | [SECURITY.md](SECURITY.md) | Sicherheitsarchitektur, Regeln, Checklisten |
 | [COSTS.md](COSTS.md) | Was kostenlos ist, was Geld kostet, laufende Kosten |
 | [ROADMAP.md](ROADMAP.md) | Die Phasen 0–22 mit „fertig heisst …“ je Phase |
-| [DEPLOYMENT.md](DEPLOYMENT.md) | Wie WebHeaven später auf den Server kommt |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Wie WebReymond später auf den Server kommt |
 | [BACKUP.md](BACKUP.md) | Was gesichert wird, wohin, und wie ein Restore getestet wird |
 | [docs/branding-domains.md](docs/branding-domains.md) | Domainprüfung, Namensalternativen, Markenrisiko |
 | [docs/phase-2-entwicklungsumgebung.md](docs/phase-2-entwicklungsumgebung.md) | Windows-11-Anleitung: WSL2, Node, pnpm, Git, Docker, VS Code |
@@ -82,15 +82,15 @@ Internet
    ▼
 [ nginx (HestiaCP) ]  ──► Kundenwebsites (statisch / PHP, je Kunde ein eigener Linux-Benutzer)
    │
-   ├──► WebHeaven Portal   (Next.js  – das, was Kunden sehen)
-   └──► WebHeaven API      (Fastify  – die Logik, nur intern erreichbar)
+   ├──► WebReymond Portal   (Next.js  – das, was Kunden sehen)
+   └──► WebReymond API      (Fastify  – die Logik, nur intern erreichbar)
                 │
-                ├── PostgreSQL   (WebHeaven-Daten, Jobs, Audit-Log)
+                ├── PostgreSQL   (WebReymond-Daten, Jobs, Audit-Log)
                 ├── Worker       (führt Provisioning-Aufträge aus)
                 └── Provider-Adapter (Registrar, DNS, Stripe, E-Mail)
 ```
 
-**Grundregel:** Kunden sehen ausschliesslich WebHeaven. Das darunterliegende Hosting-Panel
+**Grundregel:** Kunden sehen ausschliesslich WebReymond. Das darunterliegende Hosting-Panel
 (HestiaCP) ist aus dem Internet gar nicht erreichbar.
 
 ## Geplante Hosting-Pakete
@@ -98,8 +98,8 @@ Internet
 | Paket | Enthält |
 |---|---|
 | 1 – Hosting | Website-Hosting, SSL, Datenbank, E-Mail |
-| 2 – Hosting + File Manager | zusätzlich den WebHeaven File Manager |
-| 3 – Hosting + backendHeaven | zusätzlich das CMS |
+| 2 – Hosting + File Manager | zusätzlich den WebReymond File Manager |
+| 3 – Hosting + backendReymond | zusätzlich das CMS |
 | 4 – Komplett | zusätzlich den visuellen Website-Builder |
 
 Speicherplatz ist in allen Paketen gleich gross; unterschieden wird über Funktionen.

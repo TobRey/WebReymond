@@ -2,7 +2,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
-import { ApiErrorCode, type ApiError } from '@webheaven/shared';
+import { ApiErrorCode, type ApiError } from '@webreymond/shared';
 import { createAuth } from './auth/auth.js';
 import type { Config } from './config.js';
 import type { Db } from './db.js';

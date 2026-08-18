@@ -1,5 +1,5 @@
 /**
- * Schmaler Zugang zur WebHeaven-API.
+ * Schmaler Zugang zur WebReymond-API.
  *
  * `credentials: 'include'` ist entscheidend: Ohne diese Angabe schickt der
  * Browser den Sitzungs-Cookie nicht mit, und man wäre nach jedem Klick

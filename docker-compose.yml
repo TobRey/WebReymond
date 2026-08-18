@@ -10,19 +10,19 @@
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: webheaven-postgres
+    container_name: webreymond-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: webheaven
-      POSTGRES_PASSWORD: webheaven_dev_only
-      POSTGRES_DB: webheaven
+      POSTGRES_USER: webreymond
+      POSTGRES_PASSWORD: webreymond_dev_only
+      POSTGRES_DB: webreymond
     ports:
       # Nur auf dem eigenen Rechner erreichbar, nicht im Netzwerk.
       - '127.0.0.1:5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U webheaven -d webheaven']
+      test: ['CMD-SHELL', 'pg_isready -U webreymond -d webreymond']
       interval: 10s
       timeout: 5s
       retries: 5

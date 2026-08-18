@@ -5,27 +5,27 @@
 ## Kontext
 Logo und Firmenfarben stehen noch nicht fest, das Produkt soll aber schon aussehen wie eine
 hochwertige SaaS-Plattform – und später ohne Umbau umgefärbt werden können. Ausserdem sollen
-WebHeaven und backendHeaven dasselbe Aussehen teilen.
+WebReymond und backendReymond dasselbe Aussehen teilen.
 
 ## Entscheidung
 Zwei Ebenen, klar getrennt:
 
-1. **`packages/ui/src/styles/tokens.css`** – reine CSS-Variablen (`--wh-color-*`, `--wh-space-*`,
-   `--wh-radius-*`, `--wh-text-*`). Das ist die **einzige** Stelle mit konkreten Farbwerten.
+1. **`packages/ui/src/styles/tokens.css`** – reine CSS-Variablen (`--wr-color-*`, `--wr-space-*`,
+   `--wr-radius-*`, `--wr-text-*`). Das ist die **einzige** Stelle mit konkreten Farbwerten.
    Aufgeteilt in Grundpalette (rohe Werte) und Semantik (wofür eine Farbe da ist). Komponenten
    verwenden ausschliesslich die Semantik-Namen.
 2. **Tailwind CSS 4** im Portal – aber ohne eigene Farbpalette. Über `@theme inline` werden die
    Tailwind-Namen auf unsere Tokens gemappt: `bg-surface` ist damit per Definition
-   `var(--wh-color-surface)`.
+   `var(--wr-color-surface)`.
 
 Die Basiskomponenten in `packages/ui` benutzen **kein** Tailwind, sondern eigene CSS-Klassen
-(`.wh-button`, `.wh-card`, `.wh-input`) aus denselben Tokens.
+(`.wr-button`, `.wr-card`, `.wr-input`) aus denselben Tokens.
 
 ## Begründung
 - **Umfärben ist ein Ein-Datei-Vorgang.** Wenn dein Logo kommt, ändern wir `tokens.css` – Portal,
-  Adminbereich und später backendHeaven ziehen automatisch nach.
+  Adminbereich und später backendReymond ziehen automatisch nach.
 - **Kein Vendor-Lock-in beim Styling.** Reine CSS-Variablen funktionieren überall: in Next.js, in
-  generierten backendHeaven-Websites, sogar in einer E-Mail-Vorlage. Tailwind ist austauschbar, die
+  generierten backendReymond-Websites, sogar in einer E-Mail-Vorlage. Tailwind ist austauschbar, die
   Tokens bleiben.
 - **Die UI-Komponenten sind unabhängig vom Build-Werkzeug.** Sie brauchen keine
   Tailwind-Klassenerkennung über Paketgrenzen hinweg – das ist genau die Stelle, an der solche
@@ -46,5 +46,5 @@ Die Basiskomponenten in `packages/ui` benutzen **kein** Tailwind, sondern eigene
   keine spätere Zutat.
 
 ## Wiedervorlage
-Wenn backendHeaven-Websites eigene Themes pro Kunde bekommen sollen: Dann wird aus der einen
+Wenn backendReymond-Websites eigene Themes pro Kunde bekommen sollen: Dann wird aus der einen
 Token-Datei ein pro Tenant generierter Satz Variablen – die Struktur trägt das bereits.

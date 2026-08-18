@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
-import { Button, Input } from '@webheaven/ui';
+import { Button, Input } from '@webreymond/ui';
 import { api } from '@/lib/api';
 import { FormMessage } from './FormMessage';
 

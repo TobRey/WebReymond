@@ -3,14 +3,14 @@
 **Status:** akzeptiert (Phase 0, August 2026)
 
 ## Kontext
-WebHeaven besteht aus mehreren Programmen: Portal, API, Worker, später backendHeaven und der Editor.
+WebReymond besteht aus mehreren Programmen: Portal, API, Worker, später backendReymond und der Editor.
 Sie teilen sich Typen, Design-Tokens, Übersetzungen und Validierungsregeln.
 
 ## Entscheidung
-Alles liegt in **einem** Repository (`TobRey/WebHeaven`) mit pnpm-Workspaces:
+Alles liegt in **einem** Repository (`TobRey/WebReymond`) mit pnpm-Workspaces:
 
 ```
-apps/       portal, api, worker, (später) backendheaven
+apps/       portal, api, worker, (später) backendreymond
 packages/   shared (Typen, Zod-Schemas), ui (Komponenten, Design-Tokens), i18n, providers
 ```
 
@@ -31,5 +31,5 @@ packages/   shared (Typen, Zod-Schemas), ui (Komponenten, Design-Tokens), i18n, 
 - Geheimnisse und Zugriffe gelten für das ganze Repository – wichtig, sobald andere mitarbeiten.
 
 ## Wiedervorlage
-Wenn backendHeaven ein eigenständiges Produkt mit eigenem Veröffentlichungszyklus wird oder externe
+Wenn backendReymond ein eigenständiges Produkt mit eigenem Veröffentlichungszyklus wird oder externe
 Entwickler nur an einem Teil arbeiten sollen.

@@ -4,7 +4,7 @@
 
 ## Kontext
 Budget: max. 10 CHF/Monat für die gesamte Infrastruktur. Gebraucht wird ein Server, der Hosting-Layer,
-WebHeaven und später backendHeaven trägt und später wachsen kann.
+WebReymond und später backendReymond trägt und später wachsen kann.
 
 ## Entscheidung
 **Hetzner Cloud CX23** – 2 vCPU, 4 GB RAM, 40 GB NVMe, 20 TB Traffic, Standort Deutschland oder
@@ -26,7 +26,7 @@ Finnland. € 3.99/Monat + € 0.50 für die IPv4-Adresse (≈ CHF 4.20).
   Schweizer Datenhaltung verlangen.
 
 ## Konsequenzen
-- 4 GB RAM sind knapp → HestiaCP ohne Mail (ADR 0006), keine Redis (ADR 0004), backendHeaven
+- 4 GB RAM sind knapp → HestiaCP ohne Mail (ADR 0006), keine Redis (ADR 0004), backendReymond
   mandantenfähig (ADR 0009), Swap-Datei einrichten, Speicherverbrauch beobachten.
 - **Die Vergrösserung der Festplatte ist bei Hetzner einmalig und nicht rückgängig zu machen** –
   Disk nur vergrössern, wenn wirklich nötig.

@@ -4,7 +4,7 @@ import {
   pingResponseSchema,
   type HealthResponse,
   type PingResponse,
-} from '@webheaven/shared';
+} from '@webreymond/shared';
 import type { Config } from '../config.js';
 
 export async function registerHealthRoutes(app: FastifyInstance, config: Config): Promise<void> {

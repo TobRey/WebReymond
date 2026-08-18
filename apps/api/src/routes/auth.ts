@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { ApiErrorCode, roleSchema, type ApiError, type Role } from '@webheaven/shared';
+import { ApiErrorCode, roleSchema, type ApiError, type Role } from '@webreymond/shared';
 import type { Auth } from '../auth/auth.js';
 
 /** Wandelt Fastify-Header in Web-Standard-Header um. */

@@ -14,7 +14,7 @@ export interface AuthDeps {
 }
 
 /**
- * Authentifizierung für WebHeaven.
+ * Authentifizierung für WebReymond.
  *
  * Bewusste Entscheidungen:
  *
@@ -31,7 +31,7 @@ export function createAuth({ db, config, log }: AuthDeps) {
   const isProduction = config.NODE_ENV === 'production';
 
   return betterAuth({
-    appName: 'WebHeaven',
+    appName: 'WebReymond',
     baseURL: config.API_PUBLIC_URL,
     basePath: '/api/auth',
     secret: config.AUTH_SECRET,
@@ -93,7 +93,7 @@ export function createAuth({ db, config, log }: AuthDeps) {
     },
 
     advanced: {
-      cookiePrefix: 'webheaven',
+      cookiePrefix: 'webreymond',
       useSecureCookies: isProduction,
       ipAddress: {
         /**
@@ -110,7 +110,7 @@ export function createAuth({ db, config, log }: AuthDeps) {
       },
     },
 
-    plugins: [twoFactor({ issuer: 'WebHeaven' })],
+    plugins: [twoFactor({ issuer: 'WebReymond' })],
 
     databaseHooks: {
       user: {

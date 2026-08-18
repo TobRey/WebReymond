@@ -1,8 +1,8 @@
 {
-  "name": "@webheaven/api",
+  "name": "@webreymond/api",
   "version": "0.1.0",
   "private": true,
-  "description": "WebHeaven API \u2013 Gesch\u00e4ftslogik, Autorisierung, Anbieter-Integrationen",
+  "description": "WebReymond API \u2013 Gesch\u00e4ftslogik, Autorisierung, Anbieter-Integrationen",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -19,7 +19,7 @@
     "@node-rs/argon2": "2.1.0",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "7.9.1",
-    "@webheaven/shared": "workspace:*",
+    "@webreymond/shared": "workspace:*",
     "better-auth": "1.6.30",
     "fastify": "5.12.0",
     "pg": "^8.23.0",

@@ -1,14 +1,14 @@
-# 0003 – PostgreSQL + Prisma für WebHeaven, MariaDB für Kundendatenbanken
+# 0003 – PostgreSQL + Prisma für WebReymond, MariaDB für Kundendatenbanken
 
 **Status:** akzeptiert (Phase 0, August 2026)
 
 ## Kontext
-WebHeaven verwaltet Bestellungen, Domains, Hosting, Zahlungen und ein Audit-Log – dort sind
+WebReymond verwaltet Bestellungen, Domains, Hosting, Zahlungen und ein Audit-Log – dort sind
 Transaktionen und saubere Migrationen entscheidend. Kundenwebsites erwarten dagegen typischerweise
 MySQL/MariaDB.
 
 ## Entscheidung
-- **PostgreSQL 17** für alle WebHeaven-eigenen Daten, Jobs und das Audit-Log.
+- **PostgreSQL 17** für alle WebReymond-eigenen Daten, Jobs und das Audit-Log.
 - **Prisma** als ORM und für Migrationen.
 - **MariaDB** (von HestiaCP verwaltet) ausschliesslich für Kundendatenbanken – strikt getrennt.
 

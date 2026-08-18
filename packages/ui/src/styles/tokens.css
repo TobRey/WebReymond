@@ -1,12 +1,12 @@
 /**
- * WebHeaven Design-Tokens
+ * WebReymond Design-Tokens
  * =======================
  *
  * DIES IST DIE EINZIGE DATEI, in der Farben, Abstände, Radien und Typografie
- * definiert werden. Portal, Adminbereich und später backendHeaven ziehen
+ * definiert werden. Portal, Adminbereich und später backendReymond ziehen
  * automatisch nach, wenn hier etwas geändert wird.
  *
- * Regel: Niemals feste Farbwerte (#hex) in Komponenten schreiben. Immer var(--wh-...).
+ * Regel: Niemals feste Farbwerte (#hex) in Komponenten schreiben. Immer var(--wr-...).
  *
  * Markenfarben (Stand August 2026):
  *   Primär Blau    #2563EB
@@ -36,116 +36,116 @@
   /* ---------------------------------------------------------------- */
 
   /* Marke */
-  --wh-brand-blue: #2563eb;
-  --wh-brand-cyan: #06b6d4;
-  --wh-brand-navy: #0f172a;
+  --wr-brand-blue: #2563eb;
+  --wr-brand-cyan: #06b6d4;
+  --wr-brand-navy: #0f172a;
 
   /* Neutralstufen – abgeleitet aus Deep Navy und Hellgrau,
      damit Grautöne und Marke aus derselben Farbfamilie stammen. */
-  --wh-palette-neutral-0: #ffffff;
-  --wh-palette-neutral-50: #f8fafc;
-  --wh-palette-neutral-100: #f1f5f9;
-  --wh-palette-neutral-200: #e2e8f0;
-  --wh-palette-neutral-300: #cbd5e1;
-  --wh-palette-neutral-400: #94a3b8;
-  --wh-palette-neutral-500: #64748b;
-  --wh-palette-neutral-700: #334155;
-  --wh-palette-neutral-800: #1e293b;
-  --wh-palette-neutral-900: #0f172a;
-  --wh-palette-neutral-950: #020617;
+  --wr-palette-neutral-0: #ffffff;
+  --wr-palette-neutral-50: #f8fafc;
+  --wr-palette-neutral-100: #f1f5f9;
+  --wr-palette-neutral-200: #e2e8f0;
+  --wr-palette-neutral-300: #cbd5e1;
+  --wr-palette-neutral-400: #94a3b8;
+  --wr-palette-neutral-500: #64748b;
+  --wr-palette-neutral-700: #334155;
+  --wr-palette-neutral-800: #1e293b;
+  --wr-palette-neutral-900: #0f172a;
+  --wr-palette-neutral-950: #020617;
 
   /* Blaustufen um die Markenfarbe herum */
-  --wh-palette-blue-50: #eff6ff;
-  --wh-palette-blue-100: #dbeafe;
-  --wh-palette-blue-400: #60a5fa;
-  --wh-palette-blue-500: #3b82f6;
-  --wh-palette-blue-600: #2563eb;
-  --wh-palette-blue-700: #1d4ed8;
+  --wr-palette-blue-50: #eff6ff;
+  --wr-palette-blue-100: #dbeafe;
+  --wr-palette-blue-400: #60a5fa;
+  --wr-palette-blue-500: #3b82f6;
+  --wr-palette-blue-600: #2563eb;
+  --wr-palette-blue-700: #1d4ed8;
 
   /* Türkisstufen – Zweitfarbe, vor allem für Verläufe und Grafik */
-  --wh-palette-cyan-50: #ecfeff;
-  --wh-palette-cyan-100: #cffafe;
-  --wh-palette-cyan-400: #22d3ee;
-  --wh-palette-cyan-500: #06b6d4;
-  --wh-palette-cyan-600: #0891b2;
+  --wr-palette-cyan-50: #ecfeff;
+  --wr-palette-cyan-100: #cffafe;
+  --wr-palette-cyan-400: #22d3ee;
+  --wr-palette-cyan-500: #06b6d4;
+  --wr-palette-cyan-600: #0891b2;
 
-  --wh-palette-success-500: #16a34a;
-  --wh-palette-warning-500: #d97706;
-  --wh-palette-danger-500: #dc2626;
+  --wr-palette-success-500: #16a34a;
+  --wr-palette-warning-500: #d97706;
+  --wr-palette-danger-500: #dc2626;
 
   /* ---------------------------------------------------------------- */
   /* 2. Semantik – nur diese Namen werden in Komponenten verwendet     */
   /* ---------------------------------------------------------------- */
-  --wh-color-background: var(--wh-palette-neutral-0);
-  --wh-color-surface: var(--wh-palette-neutral-0);
-  --wh-color-surface-muted: var(--wh-palette-neutral-50);
-  --wh-color-border: var(--wh-palette-neutral-200);
-  --wh-color-border-strong: var(--wh-palette-neutral-300);
+  --wr-color-background: var(--wr-palette-neutral-0);
+  --wr-color-surface: var(--wr-palette-neutral-0);
+  --wr-color-surface-muted: var(--wr-palette-neutral-50);
+  --wr-color-border: var(--wr-palette-neutral-200);
+  --wr-color-border-strong: var(--wr-palette-neutral-300);
 
-  --wh-color-text: var(--wh-brand-navy);
-  --wh-color-text-muted: var(--wh-palette-neutral-500);
-  --wh-color-text-inverted: var(--wh-palette-neutral-0);
+  --wr-color-text: var(--wr-brand-navy);
+  --wr-color-text-muted: var(--wr-palette-neutral-500);
+  --wr-color-text-inverted: var(--wr-palette-neutral-0);
 
-  --wh-color-accent: var(--wh-brand-blue);
-  --wh-color-accent-hover: var(--wh-palette-blue-700);
-  --wh-color-accent-subtle: var(--wh-palette-blue-50);
-  --wh-color-focus: var(--wh-palette-blue-600);
+  --wr-color-accent: var(--wr-brand-blue);
+  --wr-color-accent-hover: var(--wr-palette-blue-700);
+  --wr-color-accent-subtle: var(--wr-palette-blue-50);
+  --wr-color-focus: var(--wr-palette-blue-600);
 
   /* Zweitfarbe: bewusst NICHT für Text auf hellem Grund (siehe Kontrastregeln). */
-  --wh-color-secondary: var(--wh-brand-cyan);
-  --wh-color-secondary-subtle: var(--wh-palette-cyan-50);
+  --wr-color-secondary: var(--wr-brand-cyan);
+  --wr-color-secondary-subtle: var(--wr-palette-cyan-50);
 
   /* Markenverlauf aus dem Logo: Türkis läuft nach Blau. */
-  --wh-gradient-brand: linear-gradient(100deg, var(--wh-brand-cyan) 0%, var(--wh-brand-blue) 100%);
+  --wr-gradient-brand: linear-gradient(100deg, var(--wr-brand-cyan) 0%, var(--wr-brand-blue) 100%);
 
-  --wh-color-success: var(--wh-palette-success-500);
-  --wh-color-warning: var(--wh-palette-warning-500);
-  --wh-color-danger: var(--wh-palette-danger-500);
+  --wr-color-success: var(--wr-palette-success-500);
+  --wr-color-warning: var(--wr-palette-warning-500);
+  --wr-color-danger: var(--wr-palette-danger-500);
 
   /* ---------------------------------------------------------------- */
   /* 3. Form & Raum                                                    */
   /* ---------------------------------------------------------------- */
-  --wh-space-1: 0.25rem;
-  --wh-space-2: 0.5rem;
-  --wh-space-3: 0.75rem;
-  --wh-space-4: 1rem;
-  --wh-space-6: 1.5rem;
-  --wh-space-8: 2rem;
-  --wh-space-12: 3rem;
-  --wh-space-16: 4rem;
-  --wh-space-24: 6rem;
+  --wr-space-1: 0.25rem;
+  --wr-space-2: 0.5rem;
+  --wr-space-3: 0.75rem;
+  --wr-space-4: 1rem;
+  --wr-space-6: 1.5rem;
+  --wr-space-8: 2rem;
+  --wr-space-12: 3rem;
+  --wr-space-16: 4rem;
+  --wr-space-24: 6rem;
 
-  --wh-radius-sm: 0.375rem;
-  --wh-radius-md: 0.625rem;
-  --wh-radius-lg: 1rem;
-  --wh-radius-full: 9999px;
+  --wr-radius-sm: 0.375rem;
+  --wr-radius-md: 0.625rem;
+  --wr-radius-lg: 1rem;
+  --wr-radius-full: 9999px;
 
   /* Sparsam und weich – keine harten Schlagschatten */
-  --wh-shadow-sm: 0 1px 2px rgb(15 23 42 / 0.05);
-  --wh-shadow-md: 0 4px 16px rgb(15 23 42 / 0.07);
+  --wr-shadow-sm: 0 1px 2px rgb(15 23 42 / 0.05);
+  --wr-shadow-md: 0 4px 16px rgb(15 23 42 / 0.07);
 
-  --wh-transition: 150ms ease;
+  --wr-transition: 150ms ease;
 
   /* ---------------------------------------------------------------- */
   /* 4. Typografie                                                     */
   /* ---------------------------------------------------------------- */
-  --wh-font-sans:
+  --wr-font-sans:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --wh-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --wr-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-  --wh-text-xs: 0.75rem;
-  --wh-text-sm: 0.875rem;
-  --wh-text-base: 1rem;
-  --wh-text-lg: 1.125rem;
-  --wh-text-xl: 1.5rem;
-  --wh-text-2xl: 2rem;
-  --wh-text-3xl: 2.75rem;
+  --wr-text-xs: 0.75rem;
+  --wr-text-sm: 0.875rem;
+  --wr-text-base: 1rem;
+  --wr-text-lg: 1.125rem;
+  --wr-text-xl: 1.5rem;
+  --wr-text-2xl: 2rem;
+  --wr-text-3xl: 2.75rem;
 
-  --wh-leading-tight: 1.2;
-  --wh-leading-normal: 1.6;
+  --wr-leading-tight: 1.2;
+  --wr-leading-normal: 1.6;
 
   /* Maximale Breite für gut lesbaren Fliesstext */
-  --wh-measure: 68ch;
+  --wr-measure: 68ch;
 }
 
 /* ------------------------------------------------------------------ */
@@ -153,62 +153,62 @@
 /* ------------------------------------------------------------------ */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --wh-color-background: var(--wh-palette-neutral-950);
-    --wh-color-surface: var(--wh-brand-navy);
-    --wh-color-surface-muted: #131c2e;
-    --wh-color-border: #24304a;
-    --wh-color-border-strong: #33405c;
+    --wr-color-background: var(--wr-palette-neutral-950);
+    --wr-color-surface: var(--wr-brand-navy);
+    --wr-color-surface-muted: #131c2e;
+    --wr-color-border: #24304a;
+    --wr-color-border-strong: #33405c;
 
-    --wh-color-text: var(--wh-palette-neutral-100);
-    --wh-color-text-muted: var(--wh-palette-neutral-400);
-    --wh-color-text-inverted: var(--wh-brand-navy);
+    --wr-color-text: var(--wr-palette-neutral-100);
+    --wr-color-text-muted: var(--wr-palette-neutral-400);
+    --wr-color-text-inverted: var(--wr-brand-navy);
 
     /* Helleres Blau: auf dunklem Grund erreicht #2563EB nur 3.5:1. */
-    --wh-color-accent: var(--wh-palette-blue-400);
-    --wh-color-accent-hover: #93c5fd;
-    --wh-color-accent-subtle: #172554;
-    --wh-color-focus: var(--wh-palette-blue-400);
+    --wr-color-accent: var(--wr-palette-blue-400);
+    --wr-color-accent-hover: #93c5fd;
+    --wr-color-accent-subtle: #172554;
+    --wr-color-focus: var(--wr-palette-blue-400);
 
-    --wh-color-secondary: var(--wh-palette-cyan-400);
-    --wh-color-secondary-subtle: #083344;
+    --wr-color-secondary: var(--wr-palette-cyan-400);
+    --wr-color-secondary-subtle: #083344;
 
     /* Hellere Variante des Markenverlaufs, damit er auf dunklem Grund lesbar bleibt. */
-    --wh-gradient-brand: linear-gradient(
+    --wr-gradient-brand: linear-gradient(
       100deg,
-      var(--wh-palette-cyan-400) 0%,
-      var(--wh-palette-blue-400) 100%
+      var(--wr-palette-cyan-400) 0%,
+      var(--wr-palette-blue-400) 100%
     );
 
-    --wh-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
-    --wh-shadow-md: 0 4px 16px rgb(0 0 0 / 0.45);
+    --wr-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --wr-shadow-md: 0 4px 16px rgb(0 0 0 / 0.45);
   }
 }
 
 :root[data-theme='dark'] {
-  --wh-color-background: var(--wh-palette-neutral-950);
-  --wh-color-surface: var(--wh-brand-navy);
-  --wh-color-surface-muted: #131c2e;
-  --wh-color-border: #24304a;
-  --wh-color-border-strong: #33405c;
+  --wr-color-background: var(--wr-palette-neutral-950);
+  --wr-color-surface: var(--wr-brand-navy);
+  --wr-color-surface-muted: #131c2e;
+  --wr-color-border: #24304a;
+  --wr-color-border-strong: #33405c;
 
-  --wh-color-text: var(--wh-palette-neutral-100);
-  --wh-color-text-muted: var(--wh-palette-neutral-400);
-  --wh-color-text-inverted: var(--wh-brand-navy);
+  --wr-color-text: var(--wr-palette-neutral-100);
+  --wr-color-text-muted: var(--wr-palette-neutral-400);
+  --wr-color-text-inverted: var(--wr-brand-navy);
 
-  --wh-color-accent: var(--wh-palette-blue-400);
-  --wh-color-accent-hover: #93c5fd;
-  --wh-color-accent-subtle: #172554;
-  --wh-color-focus: var(--wh-palette-blue-400);
+  --wr-color-accent: var(--wr-palette-blue-400);
+  --wr-color-accent-hover: #93c5fd;
+  --wr-color-accent-subtle: #172554;
+  --wr-color-focus: var(--wr-palette-blue-400);
 
-  --wh-color-secondary: var(--wh-palette-cyan-400);
-  --wh-color-secondary-subtle: #083344;
+  --wr-color-secondary: var(--wr-palette-cyan-400);
+  --wr-color-secondary-subtle: #083344;
 
-  --wh-gradient-brand: linear-gradient(
+  --wr-gradient-brand: linear-gradient(
     100deg,
-    var(--wh-palette-cyan-400) 0%,
-    var(--wh-palette-blue-400) 100%
+    var(--wr-palette-cyan-400) 0%,
+    var(--wr-palette-blue-400) 100%
   );
 
-  --wh-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
-  --wh-shadow-md: 0 4px 16px rgb(0 0 0 / 0.45);
+  --wr-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --wr-shadow-md: 0 4px 16px rgb(0 0 0 / 0.45);
 }

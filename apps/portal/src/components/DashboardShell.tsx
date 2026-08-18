@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Button, Card, Logo } from '@webheaven/ui';
+import { Button, Card, Logo } from '@webreymond/ui';
 import { api, type Me } from '@/lib/api';
 
 /**

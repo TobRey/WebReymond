@@ -17,7 +17,7 @@ Legende: ✅ fertig · ◐ teilweise fertig · ⏳ wartet auf dich · 📄 Anlei
 | # | Phase | Definition of Done | Kosten |
 |---|---|---|---|
 | **0** | **Planung** ✅ | Architektur, Kosten, Sicherheitsarchitektur, Phasen dokumentiert und freigegeben | 0 |
-| **1** | Marke, Domain, Konten ⏳ | Domainverfügbarkeit selbst geprüft, Name entschieden, Domain registriert, Konten bei GitHub/Hetzner/Registrar bestehen, 2FA überall aktiv | ~CHF 13 einmalig |
+| **1** | Marke, Domain, Konten ◐ | Name **WebReymond** entschieden, **webreymond.ch** und **webreymond.com** registriert ([ADR 0011](docs/decisions/0011-markenname-webreymond.md)). **Offen:** Auto-Renew, 2FA und Transfer-Sperre im Registrar-Konto | 2 Domains |
 | **2** | Lokale Entwicklungsumgebung 📄 | Anleitung liegt vor ([docs/phase-2-entwicklungsumgebung.md](docs/phase-2-entwicklungsumgebung.md)); erledigt, sobald `pnpm dev` auf deinem PC läuft | 0 |
 | **3** | Repo-Skelett + CI ✅ | Monorepo mit Portal und API, Design-Tokens, DE/EN-Kataloge, PostgreSQL per Docker Compose, 21 Tests, CI-Workflow | 0 |
 | **4** | Authentifizierung ◐ | Registrierung, Login, Logout, Passwort-Reset, Rollen, Rate-Limits und Audit-Log sind fertig und getestet (35 API-Tests). **Offen:** Oberfläche für die Zwei-Faktor-Anmeldung – die Technik dafür ist eingebaut, die Bedienung fehlt noch. | 0 |
@@ -31,8 +31,8 @@ Legende: ✅ fertig · ◐ teilweise fertig · ⏳ wartet auf dich · 📄 Anlei
 | **12** | Bestellstrecke Domain → Hosting | Vollständiger Ablauf: Zahlung → Domain → DNS → Hosting → SSL → Portal aktualisiert. Fehler in einem Schritt verliert weder Domain noch Geld | 0 |
 | **13** | File Manager | Anzeigen, Hochladen (Drag & Drop), Herunterladen, Umbenennen, Löschen, Ordner, ZIP, Texteditor; Isolation nachweislich getestet (Traversal, ZIP Slip, Symlink, Upload) | 0 |
 | **14** | Backups + Restore | Automatische Sicherung von Dateien, Datenbanken und Konfiguration nach aussen; **ein Restore wurde erfolgreich durchgeführt und protokolliert** | +CHF 3.00/Mt. |
-| **15** | backendHeaven Core | Seiten, Beiträge, Kategorien, Medien, Navigation, Header/Footer, SEO-Grundeinstellungen; mandantenfähig mit Tenant-Tests | 0 |
-| **16** | 1-Klick-Installation | Kunde klickt „backendHeaven installieren“: Tenant, Datenbank, Zugangsdaten, Domain, SSL, Adminbenutzer – ohne Serverkenntnisse | 0 |
+| **15** | backendReymond Core | Seiten, Beiträge, Kategorien, Medien, Navigation, Header/Footer, SEO-Grundeinstellungen; mandantenfähig mit Tenant-Tests | 0 |
+| **16** | 1-Klick-Installation | Kunde klickt „backendReymond installieren“: Tenant, Datenbank, Zugangsdaten, Domain, SSL, Adminbenutzer – ohne Serverkenntnisse | 0 |
 | **17** | Visual Editor | True-WYSIWYG mit Komponentenbaum, Drag & Drop, verschiebbaren Panels, Desktop/Tablet/Mobil mit Vererbung und Overrides | 0 |
 | **18** | Templates + Formulare | 10 Seitenvorlagen zentral bereitstellbar; Formular-Builder mit Spam-, CSRF- und Injection-Schutz | 0 |
 | **19** | E-Mail-Verwaltung | Postfach anlegen, Passwort ändern, Speicher sehen, löschen – über die API des externen Anbieters; SPF/DKIM/DMARC-Einträge automatisch gesetzt | ab ~CHF 1.50/Mt. |
@@ -48,7 +48,7 @@ Aus dem Auftrag übernommen, gilt als Gesamtabnahme (Phase 22):
 
 Kundenregistrierung · Login · Passwort-Reset · MFA für Administrator · Zahlung im Testmodus ·
 Domain-Verfügbarkeitsprüfung · Domainregistrierung in der Sandbox · Hosting-Erstellung · SSL ·
-Datenbank · File-Manager-Isolation · backendHeaven-Installation · Backup · **Restore** ·
+Datenbank · File-Manager-Isolation · backendReymond-Installation · Backup · **Restore** ·
 Benutzerrechte · Rate-Limits · Logs · Monitoring.
 
 **Kein echtes Kundengeld, bevor all das nachweislich funktioniert.**
@@ -71,4 +71,4 @@ Benutzerrechte · Rate-Limits · Logs · Monitoring.
 | 10. Sicherheitsarchitektur | [SECURITY.md](SECURITY.md) |
 | 11. Reihenfolge der Entwicklung | dieses Dokument |
 | 12. Zurückgestelltes | [COSTS.md](COSTS.md) Abschnitt 7 |
-| Domainprüfung `webheaven.com` | [docs/branding-domains.md](docs/branding-domains.md) |
+| Domainprüfung `webreymond.com` | [docs/branding-domains.md](docs/branding-domains.md) |
