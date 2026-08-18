@@ -58,3 +58,6 @@ backups/
 Thumbs.db
 desktop.ini
 *.swp
+
+# --- Von Prisma erzeugter Client (wird beim Installieren neu gebaut) ---
+apps/api/src/generated/

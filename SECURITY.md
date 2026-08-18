@@ -130,9 +130,9 @@ Mandantentrennung und Upload-Schutz aus.
 
 ## 8. Checkliste vor dem ersten echten Kunden
 
-- [ ] Registrierung, Login, Logout, Passwort-Reset getestet
-- [ ] MFA für Administrator aktiv und getestet
-- [ ] Rate-Limits greifen nachweislich (Test vorhanden)
+- [x] Registrierung, Login, Logout, Passwort-Reset getestet *(Phase 4)*
+- [ ] MFA für Administrator aktiv und getestet *(Technik eingebaut, Oberfläche fehlt)*
+- [x] Rate-Limits greifen nachweislich (Test vorhanden) *(Phase 4)*
 - [ ] RBAC- und IDOR-Tests grün
 - [ ] Security-Header und CSP im Produktivsystem geprüft
 - [ ] Zahlung im Testmodus vollständig durchgespielt (inkl. fehlgeschlagener Zahlung und Rückerstattung)
@@ -142,7 +142,7 @@ Mandantentrennung und Upload-Schutz aus.
 - [ ] backendHeaven-Installation getestet
 - [ ] Backup läuft **und ein Restore wurde erfolgreich durchgeführt**
 - [ ] Monitoring meldet Ausfälle nachweislich
-- [ ] Audit-Log enthält alle sicherheitsrelevanten Ereignisse
+- [ ] Audit-Log enthält alle sicherheitsrelevanten Ereignisse *(Anmeldeereignisse ab Phase 4 protokolliert)*
 - [ ] Abhängigkeiten ohne bekannte kritische Schwachstellen (`npm audit` / Dependabot)
 - [ ] Serverhärtung nach Abschnitt 2 vollständig umgesetzt
 

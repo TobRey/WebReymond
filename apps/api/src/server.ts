@@ -3,8 +3,16 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import { ApiErrorCode, type ApiError } from '@webheaven/shared';
+import { createAuth } from './auth/auth.js';
 import type { Config } from './config.js';
+import type { Db } from './db.js';
+import { registerAuthRoutes } from './routes/auth.js';
 import { registerHealthRoutes } from './routes/health.js';
+
+export interface ServerDeps {
+  config: Config;
+  db: Db;
+}
 
 /**
  * Baut den Server auf, ohne ihn zu starten.
@@ -12,7 +20,7 @@ import { registerHealthRoutes } from './routes/health.js';
  * Diese Trennung erlaubt Tests über `app.inject()` – ohne echten Port,
  * ohne Wartezeiten und ohne Portkonflikte in der CI.
  */
-export async function buildServer(config: Config): Promise<FastifyInstance> {
+export async function buildServer({ config, db }: ServerDeps): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
       level: config.LOG_LEVEL,
@@ -50,18 +58,29 @@ export async function buildServer(config: Config): Promise<FastifyInstance> {
   });
 
   // Nur das Portal darf im Browser auf die API zugreifen.
+  // `credentials` ist nötig, damit der Sitzungs-Cookie mitgeschickt wird.
   await app.register(cors, {
-    origin: [config.CORS_ORIGIN],
+    origin: [config.APP_URL],
     credentials: true,
   });
 
-  // Grundschutz gegen Brute Force und Überlast. Strengere Limits je Endpunkt folgen in Phase 4.
+  // Grundschutz gegen Überlast. Für Anmeldung, Registrierung und
+  // Passwort-Reset gelten zusätzlich deutlich strengere Limits (siehe auth.ts).
   await app.register(rateLimit, {
     max: 100,
     timeWindow: '1 minute',
   });
 
+  const auth = createAuth({
+    db,
+    config,
+    log: (level, message, details) => {
+      app.log[level]({ details }, message);
+    },
+  });
+
   await registerHealthRoutes(app, config);
+  await registerAuthRoutes(app, auth);
 
   /**
    * Einheitliche Fehlerantworten. Interne Details bleiben im Log,

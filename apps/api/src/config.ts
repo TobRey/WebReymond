@@ -16,9 +16,22 @@ const envSchema = z.object({
    * nach aussen stellt sie ausschliesslich nginx bereit (siehe DEPLOYMENT.md).
    */
   API_HOST: z.string().min(1).default('127.0.0.1'),
-  /** Erlaubte Herkunft für Browser-Anfragen (das Portal). */
-  CORS_ORIGIN: z.string().url().default('http://localhost:3000'),
+  /** Öffentliche Adresse der API – wird für Links in E-Mails gebraucht. */
+  API_PUBLIC_URL: z.url().default('http://localhost:3001'),
+  /** Adresse des Portals. Nur von dort werden Browser-Anfragen akzeptiert. */
+  APP_URL: z.url().default('http://localhost:3000'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+
+  /** Verbindung zur PostgreSQL-Datenbank. */
+  DATABASE_URL: z.string().min(1),
+
+  /**
+   * Schlüssel zum Signieren von Sitzungen und Token.
+   *
+   * Kein Standardwert – ein vergessener Schlüssel wäre ein stiller
+   * Totalausfall der Sicherheit. Erzeugen mit: openssl rand -base64 48
+   */
+  AUTH_SECRET: z.string().min(32, 'AUTH_SECRET muss mindestens 32 Zeichen lang sein'),
 });
 
 export type Config = z.infer<typeof envSchema> & { version: string };

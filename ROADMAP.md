@@ -10,7 +10,7 @@ ihre **Definition of Done** erfüllt und getestet ist. Danach: Commit, Tag, kurz
 - **E-Mail nach hinten (Phase 19)** – wird extern eingekauft und ist deshalb kein Blocker.
 - **Datenmodell/RBAC als eigene Phase (5)** – Mandantentrennung ist zu wichtig für ein Nebenprodukt.
 
-Legende: ✅ fertig · ⏳ wartet auf dich · 📄 Anleitung liegt bereit · (ohne Zeichen) noch nicht begonnen
+Legende: ✅ fertig · ◐ teilweise fertig · ⏳ wartet auf dich · 📄 Anleitung liegt bereit · (ohne Zeichen) noch nicht begonnen
 
 ---
 
@@ -20,7 +20,7 @@ Legende: ✅ fertig · ⏳ wartet auf dich · 📄 Anleitung liegt bereit · (oh
 | **1** | Marke, Domain, Konten ⏳ | Domainverfügbarkeit selbst geprüft, Name entschieden, Domain registriert, Konten bei GitHub/Hetzner/Registrar bestehen, 2FA überall aktiv | ~CHF 13 einmalig |
 | **2** | Lokale Entwicklungsumgebung 📄 | Anleitung liegt vor ([docs/phase-2-entwicklungsumgebung.md](docs/phase-2-entwicklungsumgebung.md)); erledigt, sobald `pnpm dev` auf deinem PC läuft | 0 |
 | **3** | Repo-Skelett + CI ✅ | Monorepo mit Portal und API, Design-Tokens, DE/EN-Kataloge, PostgreSQL per Docker Compose, 21 Tests, CI-Workflow | 0 |
-| **4** | Authentifizierung | Registrierung, Login, Logout, Passwort-Reset, TOTP-MFA, Rate-Limits, Audit-Log – alles mit Tests | 0 |
+| **4** | Authentifizierung ◐ | Registrierung, Login, Logout, Passwort-Reset, Rollen, Rate-Limits und Audit-Log sind fertig und getestet (35 API-Tests). **Offen:** Oberfläche für die Zwei-Faktor-Anmeldung – die Technik dafür ist eingebaut, die Bedienung fehlt noch. | 0 |
 | **5** | Datenmodell + RBAC + Mandantentrennung | Rollen, Policy-Schicht, Migrationen, IDOR-Tests grün (Fremdzugriff schlägt nachweislich fehl) | 0 |
 | **6** | Portal- und Adminoberfläche | Navigation, Design-System, responsiv, mobil getestet, DE/EN umschaltbar, noch ohne echte Hostingdaten | 0 |
 | **7** | VPS + Härtung | Server läuft, SSH nur mit Schlüssel, Firewall aktiv, VPN-Zugang, automatische Updates, fail2ban; Härtungscheckliste in SECURITY.md abgehakt | ab CHF 4.20/Mt. |

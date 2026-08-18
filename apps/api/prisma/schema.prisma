@@ -1,0 +1,149 @@
+// WebHeaven – Datenmodell
+//
+// Die Tabellen user, session, account, verification und twoFactor entsprechen
+// exakt dem, was die Authentifizierungsbibliothek erwartet. Feldnamen dürfen
+// deshalb nicht umbenannt werden. Eigene Felder (z.B. role) sind erlaubt.
+//
+// Migration erzeugen:  pnpm db:migrate
+// Änderungen ansehen:  pnpm db:studio
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// Die Verbindungszeichenfolge steht in prisma.config.ts bzw. wird dem
+// PrismaClient als Adapter übergeben – seit Prisma 7 nicht mehr hier.
+datasource db {
+  provider = "postgresql"
+}
+
+/// Ein Konto. Die Rolle steuert die grobe Berechtigungsebene;
+/// die Eigentümerprüfung passiert zusätzlich in der Policy-Schicht.
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+
+  /// "user" | "customer" | "admin" – siehe @webheaven/shared.
+  /// Wird NIE aus einer Anfrage übernommen, sondern nur serverseitig gesetzt.
+  role String @default("customer")
+
+  twoFactorEnabled Boolean? @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions   Session[]
+  accounts   Account[]
+  twoFactors TwoFactor[]
+  auditLogs  AuditLog[]
+
+  @@map("user")
+}
+
+/// Angemeldete Sitzung. Liegt in der Datenbank, damit ein Login sofort
+/// widerrufen werden kann – anders als bei reinen Token im Browser.
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("session")
+}
+
+/// Anmeldeverfahren eines Kontos. Bei E-Mail/Passwort steht hier der
+/// Passwort-Hash (Argon2id) – niemals das Passwort selbst.
+model Account {
+  id         String @id @default(cuid())
+  accountId  String
+  providerId String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+/// Kurzlebige Einmal-Token: E-Mail-Bestätigung, Passwort-Reset.
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@index([expiresAt])
+  @@map("verification")
+}
+
+/// Zweiter Faktor (TOTP) inklusive Backup-Codes und Sperre nach Fehlversuchen.
+model TwoFactor {
+  id          String @id @default(cuid())
+  secret      String
+  backupCodes String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  verified                Boolean?  @default(false)
+  failedVerificationCount Int?      @default(0)
+  lockedUntil             DateTime?
+
+  @@index([userId])
+  @@map("two_factor")
+}
+
+/// Revisionssicheres Protokoll sicherheitsrelevanter Ereignisse.
+///
+/// Einträge werden nur angehängt, nie geändert. actorId wird beim Löschen
+/// eines Kontos auf NULL gesetzt statt den Eintrag mitzulöschen – sonst
+/// könnte man seine eigenen Spuren durch Kontolöschung verwischen.
+model AuditLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  action     String
+  actorId    String?
+  actor      User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorEmail String?
+
+  targetType String?
+  targetId   String?
+
+  ipAddress String?
+  userAgent String?
+
+  /// Zusätzliche Angaben zum Ereignis. Enthält NIE Passwörter oder Token.
+  metadata Json?
+
+  @@index([createdAt])
+  @@index([actorId])
+  @@index([action])
+  @@map("audit_log")
+}
