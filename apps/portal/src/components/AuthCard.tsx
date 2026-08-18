@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { Logo } from '@webheaven/ui';
+import { Logo } from '@webreymond/ui';
 
 /** Gemeinsamer Rahmen für Anmelden, Registrieren und Passwort-Seiten. */
 export function AuthCard({

@@ -4,8 +4,8 @@ import { NextIntlClientProvider, hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { routing } from '@/i18n/routing';
 
-import '@webheaven/ui/tokens.css';
-import '@webheaven/ui/components.css';
+import '@webreymond/ui/tokens.css';
+import '@webreymond/ui/components.css';
 import '../globals.css';
 
 type LayoutProps = {
@@ -44,7 +44,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
 
   return (
     <html lang={locale}>
-      <body className="wh-body">
+      <body className="wr-body">
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>
     </html>

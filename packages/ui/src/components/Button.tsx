@@ -14,6 +14,6 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
  * was in Formularen regelmässig ungewollte Absendungen auslöst.
  */
 export function Button({ variant = 'primary', className, type = 'button', ...props }: ButtonProps) {
-  const classes = ['wh-button', `wh-button--${variant}`, className].filter(Boolean).join(' ');
+  const classes = ['wr-button', `wr-button--${variant}`, className].filter(Boolean).join(' ');
   return <button type={type} className={classes} {...props} />;
 }

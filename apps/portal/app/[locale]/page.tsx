@@ -1,6 +1,6 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import Link from 'next/link';
-import { Button, Card, Input, Logo } from '@webheaven/ui';
+import { Button, Card, Input, Logo } from '@webreymond/ui';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { routing } from '@/i18n/routing';
 
@@ -27,7 +27,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         {tNav('skipToContent')}
       </a>
 
-      <div className="wh-brandbar" />
+      <div className="wr-brandbar" />
 
       <header className="border-b border-border-subtle">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">

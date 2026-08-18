@@ -1,6 +1,6 @@
 # Phase 2 – Entwicklungsumgebung auf Windows 11 einrichten
 
-Ziel: Am Ende läuft WebHeaven auf deinem eigenen PC. Du brauchst dafür **keinen Server** und es
+Ziel: Am Ende läuft WebReymond auf deinem eigenen PC. Du brauchst dafür **keinen Server** und es
 entstehen **keine Kosten**. Rechne mit 45–90 Minuten, davon viel Wartezeit beim Herunterladen.
 
 Jeder Schritt ist gleich aufgebaut: **Was · Warum · Befehl · Erfolgskontrolle.**
@@ -68,7 +68,7 @@ aktualisierter Pakete – aber **keine** rote Fehlermeldung.
 
 ## Schritt 3 – Node.js 22 über nvm
 
-**Was:** Node.js ist die Laufzeitumgebung, in der WebHeaven läuft. `nvm` verwaltet Node-Versionen.
+**Was:** Node.js ist die Laufzeitumgebung, in der WebReymond läuft. `nvm` verwaltet Node-Versionen.
 
 **Warum:** Über `nvm` kannst du die Version wechseln, ohne etwas kaputtzumachen. Wichtig, weil
 Projekte unterschiedliche Versionen brauchen und unsere Version im Repository festgelegt ist (`.nvmrc`).
@@ -97,7 +97,7 @@ Erwartet: eine Ausgabe, die mit `v22.` beginnt.
 
 ## Schritt 4 – pnpm aktivieren
 
-**Was:** pnpm lädt und verwaltet die Programmbibliotheken, die WebHeaven benutzt.
+**Was:** pnpm lädt und verwaltet die Programmbibliotheken, die WebReymond benutzt.
 
 **Warum:** pnpm ist schneller und sparsamer als npm und kann mehrere Programme in einem Repository
 verwalten – genau unser Aufbau (Portal, API, gemeinsame Pakete).
@@ -235,8 +235,8 @@ nicht richtig.
 ```bash
 mkdir -p ~/projekte
 cd ~/projekte
-git clone git@github.com:TobRey/WebHeaven.git
-cd WebHeaven
+git clone git@github.com:TobRey/WebReymond.git
+cd WebReymond
 pnpm install
 ```
 
@@ -248,7 +248,7 @@ pnpm dev
 ```
 
 **Erfolgskontrolle:** Browser öffnen und <http://localhost:3000> aufrufen.
-Erwartet: die WebHeaven-Startseite auf Deutsch. Unter <http://localhost:3000/en> dieselbe Seite auf
+Erwartet: die WebReymond-Startseite auf Deutsch. Unter <http://localhost:3000/en> dieselbe Seite auf
 Englisch. Und im Browser <http://localhost:3001/health> zeigt `{"status":"ok",...}`.
 
 Beenden: im Ubuntu-Fenster **Strg + C**, danach `pnpm db:down`.
@@ -273,7 +273,7 @@ Beenden: im Ubuntu-Fenster **Strg + C**, danach `pnpm db:down`.
 - Ein Linux auf deinem Windows-PC, das dem späteren Server ähnelt
 - Node.js 22, pnpm, Git, Docker, VS Code
 - Einen SSH-Schlüssel für GitHub (denselben Mechanismus nutzen wir später für den Server)
-- WebHeaven lokal lauffähig, zweisprachig, mit Datenbank
+- WebReymond lokal lauffähig, zweisprachig, mit Datenbank
 
 **Danach geht es weiter mit Phase 4:** Authentifizierung – Registrierung, Login, Passwort-Reset
 und Zwei-Faktor-Anmeldung für Administratoren.

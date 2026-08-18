@@ -1,6 +1,6 @@
 # Sicherheit
 
-WebHeaven betreibt fremde Websites, verwaltet Domains und verarbeitet Zahlungen. Damit ist die
+WebReymond betreibt fremde Websites, verwaltet Domains und verarbeitet Zahlungen. Damit ist die
 Plattform ein attraktives Angriffsziel. Sicherheit hat deshalb Vorrang vor Funktionsumfang und
 vor Geschwindigkeit.
 
@@ -10,7 +10,7 @@ Stand: Phase 0 (August 2026). Die Checklisten werden je Phase abgearbeitet und h
 
 ## 1. Unverhandelbare Grundregeln
 
-1. **Kein Webprozess läuft als `root`.** Weder WebHeaven noch Kundenwebsites.
+1. **Kein Webprozess läuft als `root`.** Weder WebReymond noch Kundenwebsites.
 2. **Keine freie Shell-Schnittstelle im Backend.** Systemänderungen nur über eine feste Allowlist
    typisierter Aktionen.
 3. **Keine vom Benutzer eingegebenen Zeichenketten in Shell-Befehle.** Aufruf immer mit
@@ -99,7 +99,7 @@ Updates zeitnah einspielen, Release-Notes verfolgen.
 
 ---
 
-## 5. Formulare in backendHeaven (Phase 18)
+## 5. Formulare in backendReymond (Phase 18)
 
 Spam-Schutz ohne externe Tracker (Honeypot + Zeitprüfung + Rate-Limit, optional datenschutz-
 freundliches Captcha), CSRF-Token, Validierung serverseitig, Ausgabe escaped, Datei-Uploads mit
@@ -139,7 +139,7 @@ Mandantentrennung und Upload-Schutz aus.
 - [ ] Domainprüfung und Registrierung in der Testumgebung des Registrars erfolgreich
 - [ ] Hosting-Erstellung inkl. SSL und Datenbank automatisch erfolgreich
 - [ ] File-Manager-Isolation getestet (Traversal, ZIP Slip, Symlink, Upload)
-- [ ] backendHeaven-Installation getestet
+- [ ] backendReymond-Installation getestet
 - [ ] Backup läuft **und ein Restore wurde erfolgreich durchgeführt**
 - [ ] Monitoring meldet Ausfälle nachweislich
 - [ ] Audit-Log enthält alle sicherheitsrelevanten Ereignisse *(Anmeldeereignisse ab Phase 4 protokolliert)*

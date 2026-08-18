@@ -1,14 +1,14 @@
-# 0009 – backendHeaven mandantenfähig statt eine Installation je Kunde
+# 0009 – backendReymond mandantenfähig statt eine Installation je Kunde
 
 **Status:** akzeptiert (Phase 0, August 2026) – umgesetzt ab Phase 15
 
 ## Kontext
-Kunden sollen backendHeaven per Klick „installieren“ können. Klassische CMS-Systeme (z.B. WordPress)
+Kunden sollen backendReymond per Klick „installieren“ können. Klassische CMS-Systeme (z.B. WordPress)
 werden dafür je Kunde einmal auf den Server kopiert. Für eine Node.js-Anwendung bedeutet das je
 Installation einen eigenen Prozess.
 
 ## Entscheidung
-**Eine backendHeaven-Laufzeit bedient viele Kundenwebsites.** Die Zuordnung erfolgt über die
+**Eine backendReymond-Laufzeit bedient viele Kundenwebsites.** Die Zuordnung erfolgt über die
 angefragte Domain. „1-Klick-Installation“ legt an: Tenant, Datenbankschema, Zugangsdaten, Domain,
 SSL, Adminbenutzer – **keinen neuen Serverprozess**.
 

@@ -1,8 +1,8 @@
 {
-  "name": "@webheaven/ui",
+  "name": "@webreymond/ui",
   "version": "0.1.0",
   "private": true,
-  "description": "Design-Tokens und Basiskomponenten für WebHeaven und backendHeaven",
+  "description": "Design-Tokens und Basiskomponenten für WebReymond und backendReymond",
   "type": "module",
   "exports": {
     ".": {

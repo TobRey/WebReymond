@@ -20,24 +20,24 @@ export function Input({ label, hint, error, className, ...props }: InputProps) {
   const describedBy = [hintId, errorId].filter(Boolean).join(' ') || undefined;
 
   return (
-    <div className="wh-field">
-      <label className="wh-field__label" htmlFor={id}>
+    <div className="wr-field">
+      <label className="wr-field__label" htmlFor={id}>
         {label}
       </label>
       <input
         id={id}
-        className={['wh-input', className].filter(Boolean).join(' ')}
+        className={['wr-input', className].filter(Boolean).join(' ')}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
         {...props}
       />
       {hint ? (
-        <span className="wh-field__hint" id={hintId}>
+        <span className="wr-field__hint" id={hintId}>
           {hint}
         </span>
       ) : null}
       {error ? (
-        <span className="wh-field__error" id={errorId} role="alert">
+        <span className="wr-field__error" id={errorId} role="alert">
           {error}
         </span>
       ) : null}

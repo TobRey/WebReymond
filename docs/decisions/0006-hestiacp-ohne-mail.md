@@ -38,7 +38,7 @@ Sicherheitsüberarbeitung. Das ist kein Ausschlussgrund (aktive Pflege ist gut),
 zu: Panel nur über VPN, zeitnahe Updates, Release-Notes verfolgen.
 
 ## Konsequenzen
-- Kunden sehen HestiaCP nie; alle Funktionen laufen über die WebHeaven-Oberfläche.
+- Kunden sehen HestiaCP nie; alle Funktionen laufen über die WebReymond-Oberfläche.
 - Die Provisioning-Aufrufe müssen strikt validiert werden (siehe SECURITY.md).
 - E-Mail hängt an einem externen Anbieter → `MailProvider`-Abstraktion, damit ein Wechsel möglich
   bleibt.

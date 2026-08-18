@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
  */
 export const TEST_DATABASE_URL =
   process.env['TEST_DATABASE_URL'] ??
-  'postgresql://webheaven:webheaven_dev_only@127.0.0.1:5432/webheaven_test';
+  'postgresql://webreymond:webreymond_dev_only@127.0.0.1:5432/webreymond_test';
 
 export default function setup(): void {
   execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], {

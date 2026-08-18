@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "WebHeaven – Web hosting, domains and websites",
+    "title": "WebReymond – Web hosting, domains and websites",
     "description": "Web hosting, domain registration and website management – simple enough for everyone, secure enough for the real world."
   },
   "nav": {
@@ -14,10 +14,10 @@
   "home": {
     "badge": "In development – phase 4",
     "title": "Websites, domains and hosting in one place",
-    "subtitle": "WebHeaven takes care of the technology in the background, so you can take care of your website.",
+    "subtitle": "WebReymond takes care of the technology in the background, so you can take care of your website.",
     "primaryAction": "Search a domain",
     "secondaryAction": "See the plans",
-    "featuresTitle": "What WebHeaven will do",
+    "featuresTitle": "What WebReymond will do",
     "features": {
       "hosting": {
         "title": "Hosting with SSL",
@@ -28,7 +28,7 @@
         "description": "Availability and prices for .com, .ch and .de at a glance, registered in a single click."
       },
       "cms": {
-        "title": "backendHeaven",
+        "title": "backendReymond",
         "description": "Our own CMS with a visual editor – only the features people actually need."
       }
     },
@@ -58,7 +58,7 @@
     },
     "login": {
       "title": "Log in",
-      "description": "Log in to your WebHeaven account.",
+      "description": "Log in to your WebReymond account.",
       "submit": "Log in",
       "invalidCredentials": "Email address or password is incorrect.",
       "tooManyAttempts": "Too many attempts. Please wait a few minutes.",

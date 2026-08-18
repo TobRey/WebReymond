@@ -24,7 +24,7 @@ Debian 13 (oder Ubuntu LTS)
 │   ├── nginx            → Ports 80/443, einziger öffentlicher Zugang
 │   ├── PHP-FPM je Kunde → Kundenwebsites
 │   └── MariaDB          → Kundendatenbanken
-├── Docker Compose (WebHeaven)
+├── Docker Compose (WebReymond)
 │   ├── portal   (Next.js)     → 127.0.0.1:3000
 │   ├── api      (Fastify)     → 127.0.0.1:3001
 │   ├── worker   (pg-boss)     → kein offener Port
@@ -54,7 +54,7 @@ genau **einen** Ort, der Zertifikate verwaltet.
   nächsten Deployment nicht mehr.
 - **Migrationen sind vorwärtskompatibel** geschrieben (erst Spalte hinzufügen, dann Code umstellen,
   dann alte Spalte entfernen) – so ist ein Rollback ohne Datenverlust möglich.
-- **Secrets** liegen ausschliesslich in `/opt/webheaven/.env` (Rechte `600`) und in den
+- **Secrets** liegen ausschliesslich in `/opt/webreymond/.env` (Rechte `600`) und in den
   GitHub-Actions-Secrets. Nie im Image, nie im Repository.
 - **Vor jedem Deployment mit Migration:** aktuelles Backup vorhanden (siehe [BACKUP.md](BACKUP.md)).
 - **Kein Dienst läuft als root**, Container laufen mit unprivilegiertem Benutzer.

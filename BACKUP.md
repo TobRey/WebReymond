@@ -12,11 +12,11 @@ getestet wurde.** Alles andere ist eine Hoffnung, keine Sicherung.
 |---|---|---|
 | Kundendateien (Websites, Uploads) | `/home/<kunde>/` | restic |
 | Kundendatenbanken (MariaDB) | MariaDB | `mysqldump` je Datenbank, dann restic |
-| WebHeaven-Datenbank (PostgreSQL) | PostgreSQL | `pg_dump`, dann restic |
+| WebReymond-Datenbank (PostgreSQL) | PostgreSQL | `pg_dump`, dann restic |
 | HestiaCP-Konfiguration | `/usr/local/hestia/data/` | restic |
 | Server-Konfiguration | `/etc/` (relevante Teile) | restic |
 | Anwendungscode | GitHub | Git (kein Backup nötig) |
-| Secrets | `/opt/webheaven/.env` | **verschlüsselt und getrennt** aufbewahren, nicht im normalen Backup-Lauf |
+| Secrets | `/opt/webreymond/.env` | **verschlüsselt und getrennt** aufbewahren, nicht im normalen Backup-Lauf |
 
 Nicht gesichert: Caches, temporäre Dateien, Docker-Images (aus der Registry rekonstruierbar).
 

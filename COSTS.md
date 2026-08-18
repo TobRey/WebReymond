@@ -29,7 +29,7 @@ Stripe im Testmodus · Testumgebungen (OT&E) der Registrare · Hetzner DNS (Zone
 | VPS 2 vCPU / 4 GB RAM / 40 GB NVMe / 20 TB Traffic | Hetzner Cloud **CX23** | € 3.99/Mt. | 3.75 | Phase 7 | Nein – ein Server, der immer läuft, kostet Geld |
 | IPv4-Adresse | Hetzner | € 0.50/Mt. | 0.47 | Phase 7 | Nur IPv6 wäre gratis, aber viele Kunden/Netze erreichen die Seite dann nicht |
 | Off-Site-Backup 1 TB | Hetzner **Storage Box BX11** | € 3.20/Mt. | 3.00 | Phase 14 | Backup auf demselben Server ist kein Backup |
-| Eigene Domain | Registrar (siehe Abschnitt 5) | ~CHF 12–15/Jahr | ~1.10 | Phase 1 | Nein |
+| Eigene Domains: **webreymond.ch** + **webreymond.com** | Registrar (siehe Abschnitt 5) | **bezahlt – tatsächliche Preise noch nachzutragen** | ~2.00 (Schätzung) | erledigt | Nein |
 | Kundenpostfächer | z.B. **Migadu Micro** (Schweizer Anbieter, unbegrenzte Domains/Postfächer, 5 GB) | ab USD 19/Jahr | ~1.50 | Phase 19, erst bei Bedarf | Eigener Mailserver wäre „gratis“, kostet aber RAM und hohes Betriebsrisiko |
 | Zahlungsgebühren | **Stripe** Schweiz | 2.9 % + CHF 0.30 (Karte), 1.9 % + CHF 0.30 (TWINT) | variabel | Phase 11 | Nein – jeder seriöse Anbieter nimmt Gebühren |
 | Kundendomains | Registrar | Einkaufspreis | durchlaufend | Phase 12 | Nein – wird an Kunden weiterverrechnet (+20 % Marge) |
@@ -38,7 +38,7 @@ Stripe im Testmodus · Testumgebungen (OT&E) der Registrare · Hetzner DNS (Zone
 
 | Stufe | Wann | Enthalten | CHF/Monat |
 |---|---|---|---|
-| **A – Entwicklung** | Phase 1–6 | nur eigene Domain, Entwicklung lokal auf dem PC | **≈ 1.10** |
+| **A – Entwicklung** | Phase 1–6 | nur eigene Domains, Entwicklung lokal auf dem PC | **≈ 2.00** |
 | **B – Server aktiv** | ab Phase 7 | + VPS + IPv4 | **≈ 5.30** |
 | **C – produktionsnah** | ab Phase 14 | + Off-Site-Backup | **≈ 8.30** |
 | D – erster Mailkunde | ab Phase 19 | + Mail-Abo | ≈ 9.80 |
