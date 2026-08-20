@@ -1,0 +1,21 @@
+/*
+Theme Name: Reymond Tobias
+Theme URI: https://reymond-tobias.ch
+Author: Tobias Reymond
+Description: Schwarz-weisses, dunkles DJ-Theme mit Startseite, animiertem Musikplayer und Booking-Formular. Inhalte werden beim Aktivieren automatisch angelegt.
+Version: 1.0.0
+Requires at least: 6.0
+Tested up to: 6.8
+Requires PHP: 7.4
+License: GNU General Public License v2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: reymond-tobias
+Tags: dark, one-column, custom-menu, custom-colors, translation-ready
+*/
+
+/*
+  WordPress verlangt diese Datei nur wegen der Angaben oben.
+  Die eigentlichen Stile stehen in assets/css/style.css und werden
+  in inc/setup.php geladen – so bleiben die Pfade zu Schriften
+  und Bildern dieselben wie in der statischen Fassung.
+*/

@@ -1933,3 +1933,163 @@ body.menu-open .menu__link:nth-child(3) {
     display: none;
   }
 }
+
+/* ==========================================================================
+   12. WordPress
+   Was der Editor an Auszeichnung mitbringt, muss ins dunkle Layout passen.
+   Diese Regeln kommen nur in der WordPress-Fassung des Themes vor.
+   ========================================================================== */
+
+/* Fliesstext aus dem Editor */
+.about__body p,
+.page-head__sub p {
+  color: var(--text-dim);
+}
+
+.about__body p + p,
+.page-head__sub p + p {
+  margin-top: 1.3rem;
+}
+
+.about__body h2,
+.about__body h3 {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 1.05;
+  margin: 2.4rem 0 1rem;
+}
+
+.about__body h2 {
+  font-size: var(--step-2);
+}
+
+.about__body h3 {
+  font-size: var(--step-1);
+}
+
+.about__body a {
+  color: var(--c-white);
+  background-image: linear-gradient(var(--c-white), var(--c-white));
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 100% 1px;
+  transition: background-size 0.4s var(--ease);
+}
+
+.about__body a:hover {
+  background-size: 0% 1px;
+}
+
+.about__body ul,
+.about__body ol {
+  color: var(--text-dim);
+  margin: 1.3rem 0;
+  padding-left: 1.4rem;
+  list-style: disc;
+}
+
+.about__body ol {
+  list-style: decimal;
+}
+
+.about__body li + li {
+  margin-top: 0.5rem;
+}
+
+.about__body blockquote {
+  margin: 2rem 0;
+  padding-left: 1.4rem;
+  border-left: 1px solid var(--c-grey-1);
+  font-size: var(--step-1);
+}
+
+.about__body img,
+.about__body .wp-block-image img {
+  filter: grayscale(100%) contrast(1.08);
+}
+
+.about__body figcaption,
+.wp-element-caption {
+  font-size: var(--step--1);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-top: 0.6rem;
+}
+
+/* Blockbreiten */
+.alignwide {
+  max-width: min(100%, 1100px);
+  margin-inline: auto;
+}
+
+.alignfull {
+  max-width: none;
+}
+
+.aligncenter {
+  margin-inline: auto;
+}
+
+/* Trennlinien und Tabellen aus dem Editor */
+.about__body hr,
+.wp-block-separator {
+  border: 0;
+  height: 1px;
+  background: var(--border);
+  margin: 2.4rem 0;
+}
+
+.about__body table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--text-dim);
+}
+
+.about__body th,
+.about__body td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.7rem 0.4rem;
+  text-align: left;
+}
+
+/* Blättern in Beitragslisten */
+.pagination .page-numbers {
+  display: inline-block;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: var(--step--1);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-right: 0.5rem;
+  transition:
+    border-color 0.3s linear,
+    color 0.3s linear;
+}
+
+.pagination .page-numbers:hover,
+.pagination .page-numbers.current {
+  border-color: var(--c-white);
+  color: var(--c-white);
+}
+
+/* WordPress blendet eigene Hilfstexte über diese Klasse aus */
+.screen-reader-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Die Fusszeile nutzt dieselbe Navigationsausgabe wie die Kopfzeile:
+   dort sollen die Verweise aber schlicht bleiben. */
+.site-footer__links a {
+  transition: color 0.3s linear;
+}
