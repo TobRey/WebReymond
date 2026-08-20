@@ -40,4 +40,19 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'off',
     },
   },
+  {
+    // sites/ enthält reine Browser-Seiten ohne Build-Schritt (klassisches
+    // Skript, kein Modul). Deshalb hier die Browser-Umgebung erklären,
+    // sonst meldet no-undef window, document und Co. als unbekannt.
+    files: ['sites/**/*.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        console: 'readonly',
+        navigator: 'readonly',
+      },
+    },
+  },
 );

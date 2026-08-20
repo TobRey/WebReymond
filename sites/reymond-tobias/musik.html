@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Musik – Reymond Tobias</title>
+    <meta
+      name="description"
+      content="Sets und Tracks von Reymond Tobias. Dunkler Techno zum direkt Anhören – mit animiertem Player."
+    />
+    <meta name="theme-color" content="#000000" />
+    <link rel="canonical" href="https://reymond-tobias.ch/musik.html" />
+
+    <meta property="og:type" content="music.playlist" />
+    <meta property="og:title" content="Musik – Reymond Tobias" />
+    <meta property="og:description" content="Sets und Tracks von Reymond Tobias." />
+    <meta property="og:url" content="https://reymond-tobias.ch/musik.html" />
+    <meta property="og:image" content="https://reymond-tobias.ch/assets/img/banner.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml" />
+
+    <!-- Schriften liegen lokal im Projekt: keine Anfragen an fremde Server. -->
+    <link
+      rel="preload"
+      href="assets/fonts/anton-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="assets/fonts/space-grotesk-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="stylesheet" href="assets/css/style.css" />
+  </head>
+
+  <body class="page-music">
+    <div class="preloader">
+      <div class="preloader__mark">Musik</div>
+      <span class="preloader__bar"></span>
+    </div>
+
+    <div class="grain" aria-hidden="true"></div>
+    <div class="vignette" aria-hidden="true"></div>
+    <div class="cursor" aria-hidden="true"></div>
+    <div class="cursor-dot" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <div class="site-header__inner">
+        <a class="brand" href="index.html" aria-label="Reymond Tobias – Startseite">
+          <span class="brand__dot"></span>
+          Reymond Tobias
+        </a>
+
+        <nav class="nav" aria-label="Hauptnavigation">
+          <a class="nav__link" href="index.html">Start</a>
+          <a class="nav__link" href="musik.html" aria-current="page">Musik</a>
+          <a class="nav__link" href="kontakt.html">Kontakt</a>
+        </nav>
+
+        <button class="burger" type="button" aria-expanded="false" aria-label="Menü öffnen">
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+    </header>
+
+    <nav class="menu" aria-label="Menü">
+      <a class="menu__link" href="index.html">Start</a>
+      <a class="menu__link" href="musik.html" aria-current="page">Musik</a>
+      <a class="menu__link" href="kontakt.html">Kontakt</a>
+      <div class="menu__meta">
+        <span>Schweiz</span>
+        <a href="mailto:booking@reymond-tobias.ch">booking@reymond-tobias.ch</a>
+      </div>
+    </nav>
+
+    <main>
+      <section class="page-head shell">
+        <p class="eyebrow reveal">Musik</p>
+        <h1 class="display page-head__title">
+          <span class="line-mask"><span data-split>Sets</span></span>
+        </h1>
+        <p class="page-head__sub reveal reveal--delay-2">
+          Reinhören, durchklicken, laut stellen. Leertaste startet und stoppt.
+        </p>
+      </section>
+
+      <!-- ================= Player ================= -->
+      <section class="shell">
+        <div class="player reveal" data-player>
+          <!-- Cover -->
+          <figure class="player__art">
+            <img src="assets/img/cover-01.svg" alt="Cover" />
+            <figcaption class="player__index">01</figcaption>
+            <span class="player__live"><i></i> Läuft</span>
+          </figure>
+
+          <!-- Titel, Anzeige und Bedienung -->
+          <div class="player__main">
+            <p class="player__kicker">Jetzt ausgewählt</p>
+
+            <h2 class="display player__title"><span>Nachtschicht</span></h2>
+
+            <div class="player__meta">
+              <span data-meta-tag>Peak Time Techno</span>
+              <span data-meta-count>01 / 06</span>
+            </div>
+
+            <canvas class="player__viz" aria-hidden="true"></canvas>
+
+            <div
+              class="player__scrub"
+              role="slider"
+              tabindex="0"
+              aria-label="Position im Titel"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="0"
+            >
+              <div class="player__scrub-track">
+                <div class="player__scrub-fill"></div>
+                <div class="player__scrub-knob"></div>
+              </div>
+            </div>
+
+            <div class="player__times">
+              <span data-time-now>0:00</span>
+              <span data-time-total>6:12</span>
+            </div>
+
+            <div class="player__controls">
+              <button class="ctrl" type="button" data-prev aria-label="Vorheriger Titel">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 5h2v14H6zM20 5v14l-11-7z" />
+                </svg>
+              </button>
+
+              <button class="ctrl ctrl--play" type="button" aria-label="Abspielen">
+                <svg class="ctrl__play" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M7 4l14 8-14 8z" />
+                </svg>
+                <svg class="ctrl__pause" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 4h4v16H6zM14 4h4v16h-4z" />
+                </svg>
+              </button>
+
+              <button class="ctrl" type="button" data-next aria-label="Nächster Titel">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M16 5h2v14h-2zM4 5l11 7-11 7z" />
+                </svg>
+              </button>
+
+              <label class="player__volume">
+                <span class="visually-hidden">Lautstärke</span>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M4 9h4l5-4v14l-5-4H4zM16 9a4 4 0 010 6"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                  />
+                </svg>
+                <input type="range" min="0" max="100" value="85" data-volume />
+              </label>
+            </div>
+
+            <p class="player__notice">
+              Vorschau – für diesen Titel ist noch keine Audiodatei hinterlegt.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Titelliste ================= -->
+      <section class="section shell" style="padding-top: clamp(2rem, 5vw, 4rem)">
+        <p class="eyebrow reveal">Alle Titel</p>
+        <div class="tracklist reveal reveal--delay-1" data-tracklist></div>
+      </section>
+
+      <div class="marquee marquee--reverse" aria-hidden="true">
+        <div class="marquee__track">
+          <span class="marquee__item marquee__item--outline">Laut aufdrehen</span>
+          <span class="marquee__item">Techno</span>
+          <span class="marquee__item marquee__item--outline">Dunkel</span>
+          <span class="marquee__item">Treibend</span>
+        </div>
+      </div>
+
+      <section class="cta">
+        <div class="cta__glow" aria-hidden="true"></div>
+        <div class="shell">
+          <h2 class="display cta__title reveal">Sound für deine <em>Nacht</em></h2>
+          <a class="btn btn--solid" href="kontakt.html" data-magnetic>
+            Booking anfragen
+            <span class="btn__arrow">→</span>
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell">
+        <div class="site-footer__top">
+          <a class="site-footer__mark" href="index.html">Reymond Tobias</a>
+          <div class="site-footer__links">
+            <a href="index.html">Start</a>
+            <a href="musik.html">Musik</a>
+            <a href="kontakt.html">Kontakt</a>
+            <a href="mailto:booking@reymond-tobias.ch">E-Mail</a>
+          </div>
+        </div>
+        <div class="site-footer__bottom">
+          <span>© <span data-year>2026</span> Reymond Tobias</span>
+          <span>reymond-tobias.ch</span>
+        </div>
+      </div>
+    </footer>
+
+    <script src="assets/js/main.js" defer></script>
+    <script src="assets/js/player.js" defer></script>
+  </body>
+</html>
