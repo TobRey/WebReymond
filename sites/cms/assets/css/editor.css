@@ -1,0 +1,1446 @@
+/* ==========================================================================
+   Backend – Oberfläche
+   Anmeldung, Werkzeugleiste, Elemente, Einstellungen, Dashboard.
+   Gleiche Sprache wie die Website: schwarz, weiss, Anton, dünne Linien.
+
+   1. Grundlagen
+   2. Anmeldung
+   3. Werkzeugleiste
+   4. Panels (Elemente, Einstellungen)
+   5. Bühne und Rahmen
+   6. Im Rahmen: Abschnitte markieren, ziehen, bearbeiten
+   7. Dashboard
+   ========================================================================== */
+
+/* ==========================================================================
+   1. Grundlagen
+   ========================================================================== */
+
+:root {
+  --rc-bar-h: 58px;
+  --rc-panel: rgba(10, 10, 10, 0.94);
+  --rc-line: #262626;
+  --rc-accent: #ffffff;
+}
+
+.rc-editor,
+.rc-login,
+.rc-dash {
+  background: #070707;
+  color: var(--c-white, #fff);
+  font-family: var(--font-body);
+  margin: 0;
+}
+
+.rc-editor {
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* Knöpfe der Oberfläche */
+.rc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 36px;
+  padding: 0 0.95rem;
+  border: 1px solid var(--rc-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--c-white);
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    color 0.25s ease,
+    transform 0.25s ease;
+}
+
+.rc-btn:hover {
+  background: var(--c-white);
+  border-color: var(--c-white);
+  color: #000;
+}
+
+.rc-btn:active {
+  transform: translateY(1px);
+}
+
+.rc-btn--primary {
+  background: var(--c-white);
+  border-color: var(--c-white);
+  color: #000;
+  font-weight: 700;
+}
+
+.rc-btn--primary:hover {
+  background: #d8d8d8;
+  border-color: #d8d8d8;
+}
+
+.rc-btn--primary.is-dirty::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #000;
+  animation: rc-pulse 1.6s ease-in-out infinite;
+}
+
+.rc-btn--icon {
+  width: 36px;
+  padding: 0;
+  justify-content: center;
+}
+
+.rc-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rc-plus {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.rc-x {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--rc-line);
+  border-radius: 50%;
+  background: none;
+  color: var(--c-white);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+
+.rc-x:hover {
+  background: var(--c-white);
+  color: #000;
+}
+
+@keyframes rc-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+/* ==========================================================================
+   2. Anmeldung
+   ========================================================================== */
+
+.rc-login {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  padding: 2rem 1.25rem;
+}
+
+.rc-login__bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.rc-login__beam {
+  position: absolute;
+  top: -20%;
+  left: 50%;
+  width: 60vw;
+  height: 120vh;
+  transform: translateX(-50%) rotate(12deg);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 62%);
+  filter: blur(14px);
+  animation: rc-beam 9s ease-in-out infinite alternate;
+}
+
+@keyframes rc-beam {
+  from {
+    transform: translateX(-60%) rotate(8deg);
+    opacity: 0.7;
+  }
+  to {
+    transform: translateX(-40%) rotate(16deg);
+    opacity: 1;
+  }
+}
+
+.rc-login__inner {
+  position: relative;
+  width: min(420px, 100%);
+  text-align: left;
+}
+
+.rc-login__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--c-grey-3);
+  margin-bottom: 1.6rem;
+}
+
+.rc-login__title {
+  font-size: clamp(2.6rem, 9vw, 4rem);
+  margin-bottom: 0.8rem;
+}
+
+.rc-login__hint {
+  color: var(--c-grey-2);
+  font-size: 0.9rem;
+  margin-bottom: 2rem;
+}
+
+.rc-login__form {
+  gap: 1.4rem;
+}
+
+.rc-login__error {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  color: #fff;
+  border-left: 2px solid #fff;
+  padding-left: 0.8rem;
+}
+
+.rc-login__back {
+  display: inline-block;
+  margin-top: 1.6rem;
+  font-size: 0.74rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--c-grey-2);
+}
+
+.rc-login__back:hover {
+  color: var(--c-white);
+}
+
+/* ==========================================================================
+   3. Werkzeugleiste
+   ========================================================================== */
+
+.rc-bar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 60;
+  height: var(--rc-bar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 0.9rem;
+  background: rgba(6, 6, 6, 0.96);
+  border-bottom: 1px solid var(--rc-line);
+  backdrop-filter: blur(18px);
+  transition: transform 0.4s var(--ease, ease);
+}
+
+.rc-bar.is-hidden {
+  transform: translateY(-100%);
+}
+
+.rc-bar__group {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.rc-bar__center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.rc-bar__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding-right: 0.6rem;
+}
+
+.rc-select select {
+  height: 36px;
+  padding: 0 2rem 0 0.9rem;
+  border: 1px solid var(--rc-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")
+    no-repeat right 0.6rem center / 14px;
+  color: var(--c-white);
+  font-family: inherit;
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  appearance: none;
+  cursor: pointer;
+}
+
+.rc-select select option {
+  background: #0b0b0b;
+}
+
+.rc-devices {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--rc-line);
+  border-radius: 999px;
+}
+
+.rc-device {
+  width: 34px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--c-grey-2);
+  cursor: pointer;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+
+.rc-device svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.rc-device:hover {
+  color: var(--c-white);
+}
+
+.rc-device.is-active {
+  background: var(--c-white);
+  color: #000;
+}
+
+.rc-status {
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--c-grey-2);
+  min-width: 8ch;
+  text-align: right;
+}
+
+.rc-status.is-warn {
+  color: #fff;
+}
+
+/* Kleiner Griff, wenn die Leiste ausgeblendet ist */
+.rc-show {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  z-index: 61;
+  transform: translate(-50%, -100%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 30px;
+  padding: 0 0.9rem;
+  border: 1px solid var(--rc-line);
+  border-top: 0;
+  border-radius: 0 0 999px 999px;
+  background: rgba(6, 6, 6, 0.96);
+  color: var(--c-white);
+  font-size: 0.66rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.4s var(--ease, ease);
+}
+
+.rc-show svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+body.rc-bar-hidden .rc-show {
+  transform: translate(-50%, 0);
+}
+
+/* ==========================================================================
+   4. Panels
+   ========================================================================== */
+
+.rc-panel {
+  position: fixed;
+  top: var(--rc-bar-h);
+  left: 0;
+  right: 0;
+  z-index: 55;
+  background: var(--rc-panel);
+  border-bottom: 1px solid var(--rc-line);
+  backdrop-filter: blur(18px);
+  animation: rc-slide 0.3s ease;
+}
+
+@keyframes rc-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rc-panel__head {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.9rem 1.2rem 0;
+}
+
+.rc-panel__head b {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.rc-panel__head span {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: var(--c-grey-2);
+}
+
+.rc-panel__head .rc-x {
+  margin-left: auto;
+}
+
+.rc-elements {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 0.7rem;
+  padding: 1rem 1.2rem 1.3rem;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.rc-element {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  grid-template-rows: auto auto;
+  gap: 0.15rem 0.7rem;
+  align-items: center;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--rc-line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--c-white);
+  text-align: left;
+  cursor: grab;
+  transition:
+    border-color 0.25s ease,
+    background-color 0.25s ease,
+    transform 0.25s ease;
+}
+
+.rc-element:hover {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-2px);
+}
+
+.rc-element:active {
+  cursor: grabbing;
+}
+
+.rc-element b {
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+
+.rc-element > span:last-child {
+  grid-column: 2;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: var(--c-grey-2);
+}
+
+.rc-element__icon {
+  grid-row: 1 / 3;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--rc-line);
+  border-radius: 8px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 18px;
+}
+
+/* Kleine Zeichen für die Bausteine – reine CSS-Grafik, keine Bilddateien */
+.rc-element__icon[data-icon='hero'] {
+  background-image: linear-gradient(#fff, #fff), linear-gradient(#666, #666);
+  background-size:
+    12px 2px,
+    8px 2px;
+  background-position:
+    8px 12px,
+    8px 18px;
+}
+
+.rc-element__icon[data-icon='head'] {
+  background-image: linear-gradient(#fff, #fff), linear-gradient(#666, #666);
+  background-size:
+    16px 3px,
+    10px 2px;
+  background-position:
+    9px 13px,
+    9px 20px;
+}
+
+.rc-element__icon[data-icon='marquee'] {
+  background-image: linear-gradient(
+    90deg,
+    #fff 0 6px,
+    transparent 6px 10px,
+    #666 10px 16px,
+    transparent 16px 20px,
+    #fff 20px 26px
+  );
+  background-size: 26px 4px;
+  background-position: 4px center;
+}
+
+.rc-element__icon[data-icon='about'] {
+  background-image:
+    linear-gradient(#fff, #fff), linear-gradient(#666, #666), linear-gradient(#666, #666);
+  background-size:
+    8px 8px,
+    12px 2px,
+    12px 2px;
+  background-position:
+    7px 12px,
+    18px 13px,
+    18px 19px;
+}
+
+.rc-element__icon[data-icon='text'] {
+  background-image:
+    linear-gradient(#999, #999), linear-gradient(#999, #999), linear-gradient(#666, #666);
+  background-size:
+    18px 2px,
+    18px 2px,
+    12px 2px;
+  background-position:
+    8px 11px,
+    8px 16px,
+    8px 21px;
+}
+
+.rc-element__icon[data-icon='dates'] {
+  background-image:
+    linear-gradient(#fff, #fff), linear-gradient(#666, #666), linear-gradient(#666, #666);
+  background-size:
+    18px 2px,
+    18px 2px,
+    18px 2px;
+  background-position:
+    8px 10px,
+    8px 16px,
+    8px 22px;
+}
+
+.rc-element__icon[data-icon='player'] {
+  background-image:
+    radial-gradient(circle, #fff 3px, transparent 4px),
+    radial-gradient(circle, #666 8px, transparent 9px);
+  background-position: center, center;
+}
+
+.rc-element__icon[data-icon='list'] {
+  background-image:
+    linear-gradient(#fff, #fff), linear-gradient(#666, #666), linear-gradient(#666, #666);
+  background-size:
+    4px 4px,
+    12px 3px,
+    12px 3px;
+  background-position:
+    7px 12px,
+    14px 12px,
+    7px 20px;
+}
+
+.rc-element__icon[data-icon='contact'] {
+  background-image: linear-gradient(#666, #666), linear-gradient(#fff, #fff);
+  background-size:
+    20px 12px,
+    12px 2px;
+  background-position:
+    7px 11px,
+    11px 16px;
+}
+
+.rc-element__icon[data-icon='cta'] {
+  background-image: linear-gradient(#fff, #fff);
+  background-size: 18px 8px;
+  background-position: center;
+  border-radius: 999px;
+}
+
+/* ==========================================================================
+   Einstellungen eines Abschnitts
+   ========================================================================== */
+
+.rc-inspector {
+  position: fixed;
+  /* Beginnt unterhalb der Kopfzeile der Seite: so bleiben die Verweise in
+     der Navigation anklickbar, auch wenn das Fenster offen ist. */
+  top: calc(var(--rc-bar-h) + 88px);
+  right: 12px;
+  bottom: 12px;
+  z-index: 58;
+  width: 330px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--rc-line);
+  border-radius: 12px;
+  background: var(--rc-panel);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  animation: rc-slide-right 0.3s ease;
+}
+
+@keyframes rc-slide-right {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rc-inspector__head {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.85rem 0.9rem;
+  border-bottom: 1px solid var(--rc-line);
+}
+
+.rc-inspector__head b {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.rc-inspector__head .rc-x {
+  margin-left: auto;
+}
+
+.rc-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0.6rem 0.9rem 0;
+}
+
+.rc-tab {
+  flex: 1;
+  padding: 0.5rem 0.2rem;
+  border: 0;
+  border-bottom: 1px solid var(--rc-line);
+  background: none;
+  color: var(--c-grey-2);
+  font-family: inherit;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    color 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.rc-tab.is-active {
+  color: var(--c-white);
+  border-color: var(--c-white);
+}
+
+.rc-inspector__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 0.9rem 1.4rem;
+}
+
+/* Felder */
+.rc-field {
+  margin-bottom: 1.1rem;
+}
+
+.rc-field > label,
+.rc-field > .rc-label {
+  display: block;
+  font-size: 0.66rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--c-grey-2);
+  margin-bottom: 0.45rem;
+}
+
+.rc-field input[type='text'],
+.rc-field input[type='url'],
+.rc-field input[type='email'],
+.rc-field input[type='password'],
+.rc-field textarea,
+.rc-field select {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--rc-line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--c-white);
+  font-family: inherit;
+  font-size: 0.85rem;
+  transition:
+    border-color 0.25s ease,
+    background-color 0.25s ease;
+}
+
+.rc-field textarea {
+  min-height: 92px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.rc-field input:focus,
+.rc-field textarea:focus,
+.rc-field select:focus {
+  outline: none;
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.rc-field .rc-hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: var(--c-grey-2);
+}
+
+.rc-field--info {
+  padding: 0.7rem 0.8rem;
+  border: 1px dashed var(--rc-line);
+  border-radius: 8px;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--c-grey-3);
+}
+
+/* Schalter */
+.rc-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  cursor: pointer;
+}
+
+.rc-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.rc-switch__track {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex: 0 0 auto;
+  border: 1px solid var(--rc-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  transition:
+    background-color 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.rc-switch__track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--c-grey-2);
+  transition:
+    transform 0.25s var(--ease, ease),
+    background-color 0.25s ease;
+}
+
+.rc-switch input:checked + .rc-switch__track {
+  background: var(--c-white);
+  border-color: var(--c-white);
+}
+
+.rc-switch input:checked + .rc-switch__track::after {
+  transform: translateX(18px);
+  background: #000;
+}
+
+/* Regler */
+.rc-range {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.rc-range input[type='range'] {
+  flex: 1;
+  appearance: none;
+  height: 2px;
+  background: var(--rc-line);
+  cursor: pointer;
+}
+
+.rc-range input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.rc-range input[type='range']::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.rc-range output {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-grey-3);
+  min-width: 4ch;
+  text-align: right;
+}
+
+/* Bildfeld */
+.rc-image {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.rc-image__preview {
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--rc-line);
+  border-radius: 8px;
+  background: #000 center / cover no-repeat;
+}
+
+.rc-image__buttons {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.rc-image__buttons .rc-btn {
+  flex: 1;
+  height: 32px;
+  font-size: 0.66rem;
+}
+
+/* Wiederholfelder */
+.rc-repeater {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.rc-rep-item {
+  border: 1px solid var(--rc-line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.6rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.rc-rep-item__head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--c-grey-2);
+}
+
+.rc-rep-item__head button {
+  border: 0;
+  background: none;
+  color: var(--c-grey-2);
+  cursor: pointer;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.rc-rep-item__head button:hover {
+  color: #fff;
+}
+
+.rc-rep-item__head .rc-grow {
+  flex: 1;
+}
+
+.rc-rep-add {
+  width: 100%;
+  height: 34px;
+  border: 1px dashed var(--rc-line);
+  border-radius: 8px;
+  background: none;
+  color: var(--c-grey-3);
+  font-family: inherit;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    border-color 0.25s ease,
+    color 0.25s ease;
+}
+
+.rc-rep-add:hover {
+  border-color: #fff;
+  color: #fff;
+}
+
+/* ==========================================================================
+   5. Bühne und Rahmen
+   ========================================================================== */
+
+.rc-stage {
+  position: fixed;
+  inset: var(--rc-bar-h) 0 0 0;
+  display: flex;
+  justify-content: center;
+  overflow: auto;
+  background: #101010;
+  transition: inset 0.4s var(--ease, ease);
+}
+
+body.rc-bar-hidden .rc-stage {
+  inset: 0;
+}
+
+.rc-frame {
+  width: 100%;
+  height: 100%;
+  background: #000;
+  transition:
+    width 0.45s var(--ease, ease),
+    box-shadow 0.45s ease;
+}
+
+.rc-frame.is-device {
+  width: 390px;
+  margin: 1.2rem 0;
+  height: calc(100% - 2.4rem);
+  border-radius: 18px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.75);
+  outline: 1px solid var(--rc-line);
+  overflow: hidden;
+}
+
+.rc-frame.is-tablet {
+  width: 834px;
+}
+
+.rc-frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+/* ==========================================================================
+   6. Im Rahmen selbst
+   Diese Regeln gelten im Dokument der bearbeiteten Seite.
+   ========================================================================== */
+
+body.rc-canvas {
+  cursor: default;
+}
+
+body.rc-canvas .site-header {
+  position: absolute;
+}
+
+/* Umriss und Beschriftung jedes Abschnitts */
+body.rc-canvas [data-rc-section] {
+  position: relative;
+  outline: 1px dashed transparent;
+  outline-offset: -1px;
+  transition: outline-color 0.2s ease;
+}
+
+body.rc-canvas [data-rc-section]:hover {
+  outline-color: rgba(255, 255, 255, 0.35);
+}
+
+body.rc-canvas [data-rc-section].is-selected {
+  outline: 1px solid #fff;
+}
+
+body.rc-canvas [data-rc-section].is-dragging {
+  opacity: 0.35;
+}
+
+/* Werkzeuge am Abschnitt */
+.rc-tools {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 40;
+  display: none;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--rc-line);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(10px);
+}
+
+body.rc-canvas [data-rc-section]:hover > .rc-tools,
+body.rc-canvas [data-rc-section].is-selected > .rc-tools {
+  display: flex;
+}
+
+.rc-tool {
+  width: 28px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: #bdbdbd;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.rc-tool:hover {
+  background: #fff;
+  color: #000;
+}
+
+.rc-tool svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rc-tool--grab {
+  cursor: grab;
+}
+
+.rc-tool__name {
+  padding: 0 0.6rem 0 0.4rem;
+  font-family: var(--font-body);
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #fff;
+  white-space: nowrap;
+}
+
+/* Einfügemarke beim Ziehen */
+.rc-drop {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #fff;
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.9);
+  z-index: 45;
+  pointer-events: none;
+}
+
+.rc-drop::after {
+  content: 'Hier einfügen';
+  position: absolute;
+  left: 50%;
+  top: -11px;
+  transform: translateX(-50%);
+  background: #fff;
+  color: #000;
+  font-size: 0.6rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+}
+
+/* Bearbeitbarer Text */
+body.rc-canvas [data-rc-edit] {
+  cursor: text;
+}
+
+body.rc-canvas [data-rc-edit]:hover {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+}
+
+body.rc-canvas [data-rc-edit][contenteditable='true'] {
+  box-shadow: inset 0 0 0 1px #fff;
+  outline: none;
+}
+
+/* Im Editor keine echten Verweise auslösen */
+body.rc-canvas a {
+  cursor: pointer;
+}
+
+/* Leere Seite */
+.rc-empty {
+  min-height: 60vh;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  gap: 0.6rem;
+  color: var(--c-grey-2);
+}
+
+.rc-empty b {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+/* ==========================================================================
+   7. Dashboard
+   ========================================================================== */
+
+.rc-dash {
+  min-height: 100svh;
+}
+
+.rc-dash__bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  height: var(--rc-bar-h);
+  padding: 0 1rem;
+  background: rgba(6, 6, 6, 0.96);
+  border-bottom: 1px solid var(--rc-line);
+  backdrop-filter: blur(18px);
+}
+
+.rc-dash__inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 3rem) 1.2rem 5rem;
+}
+
+.rc-dash__title {
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 7vw, 4rem);
+  text-transform: uppercase;
+  line-height: 0.9;
+  margin-bottom: 0.6rem;
+}
+
+.rc-dash__sub {
+  color: var(--c-grey-2);
+  margin-bottom: 2.4rem;
+}
+
+.rc-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 2rem;
+}
+
+.rc-nav button {
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--rc-line);
+  border-radius: 999px;
+  background: none;
+  color: var(--c-grey-2);
+  font-family: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    border-color 0.25s ease,
+    color 0.25s ease,
+    background-color 0.25s ease;
+}
+
+.rc-nav button:hover {
+  color: #fff;
+  border-color: #fff;
+}
+
+.rc-nav button.is-active {
+  background: #fff;
+  border-color: #fff;
+  color: #000;
+}
+
+.rc-card {
+  border: 1px solid var(--rc-line);
+  border-radius: 12px;
+  background: linear-gradient(160deg, #0d0d0d, #060606);
+  padding: clamp(1.1rem, 3vw, 1.8rem);
+  margin-bottom: 1.2rem;
+}
+
+.rc-card h2 {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+.rc-card p.rc-card__hint {
+  color: var(--c-grey-2);
+  font-size: 0.84rem;
+  margin-bottom: 1.4rem;
+}
+
+.rc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.rc-tab-panel[hidden] {
+  display: none;
+}
+
+.rc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.rc-table th,
+.rc-table td {
+  text-align: left;
+  padding: 0.6rem 0.5rem;
+  border-bottom: 1px solid var(--rc-line);
+  vertical-align: middle;
+}
+
+.rc-table th {
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--c-grey-2);
+  font-weight: 400;
+}
+
+.rc-table input[type='text'] {
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--rc-line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.82rem;
+}
+
+.rc-row-actions {
+  display: flex;
+  gap: 0.3rem;
+  justify-content: flex-end;
+}
+
+.rc-note {
+  font-size: 0.78rem;
+  color: var(--c-grey-2);
+  line-height: 1.6;
+}
+
+.rc-danger {
+  border-color: #3a3a3a;
+}
+
+.rc-danger .rc-btn:hover {
+  background: #fff;
+  color: #000;
+}
+
+.rc-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translate(-50%, 200%);
+  z-index: 90;
+  padding: 0.7rem 1.2rem;
+  border-radius: 999px;
+  background: #fff;
+  color: #000;
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transition: transform 0.4s var(--ease, ease);
+  pointer-events: none;
+}
+
+.rc-toast.is-on {
+  transform: translate(-50%, 0);
+}
+
+/* Auf kleinen Bildschirmen wird die Leiste zweizeilig */
+@media (max-width: 900px) {
+  .rc-bar {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 0.5rem 0.6rem;
+    gap: 0.5rem;
+  }
+
+  .rc-bar__center {
+    position: static;
+    transform: none;
+    order: 3;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .rc-stage {
+    inset: 108px 0 0 0;
+  }
+
+  .rc-inspector {
+    top: auto;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: auto;
+    max-height: 62vh;
+  }
+}
+
+/* ==========================================================================
+   8. Nachträge
+   ========================================================================== */
+
+/* Panels sind mit [hidden] wirklich weg – display:flex würde sonst gewinnen. */
+.rc-inspector[hidden],
+.rc-panel[hidden] {
+  display: none;
+}
+
+/* Im Baukasten zeigen wir die Seite in ihrem Endzustand.
+   Die Auftritts-Animationen laufen sonst nie los, weil das Frontend-Skript
+   im Editor bewusst nicht mitläuft – der Text bliebe unsichtbar. */
+body.rc-canvas .reveal,
+body.rc-canvas .char {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+body.rc-canvas .line-mask > span {
+  transform: none !important;
+}
+
+body.rc-canvas .hero__img {
+  transform: scale(1.02) !important;
+}
+
+/* Die Balkenanzeige des Players zeichnet ohne Skript nichts – deshalb
+   im Editor ein ruhiges Platzhaltermuster, damit die Höhe stimmt. */
+body.rc-canvas .player__viz {
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.5) 0 3px, transparent 3px 9px);
+  background-size: 100% 34%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Die Titelliste wird sonst erst vom Player gefüllt. */
+body.rc-canvas .tracklist::after {
+  content: 'Die Titel erscheinen hier automatisch – gepflegt werden sie im Dashboard unter „Musik“.';
+  display: block;
+  padding: 1.4rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  color: var(--c-grey-2);
+}
+
+/* Die Werkzeuge sitzen links, damit das Einstellungsfenster rechts sie
+   niemals verdeckt. Beim Banner rutschen sie unter die Kopfzeile. */
+.rc-section--hero > .rc-tools {
+  top: 74px;
+}
+
+/* Schalter auf schwarzem Grund sichtbarer machen. */
+.rc-switch__track {
+  border-color: #4a4a4a;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.rc-switch__track::after {
+  background: #cfcfcf;
+}
+
+/* Auf der Anmeldeseite läuft das Frontend-Skript nicht mit – der Titel
+   käme sonst nie aus seiner Maske heraus und bliebe unsichtbar. */
+.rc-login .line-mask > span,
+.rc-login .reveal {
+  transform: none;
+  opacity: 1;
+}

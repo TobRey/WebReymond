@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>DJ Atze – DJ</title>
+    <meta
+      name="description"
+      content="DJ Atze – DJ aus der Schweiz. Dunkler, treibender Sound für Club, Festival und private Anlässe. Musik hören und Booking anfragen."
+    />
+    <meta name="theme-color" content="#000000" />
+    <link rel="canonical" href="https://reymond-tobias.ch/" />
+
+    <!-- Vorschau beim Teilen in Chats und sozialen Netzwerken -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="DJ Atze – DJ" />
+    <meta
+      property="og:description"
+      content="Dunkler, treibender Sound für Club, Festival und private Anlässe."
+    />
+    <meta property="og:url" content="https://reymond-tobias.ch/" />
+    <meta property="og:image" content="https://reymond-tobias.ch/assets/img/banner.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml" />
+
+    <!-- Schriften liegen lokal im Projekt: keine Anfragen an fremde Server. -->
+    <link
+      rel="preload"
+      href="assets/fonts/anton-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="assets/fonts/space-grotesk-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="stylesheet" href="assets/css/style.css" />
+  </head>
+
+  <body class="page-home">
+    <!-- Ladevorhang -->
+    <div class="preloader">
+      <div class="preloader__mark">DJ Atze</div>
+      <span class="preloader__bar"></span>
+    </div>
+
+    <!-- Bildschirmweite Effekte -->
+    <div class="grain" aria-hidden="true"></div>
+    <div class="vignette" aria-hidden="true"></div>
+    <div class="cursor" aria-hidden="true"></div>
+    <div class="cursor-dot" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <div class="site-header__inner">
+        <a class="brand" href="index.html" aria-label="DJ Atze – Startseite">
+          <span class="brand__dot"></span>
+          DJ Atze
+        </a>
+
+        <nav class="nav" aria-label="Hauptnavigation">
+          <a class="nav__link" href="index.html" aria-current="page">Start</a>
+          <a class="nav__link" href="musik.html">Musik</a>
+          <a class="nav__link" href="kontakt.html">Kontakt</a>
+        </nav>
+
+        <button class="burger" type="button" aria-expanded="false" aria-label="Menü öffnen">
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+    </header>
+
+    <nav class="menu" aria-label="Menü">
+      <a class="menu__link" href="index.html" aria-current="page">Start</a>
+      <a class="menu__link" href="musik.html">Musik</a>
+      <a class="menu__link" href="kontakt.html">Kontakt</a>
+      <div class="menu__meta">
+        <span>Schweiz</span>
+        <a href="mailto:booking@reymond-tobias.ch">booking@reymond-tobias.ch</a>
+      </div>
+    </nav>
+
+    <main>
+      <!-- ================= Banner =================
+           Auf dem Foto steht die Person rechts. Deshalb liegt der Titel
+           links und die Abdunklung ist nach links am stärksten. -->
+      <section class="hero">
+        <div class="hero__media">
+          <img
+            class="hero__img"
+            data-parallax="0.12"
+            src="assets/img/banner.jpg"
+            onerror="this.src = 'assets/img/banner-placeholder.svg'"
+            alt="DJ Atze am DJ-Pult im Scheinwerferlicht"
+            fetchpriority="high"
+          />
+        </div>
+        <div class="hero__scrim" aria-hidden="true"></div>
+
+        <div class="hero__inner">
+          <div class="hero__text">
+            <p class="eyebrow hero__eyebrow reveal">DJ · Schweiz</p>
+
+            <h1 class="display hero__title">
+              <span class="line-mask"><span data-split>DJ</span></span>
+              <span class="line-mask"><span class="line-2" data-split>Atze</span></span>
+            </h1>
+
+            <p class="hero__lead reveal reveal--delay-2">
+              Dunkel, treibend, kompromisslos auf die Tanzfläche gebaut. Sets für Club, Festival und
+              private Anlässe.
+            </p>
+
+            <div class="hero__actions reveal reveal--delay-3">
+              <a class="btn btn--solid" href="musik.html" data-magnetic>
+                Musik hören
+                <span class="btn__arrow">→</span>
+              </a>
+              <a class="btn" href="kontakt.html" data-magnetic>Booking anfragen</a>
+            </div>
+          </div>
+
+          <div class="hero__side">
+            <div class="hero__stat reveal reveal--delay-1">
+              <b>Techno</b>
+              <span>Sound</span>
+            </div>
+            <div class="hero__stat reveal reveal--delay-2">
+              <b>Schweiz</b>
+              <span>Basis</span>
+            </div>
+            <div class="hero__stat reveal reveal--delay-3">
+              <b>Offen</b>
+              <span>Booking</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero__scroll" aria-hidden="true">
+          <i></i>
+          Scrollen
+        </div>
+      </section>
+
+      <!-- ================= Laufband ================= -->
+      <div class="marquee" aria-hidden="true">
+        <div class="marquee__track">
+          <span class="marquee__item">Techno</span>
+          <span class="marquee__item marquee__item--outline">Hard Groove</span>
+          <span class="marquee__item">Club</span>
+          <span class="marquee__item marquee__item--outline">Festival</span>
+          <span class="marquee__item">Afterhour</span>
+          <span class="marquee__item marquee__item--outline">Private Events</span>
+        </div>
+      </div>
+
+      <!-- ================= Über ================= -->
+      <section class="section shell">
+        <div class="about">
+          <div class="about__title display reveal">
+            <span class="line-mask"><span>Wer</span></span>
+            <span class="line-mask"><span>hinter</span></span>
+            <span class="line-mask"><span>dem Pult</span></span>
+            <span class="line-mask"><span>steht</span></span>
+          </div>
+
+          <div class="about__body">
+            <p class="reveal">
+              <strong>DJ Atze</strong> legt auf, was um zwei Uhr morgens noch funktioniert:
+              harte Kicks, weite Flächen, ein Aufbau, der nicht loslässt. Kein Set gleicht dem
+              anderen – gelesen wird der Raum, nicht die Playlist.
+            </p>
+            <p class="reveal reveal--delay-1">
+              Von der ersten warmen Stunde bis zum Closing: die Übergänge sitzen, die Spannung
+              bleibt. Technisch sauber, musikalisch dunkel, immer auf die Tanzfläche gerichtet.
+            </p>
+            <p class="reveal reveal--delay-2">
+              Buchbar für Clubnächte, Festivals, Firmenanlässe und private Feiern – mit eigenem
+              Equipment oder auf der Anlage vor Ort.
+            </p>
+
+            <div class="about__tags reveal reveal--delay-3">
+              <span class="tag">Techno</span>
+              <span class="tag">Hard Groove</span>
+              <span class="tag">Melodic Dark</span>
+              <span class="tag">House</span>
+              <span class="tag">Warm Up</span>
+              <span class="tag">Closing</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Termine =================
+           BEISPIELDATEN – bitte durch echte Termine ersetzen oder den
+           ganzen Abschnitt löschen, solange keine Termine feststehen. -->
+      <section class="section shell">
+        <p class="eyebrow reveal">Termine</p>
+        <h2 class="display reveal" style="font-size: var(--step-3); margin-top: 1rem">
+          Wo als Nächstes
+        </h2>
+
+        <div class="dates">
+          <a class="date-row reveal" href="kontakt.html">
+            <span class="date-row__day">TBA</span>
+            <span class="date-row__venue">
+              <b>Clubnacht</b>
+              <span>Ort folgt</span>
+            </span>
+            <span class="date-row__status">Beispiel</span>
+          </a>
+          <a class="date-row reveal reveal--delay-1" href="kontakt.html">
+            <span class="date-row__day">TBA</span>
+            <span class="date-row__venue">
+              <b>Festival</b>
+              <span>Ort folgt</span>
+            </span>
+            <span class="date-row__status">Beispiel</span>
+          </a>
+          <a class="date-row reveal reveal--delay-2" href="kontakt.html">
+            <span class="date-row__day">TBA</span>
+            <span class="date-row__venue">
+              <b>Private Feier</b>
+              <span>Auf Anfrage</span>
+            </span>
+            <span class="date-row__status">Beispiel</span>
+          </a>
+        </div>
+      </section>
+
+      <!-- ================= Abschluss ================= -->
+      <section class="cta">
+        <div class="cta__glow" aria-hidden="true"></div>
+        <div class="shell">
+          <h2 class="display cta__title reveal">Bereit für die <em>Nacht</em></h2>
+          <a class="btn btn--solid" href="kontakt.html" data-magnetic>
+            Booking anfragen
+            <span class="btn__arrow">→</span>
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell">
+        <div class="site-footer__top">
+          <a class="site-footer__mark" href="index.html">DJ Atze</a>
+          <div class="site-footer__links">
+            <a href="index.html">Start</a>
+            <a href="musik.html">Musik</a>
+            <a href="kontakt.html">Kontakt</a>
+            <a href="mailto:booking@reymond-tobias.ch">E-Mail</a>
+          </div>
+        </div>
+        <div class="site-footer__bottom">
+          <span>© <span data-year>2026</span> DJ Atze</span>
+          <span>reymond-tobias.ch</span>
+        </div>
+      </div>
+    </footer>
+
+    <script src="assets/js/main.js" defer></script>
+  </body>
+</html>

@@ -1,16 +1,16 @@
-# WordPress-Theme „Reymond Tobias“
+# WordPress-Theme „DJ Atze“
 
 Die DJ-Website als vollwertiges WordPress-Theme – gleiche Gestaltung, gleiche
-Animationen wie die statische Fassung unter `sites/reymond-tobias/`, aber alle
+Animationen wie die statische Fassung unter `sites/dj-atze/`, aber alle
 Inhalte im Backend pflegbar.
 
-Der Ordner `reymond-tobias/` ist das Theme. Für den Upload wird genau dieser
+Der Ordner `dj-atze/` ist das Theme. Für den Upload wird genau dieser
 Ordner als ZIP verpackt (siehe unten).
 
 ## Installieren
 
 1. **Design → Themes → Theme hinzufügen → Theme hochladen**
-2. `reymond-tobias-theme.zip` auswählen, installieren, **aktivieren**
+2. `dj-atze-theme.zip` auswählen, installieren, **aktivieren**
 3. Fertig. Beim Aktivieren legt das Theme selbst an:
    - die drei Seiten **Start**, **Musik**, **Kontakt** samt Texten
    - die Startseite als statische Startseite
@@ -19,15 +19,20 @@ Ordner als ZIP verpackt (siehe unten).
    - und legt die WordPress-Vorgaben „Beispiel-Seite“ und „Hallo Welt!“ in den
      Papierkorb (nur, wenn sie unverändert sind)
 
+4. **Einstellungen → Allgemein** öffnen und als *Titel der Website*
+   **DJ Atze** eintragen. Diesen Namen zeigt WordPress im Kopf, in der
+   Fusszeile und im Ladevorhang – er kommt aus WordPress selbst, nicht aus
+   dem Theme.
+
 Danach steht die Seite genau so da wie die statische Fassung.
 
 ## Was wo bearbeitet wird
 
 | Inhalt | Ort im Backend |
 |---|---|
-| Bannerbild, Titel, Einleitung, Kennzahlen | Design → Customizer → **Reymond Tobias** → Startseite: Banner |
-| Laufband, Stichwörter, Überschriften, Schlusszeile | Customizer → Reymond Tobias → Startseite: Abschnitte |
-| E-Mail, Telefon, Ort, Social-Links | Customizer → Reymond Tobias → Kontakt und Social |
+| Bannerbild, Titel, Einleitung, Kennzahlen | Design → Customizer → **DJ Atze** → Startseite: Banner |
+| Laufband, Stichwörter, Überschriften, Schlusszeile | Customizer → DJ Atze → Startseite: Abschnitte |
+| E-Mail, Telefon, Ort, Social-Links | Customizer → DJ Atze → Kontakt und Social |
 | Text im Abschnitt „Über“ | Seiten → **Start** (normaler Editor) |
 | Einleitung auf Musik- und Kontaktseite | Seiten → Musik bzw. Kontakt |
 | Titel im Player | **Musik** in der linken Leiste |
@@ -36,7 +41,7 @@ Danach steht die Seite genau so da wie die statische Fassung.
 
 ### Bannerbild
 
-Customizer → Reymond Tobias → Startseite: Banner → **Bannerbild**.
+Customizer → DJ Atze → Startseite: Banner → **Bannerbild**.
 Solange keines gesetzt ist, erscheint der mitgelieferte Platzhalter.
 Steht die Person rechts im Bild, passt der Titel links daneben – genau dafür
 ist die Abdunklung gebaut. Bei anderem Bildausschnitt in
@@ -87,5 +92,5 @@ günstigen Hostern häufig im Spam.
 
 ```bash
 cd sites/wordpress
-zip -r reymond-tobias-theme.zip reymond-tobias
+zip -r dj-atze-theme.zip dj-atze
 ```

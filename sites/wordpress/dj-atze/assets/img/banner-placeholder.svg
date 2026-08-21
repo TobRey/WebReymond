@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Platzhalter für das Bannerbild">
+  <defs>
+    <radialGradient id="spot" cx="30%" cy="12%" r="16%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="beam" x1="0.3" y1="0" x2="0.62" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.34"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="26"/></filter>
+    <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3"/><feColorMatrix type="saturate" values="0"/></filter>
+  </defs>
+
+  <rect width="1600" height="1000" fill="#000000"/>
+
+  <!-- Scheinwerfer oben links, Kegel nach unten rechts -->
+  <polygon points="440,110 520,110 900,1000 300,1000" fill="url(#beam)"/>
+  <circle cx="480" cy="120" r="150" fill="url(#spot)"/>
+
+  <!-- Angedeutete Gestalt rechts: dort steht auf dem echten Foto die Person -->
+  <g filter="url(#soft)" fill="#ffffff" fill-opacity="0.14">
+    <circle cx="1090" cy="330" r="120"/>
+    <path d="M880 1000 C880 700 960 560 1090 560 C1220 560 1300 700 1300 1000 Z"/>
+  </g>
+
+  <!-- Pultkante unten -->
+  <rect x="0" y="880" width="1600" height="120" fill="url(#floor)"/>
+  <rect x="0" y="880" width="1600" height="2" fill="#ffffff" fill-opacity="0.25"/>
+
+  <rect width="1600" height="1000" filter="url(#grain)" opacity="0.14"/>
+
+  <text x="1540" y="960" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="20" letter-spacing="6" fill="#ffffff" fill-opacity="0.4">
+    BANNERBILD IM CUSTOMIZER SETZEN
+  </text>
+</svg>
