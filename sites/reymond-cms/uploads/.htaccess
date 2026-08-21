@@ -1,0 +1,7 @@
+# Hochgeladene Dateien werden nur ausgeliefert, niemals ausgeführt.
+php_flag engine off
+AddType text/plain .php .phtml .php3 .php4 .php5 .php7 .php8 .pl .py .cgi .sh
+
+<FilesMatch "\.(php|phtml|php[0-9]|pl|py|cgi|sh)$">
+	Require all denied
+</FilesMatch>

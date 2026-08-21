@@ -1,0 +1,8 @@
+# Dieser Ordner enthält Inhalte und Zugangsdaten – niemals ausliefern.
+Require all denied
+
+# Für ältere Apache-Fassungen:
+<IfModule !mod_authz_core.c>
+	Order allow,deny
+	Deny from all
+</IfModule>
