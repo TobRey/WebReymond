@@ -5,3 +5,6 @@ coverage/
 
 # Dokumentation wird von Hand formatiert (Tabellen, Diagramme, Einrückungen).
 *.md
+
+# Standalone-PHP-Spiel: eigener Stil, kein Build-Schritt.
+games/dice-duel/

@@ -1,0 +1,4 @@
+# Laufzeitdaten (Raeume) werden nicht versioniert.
+*
+!.gitignore
+!.htaccess
