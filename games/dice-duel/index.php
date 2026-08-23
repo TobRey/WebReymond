@@ -30,6 +30,7 @@ $assetVersion = (string) @filemtime(__DIR__ . '/assets/app.js') ?: '1';
 <body>
 
 <div id="toasts" class="toasts" aria-live="polite"></div>
+<div id="tip" class="tip" hidden role="tooltip"></div>
 
 <!-- ------------------------------------------------------------- Home -->
 <section id="screen-home" class="screen screen--center is-active">
@@ -41,7 +42,7 @@ $assetVersion = (string) @filemtime(__DIR__ . '/assets/app.js') ?: '1';
         </span>
         <h1 class="brand__name">Dice&nbsp;Duel</h1>
       </div>
-      <p class="home__tagline">Zwei Spieler. Vier Zielzahlen. 20 Züge pro Kopf.<br>Triff punktgenau, baue Streaks, kaufe Spezialwürfel.</p>
+      <p class="home__tagline">Zwei Spieler, vier Zielzahlen, 20 Züge.</p>
     </header>
 
     <div class="card home__card">
@@ -61,25 +62,19 @@ $assetVersion = (string) @filemtime(__DIR__ . '/assets/app.js') ?: '1';
       <button id="btn-join" class="btn btn--ghost btn--lg">Raum beitreten</button>
       <p id="home-error" class="form-error" role="alert"></p>
     </div>
-
-    <ul class="home__facts">
-      <li><b>4</b> Zielzahlen</li>
-      <li><b>11</b> Würfeltypen</li>
-      <li><b>15</b> Tränke</li>
-    </ul>
   </div>
 </section>
 
 <!-- ------------------------------------------------------------ Lobby -->
 <section id="screen-lobby" class="screen screen--center">
   <div class="card lobby">
-    <p class="lobby__hint">Teile diesen Code mit deinem Gegner</p>
+    <p class="lobby__hint">Code teilen</p>
     <button id="room-code" class="roomcode" title="Code kopieren"><span id="room-code-text">-----</span></button>
     <div class="lobby__players">
       <div class="lobby__player is-ready"><span class="dot"></span><span id="lobby-p1">-</span></div>
       <div class="lobby__player" id="lobby-slot2"><span class="dot"></span><span id="lobby-p2">Warte auf Spieler 2</span></div>
     </div>
-    <div class="lobby__wait"><span class="pulse"></span> Match startet automatisch, sobald beide da sind.</div>
+    <div class="lobby__wait"><span class="pulse"></span> Startet automatisch, sobald beide da sind</div>
     <button id="btn-leave-lobby" class="btn btn--quiet">Abbrechen</button>
   </div>
 </section>
@@ -105,8 +100,9 @@ $assetVersion = (string) @filemtime(__DIR__ . '/assets/app.js') ?: '1';
 
     <div class="stage">
       <div class="stage__head">
-        <span id="phase-badge" class="phase-badge">Zielzahl wählen</span>
-        <span id="turn-owner" class="turn-owner">Du bist am Zug</span>
+        <span id="turn-avatar" class="turn-avatar">1</span>
+        <span id="turn-line" class="turn-line">Du bist dran</span>
+        <span id="turn-step" class="turn-step">Zielzahl wählen</span>
       </div>
 
       <div id="targets" class="targets"></div>
@@ -124,7 +120,7 @@ $assetVersion = (string) @filemtime(__DIR__ . '/assets/app.js') ?: '1';
 
     <div class="actionbar">
       <div class="actionbar__dice">
-        <div class="actionbar__title">Deine Würfel <span class="muted" id="dice-hint">- wähle 1 oder 2</span></div>
+        <div class="actionbar__title">Deine Würfel<span id="tip-hint" class="tip-hint">halten für Info</span><span id="dice-hint" class="dice-hint">0/2</span></div>
         <div id="dice-tray" class="dicetray"></div>
       </div>
       <button id="btn-roll" class="btn btn--roll" disabled>Würfeln</button>
@@ -154,10 +150,7 @@ $assetVersion = (string) @filemtime(__DIR__ . '/assets/app.js') ?: '1';
   <div class="shop__backdrop" data-close-shop></div>
   <aside class="shop__panel" role="dialog" aria-label="Shop">
     <header class="shop__head">
-      <div>
-        <h2>Shop</h2>
-        <p class="muted">Würfel bleiben dauerhaft, Tränke bis Rundenende.</p>
-      </div>
+      <h2>Shop</h2>
       <div class="shop__money">$<span id="shop-money">0</span></div>
       <button class="shop__close" data-close-shop aria-label="Schließen">✕</button>
     </header>

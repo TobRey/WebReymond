@@ -29,6 +29,79 @@
   let shopTab = 'dice';
   const sig = { targets: '', targetsBoard: '', tray: '', log: -1, logLast: '', shop: '' };
 
+  /* --------------------------------------------------------- Erklaerung */
+  /* Langer Druck (oder Hover am Desktop) zeigt, was ein Wuerfel oder Trank macht. */
+  const TIP_KEY = 'diceduel.tipSeen';
+  let tipTimer = 0;
+  let tipLongPress = false;
+
+  function tipSeen() {
+    try { return localStorage.getItem(TIP_KEY) === '1'; } catch { return true; }
+  }
+
+  function showTip(anchorNode, title, text) {
+    const node = $('tip');
+    node.textContent = '';
+    node.appendChild(el('b', null, title));
+    node.appendChild(el('span', null, text));
+    node.hidden = false;
+
+    const box = anchorNode.getBoundingClientRect();
+    const w = node.offsetWidth;
+    const h = node.offsetHeight;
+    const left = Math.max(10, Math.min(box.left + box.width / 2 - w / 2, window.innerWidth - w - 10));
+    const top = box.top - h - 10 < 10 ? box.bottom + 10 : box.top - h - 10;
+    node.style.transform = 'translate3d(' + Math.round(left) + 'px, ' + Math.round(top) + 'px, 0)';
+    node.classList.add('is-on');
+
+    try { localStorage.setItem(TIP_KEY, '1'); } catch { /* ignore */ }
+    const badge = $('tip-hint');
+    if (badge) badge.hidden = true;
+  }
+
+  function hideTip() {
+    clearTimeout(tipTimer);
+    const node = $('tip');
+    if (node.hidden) return;
+    node.classList.remove('is-on');
+    node.hidden = true;
+  }
+
+  /** Haengt Langdruck- und Hover-Erklaerung an ein Element. */
+  function bindTip(node, title, text) {
+    if (!text) return;
+    node.addEventListener('pointerdown', () => {
+      tipLongPress = false;
+      clearTimeout(tipTimer);
+      tipTimer = setTimeout(() => {
+        tipLongPress = true;
+        showTip(node, title, text);
+      }, 350);
+    });
+    node.addEventListener('pointerup', () => clearTimeout(tipTimer));
+    node.addEventListener('pointercancel', hideTip);
+    node.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Ein Langdruck darf den Wuerfel nicht aus- oder abwaehlen.
+    node.addEventListener('click', (e) => {
+      if (!tipLongPress) return;
+      tipLongPress = false;
+      e.preventDefault();
+      e.stopPropagation();
+    }, true);
+
+    if (window.matchMedia && window.matchMedia('(hover: hover)').matches) {
+      node.addEventListener('mouseenter', () => {
+        clearTimeout(tipTimer);
+        tipTimer = setTimeout(() => showTip(node, title, text), 520);
+      });
+      node.addEventListener('mouseleave', hideTip);
+    }
+  }
+
+  document.addEventListener('pointerup', () => setTimeout(hideTip, 60));
+  window.addEventListener('scroll', hideTip, true);
+  window.addEventListener('resize', hideTip);
+
   /* ---------------------------------------------------------- Toasts */
   function toast(message, kind) {
     const node = el('div', 'toast' + (kind ? ' is-' + kind : ''), message);
@@ -169,10 +242,6 @@
       return;
     }
 
-    if (prev && prev.status === 'lobby' && next.status === 'playing') {
-      toast('Beide Spieler bereit - los geht\'s!', 'good');
-    }
-
     if (next.status === 'finished') {
       renderGame(next, prev);
       renderResult(next);
@@ -259,13 +328,13 @@
           const meta = CATALOG.potions[id];
           if (!meta) return;
           const chip = el('span', 'potion-chip', meta.name.replace(' Potion', ''));
-          chip.title = meta.desc;
+          bindTip(chip, meta.name, meta.desc);
           potionHost.appendChild(chip);
         });
       }
 
       const dc = card.querySelector('.pcard__dicecount');
-      const label = p.dice.length + ' Würfel · ' + p.turnsPlayed + '/' + s.turnsPerPlayer + ' Züge · ' + p.perfects + ' Perfect';
+      const label = p.turnsPlayed + '/' + s.turnsPerPlayer + ' Züge · ' + p.perfects + ' Perfect';
       if (dc.textContent !== label) dc.textContent = label;
     });
   }
@@ -374,12 +443,11 @@
     selectedDice = selectedDice.filter((id) => me.dice.includes(id));
 
     // Button- und Hinweiszustand immer aktualisieren, auch wenn die Leiste gleich bleibt.
-    let hint;
-    if (myTurn) hint = '- ' + selectedDice.length + '/2 gewählt';
-    else if (s.currentSlot === s.you) hint = '- zuerst Zielzahl wählen';
-    else hint = '- warte auf deinen Zug';
-    $('dice-hint').textContent = hint;
+    const hint = $('dice-hint');
+    hint.textContent = selectedDice.length + '/2';
+    hint.classList.toggle('is-live', myTurn);
     $('btn-roll').disabled = !myTurn || selectedDice.length < 1;
+    $('dice-tray').classList.toggle('is-live', myTurn);
 
     const signature = me.dice.join(',') + '|' + selectedDice.join(',') + '|' + myTurn;
     if (sig.tray === signature) return;
@@ -393,7 +461,7 @@
       const btn = el('button', 'die-btn');
       btn.appendChild(el('span', 'die-btn__icon', meta.icon));
       btn.appendChild(el('span', 'die-btn__name', meta.name));
-      btn.title = meta.desc;
+      bindTip(btn, meta.name, meta.desc);
       const order = selectedDice.indexOf(id);
       if (order >= 0) {
         btn.classList.add('is-selected');
@@ -432,24 +500,29 @@
   function renderPhase(s, prev) {
     const myTurn = s.currentSlot === s.you;
     const other = s.players[1 - s.you];
-    const badge = $('phase-badge');
-    const owner = $('turn-owner');
+    const line = $('turn-line');
+    const step = $('turn-step');
+    const avatar = $('turn-avatar');
 
-    const phaseText = s.phase === 'select' ? 'Zielzahl wählen' : 'Würfel wählen & werfen';
-    if (badge.textContent !== phaseText) badge.textContent = phaseText;
+    const lineText = myTurn ? 'Du bist dran' : ((other ? other.name : 'Gegner') + ' ist dran');
+    const stepText = s.phase === 'select'
+      ? (myTurn ? 'Wähle eine Zielzahl' : 'wählt eine Zielzahl')
+      : (myTurn ? 'Wähle 1-2 Würfel und wirf' : 'würfelt');
 
-    const ownerText = myTurn ? 'Du bist am Zug' : (other ? other.name + ' ist am Zug' : '');
-    if (owner.textContent !== ownerText) {
-      owner.textContent = ownerText;
-      owner.classList.remove('is-switch');
-      void owner.offsetWidth;
-      owner.classList.add('is-switch');
+    if (line.textContent !== lineText) {
+      line.textContent = lineText;
+      line.classList.remove('is-switch');
+      void line.offsetWidth;
+      line.classList.add('is-switch');
     }
-    owner.classList.toggle('is-you', myTurn);
+    if (step.textContent !== stepText) step.textContent = stepText;
 
-    if (prev && prev.currentSlot !== s.currentSlot && myTurn && s.status === 'playing') {
-      toast('Du bist dran', 'good');
-    }
+    const head = line.parentElement;
+    head.classList.toggle('is-you', myTurn);
+    const initial = (myTurn ? (s.players[s.you] || {}).name : (other || {}).name) || '?';
+    const mark = initial.slice(0, 1).toUpperCase();
+    if (avatar.textContent !== mark) avatar.textContent = mark;
+    avatar.dataset.slot = String(s.currentSlot);
   }
 
   /* ------------------------------------------------------------ Log */
@@ -666,16 +739,14 @@
     const stats = $('result-stats');
     stats.textContent = '';
     [
-      me.perfects + ' Punktlandungen',
+      me.perfects + ' Perfect',
       'Beste Streak x' + me.bestStreak,
       me.money + ' $ übrig',
-      me.dice.length + ' Würfel',
-      me.potions.length + ' Tränke',
     ].forEach((t) => stats.appendChild(el('span', null, t)));
 
     const votes = s.rematchVotes || [];
     $('rematch-hint').textContent = votes.length === 1
-      ? (votes[0] === s.you ? 'Warte auf den Gegner...' : foe.name + ' will eine Revanche!')
+      ? (votes[0] === s.you ? 'Warte auf den Gegner…' : foe.name + ' will eine Revanche')
       : '';
   }
 
@@ -779,4 +850,6 @@
     showScreen('screen-home');
     $('input-name').focus();
   })();
+
+  if (tipSeen()) $('tip-hint').hidden = true;
 })();

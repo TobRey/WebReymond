@@ -152,27 +152,31 @@ Einkaufen kostet also keinen Sieg.
 | Wild Die | 200 | 18 % Chance: Seite passt sich der benötigten Zahl an |
 
 Jeder Spieler startet mit 2 Standardwürfeln und **120 $**. Vor jedem Wurf wählt
-er frei, welche 1 oder 2 seiner Würfel er benutzt.
+er frei, welche 1 oder 2 seiner Würfel er benutzt. Was ein Würfel oder ein
+aktiver Trank macht, zeigt ein **langer Druck** darauf (am Desktop reicht Hovern).
 
 ### Tränke (bis Rundenende aktiv)
 
+Tränke wirken die ganze Runde und sind deshalb bewusst teurer als Würfel – über
+ein Match sind meist nur zwei bis drei Käufe drin.
+
 | Trank | Preis | Effekt |
 |-------|------:|--------|
-| Over Potion | 70 | Ergebnis über dem Ziel: +50 % Geld |
-| Under Potion | 70 | Ergebnis unter dem Ziel: +50 % Geld |
-| Even Potion | 65 | Gerades Ergebnis: +18 P, +10 $ |
-| Odd Potion | 65 | Ungerades Ergebnis: +18 P, +10 $ |
-| Perfect Potion | 110 | Punktlandung: +45 $ |
-| Streak Potion | 130 | Streak‑Multiplikator wächst schneller |
-| Close Call Potion | 95 | Abstand 1: +60 P, +15 $ |
-| Double Dice Potion | 80 | Mit 2 Würfeln: +14 P, +8 $ |
-| Single Dice Potion | 80 | Mit 1 Würfel: +16 P, +10 $ |
-| Lucky Potion | 120 | 25 % Chance: Distanz −1 |
-| Golden Potion | 105 | Alle Geldbelohnungen +20 % |
-| Score Potion | 115 | Alle Punkte +15 % |
-| Risk Potion | 125 | Abstand 0‑1: +60 % P, ab Abstand 3: −60 % P |
-| High Target Potion | 85 | Ziel ≥ 8: +20 % P und $ |
-| Low Target Potion | 85 | Ziel ≤ 5: +20 % P und $ |
+| Over Potion | 165 | Ergebnis über dem Ziel: +50 % Geld |
+| Under Potion | 165 | Ergebnis unter dem Ziel: +50 % Geld |
+| Even Potion | 150 | Gerades Ergebnis: +18 P, +10 $ |
+| Odd Potion | 150 | Ungerades Ergebnis: +18 P, +10 $ |
+| Perfect Potion | 240 | Punktlandung: +45 $ |
+| Streak Potion | 300 | Streak‑Multiplikator wächst schneller |
+| Close Call Potion | 210 | Abstand 1: +60 P, +15 $ |
+| Double Dice Potion | 170 | Mit 2 Würfeln: +14 P, +8 $ |
+| Single Dice Potion | 170 | Mit 1 Würfel: +16 P, +10 $ |
+| Lucky Potion | 260 | 25 % Chance: Distanz −1 |
+| Golden Potion | 220 | Alle Geldbelohnungen +20 % |
+| Score Potion | 250 | Alle Punkte +15 % |
+| Risk Potion | 270 | Abstand 0‑1: +60 % P, ab Abstand 3: −60 % P |
+| High Target Potion | 180 | Ziel ≥ 8: +20 % P und $ |
+| Low Target Potion | 180 | Ziel ≤ 5: +20 % P und $ |
 
 Reihenfolge der Berechnung: Würfeleffekte → Distanz → Grundwerte → Streak →
 flache Boni → prozentuale Boni → Verzauberung (×2 Cash).
@@ -197,6 +201,7 @@ kein Build.
 | Code teilen | Auf den Raumcode klicken (kopiert in die Zwischenablage) |
 | Ziel wählen | Auf eine der 4 großen Zahlen tippen |
 | Würfel wählen | Würfel unten antippen (max. 2, Auswahl bleibt für den nächsten Zug) |
+| Erklärung sehen | Würfel oder aktiven Trank gedrückt halten |
 | Shop | Button oben rechts, `Esc` schließt |
 | Revanche | Nach dem Match – startet neu, sobald beide zustimmen |
 
