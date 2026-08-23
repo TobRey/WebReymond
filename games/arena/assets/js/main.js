@@ -26,6 +26,33 @@ let pendingSwap = null;
 let hudTimer = 0;
 let best = loadBest();
 
+/* ----------------------------------------------------------------- Audio */
+function initAudio() {
+  const cfg = content.audio || {};
+  if (cfg.musicTrack) Audio.setMusic(cfg.musicTrack, cfg.musicVolume);
+  if (cfg.musicEnabled === false) Audio.setMusicOn(false);
+  syncSoundButtons();
+  if (Audio.settings.musicOn) Audio.startMusic();
+}
+
+function syncSoundButtons() {
+  const on = Audio.settings.musicOn;
+  const icon = $('btn-sound');
+  if (icon) {
+    icon.textContent = on ? '♪' : '✕';
+    icon.title = on ? 'Musik aus' : 'Musik an';
+    icon.style.opacity = on ? '1' : '0.55';
+  }
+  const menuBtn = $('btn-sound-menu');
+  if (menuBtn) menuBtn.textContent = 'Musik: ' + (on ? 'an' : 'aus');
+}
+
+function toggleSound() {
+  Audio.setMusicOn(!Audio.settings.musicOn);
+  Audio.setSfxOn(Audio.settings.musicOn);
+  syncSoundButtons();
+}
+
 /* --------------------------------------------------------------- Screens */
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('is-active', s.id === id));
@@ -170,6 +197,8 @@ async function startRun(weapon) {
   });
   loop.start();
   arena.start();
+  Audio.duckMusic(false);
+  if (Audio.settings.musicOn) Audio.startMusic();
   banner('Welle 1', false);
 }
 
@@ -189,6 +218,7 @@ function wireArena(instance) {
   instance.on('bossEnrage', () => toast('Der Boss wird wuetend!', 'error'));
   instance.on('death', (summary) => {
     loop.setPaused(true);
+    Audio.duckMusic(true);
     saveBest(summary);
     showDeath(summary);
   });
@@ -255,6 +285,7 @@ function updateHud(force) {
 
 /* --------------------------------------------------------------- Upgrades */
 function showUpgrades(info) {
+  Audio.duckMusic(true);
   const cards = rollChoices(content, arena.run, content.balance.upgradeChoices || 3);
   const host = $('upgrade-cards');
   host.textContent = '';
@@ -312,6 +343,7 @@ function chooseCard(card) {
 }
 
 function finishUpgrade() {
+  Audio.duckMusic(false);
   $('overlay-upgrade').hidden = true;
   $('overlay-swap').hidden = true;
   updateHud(true);
@@ -323,6 +355,7 @@ function finishUpgrade() {
 function showStats() {
   if (!arena) return;
   loop.setPaused(true);
+  Audio.duckMusic(true);
   const grid = $('stats-grid');
   grid.textContent = '';
   for (const [label, value] of arena.run.snapshot()) {
@@ -410,18 +443,23 @@ document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('clic
 document.querySelectorAll('[data-close-stats]').forEach((b) =>
   b.addEventListener('click', () => {
     $('overlay-stats').hidden = true;
+    if (!arena || !arena.isIntermission) Audio.duckMusic(false);
     if (loop && !arena.isIntermission && !arena.gameOver) loop.setPaused(false);
   }),
 );
 
 $('btn-stats').addEventListener('click', showStats);
+$('btn-sound').addEventListener('click', toggleSound);
+$('btn-sound-menu').addEventListener('click', toggleSound);
 $('btn-pause').addEventListener('click', () => {
   if (!loop) return;
   loop.setPaused(true);
+  Audio.duckMusic(true);
   $('overlay-pause').hidden = false;
 });
 $('pause-resume').addEventListener('click', () => {
   $('overlay-pause').hidden = true;
+  Audio.duckMusic(false);
   if (!arena.isIntermission && !arena.gameOver) loop.setPaused(false);
 });
 $('pause-debug').addEventListener('click', () => {
@@ -499,6 +537,7 @@ function checkOrientation() {
   await Assets.loadAll(content.weapons.filter((w) => w.active).map((w) => w.sprite));
   renderBest();
   renderWeapons();
+  initAudio();
   $('loading').hidden = true;
   showScreen('screen-menu');
   if (Assets.missing.length) {

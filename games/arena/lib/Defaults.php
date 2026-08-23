@@ -16,6 +16,7 @@ final class Defaults
             'version' => 1,
             'player' => self::player(),
             'balance' => self::balance(),
+            'audio' => self::audio(),
             'weapons' => self::weapons(),
             'enemies' => self::enemies(),
             'upgrades' => self::upgrades(),
@@ -42,6 +43,17 @@ final class Defaults
             'spriteDust' => self::SPRITE_BASE . 'staub.gif',
             'scale' => 78,
             'hitbox' => ['rx' => 14, 'ry' => 9, 'oy' => 24],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    public static function audio(): array
+    {
+        return [
+            'musicTrack' => 'assets/audio/music-arena.mp3',
+            'musicVolume' => 0.5,
+            'sfxVolume' => 0.8,
+            'musicEnabled' => true,
         ];
     }
 
@@ -80,33 +92,36 @@ final class Defaults
         $s = self::SPRITE_BASE;
         // damage/cooldown ergeben die DPS. Nahkampf darf mehr, weil riskanter.
         // Flaechenwaffen treffen viele Ziele und machen pro Ziel weniger.
+        // Die letzten beiden Zahlen sind die Darstellungsgroessen in Pixeln:
+        // Waffensprite (in der Hand bzw. beim Schwung) und Projektil.
         $w = [
             ['pistole', 'Pistole', 'pistole.png', 'PROJECTILE', 'schuss',
-             22, 0.40, 430, 640, 90, 8, 60, 0, 'Schneller Einzelschuss mit solidem Schaden.'],
+             22, 0.40, 430, 640, 90, 8, 60, 0, 'Schneller Einzelschuss mit solidem Schaden.', 46, 16],
             ['sturmgewehr', 'Sturmgewehr', 'sturmgewehr.png', 'PROJECTILE', 'schuss',
-             8, 0.11, 390, 760, 35, 6, 55, 0, 'Sehr hohe Feuerrate, dafuer wenig Schaden pro Schuss.'],
+             8, 0.11, 390, 760, 35, 6, 55, 0, 'Sehr hohe Feuerrate, dafuer wenig Schaden pro Schuss.', 54, 14],
             ['bogen', 'Bogen', 'bogen.png', 'PROJECTILE', 'pfeil',
-             46, 0.78, 540, 800, 110, 12, 70, 0, 'Langsamer Schuss, hoher Einzelschaden, durchbohrt 1 Gegner.'],
+             46, 0.78, 540, 800, 110, 12, 70, 0, 'Langsamer Schuss, hoher Einzelschaden, durchbohrt 1 Gegner.', 50, 20],
             ['armbrust', 'Armbrust', 'armbrust.png', 'PROJECTILE', 'pfeil',
-             85, 1.35, 640, 980, 150, 14, 80, 0, 'Lange Nachladezeit, dafuer massiver Schaden, durchbohrt 2 Gegner.'],
+             85, 1.35, 640, 980, 150, 14, 80, 0, 'Lange Nachladezeit, dafuer massiver Schaden, durchbohrt 2 Gegner.', 56, 26],
             ['zauberstab', 'Zauberstab', 'zauberstab.png', 'MAGIC', 'magic',
-             28, 0.55, 500, 430, 60, 10, 65, 0, 'Magisches Geschoss mit leichter Zielsuche - trifft fast immer.'],
+             28, 0.55, 500, 430, 60, 10, 65, 0, 'Magisches Geschoss mit leichter Zielsuche - trifft fast immer.', 50, 18],
             ['speer', 'Speer', 'speer.png', 'THRUST', '',
-             48, 0.62, 165, 0, 130, 10, 65, 0, 'Stoss nach vorne mit schmalem Trefferbereich und hohem Schaden.'],
+             48, 0.62, 165, 0, 130, 10, 65, 0, 'Stoss nach vorne mit schmalem Trefferbereich und hohem Schaden.', 120, 16],
             ['dolch', 'Dolch', 'dolch.png', 'MELEE_ARC', '',
-             15, 0.20, 100, 0, 45, 15, 70, 0, 'Blitzschnelle Stiche auf kurze Distanz.'],
+             15, 0.20, 100, 0, 45, 15, 70, 0, 'Blitzschnelle Stiche auf kurze Distanz.', 58, 16],
             ['schwert', 'Schwert', 'schwert.png', 'MELEE_ARC', '',
-             22, 0.50, 140, 0, 110, 8, 60, 0, 'Weiter Schwung vor dem Spieler, trifft mehrere Gegner.'],
+             22, 0.50, 140, 0, 110, 8, 60, 0, 'Weiter Schwung vor dem Spieler, trifft mehrere Gegner.', 95, 16],
             ['axt', 'Axt', 'axt.png', 'MELEE_360', '',
-             18, 0.95, 155, 0, 140, 8, 60, 0, 'Volle 360-Grad-Drehung, trifft alles rundherum.'],
+             18, 0.95, 155, 0, 140, 8, 60, 0, 'Volle 360-Grad-Drehung, trifft alles rundherum.', 88, 16],
             ['granate', 'Granate', 'granate.png', 'GRENADE', 'granate',
-             55, 1.90, 400, 420, 190, 8, 60, 130, 'Wurfgeschoss mit verzoegerter Explosion und grossem Radius.'],
+             55, 1.90, 400, 420, 190, 8, 60, 130, 'Wurfgeschoss mit verzoegerter Explosion und grossem Radius.', 46, 34],
         ];
 
         $out = [];
         foreach ($w as $i => $row) {
             [$id, $name, $sprite, $type, $projectile, $damage, $cooldown, $range,
-             $projectileSpeed, $knockback, $critChance, $critDamage, $aoe, $desc] = $row;
+             $projectileSpeed, $knockback, $critChance, $critDamage, $aoe, $desc,
+             $spriteScale, $projectileSize] = $row;
             $out[] = [
                 'id' => $id,
                 'name' => $name,
@@ -127,6 +142,8 @@ final class Defaults
                 'pierce' => $id === 'bogen' ? 1 : ($id === 'armbrust' ? 2 : 0),
                 'spread' => $id === 'sturmgewehr' ? 7 : ($id === 'pistole' ? 2 : 0),
                 'recoil' => $id === 'sturmgewehr' ? 5 : ($id === 'armbrust' ? 12 : 6),
+                'spriteScale' => $spriteScale,
+                'projectileSize' => $projectileSize,
                 'description' => $desc,
                 'active' => true,
                 'starter' => in_array($id, ['pistole', 'bogen', 'schwert', 'zauberstab'], true),
@@ -246,6 +263,19 @@ final class Defaults
     {
         $data['player'] = array_merge(self::player(), is_array($data['player'] ?? null) ? $data['player'] : []);
         $data['balance'] = array_merge(self::balance(), is_array($data['balance'] ?? null) ? $data['balance'] : []);
+        $data['audio'] = array_merge(self::audio(), is_array($data['audio'] ?? null) ? $data['audio'] : []);
+        // Aeltere Waffen ohne Groessenangaben bekommen sinnvolle Standardwerte.
+        if (is_array($data['weapons'] ?? null)) {
+            foreach ($data['weapons'] as $i => $weapon) {
+                if (!isset($weapon['spriteScale'])) {
+                    $melee = in_array($weapon['type'] ?? '', ['MELEE_ARC', 'MELEE_360', 'THRUST'], true);
+                    $data['weapons'][$i]['spriteScale'] = $melee ? 90 : 46;
+                }
+                if (!isset($weapon['projectileSize'])) {
+                    $data['weapons'][$i]['projectileSize'] = 16;
+                }
+            }
+        }
         foreach (['weapons', 'enemies', 'upgrades', 'maps'] as $key) {
             if (!isset($data[$key]) || !is_array($data[$key])) {
                 $data[$key] = self::$key();

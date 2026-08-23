@@ -74,6 +74,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
       <button class="nav__item" data-view="upgrades">Upgrades</button>
       <button class="nav__item" data-view="player">Spieler</button>
       <button class="nav__item" data-view="balance">Balancing</button>
+      <button class="nav__item" data-view="audio">Audio</button>
     </nav>
     <div class="sidebar__foot">
       <a class="btn btn--ghost" href="../">Zum Spiel</a>

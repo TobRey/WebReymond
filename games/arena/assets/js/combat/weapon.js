@@ -63,6 +63,7 @@ export class WeaponController {
           critChance: weapon.critChance,
           critDamage: weapon.critDamage,
           duration: Math.min(0.42, Math.max(0.14, weapon.cooldown * 0.6)),
+          spriteScale: weapon.spriteScale,
           sprite: Assets.get(weapon.sprite),
         });
         player.recoil = 0.4;
@@ -83,6 +84,7 @@ export class WeaponController {
           critChance: weapon.critChance,
           critDamage: weapon.critDamage,
           duration: Math.min(0.36, Math.max(0.16, weapon.cooldown * 0.55)),
+          spriteScale: weapon.spriteScale,
           sprite: Assets.get(weapon.sprite),
         });
         player.recoil = 0.5;
@@ -105,7 +107,7 @@ export class WeaponController {
           knockback: weapon.knockback,
           range: 99999,
           pierce: 0,
-          scale: 2.4,
+          size: weapon.projectileSize || 34,
           sprite: Assets.get(weapon.sprite),
           aoeRadius: weapon.aoeRadius || 120,
           landing: flight,
@@ -165,7 +167,7 @@ export class WeaponController {
       range: weapon.range,
       pierce: weapon.pierce || 0,
       sprite,
-      scale: kind === 'bullet' ? 1.15 : 1,
+      size: weapon.projectileSize || 16,
       homing,
       aoeRadius: 0,
       owner: 'player',

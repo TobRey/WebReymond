@@ -13,7 +13,7 @@ export class Projectiles {
       () => ({
         alive: false, x: 0, y: 0, vx: 0, vy: 0, angle: 0, speed: 0, damage: 0,
         crit: false, knockback: 0, travelled: 0, range: 0, pierce: 0, kind: 'bullet',
-        sprite: null, hits: null, homing: 0, scale: 1, life: 0, color: '#ffd166',
+        sprite: null, hits: null, homing: 0, size: 16, life: 0, color: '#ffd166',
         aoeRadius: 0, fuse: 0, landing: 0, height: 0, targetX: 0, targetY: 0, owner: 'player',
         trail: 0,
       }),
@@ -136,23 +136,25 @@ export class Projectiles {
     for (const p of this.pool.active) {
       const drawY = p.y - (p.height || 0);
 
+      const size = p.size || 16;
+
       if (p.kind === 'arrow') {
-        drawArrow(ctx, p.x, drawY, p.angle);
+        drawArrow(ctx, p.x, drawY, p.angle, size / 16);
         continue;
       }
       if (p.kind === 'magic') {
-        drawMagic(ctx, p.x, drawY, p.life);
+        drawMagic(ctx, p.x, drawY, p.life, size / 16);
         continue;
       }
 
       const sprite = p.sprite;
       if (!sprite) {
         ctx.fillStyle = p.color;
-        ctx.fillRect(p.x - 3, drawY - 3, 6, 6);
+        ctx.fillRect(p.x - size / 4, drawY - size / 4, size / 2, size / 2);
         continue;
       }
       const frame = sprite.frameAt(time * 1000 + p.life * 1000);
-      const h = 16 * p.scale;
+      const h = size;
       const w = (sprite.width / sprite.height) * h;
       ctx.save();
       ctx.translate(p.x, drawY);
@@ -180,10 +182,11 @@ export class Projectiles {
 }
 
 /** Pfeil ohne Bilddatei: schlanker Schaft mit Spitze und Federn. */
-function drawArrow(ctx, x, y, angle) {
+function drawArrow(ctx, x, y, angle, scale = 1) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
+  ctx.scale(scale, scale);
   ctx.fillStyle = '#d9c8a3';
   ctx.fillRect(-13, -1.5, 22, 3);
   ctx.fillStyle = '#e8eef7';
@@ -198,8 +201,8 @@ function drawArrow(ctx, x, y, angle) {
   ctx.restore();
 }
 
-function drawMagic(ctx, x, y, life) {
-  const pulse = 5.5 + Math.sin(life * 22) * 1.2;
+function drawMagic(ctx, x, y, life, scale = 1) {
+  const pulse = (5.5 + Math.sin(life * 22) * 1.2) * scale;
   ctx.globalAlpha = 0.35;
   ctx.fillStyle = '#8b7bff';
   ctx.beginPath();

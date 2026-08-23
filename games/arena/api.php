@@ -171,12 +171,16 @@ switch ($action) {
         requireAdmin();
         $player = input()['player'] ?? null;
         $balance = input()['balance'] ?? null;
-        $data = $store->mutate(function (array $data) use ($player, $balance): array {
+        $audio = input()['audio'] ?? null;
+        $data = $store->mutate(function (array $data) use ($player, $balance, $audio): array {
             if (is_array($player)) {
                 $data['player'] = Validate::player($player);
             }
             if (is_array($balance)) {
                 $data['balance'] = Validate::balance($balance);
+            }
+            if (is_array($audio)) {
+                $data['audio'] = Validate::audio($audio);
             }
             return $data;
         });
@@ -198,22 +202,46 @@ switch ($action) {
         if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
             fail('Upload fehlgeschlagen (Code ' . (int) $file['error'] . ').');
         }
-        if ($file['size'] > 12 * 1024 * 1024) {
-            fail('Datei ist groesser als 12 MB.');
+        if ($file['size'] > 20 * 1024 * 1024) {
+            fail('Datei ist groesser als 20 MB.');
         }
-        $info = @getimagesize($file['tmp_name']);
-        if ($info === false) {
-            fail('Das ist kein gueltiges Bild.');
-        }
-        $ext = match ($info['mime']) {
-            'image/png' => 'png',
-            'image/gif' => 'gif',
-            'image/jpeg' => 'jpg',
-            'image/webp' => 'webp',
-            default => null,
-        };
-        if ($ext === null) {
-            fail('Nur PNG, GIF, JPG oder WEBP.');
+        $wantsAudio = ($_POST['kind'] ?? '') === 'audio';
+        $width = 0;
+        $height = 0;
+
+        if ($wantsAudio) {
+            // Audio wird ueber die Dateisignatur geprueft, nicht ueber die Endung.
+            $head = (string) @file_get_contents($file['tmp_name'], false, null, 0, 16);
+            $ext = null;
+            if (str_starts_with($head, 'ID3') || (strlen($head) > 1 && (ord($head[0]) === 0xFF) && (ord($head[1]) & 0xE0) === 0xE0)) {
+                $ext = 'mp3';
+            } elseif (str_starts_with($head, 'OggS')) {
+                $ext = 'ogg';
+            } elseif (str_starts_with($head, 'RIFF') && substr($head, 8, 4) === 'WAVE') {
+                $ext = 'wav';
+            } elseif (substr($head, 4, 4) === 'ftyp') {
+                $ext = 'm4a';
+            }
+            if ($ext === null) {
+                fail('Nur MP3, OGG, WAV oder M4A.');
+            }
+        } else {
+            $info = @getimagesize($file['tmp_name']);
+            if ($info === false) {
+                fail('Das ist kein gueltiges Bild.');
+            }
+            $ext = match ($info['mime']) {
+                'image/png' => 'png',
+                'image/gif' => 'gif',
+                'image/jpeg' => 'jpg',
+                'image/webp' => 'webp',
+                default => null,
+            };
+            if ($ext === null) {
+                fail('Nur PNG, GIF, JPG oder WEBP.');
+            }
+            $width = (int) $info[0];
+            $height = (int) $info[1];
         }
         $slug = Validate::id((string) ($_POST['name'] ?? ''), 'asset');
         $name = $slug . '-' . bin2hex(random_bytes(4)) . '.' . $ext;
@@ -228,9 +256,9 @@ switch ($action) {
         respond([
             'ok' => true,
             'path' => 'assets/uploads/' . $name,
-            'width' => (int) $info[0],
-            'height' => (int) $info[1],
-            'mime' => $info['mime'],
+            'width' => $width,
+            'height' => $height,
+            'kind' => $wantsAudio ? 'audio' : 'image',
         ]);
     }
 

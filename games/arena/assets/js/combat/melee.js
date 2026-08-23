@@ -112,10 +112,13 @@ export class MeleeAttacks {
     for (const a of this.pool.active) {
       const t = Math.min(1, a.time / a.duration);
 
+      // Sprite-Laenge aus den Waffendaten, sonst an der Reichweite orientiert.
+      const length = a.spriteScale || a.range * 0.9;
+
       if (a.type === 'thrust') {
         const reach = a.reach || 0;
         drawWeapon(ctx, a.sprite, a.x + Math.cos(a.angle) * reach * 0.62,
-          a.y + Math.sin(a.angle) * reach * 0.62, a.angle, a.range * 0.85);
+          a.y + Math.sin(a.angle) * reach * 0.62, a.angle, length);
         continue;
       }
 
@@ -135,7 +138,7 @@ export class MeleeAttacks {
       ctx.restore();
 
       drawWeapon(ctx, a.sprite, a.x + Math.cos(current) * a.range * 0.66,
-        a.y + Math.sin(current) * a.range * 0.66, current, a.range * 0.95);
+        a.y + Math.sin(current) * a.range * 0.66, current, length);
     }
   }
 }

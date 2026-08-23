@@ -78,6 +78,8 @@ final class Validate
             'pierce' => self::int($in['pierce'] ?? 0, 0, 20, 0),
             'spread' => self::num($in['spread'] ?? 0, 0, 60, 0),
             'recoil' => self::num($in['recoil'] ?? 6, 0, 60, 6),
+            'spriteScale' => self::num($in['spriteScale'] ?? 46, 6, 400, 46),
+            'projectileSize' => self::num($in['projectileSize'] ?? 16, 3, 200, 16),
             'description' => self::text($in['description'] ?? '', 200),
             'active' => self::bool($in['active'] ?? true),
             'starter' => self::bool($in['starter'] ?? false),
@@ -209,6 +211,22 @@ final class Validate
                 'ry' => self::num($hb['ry'] ?? 10, 2, 200, 10),
                 'oy' => self::num($hb['oy'] ?? 22, -200, 200, 22),
             ],
+        ];
+    }
+
+    /** @param array<string, mixed> $in @return array<string, mixed> */
+    public static function audio(array $in): array
+    {
+        $d = Defaults::audio();
+        $track = is_string($in['musicTrack'] ?? null) ? trim($in['musicTrack']) : '';
+        if ($track !== '' && !preg_match('#^assets/(audio|uploads)/[A-Za-z0-9._-]+$#', $track)) {
+            $track = $d['musicTrack'];
+        }
+        return [
+            'musicTrack' => $track,
+            'musicVolume' => self::num($in['musicVolume'] ?? $d['musicVolume'], 0, 1, $d['musicVolume']),
+            'sfxVolume' => self::num($in['sfxVolume'] ?? $d['sfxVolume'], 0, 1, $d['sfxVolume']),
+            'musicEnabled' => self::bool($in['musicEnabled'] ?? true),
         ];
     }
 

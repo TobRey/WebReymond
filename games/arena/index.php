@@ -53,6 +53,7 @@ $version = (string) (@filemtime(__DIR__ . '/assets/js/main.js') ?: time());
   </div>
 
   <div class="hud__buttons">
+    <button id="btn-sound" class="iconbtn" data-ui title="Musik an/aus">♪</button>
     <button id="btn-stats" class="iconbtn" data-ui title="Statistiken">≡</button>
     <button id="btn-pause" class="iconbtn" data-ui title="Pause">II</button>
   </div>
@@ -70,6 +71,7 @@ $version = (string) (@filemtime(__DIR__ . '/assets/js/main.js') ?: time());
       <button id="btn-play" class="btn btn--primary btn--xl">Spielen</button>
       <button id="btn-worlds" class="btn">Welten</button>
       <a class="btn btn--quiet" href="admin/">Admin</a>
+      <button id="btn-sound-menu" class="btn btn--quiet">Musik: an</button>
     </div>
     <div id="menu-best" class="menu__best"></div>
   </div>

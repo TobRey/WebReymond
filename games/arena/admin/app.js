@@ -192,7 +192,7 @@ function setView(name) {
   document.querySelectorAll('.nav__item').forEach((b) => b.classList.toggle('is-active', b.dataset.view === name));
   $('view-title').textContent = {
     dashboard: 'Dashboard', maps: 'Maps', enemies: 'Gegner', weapons: 'Waffen',
-    upgrades: 'Upgrades', player: 'Spieler', balance: 'Balancing',
+    upgrades: 'Upgrades', player: 'Spieler', balance: 'Balancing', audio: 'Audio',
   }[name];
   $('view-actions').textContent = '';
   const host = $('view');
@@ -1046,7 +1046,7 @@ views.weapons = (host) => {
   const table = el('table', 'table');
   table.innerHTML = `<thead><tr>
     <th class="keep">Sprite</th><th class="keep">Name</th><th>Typ</th><th>Schaden</th>
-    <th>Cooldown</th><th>Reichweite</th><th>AoE</th><th class="keep">Status</th><th class="keep"></th>
+    <th>Cooldown</th><th>Reichweite</th><th>Groesse</th><th class="keep">Status</th><th class="keep"></th>
   </tr></thead>`;
   const body = el('tbody');
 
@@ -1063,7 +1063,7 @@ views.weapons = (host) => {
     tr.appendChild(el('td', null, String(Math.round(weapon.damage))));
     tr.appendChild(el('td', null, weapon.cooldown.toFixed(2) + ' s'));
     tr.appendChild(el('td', null, String(Math.round(weapon.range))));
-    tr.appendChild(el('td', null, weapon.aoeRadius ? String(Math.round(weapon.aoeRadius)) : '-'));
+    tr.appendChild(el('td', null, `${Math.round(weapon.spriteScale || 46)} / ${Math.round(weapon.projectileSize || 16)} px`));
     const status = el('td', 'keep');
     status.appendChild(el('span', 'badge ' + (weapon.active ? 'badge--on' : 'badge--off'), weapon.active ? 'aktiv' : 'aus'));
     tr.appendChild(status);
@@ -1085,7 +1085,8 @@ function editWeapon(weapon) {
     id: '', name: 'Neue Waffe', sprite: 'assets/sprites/pistole.png', type: 'PROJECTILE',
     projectile: 'schuss', damage: 20, cooldown: 0.5, range: 400, projectileSpeed: 600,
     knockback: 80, critChance: 8, critDamage: 60, aoeRadius: 0, arc: 360, pierce: 0,
-    spread: 0, recoil: 6, description: '', active: true, starter: false, damageType: 'physical',
+    spread: 0, recoil: 6, spriteScale: 46, projectileSize: 16,
+    description: '', active: true, starter: false, damageType: 'physical',
   };
 
   const body = el('div', 'form');
@@ -1096,7 +1097,10 @@ function editWeapon(weapon) {
   let spritePath = data.sprite;
 
   body.appendChild(field('Name', name));
-  body.appendChild(spriteField('Sprite', data.sprite, (p) => { spritePath = p; }));
+  body.appendChild(spriteField('Sprite', data.sprite, (p) => {
+    spritePath = p;
+    if (typeof weaponImg !== 'undefined') weaponImg.src = '../' + p;
+  }));
 
   const type = selectInput(data.type, [
     { value: 'PROJECTILE', label: 'PROJECTILE - Schuss' },
@@ -1127,6 +1131,8 @@ function editWeapon(weapon) {
   const pierce = textInput(data.pierce, { type: 'number', min: 0, max: 20, step: 1 });
   const spread = textInput(data.spread, { type: 'number', min: 0, max: 60, step: 1 });
   const recoil = textInput(data.recoil, { type: 'number', min: 0, max: 60, step: 1 });
+  const spriteScale = textInput(data.spriteScale ?? 46, { type: 'number', min: 6, max: 400, step: 2 });
+  const projectileSize = textInput(data.projectileSize ?? 16, { type: 'number', min: 3, max: 200, step: 1 });
 
   grid.appendChild(field('Typ', type));
   grid.appendChild(field('Projektil', projectile));
@@ -1142,7 +1148,73 @@ function editWeapon(weapon) {
   grid.appendChild(field('Durchschlaege', pierce));
   grid.appendChild(field('Streuung (Grad)', spread));
   grid.appendChild(field('Rueckstoss-Animation', recoil));
+  grid.appendChild(field('Waffensprite-Groesse (px)', spriteScale, 'Laenge in der Hand bzw. beim Schwung'));
+  grid.appendChild(field('Projektil-Groesse (px)', projectileSize, 'Hoehe des Schusses / Pfeils'));
   body.appendChild(grid);
+
+  // Live-Vorschau: zeigt Waffe und Projektil in echter Spielgroesse.
+  const previewCard = el('div', 'field');
+  previewCard.appendChild(el('label', null, 'Vorschau (Spielgroesse)'));
+  const previewCanvas = el('canvas');
+  previewCanvas.width = 420;
+  previewCanvas.height = 130;
+  previewCanvas.style.cssText = 'width:100%;max-width:420px;background:#0d1119;border-radius:10px;image-rendering:pixelated;';
+  previewCard.appendChild(previewCanvas);
+  body.appendChild(previewCard);
+
+  const pctx = previewCanvas.getContext('2d');
+  const weaponImg = new Image();
+  const shotImg = new Image();
+  shotImg.src = '../assets/sprites/schuss.png';
+
+  function drawPreview() {
+    pctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+    pctx.imageSmoothingEnabled = false;
+    // Massstab: der Spieler ist 78 px hoch - als Groessenvergleich daneben.
+    pctx.fillStyle = 'rgba(255,255,255,.07)';
+    pctx.fillRect(24, 130 - 78, 34, 78);
+    pctx.fillStyle = '#8b95ad';
+    pctx.font = '11px Inter, sans-serif';
+    pctx.fillText('Spieler', 20, 128);
+
+    const len = +spriteScale.value || 46;
+    if (weaponImg.complete && weaponImg.naturalWidth) {
+      const h = (weaponImg.naturalHeight / weaponImg.naturalWidth) * len;
+      pctx.drawImage(weaponImg, 110, 65 - h / 2, len, h);
+    }
+    const size = +projectileSize.value || 16;
+    if (type.value === 'PROJECTILE' && projectile.value === 'schuss' && shotImg.complete && shotImg.naturalWidth) {
+      const w = (shotImg.naturalWidth / shotImg.naturalHeight) * size;
+      pctx.drawImage(shotImg, 300, 65 - size / 2, w, size);
+    } else if (projectile.value === 'pfeil') {
+      const sc = size / 16;
+      pctx.save();
+      pctx.translate(310, 65);
+      pctx.scale(sc, sc);
+      pctx.fillStyle = '#d9c8a3';
+      pctx.fillRect(-13, -1.5, 22, 3);
+      pctx.fillStyle = '#e8eef7';
+      pctx.beginPath();
+      pctx.moveTo(15, 0); pctx.lineTo(7, -4.5); pctx.lineTo(7, 4.5); pctx.closePath(); pctx.fill();
+      pctx.fillStyle = '#7fd6c2';
+      pctx.fillRect(-14, -4, 4, 8);
+      pctx.restore();
+    } else if (projectile.value === 'magic') {
+      pctx.fillStyle = '#8b7bff';
+      pctx.beginPath(); pctx.arc(310, 65, size * 0.7, 0, Math.PI * 2); pctx.fill();
+      pctx.fillStyle = '#d9d2ff';
+      pctx.beginPath(); pctx.arc(310, 65, size * 0.34, 0, Math.PI * 2); pctx.fill();
+    }
+    pctx.fillStyle = '#8b95ad';
+    pctx.fillText('Waffe ' + len + ' px', 110, 118);
+    if (projectile.value) pctx.fillText('Projektil ' + size + ' px', 290, 118);
+  }
+
+  weaponImg.onload = drawPreview;
+  shotImg.onload = drawPreview;
+  weaponImg.src = '../' + spritePath;
+  [spriteScale, projectileSize, type, projectile].forEach((i) => i.addEventListener('input', drawPreview));
+  drawPreview();
   body.appendChild(field('Beschreibung', desc));
 
   const active = checkInput('Waffe ist im Spiel verfuegbar', data.active);
@@ -1166,7 +1238,8 @@ function editWeapon(weapon) {
               cooldown: +cooldown.value, range: +range.value, projectileSpeed: +pspeed.value,
               knockback: +knock.value, critChance: +critC.value, critDamage: +critD.value,
               aoeRadius: +aoe.value, arc: +arc.value, pierce: +pierce.value, spread: +spread.value,
-              recoil: +recoil.value, description: desc.value,
+              recoil: +recoil.value, spriteScale: +spriteScale.value,
+              projectileSize: +projectileSize.value, description: desc.value,
               active: active.input.checked, starter: starter.input.checked,
             },
           });
@@ -1407,6 +1480,100 @@ views.balance = (host) => {
     'Gegnerleben = Basisleben × Lebensskalierung^(Zyklus-1). Bei 1.45 hat Zyklus 3 also das ' +
     (1.45 ** 2).toFixed(2) + '-fache. Schaden, Tempo, Spawnrate und Geld laufen nach derselben Formel.'));
   host.appendChild(help);
+};
+
+/* ------------------------------------------------------------------ Audio */
+views.audio = (host) => {
+  const a = state.content.audio || {};
+  const card = el('div', 'card');
+  const form = el('div', 'form');
+
+  let track = a.musicTrack || '';
+  const preview = el('audio');
+  preview.controls = true;
+  preview.preload = 'none';
+  preview.style.cssText = 'width:100%;max-width:420px;';
+  if (track) preview.src = '../' + track;
+
+  const trackRow = el('div', 'field');
+  trackRow.appendChild(el('label', null, 'Musiktitel'));
+  const trackName = el('div', 'muted', track || 'kein Titel gesetzt');
+  const upload = el('label', 'btn btn--sm', 'Musik hochladen (MP3, OGG, WAV, M4A)');
+  const fileInput = el('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'audio/mpeg,audio/ogg,audio/wav,audio/mp4,.mp3,.ogg,.wav,.m4a';
+  fileInput.style.display = 'none';
+  upload.appendChild(fileInput);
+  fileInput.addEventListener('change', async () => {
+    if (!fileInput.files.length) return;
+    upload.textContent = 'Laedt hoch ...';
+    try {
+      const form = new FormData();
+      form.append('file', fileInput.files[0]);
+      form.append('kind', 'audio');
+      form.append('name', fileInput.files[0].name.replace(/\.[^.]+$/, ''));
+      form.append('csrf', state.csrf);
+      const res = await fetch('../api.php?action=upload', {
+        method: 'POST', headers: { 'X-CSRF': state.csrf }, body: form,
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'Upload fehlgeschlagen');
+      track = data.path;
+      trackName.textContent = track;
+      preview.src = '../' + track;
+      toast('Musik hochgeladen');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+    upload.textContent = 'Musik hochladen (MP3, OGG, WAV, M4A)';
+    upload.appendChild(fileInput);
+    fileInput.value = '';
+  });
+  trackRow.appendChild(trackName);
+  trackRow.appendChild(preview);
+  trackRow.appendChild(upload);
+  form.appendChild(trackRow);
+
+  const grid = el('div', 'grid2');
+  const musicVol = textInput(a.musicVolume ?? 0.5, { type: 'number', min: 0, max: 1, step: 0.05 });
+  const sfxVol = textInput(a.sfxVolume ?? 0.8, { type: 'number', min: 0, max: 1, step: 0.05 });
+  grid.appendChild(field('Musiklautstaerke (0-1)', musicVol));
+  grid.appendChild(field('Effektlautstaerke (0-1)', sfxVol, 'greift, sobald Sounddateien hinterlegt sind'));
+  form.appendChild(grid);
+
+  const enabled = checkInput('Musik startet automatisch', a.musicEnabled !== false);
+  form.appendChild(enabled);
+  form.appendChild(el('p', 'muted',
+    'Spieler koennen die Musik im Spiel jederzeit ueber den Notenknopf abschalten; '
+    + 'diese Wahl wird auf dem Geraet gemerkt. Browser starten Ton erst nach der ersten Beruehrung.'));
+
+  const save = el('button', 'btn btn--primary', 'Audio speichern');
+  save.addEventListener('click', async () => {
+    try {
+      await api('settings', {
+        audio: {
+          musicTrack: track,
+          musicVolume: +musicVol.value,
+          sfxVolume: +sfxVol.value,
+          musicEnabled: enabled.input.checked,
+        },
+      });
+      toast('Audio gespeichert');
+      setView('audio');
+    } catch (e) { toast(e.message, 'error'); }
+  });
+  form.appendChild(save);
+  card.appendChild(form);
+  host.appendChild(card);
+
+  const info = el('div', 'card');
+  info.appendChild(el('h3', null, 'Soundeffekte nachruesten'));
+  info.appendChild(el('p', 'muted',
+    'Die Audio-Schicht kennt bereits diese Ereignisse: shoot, melee, hit, crit, enemyDeath, '
+    + 'explosion, upgrade, bossSpawn, bossWarning, playerHit, coin, gameOver, uiClick. '
+    + 'Dateien nach assets/audio/ legen und in assets/js/main.js mit '
+    + "Audio.register('shoot', 'assets/audio/shoot.wav') registrieren."));
+  host.appendChild(info);
 };
 
 /* ----------------------------------------------------------------- Helfer */

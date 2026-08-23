@@ -174,9 +174,10 @@ export class Renderer {
 
     const aim = arena.weapon.aim;
     const recoil = player.recoil * 8;
-    const length = weapon.type === 'PROJECTILE' || weapon.type === 'MAGIC' ? 46 : 52;
+    // Groesse kommt aus den Waffendaten und ist im Admin einstellbar.
+    const length = weapon.spriteScale || 46;
     const h = (sprite.height / sprite.width) * length;
-    const distance = 20 - recoil;
+    const distance = 20 + length * 0.12 - recoil;
 
     ctx.save();
     ctx.translate(player.x + Math.cos(aim) * distance, player.y + player.footOffset * 0.1 + Math.sin(aim) * distance * 0.6);

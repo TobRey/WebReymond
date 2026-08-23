@@ -116,6 +116,7 @@ klein und sitzt an den Füßen — der Kopf darf optisch vor einer Wand stehen.
 2. Steuerung: **virtueller Joystick** (entsteht dort, wo der Finger die Fläche
    berührt) oder **WASD / Pfeiltasten** am PC.
 3. Die Waffe **zielt und feuert automatisch** auf den nächsten Gegner in Reichweite.
+   Der **♪-Knopf** oben rechts schaltet die Musik ab.
 4. Ein Zyklus besteht aus vier Wellen:
 
 | Welle | Inhalt | Dauer |
@@ -160,18 +161,25 @@ Alle fünf Werte sind im Admin unter **Balancing** einstellbar.
 Zehn Waffen mit sechs wiederverwendbaren Angriffsverhalten. Neue Waffen im
 Admin brauchen deshalb keinen neuen Code, nur Werte.
 
-| Waffe | Verhalten | Schaden | Cooldown | Besonderheit |
-|-------|-----------|--------:|---------:|--------------|
-| Pistole | PROJECTILE | 22 | 0,40 s | solider Allrounder |
-| Sturmgewehr | PROJECTILE | 8 | 0,11 s | hohe Feuerrate, Streuung |
-| Bogen | PROJECTILE | 46 | 0,78 s | durchbohrt 1 Gegner |
-| Armbrust | PROJECTILE | 85 | 1,35 s | durchbohrt 2 Gegner |
-| Zauberstab | MAGIC | 28 | 0,55 s | Zielsuche, trifft fast immer |
-| Speer | THRUST | 48 | 0,62 s | Stoß nach vorne, schmal |
-| Dolch | MELEE_ARC 46° | 15 | 0,20 s | blitzschnell, kurze Reichweite |
-| Schwert | MELEE_ARC 85° | 22 | 0,50 s | trifft mehrere Gegner |
-| Axt | MELEE_360 | 18 | 0,95 s | volle Drehung, trifft alles |
-| Granate | GRENADE | 55 | 1,90 s | AoE 130, verzögerte Explosion |
+| Waffe | Verhalten | Schaden | Cooldown | Sprite | Projektil | Besonderheit |
+|-------|-----------|--------:|---------:|-------:|----------:|--------------|
+| Pistole | PROJECTILE | 22 | 0,40 s | 46 px | 16 px | solider Allrounder |
+| Sturmgewehr | PROJECTILE | 8 | 0,11 s | 54 px | 14 px | hohe Feuerrate, Streuung |
+| Bogen | PROJECTILE | 46 | 0,78 s | 50 px | 20 px | durchbohrt 1 Gegner |
+| Armbrust | PROJECTILE | 85 | 1,35 s | 56 px | 26 px | durchbohrt 2 Gegner |
+| Zauberstab | MAGIC | 28 | 0,55 s | 50 px | 18 px | Zielsuche, trifft fast immer |
+| Speer | THRUST | 48 | 0,62 s | 120 px | – | Stoß nach vorne, schmal |
+| Dolch | MELEE_ARC 46° | 15 | 0,20 s | 58 px | – | blitzschnell, kurze Reichweite |
+| Schwert | MELEE_ARC 85° | 22 | 0,50 s | 95 px | – | trifft mehrere Gegner |
+| Axt | MELEE_360 | 18 | 0,95 s | 88 px | – | volle Drehung, trifft alles |
+| Granate | GRENADE | 55 | 1,90 s | 46 px | 34 px | AoE 130, verzögerte Explosion |
+
+**Größen sind einstellbar.** Im Waffen-Editor legen zwei Felder fest, wie groß
+die Waffe in der Hand (bzw. beim Schwung) und wie groß das Projektil gezeichnet
+wird — jeweils in Pixeln der Spielwelt. Eine Live-Vorschau zeigt beides sofort
+in echter Spielgröße neben einem Spieler-Maßstab (78 px). Der Wert ändert nur
+die Darstellung, nicht die Trefferzone: Reichweite, Schwungwinkel und AoE-Radius
+bleiben eigene Felder.
 
 **Balancing-Regel:** Einzelziel-Waffen schlagen härter zu, Flächenwaffen machen
 pro Ziel weniger. Jeder Nahkampfangriff führt eine eigene Trefferliste — eine
@@ -210,6 +218,7 @@ gewählten Upgrades mit Stapelzahl (z. B. „Flinke Füße ×3").
 | **Upgrades** | Anlegen, bearbeiten, duplizieren, löschen; Stat, Modifikator, Seltenheit, Gewicht, Stapel |
 | **Spieler** | Basiswerte und alle vier Spieler-Sprites |
 | **Balancing** | Wellendauer, Spawnrate, Skalierung, Bombenwerte, Kartenchancen |
+| **Audio** | Musiktitel hochladen und wechseln, Musik- und Effektlautstärke, Autostart |
 
 ### Collision-Editor
 
@@ -234,6 +243,35 @@ begrenzt (Leben > 0, Cooldown > 0, Pfade nur innerhalb der Asset-Ordner usw.).
 
 ---
 
+## Musik und Ton
+
+`assets/audio/music-arena.mp3` läuft als Endlosschleife im Hintergrund
+(2,3 MB, 64 kbps, ca. 5 Minuten).
+
+* Die Datei wird **erst nach der ersten Berührung** geladen — das Menü erscheint
+  also sofort, auch bei langsamer Mobilverbindung.
+* Browser starten Ton grundsätzlich nicht von allein. Das Spiel merkt sich den
+  Startwunsch und löst ihn bei der ersten Geste (Tippen, Klick, Taste) ein.
+* Während Pause, Statistik- und Upgrade-Bildschirm wird die Musik automatisch
+  auf 30 % heruntergeblendet und danach wieder hochgezogen.
+* Der **♪-Knopf** im HUD und im Hauptmenü schaltet den Ton ab. Die Wahl wird pro
+  Gerät im `localStorage` gemerkt.
+* Im Admin unter **Audio**: eigenen Titel hochladen (MP3, OGG, WAV, M4A, max.
+  20 MB), Grundlautstärke setzen, Autostart an- oder abschalten. Die
+  Dateiprüfung läuft über die Signatur, nicht über die Endung.
+
+Soundeffekte sind vorbereitet, aber es liegen keine Dateien bei. Sobald welche
+da sind, genügt eine Zeile in `assets/js/main.js`:
+
+```js
+Audio.register('shoot', 'assets/audio/shoot.wav');
+```
+
+Bekannte Ereignisse: `shoot`, `melee`, `hit`, `crit`, `enemyDeath`, `explosion`,
+`upgrade`, `bossSpawn`, `bossWarning`, `playerHit`, `coin`, `gameOver`, `uiClick`.
+
+---
+
 ## Fehlende Assets
 
 Diese Dateien lagen **nicht** im Sprite-Ordner. Das Spiel funktioniert
@@ -244,7 +282,7 @@ vollständig, nutzt aber Ersatz:
 | `pfeil` | fehlt | Pfeile für Bogen und Armbrust werden **programmatisch gezeichnet** (Schaft, Spitze, Federn). Sobald `assets/sprites/pfeil.png` existiert, im Admin bei der Waffe als Projektil auswählen. |
 | `explosion2` | fehlt | Die Bossbombe nutzt `explosion1.gif` (15 Frames). Granaten nutzen `explosion.gif`. |
 | Kartenbilder | fehlten komplett | `assets/uploads/map-arena.png` (2048×2048) wurde als Startwelt generiert, inklusive passender Kollisionsmaske. Eigene Karten jederzeit im Admin hochladen. |
-| Sounddateien | keine | Die Audio-Schicht (`core/audio.js`) ist vollständig verdrahtet, aber stumm. Mit `Audio.register('shoot', 'assets/audio/shoot.wav')` lässt sich jedes Event nachrüsten: shoot, melee, hit, crit, enemyDeath, explosion, upgrade, bossSpawn, bossWarning, playerHit, coin, gameOver, uiClick. |
+| Soundeffekte | fehlen | Musik ist vorhanden (`assets/audio/music-arena.mp3`). Für Treffer, Schüsse und Explosionen liegen keine Dateien bei — die Ereignisse sind verdrahtet und warten nur auf `Audio.register(...)`, siehe Abschnitt Musik und Ton. |
 
 Vorhandene und genutzte Assets: `playerfront`, `playerback`, `playerside`,
 `staub`, `enemy1`, `enemy2`, `enemy3`, `boss1`, `bombe1`, `explosion`,
@@ -287,3 +325,7 @@ Automatisiert im echten Browser geprüft (Chromium, Desktop und Mobil-Viewport):
 * Maps, Gegner, Waffen, Upgrades, Spieler- und Balancingwerte überleben Reload
 * Kamera bleibt exakt innerhalb der Karte
 * 45 Gegner gleichzeitig bei 60 FPS
+* Musik startet erst nach der ersten Geste, läuft in Schleife, blendet bei
+  Overlays auf 30 % ab und wieder hoch; Aus-Schalter überlebt den Reload
+* Waffen- und Projektilgröße im Admin geändert (46→130 px und 16→52 px) und im
+  Spiel wie eingestellt gezeichnet; Live-Vorschau wächst mit
