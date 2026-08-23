@@ -7,6 +7,7 @@ require_once __DIR__ . '/lib/Store.php';
 $store = new Store();
 $content = $store->read();
 $version = (string) (@filemtime(__DIR__ . '/assets/js/main.js') ?: time());
+
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -195,7 +196,12 @@ $version = (string) (@filemtime(__DIR__ . '/assets/js/main.js') ?: time());
   </div>
 </div>
 
-<div id="loading" class="loading" hidden><div class="loading__spinner"></div><span id="loading-text">Lade ...</span></div>
+<div id="loading" class="loading" hidden>
+  <div class="loading__spinner"></div>
+  <span id="loading-text">Lade ...</span>
+  <div id="loading-bar" class="loading__bar"><i></i></div>
+  <p id="loading-hint" class="loading__hint" hidden></p>
+</div>
 <div id="rotate-hint" class="rotate" hidden>Drehe dein Handy für das beste Spielerlebnis</div>
 <div id="toasts" class="toasts"></div>
 

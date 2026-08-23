@@ -153,10 +153,32 @@ function fallbackSprite(src, label = '?') {
   return new Sprite([c], [100], size, size, src);
 }
 
+const LOAD_TIMEOUT = 12000;
+
+/** Bricht ein hängendes Laden ab, statt ewig zu warten. */
+function withTimeout(promise, src, ms = LOAD_TIMEOUT) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Zeitüberschreitung: ' + src)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 async function loadOne(src) {
   const isGif = /\.gif(\?|$)/i.test(src);
   if (isGif) {
-    const res = await fetch(src);
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const abort = setTimeout(() => controller && controller.abort(), LOAD_TIMEOUT);
+    const res = await fetch(src, controller ? { signal: controller.signal } : undefined)
+      .finally(() => clearTimeout(abort));
     if (!res.ok) throw new Error(res.status + ' ' + src);
     const gif = decodeGif(await res.arrayBuffer());
     let frames = gif.frames.map((f) => f.canvas);
@@ -279,7 +301,7 @@ export const Assets = {
     if (cache.has(src)) return cache.get(src);
     if (pending.has(src)) return pending.get(src);
 
-    const task = loadOne(src)
+    const task = withTimeout(loadOne(src), src)
       .catch((err) => {
         console.warn('[assets]', err.message);
         if (!Assets.missing.includes(src)) Assets.missing.push(src);

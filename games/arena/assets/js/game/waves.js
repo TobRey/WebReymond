@@ -114,7 +114,13 @@ export class WaveController {
   spawnEnemy() {
     const def = this.pickEnemy();
     if (!def) return;
-    const sprite = Assets.get(def.sprite);
+    let sprite = Assets.get(def.sprite);
+    if (!sprite) {
+      // Sprite lädt noch im Hintergrund - diesen Spawn auslassen und
+      // das Laden anstoßen, der nächste Versuch klappt dann.
+      Assets.load(def.sprite);
+      return;
+    }
     const radius = (def.hitbox && def.hitbox.r) || 20;
     const point = findSpawnPoint(this.arena.map, this.arena.camera, radius);
     const enemy = this.arena.enemies.spawn(def, sprite, point.x, point.y, this.scaling());

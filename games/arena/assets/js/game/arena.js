@@ -56,32 +56,67 @@ export class Arena {
     for (const handler of this.listeners.get(event) || []) handler(payload);
   }
 
-  /** Lädt alle Assets, die dieser Run braucht. */
-  async load() {
+  /**
+   * Lädt nur das, was für den Start wirklich gebraucht wird.
+   *
+   * Alles andere - spätere Gegner, Boss, Bomben, andere Waffen - kommt im
+   * Hintergrund nach, während schon gespielt wird. Auf einem langsamen
+   * Mobilnetz macht das den Unterschied zwischen ein paar Sekunden und
+   * einer knappen Minute Wartezeit.
+   *
+   * @param onProgress (geladen, gesamt) => void
+   */
+  async load(onProgress = null) {
     const player = this.content.player;
-    const sprites = [
-      this.run.weapon.sprite,
+    const weapon = this.run.weapon;
+
+    // Projektil der gewählten Waffe.
+    const projectile = weapon.projectile && weapon.projectile !== 'pfeil' && weapon.projectile !== 'magic'
+      ? 'assets/sprites/' + weapon.projectile + '.png'
+      : null;
+
+    // Gegner der ersten Welle - mehr braucht der Start nicht.
+    const firstWave = this.content.enemies
+      .filter((e) => !e.boss && (e.wave === 1 || !e.wave))
+      .map((e) => e.sprite);
+
+    const essential = [weapon.sprite, projectile, ...firstWave].filter(Boolean);
+    let done = 0;
+    const total = essential.length + 2;   // plus Karte und Charakter
+    const step = () => {
+      done++;
+      if (onProgress) onProgress(done, total);
+    };
+
+    const characterPromise = Assets.loadCharacter(this.character || {
+      id: 'default',
+      sprites: {
+        front: { gif: player.spriteFront, frames: [] },
+        back: { gif: player.spriteBack, frames: [] },
+        side: { gif: player.spriteSide, frames: [] },
+      },
+      dustSprite: player.spriteDust,
+    }).then((set) => {
+      step();
+      return set;
+    });
+
+    const [, characterSprites] = await Promise.all([
+      this.map.load().then(step),
+      characterPromise,
+      ...essential.map((src) => Assets.load(src).then(step)),
+    ]);
+    this.playerSprites = characterSprites;
+
+    // Der Rest lädt im Hintergrund weiter und ist da, bevor er gebraucht wird.
+    this.backgroundLoad = Assets.loadAll([
       'assets/sprites/schuss.png',
       'assets/sprites/explosion.gif',
       'assets/sprites/explosion1.gif',
       'assets/sprites/bombe1.gif',
       ...this.content.enemies.map((e) => e.sprite),
       ...this.content.weapons.filter((w) => w.active).map((w) => w.sprite),
-    ];
-    const [, , characterSprites] = await Promise.all([
-      this.map.load(),
-      Assets.loadAll(sprites),
-      Assets.loadCharacter(this.character || {
-        id: 'default',
-        sprites: {
-          front: { gif: player.spriteFront, frames: [] },
-          back: { gif: player.spriteBack, frames: [] },
-          side: { gif: player.spriteSide, frames: [] },
-        },
-        dustSprite: player.spriteDust,
-      }),
     ]);
-    this.playerSprites = characterSprites;
 
     this.player = new Player(this.run, this.map, this.playerSprites);
     const start = playerSpawn(this.map, this.player.rx, this.player.ry);
@@ -301,7 +336,14 @@ export class Arena {
     );
 
     const scaling = this.waves.scaling();
-    this.boss = this.enemies.spawn(def, Assets.get(def.sprite), point.x, point.y, scaling);
+    const bossSprite = Assets.get(def.sprite);
+    this.boss = this.enemies.spawn(def, bossSprite, point.x, point.y, scaling);
+    if (!bossSprite) {
+      // Sollte das Sprite noch im Hintergrund laden, wird es nachgereicht.
+      Assets.load(def.sprite).then((sprite) => {
+        if (this.boss && this.boss.alive) this.boss.sprite = sprite;
+      });
+    }
     this.bossCtrl.reset();
     this.effects.burst(point.x, point.y, 34, { color: '#ff8b6b', speed: 280, size: 5, life: 0.6 });
     this.camera.addShake(0.6);

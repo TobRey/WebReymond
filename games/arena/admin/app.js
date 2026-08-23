@@ -8,6 +8,7 @@ const state = {
   content: window.ADMIN.content,
   csrf: window.ADMIN.csrf,
   sprites: window.ADMIN.sprites,
+  uploadLimit: window.ADMIN.uploadLimit || '?',
   view: 'dashboard',
 };
 
@@ -403,6 +404,15 @@ views.dashboard = (host) => {
     `${c.player.critChance}% Krit.`));
   info.appendChild(list);
   host.appendChild(info);
+
+  const health = el('div', 'card');
+  health.appendChild(el('h3', null, 'Server'));
+  health.appendChild(el('p', 'muted',
+    'Uploadgrenze: ' + state.uploadLimit + '. Ist das weniger als deine grösste Datei, '
+    + 'muss upload_max_filesize im Hosting-Panel erhöht werden - viele FTP-Programme '
+    + 'überspringen die mitgelieferte .user.ini und .htaccess, weil es Punkt-Dateien sind. '
+    + 'Die Spieldaten schützen sich unabhängig davon selbst.'));
+  host.appendChild(health);
 
   const actions = el('div', 'card');
   actions.appendChild(el('h3', null, 'Wartung'));
@@ -1978,7 +1988,8 @@ views.audio = (host) => {
   const soundCard = el('div', 'card');
   soundCard.appendChild(el('h3', null, 'Soundeffekte'));
   soundCard.appendChild(el('p', 'muted',
-    'Je Ereignis bis zu vier Dateien - das Spiel wählt zufällig eine davon. '
+    'Uploadgrenze dieses Servers: ' + state.uploadLimit + '. '
+    + 'Je Ereignis bis zu vier Dateien - das Spiel wählt zufällig eine davon. '
     + 'Lautstärke und Häufigkeit gelten für das ganze Ereignis, jede Datei hat '
     + 'zusätzlich einen eigenen Regler.'));
 

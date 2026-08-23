@@ -395,7 +395,7 @@ final class Defaults
         return [[
             'id' => 'arena',
             'name' => 'Steinbruch-Arena',
-            'image' => 'assets/uploads/map-arena.png',
+            'image' => 'assets/uploads/map-arena.jpg',
             'width' => 2048,
             'height' => 2048,
             'active' => true,

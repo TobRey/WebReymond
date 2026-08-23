@@ -14,6 +14,7 @@ if ($isAdmin && empty($_SESSION['arena_csrf'])) {
 }
 $csrf = $isAdmin ? (string) $_SESSION['arena_csrf'] : '';
 $content = $isAdmin ? (new Store())->read() : null;
+$uploadLimit = $isAdmin ? (string) ini_get('upload_max_filesize') : '';
 $version = (string) (@filemtime(__DIR__ . '/app.js') ?: time());
 ?>
 <!DOCTYPE html>
@@ -112,6 +113,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
   window.ADMIN = {
     csrf: <?= json_encode($csrf) ?>,
     content: <?= json_encode($content, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
+    uploadLimit: <?= json_encode($uploadLimit) ?>,
     sprites: <?= json_encode(array_values(array_map(
         static fn(string $p): string => 'assets/sprites/' . basename($p),
         glob(dirname(__DIR__) . '/assets/sprites/*') ?: []

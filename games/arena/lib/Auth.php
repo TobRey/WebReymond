@@ -7,6 +7,8 @@ declare(strict_types=1);
  *   1. Umgebungsvariable ADMIN_CODE
  *   2. data/admin.json (Hash, beim ersten Start aus 1. oder Standard erzeugt)
  */
+require_once __DIR__ . '/Store.php';
+
 final class Auth
 {
     private const DEFAULT_CODE = '6713';
@@ -86,7 +88,7 @@ final class Auth
     private static function state(): array
     {
         $file = self::file();
-        $data = is_file($file) ? json_decode((string) file_get_contents($file), true) : null;
+        $data = is_file($file) ? json_decode(Store::strip(@file_get_contents($file)), true) : null;
         if (!is_array($data) || empty($data['hash'])) {
             $code = getenv('ADMIN_CODE');
             if (!is_string($code) || $code === '') {
@@ -109,11 +111,12 @@ final class Auth
         if (!is_dir(dirname($file))) {
             @mkdir(dirname($file), 0775, true);
         }
-        return @file_put_contents($file, json_encode($state), LOCK_EX) !== false;
+        return @file_put_contents($file, Store::GUARD . json_encode($state), LOCK_EX) !== false;
     }
 
     private static function file(): string
     {
-        return dirname(__DIR__) . '/data/admin.json';
+        // .php statt .json: schützt sich selbst, auch wenn .htaccess fehlt.
+        return dirname(__DIR__) . '/data/admin.php';
     }
 }

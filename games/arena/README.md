@@ -16,6 +16,29 @@ Mobiles 2D-Top-Down-Roguelite: Wellen überleben, Upgrades sammeln, Bosse legen.
 
 **Voraussetzung:** PHP 8.1+ mit GD (nur für den Upload-Check). Sonst nichts.
 
+#### Wenn dein FTP-Programm Punkt-Dateien überspringt
+
+Manche Datei-Manager melden beim Upload so etwas:
+
+```
+Übersprungen (nicht erlaubte Dateitypen): .htaccess, data/.htaccess, ...
+```
+
+**Das ist kein Problem — das Spiel läuft vollständig ohne diese Dateien.**
+Alle Spieldaten liegen in `.php`-Dateien, die mit `<?php exit; ?>` beginnen:
+Ruft jemand `data/content.php` direkt im Browser auf, kommt eine leere Antwort
+zurück. Der Schutz hängt also nicht mehr an `.htaccess`.
+
+Die einzige Einbuße: `.htaccess` und `.user.ini` heben die Uploadgrenze auf
+24 MB an. Fehlen sie, gilt die Grenze deines Hosters (oft 2 MB). Den echten
+Wert zeigt das Admin-Dashboard oben und auf der Audio-Seite an. Zwei Wege:
+
+* Im Hosting-Panel `upload_max_filesize` und `post_max_size` erhöhen, **oder**
+* die beiliegenden `htaccess-vorlage.txt` und `user-ini-vorlage.txt` hochladen
+  und auf dem Server in `.htaccess` bzw. `.user.ini` umbenennen.
+
+Dieselbe Erklärung liegt als `WICHTIG-BEIM-HOCHLADEN.txt` im Paket.
+
 ### Lokal testen
 
 ```bash
@@ -29,9 +52,9 @@ Der Code wird **serverseitig** geprüft und nie an den Browser ausgeliefert.
 Quelle in dieser Reihenfolge:
 
 1. Umgebungsvariable `ADMIN_CODE` (z. B. in der `.htaccess`: `SetEnv ADMIN_CODE 1234`)
-2. `data/admin.json` — enthält nur den bcrypt-Hash, wird beim ersten Start erzeugt.
+2. `data/admin.php` — enthält nur den bcrypt-Hash, wird beim ersten Start erzeugt.
 
-Zum Ändern: `data/admin.json` löschen, `ADMIN_CODE` setzen, Seite neu laden.
+Zum Ändern: `data/admin.php` löschen, `ADMIN_CODE` setzen, Seite neu laden.
 Nach 6 Fehlversuchen ist der Login 5 Minuten gesperrt.
 
 ---
@@ -44,7 +67,8 @@ arena/
 ├── api.php                   JSON-API: content, login, put, delete, settings, upload, reset
 ├── lib/
 │   ├── Defaults.php          Alle Startwerte: Waffen, Gegner, Upgrades, Balancing, Map
-│   ├── Store.php             Persistenz in data/content.json (atomar, mit Sperre)
+│   ├── Store.php             Persistenz in data/content.php (atomar, mit Sperre)
+│   ├── Accounts.php          Spielerkonten, Erfahrung, Bestenliste
 │   ├── Auth.php              Admin-Session, Code-Hash, Fehlversuchsbremse
 │   └── Validate.php          Prüft und begrenzt alle Admin-Eingaben
 ├── admin/
@@ -63,7 +87,7 @@ arena/
 │   ├── css/game.css
 │   ├── sprites/              deine Sprites
 │   └── uploads/              im Admin hochgeladene Bilder
-└── data/                     content.json + admin.json (nicht öffentlich)
+└── data/                     content.php + admin.php + accounts/ (schützen sich selbst)
 ```
 
 ---
@@ -99,12 +123,35 @@ klein und sitzt an den Füßen — der Kopf darf optisch vor einer Wand stehen.
 
 ### Startzeit
 
-Die Schriftdatei wird **nicht mehr renderblockierend** geladen (`media="print"`
-plus `onload`). Vorher hing die ganze Seite an der Google-Fonts-Anfrage: bei
-langsamer oder blockierter Verbindung stand das Spiel minutenlang im Ladebild.
-Gemessen auf einer vierfach gedrosselten CPU: **12 970 ms → 259 ms** bis zum
-bedienbaren Menü. Die Schrift wird nachgeladen, bis dahin greift die
-System-Schriftfamilie.
+Zwei Dinge ließen das Spiel früher „ewig laden".
+
+**1. Die Schrift blockierte das Rendern.** Die Google-Fonts-Anfrage hing vor
+der ganzen Seite. Jetzt lädt sie über `media="print"` plus `onload` nebenher,
+bis dahin greift die System-Schriftfamilie. Auf einer vierfach gedrosselten
+CPU: **12 970 ms → 259 ms** bis zum bedienbaren Menü.
+
+**2. Es wurde alles auf einmal geladen.** Vor dem Start warteten sämtliche
+Gegner (auch `enemy3` aus Welle 3 mit 220 KB), die Bossbombe (218 KB), alle
+zehn Waffensprites und eine 824 KB große Karten-PNG. Gemessen bei 400 kbit/s
+mit 300 ms Latenz und vierfach gedrosselter CPU: **48 249 ms** und **1 964 KB**
+vom Klick auf die Waffe bis zum ersten Frame.
+
+Dagegen:
+
+* **Nur laden, was Welle 1 braucht** — Karte, gewählter Charakter, gewählte
+  Waffe und die Gegner der ersten Welle. Alles andere läuft danach als
+  `backgroundLoad` weiter, während schon gespielt wird.
+* **Nachzügler-Schutz:** Taucht ein Gegner oder Boss auf, dessen Sprite noch
+  fehlt, wird der Spawn übersprungen und das Bild sofort nachgeladen — statt
+  einen leeren Platzhalter zu zeichnen.
+* **Karte als JPEG** (1536², ~200 KB statt 824 KB PNG).
+* **Zeitlimit pro Datei:** 12 s, dann bricht der Ladevorgang für dieses Bild ab
+  (`AbortController`) und das Spiel startet trotzdem. Ein hängender Download
+  kann das Ladebild nicht mehr blockieren.
+* **Fortschrittsbalken** statt Endlos-Spinner. Dauert es über 8 s, nennt ein
+  Hinweis die Dateien, die noch fehlen.
+
+Ergebnis unter denselben 400 kbit/s: **12 530 ms** und **436 KB**.
 
 Zusätzlich werden GIF-Frames beim Dekodieren über eine 32-Bit-Palette
 geschrieben (statt vier Einzelbytes) und Frames über 384 px verkleinert – im
@@ -308,10 +355,19 @@ Rote Flächen sind blockiert — sichtbar **nur** im Editor, im Spiel unsichtbar
 
 ### Datenhaltung
 
-Alles landet in `data/content.json` — derselben Datei, aus der das Spiel liest.
+Alles landet in `data/content.php` — derselben Datei, aus der das Spiel liest.
 Nach einem Reload ist alles noch da. Schreibzugriffe laufen atomar über eine
 temporäre Datei mit Dateisperre. Alle Eingaben werden serverseitig geprüft und
 begrenzt (Leben > 0, Cooldown > 0, Pfade nur innerhalb der Asset-Ordner usw.).
+
+**Warum `.php` und nicht `.json`:** Jede Datendatei beginnt mit `<?php exit; ?>`
+und dahinter steht das JSON. PHP liest die Datei, schneidet die erste Zeile ab
+und wertet den Rest aus. Ruft jemand die Datei direkt über den Browser auf,
+führt der Server sie aus — und sie bricht sofort ab, ohne etwas auszugeben.
+Der Schutz braucht also kein `.htaccess`, das viele FTP-Programme ohnehin
+überspringen. Das gilt für `data/content.php`, `data/admin.php` und alle
+Konten unter `data/accounts/`. Eine alte `data/content.json` aus einer
+früheren Version wird beim ersten Start automatisch übernommen.
 
 ---
 
@@ -371,7 +427,7 @@ vollständig, nutzt aber Ersatz:
 |----------|--------|--------|
 | `pfeil` | fehlt | Pfeile für Bogen und Armbrust werden **programmatisch gezeichnet** (Schaft, Spitze, Federn). Sobald `assets/sprites/pfeil.png` existiert, im Admin bei der Waffe als Projektil auswählen. |
 | `explosion2` | fehlt | Die Bossbombe nutzt `explosion1.gif` (15 Frames). Granaten nutzen `explosion.gif`. |
-| Kartenbilder | fehlten komplett | `assets/uploads/map-arena.png` (2048×2048) wurde als Startwelt generiert, inklusive passender Kollisionsmaske. Eigene Karten jederzeit im Admin hochladen. |
+| Kartenbilder | fehlten komplett | `assets/uploads/map-arena.jpg` (1536×1536, ~200 KB) wurde als Startwelt generiert, inklusive passender Kollisionsmaske. Eigene Karten jederzeit im Admin hochladen. |
 | Soundeffekte | **vorhanden** | 18 Dateien unter `assets/audio/` sind eingebaut und den Ereignissen, Waffen und Gegnern zugeordnet. Nur „Geld eingesammelt" und „Menüklick" haben noch keine Datei. |
 
 Vorhandene und genutzte Assets: `playerfront`, `playerback`, `playerside`,
@@ -435,3 +491,13 @@ Automatisiert im echten Browser geprüft (Chromium, Desktop und Mobil-Viewport):
   Overlays auf 30 % ab und wieder hoch; Aus-Schalter überlebt den Reload
 * Waffen- und Projektilgröße im Admin geändert (46→130 px und 16→52 px) und im
   Spiel wie eingestellt gezeichnet; Live-Vorschau wächst mit
+* Schriftdatei blockiert das Rendern nicht mehr: 12 970 ms → 259 ms bis zum
+  Menü (vierfach gedrosselte CPU)
+* Startzeit bei 400 kbit/s, 300 ms Latenz und vierfach gedrosselter CPU:
+  48 249 ms / 1 964 KB → 12 530 ms / 436 KB
+* Nach dem Start lädt der Rest im Hintergrund weiter; der Boss der vierten
+  Welle erscheint trotzdem mit fertigem Sprite
+* `data/content.php` und eine Kontodatei direkt im Browser aufgerufen: beide
+  liefern 0 Byte — auch ohne `.htaccess`
+* Alte `data/content.json` wird beim Start übernommen, Admin-Login und
+  gespeicherte Waffenwerte funktionieren danach unverändert

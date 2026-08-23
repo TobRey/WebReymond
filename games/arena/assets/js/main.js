@@ -411,6 +411,17 @@ async function startRun(weapon) {
   showScreen('screen-none');
   $('loading').hidden = false;
   $('loading-text').textContent = 'Lade Welt ...';
+  $('loading-hint').hidden = true;
+  $('loading-bar').firstElementChild.style.width = '0%';
+  // Dauert es auffällig lange, sagen wir das offen statt nur zu drehen.
+  clearTimeout(startRun._slowHint);
+  startRun._slowHint = setTimeout(() => {
+    const hint = $('loading-hint');
+    hint.hidden = false;
+    hint.textContent = Assets.missing.length
+      ? 'Diese Dateien fehlen oder antworten nicht: ' + Assets.missing.join(', ')
+      : 'Die Verbindung ist gerade langsam - das Spiel startet, sobald die Karte da ist.';
+  }, 8000);
 
   if (loop) loop.stop();
   if (arena) arena.destroy();
@@ -421,7 +432,11 @@ async function startRun(weapon) {
   selectedCharacter = character;
   arena = new Arena({ canvas, content, mapDef, weaponDef: weapon, character, input });
   wireArena(arena);
-  await arena.load();
+  await arena.load((done, total) => {
+    $('loading-text').textContent = `Lade Welt ... ${done} von ${total}`;
+    $('loading-bar').firstElementChild.style.width = Math.round((done / total) * 100) + '%';
+  });
+  clearTimeout(startRun._slowHint);
 
   $('loading').hidden = true;
   showScreen(null);
@@ -818,10 +833,8 @@ function checkOrientation() {
 
 /* ------------------------------------------------------------------ Start */
 (async function boot() {
-  $('loading').hidden = false;
-  $('loading-text').textContent = 'Lade Sprites ...';
-  // Menü-Assets vorab laden, damit die Waffenauswahl sofort steht.
-  await Assets.loadAll(content.weapons.filter((w) => w.active).map((w) => w.sprite));
+  // Das Menü zeigt Waffenbilder als normale <img>-Elemente - die lädt der
+  // Browser selbst und nach und nach. Vorab-Laden würde den Start nur bremsen.
   renderBest();
   renderWeapons();
   initAudio();

@@ -10,6 +10,8 @@ declare(strict_types=1);
  * liegt zusätzlich als kompakte Datei bereit, damit die Startseite nicht
  * alle Konten lesen muss.
  */
+require_once __DIR__ . '/Store.php';
+
 final class Accounts
 {
     private const MAX_TRIES = 8;
@@ -198,8 +200,8 @@ final class Accounts
     /** @return list<array<string, mixed>> */
     public static function leaderboard(int $limit = 25): array
     {
-        $file = self::dir() . '/leaderboard.json';
-        $data = is_file($file) ? json_decode((string) file_get_contents($file), true) : null;
+        $file = self::dir() . '/leaderboard.php';
+        $data = is_file($file) ? json_decode(Store::strip(@file_get_contents($file)), true) : null;
         if (!is_array($data)) {
             return [];
         }
@@ -209,15 +211,14 @@ final class Accounts
     /** @param array<string, mixed> $account */
     private static function updateLeaderboard(array $account): void
     {
-        $file = self::dir() . '/leaderboard.json';
+        $file = self::dir() . '/leaderboard.php';
         $handle = fopen($file, 'c+');
         if ($handle === false) {
             return;
         }
         try {
             flock($handle, LOCK_EX);
-            $raw = stream_get_contents($handle);
-            $list = is_string($raw) && $raw !== '' ? json_decode($raw, true) : [];
+            $list = json_decode(Store::strip(stream_get_contents($handle)), true);
             if (!is_array($list)) {
                 $list = [];
             }
@@ -240,7 +241,7 @@ final class Accounts
 
             ftruncate($handle, 0);
             rewind($handle);
-            fwrite($handle, json_encode($list, JSON_UNESCAPED_UNICODE));
+            fwrite($handle, Store::GUARD . json_encode($list, JSON_UNESCAPED_UNICODE));
         } finally {
             flock($handle, LOCK_UN);
             fclose($handle);
@@ -287,7 +288,7 @@ final class Accounts
         if (!is_file($file)) {
             return null;
         }
-        $data = json_decode((string) file_get_contents($file), true);
+        $data = json_decode(Store::strip(@file_get_contents($file)), true);
         if (!is_array($data)) {
             return null;
         }
@@ -303,8 +304,8 @@ final class Accounts
         if (!is_dir($dir)) {
             @mkdir($dir, 0775, true);
         }
-        $tmp = $file . '.' . bin2hex(random_bytes(3)) . '.tmp';
-        if (@file_put_contents($tmp, json_encode($account, JSON_UNESCAPED_UNICODE), LOCK_EX) === false) {
+        $tmp = $file . '.' . bin2hex(random_bytes(3)) . '.tmp.php';
+        if (@file_put_contents($tmp, Store::GUARD . json_encode($account, JSON_UNESCAPED_UNICODE), LOCK_EX) === false) {
             return false;
         }
         return @rename($tmp, $file);
@@ -312,7 +313,8 @@ final class Accounts
 
     private static function path(string $name): string
     {
-        return self::dir() . '/' . sha1(mb_strtolower(self::cleanName($name))) . '.json';
+        // .php statt .json: die Datei schützt sich selbst, auch ohne .htaccess.
+        return self::dir() . '/' . sha1(mb_strtolower(self::cleanName($name))) . '.php';
     }
 
     private static function dir(): string
