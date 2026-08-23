@@ -1,0 +1,5 @@
+# Laufzeitdaten werden nicht versioniert.
+content.json
+content.json.lock
+admin.json
+*.tmp

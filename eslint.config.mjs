@@ -16,6 +16,7 @@ export default tseslint.config(
       '**/*.config.js',
       '**/*.config.mjs',
       'games/dice-duel/**',
+      'games/arena/**',
     ],
   },
   js.configs.recommended,
