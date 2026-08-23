@@ -16,11 +16,11 @@ import { Renderer } from '../gfx/renderer.js';
 import { formatNumber } from '../core/util.js';
 
 /**
- * Zentrale Spielinstanz: haelt Welt, Entitaeten und Regeln zusammen und
+ * Zentrale Spielinstanz: haelt Welt, Entitäten und Regeln zusammen und
  * meldet Ereignisse (Wellenende, Tod) nach aussen an die Oberflaeche.
  */
 export class Arena {
-  constructor({ canvas, content, mapDef, weaponDef, input }) {
+  constructor({ canvas, content, mapDef, weaponDef, character, input }) {
     this.canvas = canvas;
     this.content = content;
     this.input = input;
@@ -32,7 +32,8 @@ export class Arena {
     this.enemies = new EnemyManager(this.map);
     this.projectiles = new Projectiles(this.map);
     this.melee = new MeleeAttacks();
-    this.run = new RunState(content, weaponDef);
+    this.character = character || (content.characters && content.characters[0]) || null;
+    this.run = new RunState(content, weaponDef, this.character);
     this.weapon = new WeaponController(this);
     this.waves = new WaveController(this);
     this.bossCtrl = new BossController(this);
@@ -55,11 +56,10 @@ export class Arena {
     for (const handler of this.listeners.get(event) || []) handler(payload);
   }
 
-  /** Laedt alle Assets, die dieser Run braucht. */
+  /** Lädt alle Assets, die dieser Run braucht. */
   async load() {
     const player = this.content.player;
     const sprites = [
-      player.spriteFront, player.spriteBack, player.spriteSide, player.spriteDust,
       this.run.weapon.sprite,
       'assets/sprites/schuss.png',
       'assets/sprites/explosion.gif',
@@ -68,14 +68,20 @@ export class Arena {
       ...this.content.enemies.map((e) => e.sprite),
       ...this.content.weapons.filter((w) => w.active).map((w) => w.sprite),
     ];
-    await Promise.all([this.map.load(), Assets.loadAll(sprites)]);
-
-    this.playerSprites = {
-      front: Assets.get(player.spriteFront),
-      back: Assets.get(player.spriteBack),
-      side: Assets.get(player.spriteSide),
-      dust: Assets.get(player.spriteDust),
-    };
+    const [, , characterSprites] = await Promise.all([
+      this.map.load(),
+      Assets.loadAll(sprites),
+      Assets.loadCharacter(this.character || {
+        id: 'default',
+        sprites: {
+          front: { gif: player.spriteFront, frames: [] },
+          back: { gif: player.spriteBack, frames: [] },
+          side: { gif: player.spriteSide, frames: [] },
+        },
+        dustSprite: player.spriteDust,
+      }),
+    ]);
+    this.playerSprites = characterSprites;
 
     this.player = new Player(this.run, this.map, this.playerSprites);
     const start = playerSpawn(this.map, this.player.rx, this.player.ry);
@@ -146,7 +152,12 @@ export class Arena {
       enemy.contactTimer = enemy.contactCooldown || this.content.balance.contactDamageCooldown;
       this.damagePlayer(enemy.damage);
 
-      // Kleiner Rueckstoss auf beide Seiten macht Treffer spuerbar.
+      // Fähigkeit "Dornen": ein Teil des Schadens geht zurück.
+      if (this.run.perk === 'thorns') {
+        this.damageEnemy(enemy, enemy.damage * 0.3 + 4, false, 40, px, py);
+      }
+
+      // Kleiner Rückstoß auf beide Seiten macht Treffer spürbar.
       const len = Math.hypot(dx, dy) || 1;
       enemy.knockX += (dx / len) * 120;
       enemy.knockY += (dy / len) * 120;
@@ -202,7 +213,7 @@ export class Arena {
 
     this.enemies.inRadius(x, y, radius, (enemy) => {
       const distance = Math.hypot(enemy.x - x, enemy.y - y);
-      // Am Rand der Explosion faellt der Schaden ab.
+      // Am Rand der Explosion fällt der Schaden ab.
       const falloff = Math.max(0.35, 1 - distance / (radius * 1.15));
       this.damageEnemy(enemy, damage * falloff, false, 160, x, y);
     });
@@ -234,6 +245,16 @@ export class Arena {
     enemy.alive = false;
     enemy.health = 0;
     this.run.kills++;
+
+    // Fähigkeit "Lebensraub": jeder Kill heilt ein wenig.
+    if (this.run.perk === 'lifesteal' && !this.player.dead) {
+      const heal = enemy.boss ? 25 : 1.5;
+      const before = this.run.health;
+      this.run.health = Math.min(this.run.stats.maxHealth, this.run.health + heal);
+      if (this.run.health > before) {
+        this.effects.number(this.player.x, this.player.y - 46, '+' + Math.round(this.run.health - before), { color: '#5ee08a' });
+      }
+    }
 
     const money = this.run.addMoney(enemy.reward);
     this.effects.number(enemy.x, enemy.y - enemy.radius - 22, '+' + money + ' $', { color: '#ffd166' });
@@ -303,11 +324,13 @@ export class Arena {
     this.renderer.resize();
   }
 
-  /** Zusammenfassung fuer den Todesbildschirm. */
+  /** Zusammenfassung für den Todesbildschirm. */
   summary() {
     const run = this.run;
     return {
       timeAlive: run.timeAlive,
+      wavesCleared: run.wavesCleared || 0,
+      character: this.character ? this.character.name : '',
       cycle: run.cycle,
       wave: run.wave,
       kills: run.kills,
@@ -321,7 +344,7 @@ export class Arena {
     };
   }
 
-  /** Waffe mit der laengsten Tragezeit im Run. */
+  /** Waffe mit der längsten Tragezeit im Run. */
   favouriteWeapon() {
     let best = null;
     let bestTime = -1;

@@ -2,8 +2,8 @@
  * Audio: Hintergrundmusik plus vorbereitete Soundeffekte.
  *
  * Browser blockieren Wiedergabe ohne Nutzergeste. Deshalb merkt sich das
- * Modul einen Startwunsch und loest ihn bei der ersten Beruehrung oder
- * Taste ein. Lautstaerke und An/Aus liegen im localStorage.
+ * Modul einen Startwunsch und löst ihn bei der ersten Berührung oder
+ * Taste ein. Lautstärke und An/Aus liegen im localStorage.
  */
 const EVENTS = [
   'shoot', 'melee', 'hit', 'crit', 'enemyDeath', 'explosion',
@@ -12,6 +12,7 @@ const EVENTS = [
 
 const STORAGE_KEY = 'arena.audio';
 const clips = new Map();
+const throttled = new Map();
 
 let music = null;
 let musicSrc = '';
@@ -24,8 +25,8 @@ const settings = loadSettings();
 
 function loadSettings() {
   // musicVolume ist der Regler des Spielers (0-1) und multipliziert die
-  // im Admin gesetzte Grundlautstaerke.
-  const fallback = { musicOn: true, sfxOn: true, musicVolume: 1, sfxVolume: 1 };
+  // im Admin gesetzte Grundlautstärke.
+  const fallback = { musicOn: true, sfxOn: true, musicVolume: 1, sfxVolume: 1, sfxMaster: 0.8 };
   try {
     return { ...fallback, ...(JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}) };
   } catch {
@@ -112,28 +113,56 @@ export const Audio = {
   },
 
   duckMusic(on) {
-    // Waehrend Pause und Upgrade-Auswahl leiser, damit die UI im Vordergrund steht.
+    // Während Pause und Upgrade-Auswahl leiser, damit die UI im Vordergrund steht.
     if (!music || !settings.musicOn) return;
     fadeTo(on ? Audio.volume * 0.3 : Audio.volume, 0.4);
   },
 
   /* --------------------------------------------------------- Soundeffekte */
 
-  register(event, src) {
+  register(event, src, volume = 1) {
     if (!EVENTS.includes(event)) EVENTS.push(event);
+    if (!src) {
+      clips.delete(event);
+      return;
+    }
     const audio = new window.Audio(src);
-    audio.preload = 'auto';
-    clips.set(event, audio);
+    audio.preload = 'none';        // erst laden, wenn der Ton wirklich gebraucht wird
+    clips.set(event, { audio, volume });
+  },
+
+  /**
+   * Übernimmt die komplette Tonkonfiguration aus dem Admin:
+   * Musiktitel, Lautstärken und je Ereignis eine Datei.
+   */
+  configure(config = {}) {
+    if (config.musicTrack) Audio.setMusic(config.musicTrack, config.musicVolume);
+    if (typeof config.sfxVolume === 'number') settings.sfxMaster = config.sfxVolume;
+    const sounds = config.sounds || {};
+    for (const [event, entry] of Object.entries(sounds)) {
+      Audio.register(event, entry && entry.src, entry && typeof entry.volume === 'number' ? entry.volume : 1);
+    }
   },
 
   play(event, { volume = 1, rate = 1 } = {}) {
-    if (!settings.sfxOn) return;
+    if (!settings.sfxOn || !unlocked) return;
     const clip = clips.get(event);
     if (!clip) return;             // Kein Sound hinterlegt - bewusst still.
-    const node = clip.cloneNode();
-    node.volume = Math.max(0, Math.min(1, volume * (settings.sfxVolume ?? 0.8)));
+    const node = clip.audio.cloneNode();
+    node.volume = Math.max(0, Math.min(1,
+      volume * clip.volume * (settings.sfxVolume ?? 1) * (settings.sfxMaster ?? 0.8)));
     node.playbackRate = rate;
     node.play().catch(() => {});
+  },
+
+  /** Wiederholende Geräusche wie Schritte mit eigenem Mindestabstand. */
+  playThrottled(event, minGapMs, options) {
+    if (!clips.has(event)) return;
+    const now = performance.now();
+    const last = throttled.get(event) || 0;
+    if (now - last < minGapMs) return;
+    throttled.set(event, now);
+    Audio.play(event, options);
   },
 
   /* -------------------------------------------------------- Einstellungen */
@@ -162,7 +191,7 @@ export const Audio = {
     if (music && settings.musicOn) fadeTo(Audio.volume, 0.2);
   },
 
-  /** Effektive Musiklautstaerke: Admin-Grundwert mal Spielerregler. */
+  /** Effektive Musiklautstärke: Admin-Grundwert mal Spielerregler. */
   get volume() {
     return Math.max(0, Math.min(1, musicTargetVolume * (settings.musicVolume ?? 1)));
   },
@@ -175,7 +204,7 @@ export const Audio = {
     return !!music && !music.paused;
   },
 
-  /** Nur fuer Diagnose und Tests. */
+  /** Nur für Diagnose und Tests. */
   get element() {
     return music;
   },

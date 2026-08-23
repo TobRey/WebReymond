@@ -1,7 +1,7 @@
 import { rand } from '../core/util.js';
 
 /**
- * Sucht gueltige Spawnpositionen: ausserhalb des Sichtfelds, innerhalb der
+ * Sucht gültige Spawnpositionen: ausserhalb des Sichtfelds, innerhalb der
  * Karte, nicht in Hindernissen und nicht direkt auf dem Spieler.
  */
 export function findSpawnPoint(map, camera, radius, attempts = 30) {
@@ -57,7 +57,7 @@ export function findSpawnPoint(map, camera, radius, attempts = 30) {
   );
 }
 
-/** Gueltiger Startpunkt fuer den Spieler. */
+/** Gültiger Startpunkt für den Spieler. */
 export function playerSpawn(map, rx, ry) {
   const point = map.spawn || { x: map.width / 2, y: map.height / 2 };
   return map.mask.nearestFree(point.x, point.y, rx, ry, 600);

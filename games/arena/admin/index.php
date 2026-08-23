@@ -8,7 +8,7 @@ require_once dirname(__DIR__) . '/lib/Store.php';
 Auth::start();
 $isAdmin = Auth::isAdmin();
 
-// Das Sicherheitstoken existiert nur fuer angemeldete Sitzungen.
+// Das Sicherheitstoken existiert nur für angemeldete Sitzungen.
 if ($isAdmin && empty($_SESSION['arena_csrf'])) {
     $_SESSION['arena_csrf'] = bin2hex(random_bytes(16));
 }
@@ -26,7 +26,8 @@ $version = (string) (@filemtime(__DIR__ . '/app.js') ?: time());
 <title>Arena Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all';this.onload=null">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"></noscript>
 <link rel="stylesheet" href="admin.css?v=<?= htmlspecialchars($version, ENT_QUOTES) ?>">
 </head>
 <body class="<?= $isAdmin ? 'is-admin' : 'is-login' ?>">
@@ -69,6 +70,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     <nav id="nav" class="nav">
       <button class="nav__item is-active" data-view="dashboard">Dashboard</button>
       <button class="nav__item" data-view="maps">Maps</button>
+      <button class="nav__item" data-view="characters">Charaktere</button>
       <button class="nav__item" data-view="enemies">Gegner</button>
       <button class="nav__item" data-view="weapons">Waffen</button>
       <button class="nav__item" data-view="upgrades">Upgrades</button>
@@ -84,7 +86,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 
   <main class="main">
     <header class="topbar">
-      <button id="btn-menu" class="iconbtn" aria-label="Menue">☰</button>
+      <button id="btn-menu" class="iconbtn" aria-label="Menü">☰</button>
       <h1 id="view-title">Dashboard</h1>
       <div class="topbar__actions" id="view-actions"></div>
     </header>
@@ -97,7 +99,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
   <div class="modal__panel" role="dialog" aria-modal="true">
     <header class="modal__head">
       <h2 id="modal-title">Bearbeiten</h2>
-      <button class="iconbtn" data-close-modal aria-label="Schliessen">✕</button>
+      <button class="iconbtn" data-close-modal aria-label="Schließen">✕</button>
     </header>
     <div id="modal-body" class="modal__body"></div>
     <footer id="modal-foot" class="modal__foot"></footer>

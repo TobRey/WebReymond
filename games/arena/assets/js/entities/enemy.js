@@ -94,7 +94,7 @@ export class EnemyManager {
       dx /= distance;
       dy /= distance;
 
-      // Seitlicher Anteil sorgt fuer Boegen statt Ameisenstrasse.
+      // Seitlicher Anteil sorgt für Bögen statt Ameisenstrasse.
       const wobble = e.wander * (e.boss ? 0.25 : 0.75);
       let vx = dx + -dy * wobble;
       let vy = dy + dx * wobble;
@@ -128,7 +128,7 @@ export class EnemyManager {
       e.vx += (vx * e.speed - e.vx) * Math.min(1, accel * dt);
       e.vy += (vy * e.speed - e.vy) * Math.min(1, accel * dt);
 
-      // Rueckstoss klingt exponentiell ab.
+      // Rückstoß klingt exponentiell ab.
       if (e.knockX || e.knockY) {
         const decay = Math.pow(0.0016, dt);
         e.knockX *= decay;
@@ -143,7 +143,7 @@ export class EnemyManager {
       const movedX = map.mask.moveEntity(e, stepX, 0, e.radius * 0.75, ry);
       const movedY = map.mask.moveEntity(e, 0, stepY, e.radius * 0.75, ry);
 
-      // Haengt der Gegner an einer Wand, seitlich daran entlanggleiten.
+      // Hängt der Gegner an einer Wand, seitlich daran entlanggleiten.
       if (!movedX && !movedY && (stepX || stepY)) {
         const side = e.wander >= 0 ? 1 : -1;
         map.mask.moveEntity(e, -dy * side * e.speed * dt, dx * side * e.speed * dt, e.radius * 0.75, ry);
@@ -155,7 +155,7 @@ export class EnemyManager {
     }
   }
 
-  /** Naechster lebender Gegner im Umkreis - fuer automatisches Zielen. */
+  /** Nächster lebender Gegner im Umkreis - für automatisches Zielen. */
   nearest(x, y, maxRange) {
     let best = null;
     let bestDist = maxRange * maxRange;

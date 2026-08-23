@@ -1,12 +1,12 @@
 import { clamp } from './util.js';
 
 /**
- * Eingabe fuer Touch und Tastatur.
+ * Eingabe für Touch und Tastatur.
  *
  * Der Joystick ist dynamisch: Er entsteht dort, wo der Finger die
- * Spielflaeche zuerst beruehrt (linke Bildschirmhaelfte), und folgt dem
- * Finger, wenn dieser ueber den Rand hinauszieht. Das fuehlt sich auf
- * unterschiedlich grossen Handys gleich an.
+ * Spielfläche zuerst berührt (linke Bildschirmhälfte), und folgt dem
+ * Finger, wenn dieser über den Rand hinauszieht. Das fuehlt sich auf
+ * unterschiedlich großen Handys gleich an.
  */
 export class Input {
   constructor(surface, { radius = 68, deadzone = 0.14 } = {}) {
@@ -138,7 +138,7 @@ export class Input {
     return this.move;
   }
 
-  /** Bildschirmposition des Joysticks fuer die Darstellung. */
+  /** Bildschirmposition des Joysticks für die Darstellung. */
   stickView() {
     if (!this.stick.active) return null;
     const dx = this.stick.x - this.stick.baseX;

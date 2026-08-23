@@ -1,0 +1,12 @@
+# Grössere Uploads für Musik und Kartenbilder (Apache mit mod_php).
+<IfModule mod_php.c>
+  php_value upload_max_filesize 24M
+  php_value post_max_size 28M
+</IfModule>
+<IfModule mod_php7.c>
+  php_value upload_max_filesize 24M
+  php_value post_max_size 28M
+</IfModule>
+
+# Laufzeitdaten bleiben ausgeschlossen (zusätzlich zu data/.htaccess).
+RedirectMatch 404 ^/(.*/)?data/.*\.json$

@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 /**
  * Persistenz ohne Datenbank: der komplette Spielinhalt liegt als eine
- * JSON-Datei. Schreibzugriffe laufen ueber eine exklusive Sperre,
- * gespeichert wird atomar ueber eine temporaere Datei.
+ * JSON-Datei. Schreibzugriffe laufen über eine exklusive Sperre,
+ * gespeichert wird atomar über eine temporaere Datei.
  */
 final class Store
 {
@@ -55,7 +55,7 @@ final class Store
     }
 
     /**
-     * Liest, veraendert und speichert unter Sperre.
+     * Liest, verändert und speichert unter Sperre.
      *
      * @param callable(array<string, mixed>): array<string, mixed> $fn
      * @return array<string, mixed>

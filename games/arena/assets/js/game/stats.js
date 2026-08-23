@@ -1,5 +1,5 @@
 /**
- * Rechnet Basiswerte plus gewaehlte Upgrades zu den effektiven Werten aus.
+ * Rechnet Basiswerte plus gewählte Upgrades zu den effektiven Werten aus.
  * Prozent-Upgrades addieren sich (3x +8% = +24%), flache addieren direkt.
  */
 export const STAT_LABELS = {
@@ -7,13 +7,13 @@ export const STAT_LABELS = {
   attackSpeed: 'Angriffstempo',
   moveSpeed: 'Tempo',
   maxHealth: 'Max. Leben',
-  armor: 'Ruestung',
+  armor: 'Rüstung',
   shield: 'Schild',
   critChance: 'Krit. Chance',
   critDamage: 'Krit. Schaden',
   projectileSpeed: 'Projektiltempo',
   range: 'Reichweite',
-  knockback: 'Rueckstoss',
+  knockback: 'Rückstoß',
   dodge: 'Ausweichen',
   regen: 'Regeneration',
 };
@@ -43,25 +43,32 @@ export function applyUpgrade(mods, upgrade) {
   else entry.percent += Number(upgrade.value) || 0;
 }
 
-/** @returns effektive Werte fuer Spieler und Waffe */
-export function resolveStats(base, mods) {
+/**
+ * Effektive Werte aus Basiswerten, Charakterfähigkeit und Upgrades.
+ * Charakterwerte sind Multiplikatoren bzw. flache Zuschläge und wirken
+ * vor den Upgrades.
+ */
+export function resolveStats(base, mods, character = null) {
   const pct = (stat) => 1 + mods[stat].percent / 100;
   const flat = (stat) => mods[stat].flat;
+  const cm = (character && character.mods) || {};
+  const mult = (key) => (typeof cm[key] === 'number' ? cm[key] : 1);
+  const add = (key) => (typeof cm[key] === 'number' ? cm[key] : 0);
 
   return {
-    damageMult: (base.damageMult || 1) * pct('damage') + flat('damage') / 100,
-    attackSpeedMult: pct('attackSpeed'),
-    moveSpeed: (base.moveSpeed + flat('moveSpeed')) * pct('moveSpeed'),
-    maxHealth: Math.round((base.maxHealth + flat('maxHealth')) * pct('maxHealth')),
-    armor: (base.armor + flat('armor')) * pct('armor'),
-    maxShield: flat('shield') * pct('shield'),
-    critChance: Math.min(100, (base.critChance + flat('critChance')) * pct('critChance')),
-    critDamage: (base.critDamage + flat('critDamage')) * pct('critDamage'),
-    projectileSpeedMult: pct('projectileSpeed'),
-    rangeMult: pct('range'),
+    damageMult: (base.damageMult || 1) * mult('damageMult') * pct('damage') + flat('damage') / 100,
+    attackSpeedMult: pct('attackSpeed') * mult('attackSpeed'),
+    moveSpeed: (base.moveSpeed * mult('moveSpeed') + flat('moveSpeed')) * pct('moveSpeed'),
+    maxHealth: Math.round((base.maxHealth * mult('maxHealth') + flat('maxHealth')) * pct('maxHealth')),
+    armor: (base.armor + add('armor') + flat('armor')) * pct('armor'),
+    maxShield: add('shield') + flat('shield') * pct('shield'),
+    critChance: Math.min(100, (base.critChance + add('critChance') + flat('critChance')) * pct('critChance')),
+    critDamage: (base.critDamage + add('critDamage') + flat('critDamage')) * pct('critDamage'),
+    projectileSpeedMult: pct('projectileSpeed') * mult('projectileSpeed'),
+    rangeMult: pct('range') * mult('range'),
     knockbackMult: pct('knockback'),
-    dodge: Math.min(75, (base.dodge + flat('dodge')) * pct('dodge')),
-    regen: (base.regen + flat('regen')) * pct('regen'),
+    dodge: Math.min(75, (base.dodge + add('dodge') + flat('dodge')) * pct('dodge')),
+    regen: (base.regen + add('regen') + flat('regen')) * pct('regen'),
   };
 }
 

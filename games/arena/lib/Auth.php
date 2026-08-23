@@ -70,7 +70,7 @@ final class Auth
         session_regenerate_id(true);
     }
 
-    /** Aendert den Admin-Code (nur fuer angemeldete Admins sinnvoll). */
+    /** Aendert den Admin-Code (nur für angemeldete Admins sinnvoll). */
     public static function changeCode(string $new): bool
     {
         $new = trim($new);

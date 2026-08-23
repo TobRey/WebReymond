@@ -5,6 +5,7 @@ require_once __DIR__ . '/lib/Defaults.php';
 require_once __DIR__ . '/lib/Store.php';
 require_once __DIR__ . '/lib/Auth.php';
 require_once __DIR__ . '/lib/Validate.php';
+require_once __DIR__ . '/lib/Accounts.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -43,7 +44,7 @@ function requireAdmin(): void
     }
     $token = (string) (input()['csrf'] ?? $_SERVER['HTTP_X_CSRF'] ?? '');
     if (!isset($_SESSION['arena_csrf']) || !hash_equals((string) $_SESSION['arena_csrf'], $token)) {
-        fail('Ungueltiges Sicherheitstoken.', 403);
+        fail('Ungültiges Sicherheitstoken.', 403);
     }
 }
 
@@ -88,7 +89,7 @@ $action = (string) ($_GET['action'] ?? input()['action'] ?? '');
 Auth::start();
 
 switch ($action) {
-    /* ------------------------------------------------------------- oeffentlich */
+    /* ------------------------------------------------------------- öffentlich */
     case 'content': {
         respond(['ok' => true, 'content' => $store->read()]);
     }
@@ -101,7 +102,7 @@ switch ($action) {
         $code = (string) (input()['code'] ?? '');
         $result = Auth::login($code);
         if (!$result['ok']) {
-            usleep(300000); // bremst Rateversuche zusaetzlich aus
+            usleep(300000); // bremst Rateversuche zusätzlich aus
             fail($result['error'] ?? 'Login fehlgeschlagen.', 401);
         }
         respond(['ok' => true, 'csrf' => csrf()]);
@@ -112,19 +113,83 @@ switch ($action) {
         respond(['ok' => true]);
     }
 
+    /* --------------------------------------------------------- Spielerkonten */
+    case 'account': {
+        $account = Accounts::current();
+        respond([
+            'ok' => true,
+            'account' => $account ? Accounts::publicView($account) : null,
+        ]);
+    }
+
+    case 'account.register':
+    case 'account.login': {
+        $name = (string) (input()['name'] ?? '');
+        $password = (string) (input()['password'] ?? '');
+        $result = $action === 'account.register'
+            ? Accounts::register($name, $password)
+            : Accounts::login($name, $password);
+        if (!$result['ok']) {
+            usleep(250000);
+            fail($result['error'] ?? 'Anmeldung fehlgeschlagen.', 401);
+        }
+        respond(['ok' => true, 'account' => $result['account']]);
+    }
+
+    case 'account.logout': {
+        Accounts::logout();
+        respond(['ok' => true]);
+    }
+
+    case 'account.run': {
+        // Ergebnis eines Durchlaufs: Erfahrung, Bestwerte, Bestenliste.
+        $account = Accounts::submitRun(is_array(input()['result'] ?? null) ? input()['result'] : []);
+        respond(['ok' => true, 'account' => $account]);
+    }
+
+    case 'account.unlock': {
+        $id = (string) (input()['id'] ?? '');
+        $content = $store->read();
+        $character = null;
+        foreach ($content['characters'] as $entry) {
+            if (($entry['id'] ?? '') === $id) {
+                $character = $entry;
+                break;
+            }
+        }
+        if ($character === null) {
+            fail('Unbekannter Charakter.', 404);
+        }
+        if (!empty($character['starter'])) {
+            fail('Dieser Charakter ist von Anfang an frei.');
+        }
+        // Preis kommt aus den Serverdaten, nicht aus der Anfrage.
+        $result = Accounts::unlock($id, (int) $character['unlockCost']);
+        if (!$result['ok']) {
+            fail($result['error'] ?? 'Freischalten nicht möglich.', 400);
+        }
+        respond(['ok' => true, 'account' => $result['account']]);
+    }
+
+    case 'leaderboard': {
+        $limit = (int) (input()['limit'] ?? $_GET['limit'] ?? 25);
+        respond(['ok' => true, 'entries' => Accounts::leaderboard($limit)]);
+    }
+
     /* -------------------------------------------------------------------- Admin */
     case 'put': {
         requireAdmin();
         $section = (string) (input()['section'] ?? '');
         $item = input()['item'] ?? null;
-        if (!in_array($section, ['weapons', 'enemies', 'upgrades', 'maps'], true) || !is_array($item)) {
-            fail('Ungueltiger Abschnitt.');
+        if (!in_array($section, ['weapons', 'enemies', 'upgrades', 'maps', 'characters'], true) || !is_array($item)) {
+            fail('Ungültiger Abschnitt.');
         }
         $clean = match ($section) {
             'weapons' => Validate::weapon($item),
             'enemies' => Validate::enemy($item),
             'upgrades' => Validate::upgrade($item),
             'maps' => Validate::map($item),
+            'characters' => Validate::character($item),
         };
         if ($section === 'maps' && $clean['image'] === '') {
             fail('Eine Map braucht ein Bild.');
@@ -154,8 +219,8 @@ switch ($action) {
         requireAdmin();
         $section = (string) (input()['section'] ?? '');
         $id = (string) (input()['id'] ?? '');
-        if (!in_array($section, ['weapons', 'enemies', 'upgrades', 'maps'], true) || $id === '') {
-            fail('Ungueltiger Abschnitt.');
+        if (!in_array($section, ['weapons', 'enemies', 'upgrades', 'maps', 'characters'], true) || $id === '') {
+            fail('Ungültiger Abschnitt.');
         }
         $data = $store->mutate(function (array $data) use ($section, $id): array {
             $data[$section] = array_values(array_filter(
@@ -199,18 +264,32 @@ switch ($action) {
             fail('Keine Datei empfangen.');
         }
         $file = $_FILES['file'];
-        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            fail('Upload fehlgeschlagen (Code ' . (int) $file['error'] . ').');
+        $code = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+        if ($code !== UPLOAD_ERR_OK) {
+            // Die häufigste Ursache ist ein zu niedriges Serverlimit - das
+            // steht sonst nirgends und kostet unnötig Suchzeit.
+            $limit = ini_get('upload_max_filesize');
+            fail(match ($code) {
+                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE =>
+                    'Die Datei ist größer als das Serverlimit (' . $limit . '). '
+                    . 'In .user.ini bzw. .htaccess steht bereits 24M - falls dein Hoster das ignoriert, '
+                    . 'bitte upload_max_filesize und post_max_size dort erhöhen.',
+                UPLOAD_ERR_PARTIAL => 'Die Datei wurde nur teilweise übertragen. Bitte erneut versuchen.',
+                UPLOAD_ERR_NO_FILE => 'Es wurde keine Datei ausgewählt.',
+                UPLOAD_ERR_NO_TMP_DIR, UPLOAD_ERR_CANT_WRITE =>
+                    'Der Server kann die Datei nicht ablegen (Schreibrechte prüfen).',
+                default => 'Upload fehlgeschlagen (Code ' . $code . ').',
+            });
         }
-        if ($file['size'] > 20 * 1024 * 1024) {
-            fail('Datei ist groesser als 20 MB.');
+        if ($file['size'] > 24 * 1024 * 1024) {
+            fail('Datei ist größer als 24 MB.');
         }
         $wantsAudio = ($_POST['kind'] ?? '') === 'audio';
         $width = 0;
         $height = 0;
 
         if ($wantsAudio) {
-            // Audio wird ueber die Dateisignatur geprueft, nicht ueber die Endung.
+            // Audio wird über die Dateisignatur geprueft, nicht über die Endung.
             $head = (string) @file_get_contents($file['tmp_name'], false, null, 0, 16);
             $ext = null;
             if (str_starts_with($head, 'ID3') || (strlen($head) > 1 && (ord($head[0]) === 0xFF) && (ord($head[1]) & 0xE0) === 0xE0)) {

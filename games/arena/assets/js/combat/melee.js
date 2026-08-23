@@ -3,11 +3,11 @@ import { TAU } from '../core/util.js';
 
 /**
  * Nahkampfangriffe: Bogen-Schwung (Schwert, Dolch), volle Drehung (Axt)
- * und Stoss (Speer).
+ * und Stoß (Speer).
  *
  * Jeder Angriff fuehrt eine eigene Trefferliste. Dadurch kann eine
  * Axtdrehung jeden Gegner genau einmal treffen, egal wie viele Frames
- * die Klinge ueber ihm steht.
+ * die Klinge über ihm steht.
  */
 export class MeleeAttacks {
   constructor() {
@@ -50,7 +50,7 @@ export class MeleeAttacks {
       const t = Math.min(1, a.time / a.duration);
 
       if (a.type === 'thrust') {
-        // Erst schnell raus, dann zurueck - Treffer nur in der Ausfahrphase.
+        // Erst schnell raus, dann zurück - Treffer nur in der Ausfahrphase.
         const reach = t < 0.45 ? (t / 0.45) * a.range : (1 - (t - 0.45) / 0.55) * a.range;
         a.reach = reach;
         if (t < 0.6) {
@@ -69,7 +69,7 @@ export class MeleeAttacks {
           });
         }
       } else {
-        // Schwung: Winkel wandert ueber die Angriffsdauer.
+        // Schwung: Winkel wandert über die Angriffsdauer.
         const span = (a.arc * Math.PI) / 180;
         const from = a.angle - span / 2;
         const current = from + span * t;
@@ -112,7 +112,7 @@ export class MeleeAttacks {
     for (const a of this.pool.active) {
       const t = Math.min(1, a.time / a.duration);
 
-      // Sprite-Laenge aus den Waffendaten, sonst an der Reichweite orientiert.
+      // Sprite-Länge aus den Waffendaten, sonst an der Reichweite orientiert.
       const length = a.spriteScale || a.range * 0.9;
 
       if (a.type === 'thrust') {

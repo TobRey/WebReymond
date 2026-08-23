@@ -1,7 +1,8 @@
 import { clamp } from '../core/util.js';
+import { Audio } from '../core/audio.js';
 
 /**
- * Der Spieler. Die Kollisionshitbox sitzt bewusst nur um die Fuesse,
+ * Der Spieler. Die Kollisionshitbox sitzt bewusst nur um die Füße,
  * damit der Kopf optisch vor einer Wand stehen darf.
  */
 export class Player {
@@ -23,11 +24,13 @@ export class Player {
     this.squash = 0;
     this.dead = false;
 
-    const hb = run.base.hitbox || { rx: 15, ry: 10, oy: 22 };
+    // Charakterwerte gehen vor den allgemeinen Spielerwerten.
+    const character = run.character || {};
+    const hb = character.hitbox || run.base.hitbox || { rx: 15, ry: 10, oy: 22 };
     this.rx = hb.rx;
     this.ry = hb.ry;
     this.footOffset = hb.oy;
-    this.scale = run.base.scale || 78;
+    this.scale = character.scale || run.base.scale || 78;
   }
 
   get drawWidth() {
@@ -67,6 +70,8 @@ export class Player {
         this._dustTimer = 0;
         effects.dust(this.x, this.y + this.footOffset * 0.35);
       }
+      // Schritte im Takt der Laufgeschwindigkeit.
+      Audio.playThrottled('run', 24000 / Math.max(60, speed), { volume: 0.5 });
     }
 
     if (this.hitFlash > 0) this.hitFlash = Math.max(0, this.hitFlash - dt * 4);

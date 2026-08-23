@@ -3,7 +3,7 @@ import { TAU, clamp } from '../core/util.js';
 
 const silhouettes = new WeakMap();
 
-/** Weisse Silhouette eines Frames - fuer das Aufblitzen bei Treffern. */
+/** Weisse Silhouette eines Frames - für das Aufblitzen bei Treffern. */
 function silhouette(frame) {
   let cached = silhouettes.get(frame);
   if (cached) return cached;
@@ -24,8 +24,8 @@ function silhouette(frame) {
 }
 
 /**
- * Zeichnet die Welt. Alles laeuft ueber genau einen Canvas-Kontext mit
- * abgeschalteter Glaettung, damit die Pixel-Art scharf bleibt.
+ * Zeichnet die Welt. Alles läuft über genau einen Canvas-Kontext mit
+ * abgeschalteter Glättung, damit die Pixel-Art scharf bleibt.
  */
 export class Renderer {
   constructor(canvas, arena) {
@@ -43,12 +43,12 @@ export class Renderer {
     const cssW = Math.max(320, rect.width || window.innerWidth);
     const cssH = Math.max(240, rect.height || window.innerHeight);
 
-    // Auf sehr hochaufloesenden Handys kostet DPR 3 spuerbar Leistung.
+    // Auf sehr hochaufloesenden Handys kostet DPR 3 spürbar Leistung.
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = Math.round(cssW * this.dpr);
     canvas.height = Math.round(cssH * this.dpr);
 
-    // Leicht hineingezoomt, aber immer genug Uebersicht.
+    // Leicht hineingezoomt, aber immer genug Übersicht.
     this.zoom = clamp(Math.min(cssW, cssH) / 390, 1, 2.6);
     this.cssW = cssW;
     this.cssH = cssH;
@@ -87,7 +87,7 @@ export class Renderer {
     this.drawJoystick();
   }
 
-  /** Entitaeten nach Y sortiert, damit die Tiefenwirkung stimmt. */
+  /** Entitäten nach Y sortiert, damit die Tiefenwirkung stimmt. */
   drawEntities(time) {
     const { ctx, arena } = this;
     const list = this.renderList;
@@ -116,7 +116,7 @@ export class Renderer {
 
     this.shadow(player.x, player.y + player.footOffset * 0.4, player.scale * 0.34, player.scale * 0.15);
 
-    // Staubanimation nur waehrend der Bewegung.
+    // Staubanimation nur während der Bewegung.
     const dust = arena.playerSprites.dust;
     if (dust && player.moving) {
       const frame = dust.frameAt(player.moveTime * 1000);
@@ -174,13 +174,19 @@ export class Renderer {
 
     const aim = arena.weapon.aim;
     const recoil = player.recoil * 8;
-    // Groesse kommt aus den Waffendaten und ist im Admin einstellbar.
+    // Größe kommt aus den Waffendaten und ist im Admin einstellbar.
     const length = weapon.spriteScale || 46;
     const h = (sprite.height / sprite.width) * length;
-    const distance = 20 + length * 0.12 - recoil;
+    // Abstand und Höhe sind im Admin einstellbar - sonst liegt die Waffe
+    // je nach Sprite mal im Gesicht und mal am Fuß.
+    const distance = (weapon.holdDistance ?? 20) - recoil;
+    const offsetY = weapon.holdOffsetY ?? -6;
 
     ctx.save();
-    ctx.translate(player.x + Math.cos(aim) * distance, player.y + player.footOffset * 0.1 + Math.sin(aim) * distance * 0.6);
+    ctx.translate(
+      player.x + Math.cos(aim) * distance,
+      player.y + player.footOffset * 0.1 + offsetY + Math.sin(aim) * distance * 0.6,
+    );
     ctx.rotate(aim);
     if (Math.abs(aim) > Math.PI / 2) ctx.scale(1, -1); // nach links nicht auf dem Kopf
     ctx.drawImage(sprite.frameAt(0), -length * 0.3, -h / 2, length, h);
@@ -236,7 +242,7 @@ export class Renderer {
     ctx.restore();
   }
 
-  /** Lebensleisten sitzen ueber dem Gegner und bleiben immer gleich gross. */
+  /** Lebensleisten sitzen über dem Gegner und bleiben immer gleich groß. */
   drawHealthbars() {
     const { ctx, arena } = this;
     const px = 1 / this.zoom;
@@ -245,7 +251,7 @@ export class Renderer {
 
     for (const enemy of arena.enemies.list) {
       if (!enemy.alive || enemy.health >= enemy.maxHealth) continue;
-      if (enemy.boss) continue; // Boss hat die grosse Leiste im HUD
+      if (enemy.boss) continue; // Boss hat die große Leiste im HUD
       if (!arena.camera.visible(enemy.x, enemy.y, enemy.scale)) continue;
 
       const ratio = clamp(enemy.health / enemy.maxHealth, 0, 1);

@@ -20,7 +20,8 @@ $version = (string) (@filemtime(__DIR__ . '/assets/js/main.js') ?: time());
 <title>Arena Survivors</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" media="print" onload="this.media='all';this.onload=null">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap"></noscript>
 <link rel="stylesheet" href="assets/css/game.css?v=<?= htmlspecialchars($version, ENT_QUOTES) ?>">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%237c6cff'/><path d='M28 66l22-38 22 38z' fill='%23fff'/></svg>">
 </head>
@@ -62,16 +63,18 @@ $version = (string) (@filemtime(__DIR__ . '/assets/js/main.js') ?: time());
   <div id="wave-banner" class="banner" hidden></div>
 </div>
 
-<!-- ------------------------------------------------------------ Menue -->
+<!-- ------------------------------------------------------------ Menü -->
 <section id="screen-menu" class="screen is-active">
   <div class="menu">
     <h1 class="logo">Arena<span>Survivors</span></h1>
-    <p class="logo__sub">Ueberlebe Welle fuer Welle. Waehle klug.</p>
+    <p class="logo__sub">Überlebe Welle für Welle. Wähle klug.</p>
     <div class="menu__buttons">
       <button id="btn-play" class="btn btn--primary btn--xl">Spielen</button>
       <button id="btn-worlds" class="btn">Welten</button>
-      <a class="btn btn--quiet" href="admin/">Admin</a>
+      <button id="btn-scores" class="btn">Bestenliste</button>
+      <button id="btn-account" class="btn btn--quiet">Anmelden</button>
       <button id="btn-sound-menu" class="btn btn--quiet">Musik: an</button>
+      <a class="btn btn--quiet" href="admin/">Admin</a>
     </div>
     <div id="menu-best" class="menu__best"></div>
   </div>
@@ -81,10 +84,45 @@ $version = (string) (@filemtime(__DIR__ . '/assets/js/main.js') ?: time());
 <section id="screen-worlds" class="screen">
   <div class="panel">
     <header class="panel__head">
-      <h2>Welt waehlen</h2>
-      <button class="btn btn--quiet" data-back>Zurueck</button>
+      <h2>Welt wählen</h2>
+      <button class="btn btn--quiet" data-back>Zurück</button>
     </header>
     <div id="world-list" class="worldlist"></div>
+  </div>
+</section>
+
+<!-- -------------------------------------------------------- Charakter -->
+<section id="screen-character" class="screen">
+  <div class="panel">
+    <header class="panel__head">
+      <h2>Charakter wählen</h2>
+      <div class="panel__meta"><span id="xp-badge" class="chip"></span>
+        <button class="btn btn--quiet" data-back>Zurück</button></div>
+    </header>
+    <div id="character-list" class="charlist"></div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------ Bestenliste -->
+<section id="screen-scores" class="screen">
+  <div class="panel">
+    <header class="panel__head">
+      <h2>Bestenliste</h2>
+      <button class="btn btn--quiet" data-back>Zurück</button>
+    </header>
+    <div id="score-own" class="scoreown"></div>
+    <div id="score-list" class="scorelist"></div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ Konto -->
+<section id="screen-account" class="screen screen--center">
+  <div class="panel panel--narrow">
+    <header class="panel__head">
+      <h2 id="account-title">Anmelden</h2>
+      <button class="btn btn--quiet" data-back>Zurück</button>
+    </header>
+    <div id="account-body" class="form"></div>
   </div>
 </section>
 
@@ -93,7 +131,7 @@ $version = (string) (@filemtime(__DIR__ . '/assets/js/main.js') ?: time());
   <div class="panel">
     <header class="panel__head">
       <h2>Starterwaffe</h2>
-      <button class="btn btn--quiet" data-back>Zurueck</button>
+      <button class="btn btn--quiet" data-back>Zurück</button>
     </header>
     <div id="weapon-list" class="weaponlist"></div>
   </div>
@@ -103,7 +141,7 @@ $version = (string) (@filemtime(__DIR__ . '/assets/js/main.js') ?: time());
 <div id="overlay-upgrade" class="overlay" hidden>
   <div class="overlay__inner">
     <p class="overlay__kicker" id="upgrade-kicker">Welle geschafft</p>
-    <h2 class="overlay__title">Waehle ein Upgrade</h2>
+    <h2 class="overlay__title">Wähle ein Upgrade</h2>
     <div id="upgrade-cards" class="cards"></div>
   </div>
 </div>
@@ -123,10 +161,10 @@ $version = (string) (@filemtime(__DIR__ . '/assets/js/main.js') ?: time());
   <div class="overlay__inner overlay__inner--scroll">
     <header class="panel__head">
       <h2>Statistiken</h2>
-      <button class="btn btn--quiet" data-close-stats>Schliessen</button>
+      <button class="btn btn--quiet" data-close-stats>Schließen</button>
     </header>
     <div id="stats-grid" class="statgrid"></div>
-    <h3 class="subhead">Gewaehlte Upgrades</h3>
+    <h3 class="subhead">Gewählte Upgrades</h3>
     <div id="stats-upgrades" class="upgradelist"></div>
   </div>
 </div>
@@ -146,18 +184,19 @@ $version = (string) (@filemtime(__DIR__ . '/assets/js/main.js') ?: time());
   <div class="overlay__inner overlay__inner--scroll">
     <p class="overlay__kicker">Run beendet</p>
     <h2 class="overlay__title" id="death-title">Du bist gefallen</h2>
+    <p id="death-xp" class="death-xp" hidden></p>
     <div id="death-grid" class="statgrid"></div>
     <h3 class="subhead">Upgrades</h3>
     <div id="death-upgrades" class="upgradelist"></div>
     <div class="dialog__actions">
       <button id="death-retry" class="btn btn--primary btn--xl">Nochmal</button>
-      <button id="death-menu" class="btn btn--quiet">Hauptmenue</button>
+      <button id="death-menu" class="btn btn--quiet">Hauptmenü</button>
     </div>
   </div>
 </div>
 
 <div id="loading" class="loading" hidden><div class="loading__spinner"></div><span id="loading-text">Lade ...</span></div>
-<div id="rotate-hint" class="rotate" hidden>Drehe dein Handy fuer das beste Spielerlebnis</div>
+<div id="rotate-hint" class="rotate" hidden>Drehe dein Handy für das beste Spielerlebnis</div>
 <div id="toasts" class="toasts"></div>
 
 <script>window.ARENA_CONTENT = <?= json_encode($content, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;</script>

@@ -5,10 +5,12 @@ import { emptyModifiers, applyUpgrade, resolveStats, resolveWeapon } from './sta
  * Alles, was der Spieler in einem Run aufbaut, liegt hier - nicht in der UI.
  */
 export class RunState {
-  constructor(content, weapon) {
+  constructor(content, weapon, character = null) {
     this.content = content;
     this.base = content.player;
     this.balance = content.balance;
+    this.character = character;
+    this.perk = (character && character.perk) || '';
 
     this.mods = emptyModifiers();
     this.upgrades = [];       // {upgrade, count}
@@ -20,16 +22,17 @@ export class RunState {
     this.damageDealt = 0;
     this.damageTaken = 0;
     this.timeAlive = 0;
-    this.weaponUsage = {};      // Sekunden je Waffe - fuer die Endauswertung
+    this.weaponUsage = {};      // Sekunden je Waffe - für die Endauswertung
 
     this.cycle = 1;
     this.wave = 1;            // 1..4 innerhalb des Zyklus
-    this.waveIndex = 0;       // fortlaufend ueber alle Zyklen
+    this.waveIndex = 0;       // fortlaufend über alle Zyklen
 
-    this.stats = resolveStats(this.base, this.mods);
+    this.stats = resolveStats(this.base, this.mods, this.character);
     this.weaponStats = resolveWeapon(this.weapon, this.stats);
     this.health = this.stats.maxHealth;
     this.shield = this.stats.maxShield;
+    this.wavesCleared = 0;      // zählt die Erfahrungspunkte des Runs mit
   }
 
   get difficulty() {
@@ -70,7 +73,7 @@ export class RunState {
   }
 
   recalc() {
-    this.stats = resolveStats(this.base, this.mods);
+    this.stats = resolveStats(this.base, this.mods, this.character);
     this.weaponStats = resolveWeapon(this.weapon, this.stats);
     this.clampVitals();
   }
@@ -91,7 +94,7 @@ export class RunState {
     return value;
   }
 
-  /** Uebersicht fuer den Stats-Screen. */
+  /** Übersicht für den Stats-Screen. */
   snapshot() {
     const s = this.stats;
     const w = this.weaponStats;
@@ -104,13 +107,14 @@ export class RunState {
       ['Tempo', Math.round(s.moveSpeed)],
       ['Leben', Math.ceil(this.health) + ' / ' + s.maxHealth],
       ['Schild', Math.ceil(this.shield) + ' / ' + Math.round(s.maxShield)],
-      ['Ruestung', s.armor.toFixed(1)],
+      ['Rüstung', s.armor.toFixed(1)],
       ['Krit. Chance', w.critChance.toFixed(1) + '%'],
       ['Krit. Schaden', '+' + Math.round(w.critDamage) + '%'],
-      ['Rueckstoss', Math.round(w.knockback)],
+      ['Rückstoß', Math.round(w.knockback)],
       ['Ausweichen', s.dodge.toFixed(1) + '%'],
       ['Regeneration', s.regen.toFixed(1) + ' HP/s'],
       ['Geld', this.money],
+      ['Charakter', this.character ? this.character.name : '-'],
       ['Zyklus', this.cycle],
       ['Welle', this.wave + ' / 4'],
       ['Schwierigkeit', '×' + this.difficulty.toFixed(2)],

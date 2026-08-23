@@ -44,8 +44,8 @@ export class Sprite {
  * Schneidet transparente Raender weg.
  *
  * Die Quell-GIFs haben sehr unterschiedlich viel Leerraum (256x256 bis
- * 1000x1000). Ohne Trimmen wuerde derselbe Skalierungswert bei jedem
- * Gegner eine andere sichtbare Groesse ergeben. Die Grenzen werden auf
+ * 1000x1000). Ohne Trimmen würde derselbe Skalierungswert bei jedem
+ * Gegner eine andere sichtbare Größe ergeben. Die Grenzen werden auf
  * einer verkleinerten Kopie gesucht, das kostet beim Laden fast nichts.
  */
 function trimFrames(frames, width, height) {
@@ -102,6 +102,34 @@ function trimFrames(frames, width, height) {
   return { frames: trimmed, width: w, height: h };
 }
 
+/**
+ * Verkleinert sehr große Frames.
+ *
+ * Die Quell-GIFs sind bis zu 1000x1000 Pixel groß, gezeichnet werden sie im
+ * Spiel mit 60 bis 200 Pixeln Höhe. Ohne diesen Schritt kosten Dekodierung
+ * und Speicher auf dem Handy ein Vielfaches, ohne dass man etwas sieht.
+ */
+const MAX_SPRITE_SIDE = 384;
+
+function shrinkFrames(frames, width, height) {
+  const longest = Math.max(width, height);
+  if (longest <= MAX_SPRITE_SIDE) return null;
+  const factor = MAX_SPRITE_SIDE / longest;
+  const w = Math.max(1, Math.round(width * factor));
+  const h = Math.max(1, Math.round(height * factor));
+  const scaled = frames.map((frame) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(frame, 0, 0, w, h);
+    return canvas;
+  });
+  return { frames: scaled, width: w, height: h };
+}
+
 const cache = new Map();
 const pending = new Map();
 
@@ -140,6 +168,12 @@ async function loadOne(src) {
       width = trimmed.width;
       height = trimmed.height;
     }
+    const shrunk = shrinkFrames(frames, width, height);
+    if (shrunk) {
+      frames = shrunk.frames;
+      width = shrunk.width;
+      height = shrunk.height;
+    }
     return new Sprite(frames, gif.frames.map((f) => f.delay), width, height, src);
   }
   const img = new Image();
@@ -152,10 +186,94 @@ async function loadOne(src) {
   return new Sprite([img], [100], img.naturalWidth, img.naturalHeight, src);
 }
 
+/**
+ * Baut ein Sprite aus mehreren Einzelbildern (bis zu fünf pro Richtung).
+ * Alle Bilder werden auf die Größe des ersten gebracht, damit die
+ * Animation nicht springt.
+ */
+async function loadSequence(paths, frameDuration) {
+  const images = [];
+  for (const path of paths) {
+    const sprite = await Assets.load(path);
+    if (sprite) images.push(sprite);
+  }
+  if (!images.length) return null;
+
+  const width = images[0].width;
+  const height = images[0].height;
+  const frames = images.map((sprite) => {
+    const frame = sprite.frames[0];
+    if (sprite.width === width && sprite.height === height) return frame;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    // Bild mittig einpassen, ohne es zu verzerren.
+    const factor = Math.min(width / sprite.width, height / sprite.height);
+    const w = sprite.width * factor;
+    const h = sprite.height * factor;
+    ctx.drawImage(frame, (width - w) / 2, height - h, w, h);
+    return canvas;
+  });
+  return new Sprite(frames, frames.map(() => frameDuration), width, height, paths.join('|'));
+}
+
+/** Färbt alle Frames eines Sprites um (Farbdrehung in Grad). */
+function tintSprite(sprite, degrees) {
+  if (!degrees) return sprite;
+  const frames = sprite.frames.map((frame) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = sprite.width;
+    canvas.height = sprite.height;
+    const ctx = canvas.getContext('2d');
+    if ('filter' in ctx) ctx.filter = `hue-rotate(${degrees}deg) saturate(1.15)`;
+    ctx.drawImage(frame, 0, 0, sprite.width, sprite.height);
+    return canvas;
+  });
+  return new Sprite(frames, sprite.delays.slice(), sprite.width, sprite.height, sprite.src + '#tint' + degrees);
+}
+
+/**
+ * Blendet die Bildränder weich aus.
+ *
+ * Der Staubeffekt ist ein Rechteck mit sichtbarer Kante. Ein radialer
+ * Verlauf über destination-in lässt die Ränder verlaufen, sodass die
+ * Wolke am Boden aufgeht statt als Kachel zu enden.
+ */
+function fadeEdges(sprite, softness = 0.42) {
+  const frames = sprite.frames.map((frame) => {
+    const w = sprite.width;
+    const h = sprite.height;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(frame, 0, 0, w, h);
+
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.save();
+    // Einheitskreis auf die Bildgröße strecken: die Blende passt damit
+    // auch bei breiten Bildern bis in die Ecken.
+    ctx.translate(w / 2, h / 2);
+    ctx.scale(w / 2, h / 2);
+    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+    gradient.addColorStop(0, 'rgba(0,0,0,1)');
+    gradient.addColorStop(Math.max(0, 1 - softness), 'rgba(0,0,0,1)');
+    gradient.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(-1, -1, 2, 2);
+    ctx.restore();
+    ctx.globalCompositeOperation = 'source-over';
+    return canvas;
+  });
+  return new Sprite(frames, sprite.delays.slice(), sprite.width, sprite.height, sprite.src + '#faded');
+}
+
 export const Assets = {
   missing: [],
 
-  /** Laedt ein Asset genau einmal; Fehler enden in einem sichtbaren Platzhalter. */
+  /** Lädt ein Asset genau einmal; Fehler enden in einem sichtbaren Platzhalter. */
   async load(src) {
     if (!src) return fallbackSprite('', '?');
     if (cache.has(src)) return cache.get(src);
@@ -175,6 +293,34 @@ export const Assets = {
 
     pending.set(src, task);
     return task;
+  },
+
+  /**
+   * Lädt die Sprites eines Charakters: je Richtung entweder ein GIF oder
+   * eine Bilderfolge, dazu die getönte Fassung und der weiche Staub.
+   */
+  async loadCharacter(character) {
+    const key = 'character:' + character.id + ':' + (character.tint || 0);
+    if (cache.has(key)) return cache.get(key);
+
+    const build = async (dir) => {
+      const entry = (character.sprites && character.sprites[dir]) || {};
+      let sprite = null;
+      if (Array.isArray(entry.frames) && entry.frames.length) {
+        sprite = await loadSequence(entry.frames, character.frameDuration || 130);
+      }
+      if (!sprite && entry.gif) sprite = await Assets.load(entry.gif);
+      if (!sprite) sprite = await Assets.load('assets/sprites/playerfront.gif');
+      return tintSprite(sprite, character.tint || 0);
+    };
+
+    const [front, back, side, dustRaw] = await Promise.all([
+      build('front'), build('back'), build('side'),
+      Assets.load(character.dustSprite || 'assets/sprites/staub.gif'),
+    ]);
+    const set = { front, back, side, dust: fadeEdges(dustRaw) };
+    cache.set(key, set);
+    return set;
   },
 
   async loadAll(list) {

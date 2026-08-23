@@ -2,4 +2,5 @@
 content.json
 content.json.lock
 admin.json
+accounts/
 *.tmp

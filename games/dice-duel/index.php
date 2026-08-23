@@ -23,7 +23,8 @@ $assetVersion = (string) @filemtime(__DIR__ . '/assets/app.js') ?: '1';
 <title>Dice Duel</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" media="print" onload="this.media='all';this.onload=null">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap"></noscript>
 <link rel="stylesheet" href="assets/app.css?v=<?= htmlspecialchars($assetVersion, ENT_QUOTES) ?>">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%236c5cff'/><circle cx='32' cy='32' r='9' fill='%23fff'/><circle cx='68' cy='68' r='9' fill='%23fff'/><circle cx='50' cy='50' r='9' fill='%23fff'/></svg>">
 </head>

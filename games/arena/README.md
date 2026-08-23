@@ -97,6 +97,19 @@ Bewegung wird achsenweise aufgelöst: Erst X, dann Y. Dadurch gleitet man an
 Wänden entlang, statt daran kleben zu bleiben. Die Spieler-Hitbox ist bewusst
 klein und sitzt an den Füßen — der Kopf darf optisch vor einer Wand stehen.
 
+### Startzeit
+
+Die Schriftdatei wird **nicht mehr renderblockierend** geladen (`media="print"`
+plus `onload`). Vorher hing die ganze Seite an der Google-Fonts-Anfrage: bei
+langsamer oder blockierter Verbindung stand das Spiel minutenlang im Ladebild.
+Gemessen auf einer vierfach gedrosselten CPU: **12 970 ms → 259 ms** bis zum
+bedienbaren Menü. Die Schrift wird nachgeladen, bis dahin greift die
+System-Schriftfamilie.
+
+Zusätzlich werden GIF-Frames beim Dekodieren über eine 32-Bit-Palette
+geschrieben (statt vier Einzelbytes) und Frames über 384 px verkleinert – im
+Spiel werden sie ohnehin nur 60–200 px hoch gezeichnet.
+
 ### Performance
 
 * Fester Simulationstakt (1/60 s) mit Delta-Time — 60-Hz- und 120-Hz-Geräte
@@ -110,9 +123,65 @@ klein und sitzt an den Füßen — der Kopf darf optisch vor einer Wand stehen.
 
 ---
 
+## Konto, Erfahrung und Bestenliste
+
+* **Konto anlegen** im Hauptmenü unter *Anmelden*: Benutzername (3–16 Zeichen)
+  und Passwort (ab 6 Zeichen). Passwörter liegen nur als bcrypt-Hash in
+  `data/accounts/`. Nach 8 Fehlversuchen ist das Konto 5 Minuten gesperrt.
+* **Ohne Konto** kann man normal spielen – Erfahrung und Bestwerte werden dann
+  aber nicht gespeichert. Das Spiel sagt das offen an.
+* **Jede geschaffte Welle gibt genau einen Erfahrungspunkt.** Das läuft still im
+  Hintergrund mit; erst im Todesbildschirm steht, wie viele dazugekommen sind.
+* **Punktestand** = Wellen × 100 + Kills × 5 + Geld. Der beste Wert je Konto
+  landet in der Bestenliste (Menü → *Bestenliste*, Top 25, eigener Platz
+  hervorgehoben).
+* **Charaktere freischalten:** Drei Figuren sind von Anfang an spielbar, jede
+  weitere kostet 20 Erfahrungspunkte. Die Punkte werden beim Freischalten
+  verbraucht, die Erfahrung selbst bleibt als Gesamtwert stehen.
+
+Die Werte werden serverseitig begrenzt (max. 500 Wellen, 100 000 Kills pro Run),
+und der Freischaltpreis kommt aus den Serverdaten, nicht aus der Anfrage.
+
+---
+
+## Charaktere
+
+Sechs Figuren mit eigenen Werten und Fähigkeiten:
+
+| Charakter | Rolle | Fähigkeit | Frei |
+|-----------|-------|-----------|------|
+| Nova | Späherin | +10 % Tempo, +5 % Krit | ja |
+| Bruno | Bollwerk | +30 % Leben, +3 Rüstung, −6 % Tempo | ja |
+| Kira | Duellantin | +12 % Schaden, +8 % Angriffstempo | ja |
+| Ruun | Magier | +15 % Reichweite, +20 % Projektiltempo, bessere Upgrade-Karten | 20 XP |
+| Vera | Vampirin | Jeder Kill heilt (Boss: 25 HP), −12 % Leben | 20 XP |
+| Tor | Wächter | +20 % Leben, 25 Startschild, wirft Nahkampfschaden zurück | 20 XP |
+
+Die drei Sonderfähigkeiten sind echte Mechaniken, keine reinen Zahlen:
+**Lebensraub** heilt bei jedem Kill, **Dornen** gibt 30 % des Kontaktschadens
+zurück, **Glückskarten** verschiebt die Seltenheiten der Upgrade-Karten nach oben.
+
+### Eigene Sprites: GIF oder fünf Einzelbilder
+
+Im Admin unter **Charaktere** hat jede Richtung (vorne, hinten, seitlich) zwei
+Möglichkeiten:
+
+* ein **animiertes GIF** – wird wie bisher automatisch zerlegt, oder
+* bis zu **fünf Einzelbilder** – das Spiel baut daraus selbst die Animation.
+
+Liegen Einzelbilder vor, haben sie Vorrang. Das Tempo steuert **Bildwechsel
+(ms)** – 80 ms sind schnelle Schritte, 200 ms ein ruhiger Gang. Bilder
+unterschiedlicher Größe werden am Fußpunkt zentriert eingepasst, damit die
+Figur beim Wechsel nicht springt.
+
+Solange keine eigenen Sprites hochgeladen sind, unterscheiden sich die Figuren
+über eine **Farbdrehung** (Feld *Farbdrehung*, 0–360°) auf demselben Basissprite.
+
+---
+
 ## Spielablauf
 
-1. **Spielen** → Starterwaffe wählen → Run startet sofort.
+1. **Spielen** → Charakter wählen → Starterwaffe wählen → Run startet sofort.
 2. Steuerung: **virtueller Joystick** (entsteht dort, wo der Finger die Fläche
    berührt) oder **WASD / Pfeiltasten** am PC.
 3. Die Waffe **zielt und feuert automatisch** auf den nächsten Gegner in Reichweite.
@@ -174,9 +243,11 @@ Admin brauchen deshalb keinen neuen Code, nur Werte.
 | Axt | MELEE_360 | 18 | 0,95 s | 88 px | – | volle Drehung, trifft alles |
 | Granate | GRENADE | 55 | 1,90 s | 46 px | 34 px | AoE 130, verzögerte Explosion |
 
-**Größen sind einstellbar.** Im Waffen-Editor legen zwei Felder fest, wie groß
-die Waffe in der Hand (bzw. beim Schwung) und wie groß das Projektil gezeichnet
-wird — jeweils in Pixeln der Spielwelt. Eine Live-Vorschau zeigt beides sofort
+**Größe und Sitz sind einstellbar.** Im Waffen-Editor legen vier Felder fest,
+wie die Waffe getragen wird: *Waffensprite-Größe* und *Projektil-Größe* in
+Pixeln, dazu **Waffenhöhe** (negativ = höher, positiv = tiefer – gegen Waffen,
+die am Fuß kleben) und **Abstand zum Körper**. Die Vorschau zeigt Waffe und
+Projektil in echter Spielgröße neben einer Spielerfigur samt Hüftlinie. Eine Live-Vorschau zeigt beides sofort
 in echter Spielgröße neben einem Spieler-Maßstab (78 px). Der Wert ändert nur
 die Darstellung, nicht die Trefferzone: Reichweite, Schwungwinkel und AoE-Radius
 bleiben eigene Felder.
@@ -218,7 +289,8 @@ gewählten Upgrades mit Stapelzahl (z. B. „Flinke Füße ×3").
 | **Upgrades** | Anlegen, bearbeiten, duplizieren, löschen; Stat, Modifikator, Seltenheit, Gewicht, Stapel |
 | **Spieler** | Basiswerte und alle vier Spieler-Sprites |
 | **Balancing** | Wellendauer, Spawnrate, Skalierung, Bombenwerte, Kartenchancen |
-| **Audio** | Musiktitel hochladen und wechseln, Musik- und Effektlautstärke, Autostart |
+| **Charaktere** | Anlegen, bearbeiten, duplizieren, löschen; Sprites (GIF oder 5 Einzelbilder je Richtung), Bildtempo, Farbdrehung, Fähigkeiten, Werte, Hitbox, Freischaltkosten |
+| **Audio** | Musiktitel und **je Ereignis eine eigene Sounddatei** mit eigener Lautstärke, Vorhören, Autostart |
 
 ### Collision-Editor
 
@@ -260,15 +332,22 @@ begrenzt (Leben > 0, Cooldown > 0, Pfade nur innerhalb der Asset-Ordner usw.).
   20 MB), Grundlautstärke setzen, Autostart an- oder abschalten. Die
   Dateiprüfung läuft über die Signatur, nicht über die Endung.
 
-Soundeffekte sind vorbereitet, aber es liegen keine Dateien bei. Sobald welche
-da sind, genügt eine Zeile in `assets/js/main.js`:
+### Soundeffekte
 
-```js
-Audio.register('shoot', 'assets/audio/shoot.wav');
-```
+Im Admin unter **Audio** hat jedes Ereignis eine eigene Zeile: Datei hochladen,
+Lautstärke per Regler, Vorhören, entfernen. Ohne Datei bleibt das Ereignis still.
 
-Bekannte Ereignisse: `shoot`, `melee`, `hit`, `crit`, `enemyDeath`, `explosion`,
-`upgrade`, `bossSpawn`, `bossWarning`, `playerHit`, `coin`, `gameOver`, `uiClick`.
+Vorhandene Ereignisse: Schuss, Nahkampfschlag, Treffer am Gegner, kritischer
+Treffer, Gegner stirbt, Explosion, **Laufschritte**, Spieler wird getroffen,
+Geld eingesammelt, Upgrade gewählt, Boss erscheint, Bombenwarnung, Run beendet,
+Menüklick.
+
+Die Laufschritte laufen im Takt der Bewegungsgeschwindigkeit und werden
+gedrosselt, damit sie sich nicht überlagern.
+
+**Upload-Größe:** Das Projekt bringt `.user.ini` und `.htaccess` mit 24 MB mit.
+Ignoriert dein Hoster beides (manche Setups tun das), nennt die Fehlermeldung
+das tatsächliche Limit – dann muss es im Hosting-Panel angehoben werden.
 
 ---
 
@@ -325,6 +404,16 @@ Automatisiert im echten Browser geprüft (Chromium, Desktop und Mobil-Viewport):
 * Maps, Gegner, Waffen, Upgrades, Spieler- und Balancingwerte überleben Reload
 * Kamera bleibt exakt innerhalb der Karte
 * 45 Gegner gleichzeitig bei 60 FPS
+* Charakterwerte greifen wirklich (Bruno: 130 statt 100 Leben, 158 statt 168 Tempo)
+* Fünf-Bilder-Animation: drei hochgeladene Bilder ergeben drei Frames à 80 ms,
+  die im Spiel nachweislich durchlaufen
+* Staubrand ist weich (Alpha 0 an Rand und Ecken, 255 in der Mitte)
+* Konto: Registrierung, Login, falsches Passwort, Sperre nach 8 Versuchen
+* 21 geschaffte Wellen ergeben 21 Erfahrungspunkte, Freischalten kostet 20
+* Bestenliste sortiert korrekt, eigener Eintrag hervorgehoben, Anmeldung
+  überlebt den Reload
+* Waffenhöhe, Sounddatei je Ereignis und Bildtempo im Admin gespeichert und im
+  Spiel wirksam
 * Musik startet erst nach der ersten Geste, läuft in Schleife, blendet bei
   Overlays auf 30 % ab und wieder hoch; Aus-Schalter überlebt den Reload
 * Waffen- und Projektilgröße im Admin geändert (46→130 px und 16→52 px) und im

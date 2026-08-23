@@ -1,8 +1,8 @@
 /**
  * Spielschleife mit fester Simulationsrate.
  *
- * Die Logik laeuft in 1/60-Schritten, gerendert wird pro Frame. Dadurch
- * verhalten sich 60-Hz- und 120-Hz-Geraete identisch. Grosse Zeitspruenge
+ * Die Logik läuft in 1/60-Schritten, gerendert wird pro Frame. Dadurch
+ * verhalten sich 60-Hz- und 120-Hz-Geräte identisch. Große Zeitspruenge
  * (Tab im Hintergrund) werden gekappt statt nachsimuliert.
  */
 export class GameLoop {

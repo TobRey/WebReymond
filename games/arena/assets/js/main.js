@@ -22,14 +22,249 @@ input.enabled = false;
 let arena = null;
 let loop = null;
 let selectedMap = null;
+let selectedCharacter = null;
+let account = null;
 let pendingSwap = null;
 let hudTimer = 0;
 let best = loadBest();
 
+/* ----------------------------------------------------------------- Konto */
+async function api(action, body = {}) {
+  const res = await fetch('api.php?action=' + action, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({ ok: false, error: 'Serverfehler' }));
+  if (!data.ok) throw new Error(data.error || 'Fehler');
+  return data;
+}
+
+async function loadAccount() {
+  try {
+    const data = await api('account');
+    account = data.account;
+  } catch {
+    account = null;
+  }
+  syncAccountUi();
+}
+
+function syncAccountUi() {
+  const btn = $('btn-account');
+  btn.textContent = account ? account.name : 'Anmelden';
+  const badge = $('xp-badge');
+  if (badge) {
+    badge.textContent = account
+      ? `${account.xpAvailable} von ${account.xp} Punkten frei`
+      : 'Ohne Konto: kein Fortschritt';
+  }
+  renderBest();
+}
+
+/** Charaktere, die dieses Konto benutzen darf. */
+function isUnlocked(character) {
+  if (character.starter) return true;
+  return !!account && account.unlocked.includes(character.id);
+}
+
+function renderAccountScreen() {
+  const host = $('account-body');
+  host.textContent = '';
+  $('account-title').textContent = account ? 'Dein Konto' : 'Anmelden';
+
+  if (account) {
+    const rows = [
+      ['Erfahrung', `${account.xp} Punkte (${account.xpAvailable} frei)`],
+      ['Bester Punktestand', account.bestScore],
+      ['Beste Runde', `Zyklus ${account.bestCycle}, ${account.bestWave} Wellen`],
+      ['Runs', account.runs],
+      ['Kills gesamt', account.totalKills],
+    ];
+    const grid = el('div', 'statgrid');
+    for (const [label, value] of rows) {
+      const box = el('div');
+      box.appendChild(el('span', null, label));
+      box.appendChild(el('b', null, String(value)));
+      grid.appendChild(box);
+    }
+    host.appendChild(grid);
+    const out = el('button', 'btn btn--quiet', 'Abmelden');
+    out.addEventListener('click', async () => {
+      await api('account.logout').catch(() => {});
+      account = null;
+      syncAccountUi();
+      renderAccountScreen();
+      toast('Abgemeldet');
+    });
+    host.appendChild(out);
+    return;
+  }
+
+  const name = el('input', 'input');
+  name.placeholder = 'Benutzername';
+  name.autocomplete = 'username';
+  name.maxLength = 16;
+  const pass = el('input', 'input');
+  pass.type = 'password';
+  pass.placeholder = 'Passwort';
+  pass.autocomplete = 'current-password';
+
+  const error = el('p', 'form-error');
+  const login = el('button', 'btn btn--primary btn--lg', 'Anmelden');
+  const register = el('button', 'btn', 'Neues Konto anlegen');
+
+  const submit = async (action) => {
+    error.textContent = '';
+    login.disabled = true;
+    register.disabled = true;
+    try {
+      const data = await api(action, { name: name.value, password: pass.value });
+      account = data.account;
+      syncAccountUi();
+      renderAccountScreen();
+      toast('Willkommen, ' + account.name);
+    } catch (err) {
+      error.textContent = err.message;
+    }
+    login.disabled = false;
+    register.disabled = false;
+  };
+  login.addEventListener('click', () => submit('account.login'));
+  register.addEventListener('click', () => submit('account.register'));
+  pass.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submit('account.login');
+  });
+
+  host.appendChild(el('p', 'muted', 'Mit Konto werden Erfahrung, Bestwerte und freigeschaltete Charaktere gespeichert. Ohne Konto kannst du normal spielen, der Fortschritt bleibt dann aber nicht erhalten.'));
+  host.appendChild(name);
+  host.appendChild(pass);
+  host.appendChild(login);
+  host.appendChild(register);
+  host.appendChild(error);
+}
+
+/* ------------------------------------------------------------ Charaktere */
+function renderCharacters() {
+  const host = $('character-list');
+  host.textContent = '';
+  const list = (content.characters || []).filter((c) => c.active !== false)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  for (const character of list) {
+    const unlocked = isUnlocked(character);
+    const card = el('button', 'char' + (unlocked ? '' : ' is-locked')
+      + (selectedCharacter && selectedCharacter.id === character.id ? ' is-selected' : ''));
+
+    const art = el('div', 'char__art');
+    const img = el('img');
+    img.src = (character.sprites && character.sprites.front && (character.sprites.front.frames?.[0] || character.sprites.front.gif)) || '';
+    img.alt = '';
+    if (character.tint) img.style.filter = `hue-rotate(${character.tint}deg) saturate(1.15)`;
+    art.appendChild(img);
+    card.appendChild(art);
+
+    const body = el('div', 'char__body');
+    body.appendChild(el('div', 'char__name', character.name));
+    body.appendChild(el('div', 'char__title', character.title || ''));
+    body.appendChild(el('div', 'char__desc', character.description || ''));
+
+    const tags = el('div', 'char__tags');
+    for (const text of characterHighlights(character)) tags.appendChild(el('span', 'tag', text));
+    body.appendChild(tags);
+    card.appendChild(body);
+
+    if (!unlocked) {
+      const lock = el('div', 'char__lock');
+      lock.appendChild(el('span', null, '🔒 ' + character.unlockCost + ' Punkte'));
+      card.appendChild(lock);
+    }
+
+    card.addEventListener('click', () => {
+      if (unlocked) {
+        selectedCharacter = character;
+        renderCharacters();
+        showScreen('screen-weapon');
+        return;
+      }
+      unlockCharacter(character);
+    });
+    host.appendChild(card);
+  }
+}
+
+/** Kurze, lesbare Zusammenfassung der Fähigkeiten. */
+function characterHighlights(character) {
+  const mods = character.mods || {};
+  const out = [];
+  const pct = (value) => (value > 1 ? '+' : '') + Math.round((value - 1) * 100) + '%';
+  if (mods.maxHealth && mods.maxHealth !== 1) out.push(pct(mods.maxHealth) + ' Leben');
+  if (mods.moveSpeed && mods.moveSpeed !== 1) out.push(pct(mods.moveSpeed) + ' Tempo');
+  if (mods.damageMult && mods.damageMult !== 1) out.push(pct(mods.damageMult) + ' Schaden');
+  if (mods.attackSpeed && mods.attackSpeed !== 1) out.push(pct(mods.attackSpeed) + ' Angriffstempo');
+  if (mods.range && mods.range !== 1) out.push(pct(mods.range) + ' Reichweite');
+  if (mods.projectileSpeed && mods.projectileSpeed !== 1) out.push(pct(mods.projectileSpeed) + ' Projektiltempo');
+  if (mods.armor) out.push('+' + mods.armor + ' Rüstung');
+  if (mods.critChance) out.push('+' + mods.critChance + '% Krit');
+  if (mods.shield) out.push('+' + mods.shield + ' Schild');
+  const perks = {
+    lifesteal: 'Kills heilen dich',
+    thorns: 'Nahkampfschaden zurück',
+    luckyCards: 'Bessere Upgrade-Karten',
+  };
+  if (perks[character.perk]) out.push(perks[character.perk]);
+  return out;
+}
+
+async function unlockCharacter(character) {
+  if (!account) {
+    toast('Zum Freischalten brauchst du ein Konto.', 'error');
+    showScreen('screen-account');
+    renderAccountScreen();
+    return;
+  }
+  try {
+    const data = await api('account.unlock', { id: character.id });
+    account = data.account;
+    syncAccountUi();
+    renderCharacters();
+    toast(character.name + ' freigeschaltet!');
+    Audio.play('upgrade');
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+/* --------------------------------------------------------- Bestenliste */
+async function renderScores() {
+  const host = $('score-list');
+  host.textContent = '';
+  $('score-own').textContent = account
+    ? `Dein Bestwert: ${account.bestScore} Punkte · Zyklus ${account.bestCycle} · ${account.xp} Erfahrung`
+    : 'Melde dich an, damit deine Ergebnisse gezählt werden.';
+  try {
+    const data = await api('leaderboard', { limit: 25 });
+    if (!data.entries.length) {
+      host.appendChild(el('p', 'muted', 'Noch keine Einträge - spiele den ersten Run.'));
+      return;
+    }
+    data.entries.forEach((entry, index) => {
+      const row = el('div', 'scorerow' + (account && entry.name === account.name ? ' is-me' : ''));
+      row.appendChild(el('span', 'scorerow__rank', '#' + (index + 1)));
+      row.appendChild(el('span', 'scorerow__name', entry.name));
+      row.appendChild(el('span', 'scorerow__meta', `Zyklus ${entry.cycle} · ${entry.waves} Wellen`));
+      row.appendChild(el('span', 'scorerow__score', String(entry.score)));
+      host.appendChild(row);
+    });
+  } catch (err) {
+    host.appendChild(el('p', 'form-error', err.message));
+  }
+}
+
 /* ----------------------------------------------------------------- Audio */
 function initAudio() {
   const cfg = content.audio || {};
-  if (cfg.musicTrack) Audio.setMusic(cfg.musicTrack, cfg.musicVolume);
+  Audio.configure(cfg);
   if (cfg.musicEnabled === false) Audio.setMusicOn(false);
   syncSoundButtons();
   if (Audio.settings.musicOn) Audio.startMusic();
@@ -86,9 +321,12 @@ function saveBest(summary) {
 }
 
 function renderBest() {
-  $('menu-best').textContent = best.cycle
+  const local = best.cycle
     ? `Bester Run: Zyklus ${best.cycle} · ${best.kills} Kills · ${formatTime(best.time)}`
     : '';
+  $('menu-best').textContent = account
+    ? `${account.name} · ${account.bestScore} Punkte · ${account.xp} Erfahrung`
+    : local;
 }
 
 /* ----------------------------------------------------------------- Welten */
@@ -118,7 +356,8 @@ function renderWorlds() {
     card.addEventListener('click', () => {
       selectedMap = map;
       renderWorlds();
-      showScreen('screen-weapon');
+      renderCharacters();
+      showScreen('screen-character');
     });
     host.appendChild(card);
   }
@@ -176,7 +415,11 @@ async function startRun(weapon) {
   if (loop) loop.stop();
   if (arena) arena.destroy();
 
-  arena = new Arena({ canvas, content, mapDef, weaponDef: weapon, input });
+  const character = selectedCharacter
+    || (content.characters || []).find((c) => c.active !== false && isUnlocked(c))
+    || null;
+  selectedCharacter = character;
+  arena = new Arena({ canvas, content, mapDef, weaponDef: weapon, character, input });
   wireArena(arena);
   await arena.load();
 
@@ -215,12 +458,13 @@ function wireArena(instance) {
     $('hud-boss').hidden = false;
     $('boss-name').textContent = (instance.boss && instance.boss.def.name) || 'Boss';
   });
-  instance.on('bossEnrage', () => toast('Der Boss wird wuetend!', 'error'));
+  instance.on('bossEnrage', () => toast('Der Boss wird wütend!', 'error'));
   instance.on('death', (summary) => {
     loop.setPaused(true);
     Audio.duckMusic(true);
     saveBest(summary);
     showDeath(summary);
+    submitRun(summary);
   });
 }
 
@@ -333,7 +577,7 @@ function chooseCard(card) {
   if (card.kind === 'weapon') {
     pendingSwap = card.weapon;
     $('swap-text').textContent =
-      `Du traegst ${arena.run.weapon.name}. ${card.weapon.name} ersetzt sie fuer den Rest des Runs.`;
+      `Du trägst ${arena.run.weapon.name}. ${card.weapon.name} ersetzt sie für den Rest des Runs.`;
     $('overlay-swap').hidden = false;
     return;
   }
@@ -368,7 +612,7 @@ function showStats() {
   const list = $('stats-upgrades');
   list.textContent = '';
   if (!arena.run.upgrades.length) {
-    list.appendChild(el('span', 'muted', 'Noch keine Upgrades gewaehlt.'));
+    list.appendChild(el('span', 'muted', 'Noch keine Upgrades gewählt.'));
   }
   for (const entry of arena.run.upgrades) {
     const chip = el('div', 'upgradechip');
@@ -384,12 +628,42 @@ function rarityColor(rarity) {
   return { common: '#9aa6c2', rare: '#58b6ff', epic: '#c07bff', legendary: '#ffb020' }[rarity] || '#9aa6c2';
 }
 
+/** Meldet das Ergebnis an das Konto: je geschaffter Welle ein Punkt. */
+async function submitRun(summary) {
+  if (!account) return;
+  try {
+    const data = await api('account.run', {
+      result: {
+        waves: summary.wavesCleared || 0,
+        kills: summary.kills,
+        cycle: summary.cycle,
+        money: summary.money,
+        time: Math.round(summary.timeAlive),
+      },
+    });
+    if (data.account) {
+      const gained = data.account.xp - account.xp;
+      account = data.account;
+      syncAccountUi();
+      const note = $('death-xp');
+      if (note) {
+        note.textContent = gained > 0
+          ? `+${gained} Erfahrung · insgesamt ${account.xp}`
+          : `Erfahrung: ${account.xp}`;
+        note.hidden = false;
+      }
+    }
+  } catch {
+    // Ohne Verbindung geht der Run nicht verloren, er zählt nur nicht.
+  }
+}
+
 /* ------------------------------------------------------------------- Tod */
 function showDeath(summary) {
   const grid = $('death-grid');
   grid.textContent = '';
   const rows = [
-    ['Ueberlebt', formatTime(summary.timeAlive)],
+    ['Überlebt', formatTime(summary.timeAlive)],
     ['Zyklus', summary.cycle],
     ['Welle', summary.wave],
     ['Kills', summary.kills],
@@ -397,6 +671,9 @@ function showDeath(summary) {
     ['Geld', summary.money],
     ['Schaden', summary.damageDealt],
     ['Erlitten', summary.damageTaken],
+    ['Charakter', summary.character || '-'],
+    ['Wellen', summary.wavesCleared || 0],
+    ['Punktestand', (summary.wavesCleared || 0) * 100 + summary.kills * 5 + summary.money],
     ['Waffe', summary.weapon],
     ['Meistgenutzt', summary.favouriteWeapon || summary.weapon],
   ];
@@ -433,7 +710,16 @@ function quitToMenu() {
 /* --------------------------------------------------------------- Bindings */
 $('btn-play').addEventListener('click', () => {
   selectedMap = null;
-  showScreen('screen-weapon');
+  renderCharacters();
+  showScreen('screen-character');
+});
+$('btn-scores').addEventListener('click', () => {
+  showScreen('screen-scores');
+  renderScores();
+});
+$('btn-account').addEventListener('click', () => {
+  renderAccountScreen();
+  showScreen('screen-account');
 });
 $('btn-worlds').addEventListener('click', () => {
   renderWorlds();
@@ -508,7 +794,7 @@ window.addEventListener('blur', () => {
   }
 });
 
-// Browser-Gesten auf der Spielflaeche unterbinden.
+// Browser-Gesten auf der Spielfläche unterbinden.
 canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
@@ -533,11 +819,12 @@ function checkOrientation() {
 (async function boot() {
   $('loading').hidden = false;
   $('loading-text').textContent = 'Lade Sprites ...';
-  // Menue-Assets vorab laden, damit die Waffenauswahl sofort steht.
+  // Menü-Assets vorab laden, damit die Waffenauswahl sofort steht.
   await Assets.loadAll(content.weapons.filter((w) => w.active).map((w) => w.sprite));
   renderBest();
   renderWeapons();
   initAudio();
+  loadAccount();
   $('loading').hidden = true;
   showScreen('screen-menu');
   if (Assets.missing.length) {

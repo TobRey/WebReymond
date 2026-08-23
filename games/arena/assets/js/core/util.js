@@ -11,7 +11,7 @@ export const randInt = (min, max) => Math.floor(rand(min, max + 1));
 export const pick = (arr) => arr[(Math.random() * arr.length) | 0];
 export const TAU = Math.PI * 2;
 
-/** Kuerzester Winkelabstand zwischen zwei Richtungen. */
+/** Kürzester Winkelabstand zwischen zwei Richtungen. */
 export function angleDelta(a, b) {
   let d = (b - a) % TAU;
   if (d > Math.PI) d -= TAU;

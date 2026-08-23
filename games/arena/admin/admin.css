@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Arena Admin - ruhiges Dark-UI, grosse Touch-Ziele, klare Tabellen
+   Arena Admin - ruhiges Dark-UI, große Touch-Ziele, klare Tabellen
    ========================================================================== */
 :root {
   --bg: #0b0e15;
@@ -194,4 +194,38 @@ textarea { min-height: 78px; resize: vertical; }
   .view { padding: 14px; }
   .table th:nth-child(n+4), .table td:nth-child(n+4) { display: none; }
   .table th.keep, .table td.keep { display: table-cell; }
+}
+
+/* --------------------------------------------------------- Sound-Editor */
+.soundlist { display: grid; gap: 8px; margin: 12px 0; }
+.soundrow {
+  display: grid; grid-template-columns: 160px 1fr 120px 44px auto auto auto;
+  gap: 10px; align-items: center;
+  border: 1px solid var(--line); border-radius: 11px; padding: 9px 12px;
+  background: rgba(255, 255, 255, .02); font-size: 13.5px;
+}
+.soundrow__name { font-weight: 600; }
+.soundrow__file { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.soundrow__vol { accent-color: var(--accent); width: 100%; }
+
+/* ------------------------------------------------------- Charakter-Frames */
+.framerow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.frameslot {
+  position: relative; width: 72px; height: 84px; border-radius: 10px;
+  border: 1px solid var(--line); background: #0d1119;
+  display: grid; place-items: center; overflow: hidden; cursor: pointer;
+}
+.frameslot img { max-width: 100%; max-height: 100%; object-fit: contain; image-rendering: pixelated; }
+.frameslot.is-empty { border-style: dashed; color: var(--muted); font-size: 11px; }
+.frameslot input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.frameslot__x {
+  position: absolute; top: 3px; right: 3px; z-index: 2;
+  width: 20px; height: 20px; border-radius: 6px; font-size: 11px;
+  background: rgba(10, 13, 20, .85); border: 1px solid var(--line); color: var(--danger);
+}
+.card h4 { margin: 0 0 8px; font-size: 14px; }
+
+@media (max-width: 860px) {
+  .soundrow { grid-template-columns: 1fr auto; grid-auto-rows: auto; }
+  .soundrow__file { grid-column: 1 / -1; }
 }

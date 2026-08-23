@@ -6,8 +6,8 @@ import { weighted } from '../core/util.js';
  * Wellen und Zyklen.
  *
  * Ein Zyklus besteht aus drei normalen Wellen und einem Bosskampf.
- * Nach jeder Welle pausiert das Spiel fuer die Upgrade-Auswahl.
- * Danach beginnt der naechste Zyklus mit hoeheren Werten.
+ * Nach jeder Welle pausiert das Spiel für die Upgrade-Auswahl.
+ * Danach beginnt der nächste Zyklus mit hoeheren Werten.
  */
 export const WAVE_STATE = {
   RUNNING: 'running',
@@ -83,7 +83,7 @@ export class WaveController {
     this.spawnTick(dt, 0.3);
 
     if (this.timeLeft <= 0 && !this.bossEnraged) {
-      // Zeit abgelaufen: Der Boss wird wuetend statt einfach zu verschwinden.
+      // Zeit abgelaufen: Der Boss wird wütend statt einfach zu verschwinden.
       this.bossEnraged = true;
       this.arena.enrageBoss();
     }
@@ -133,6 +133,8 @@ export class WaveController {
 
   endWave() {
     this.state = WAVE_STATE.INTERMISSION;
+    // Jede geschaffte Welle ist später genau ein Erfahrungspunkt.
+    this.run.wavesCleared = (this.run.wavesCleared || 0) + 1;
     this.arena.emit('waveEnd', {
       wave: this.run.wave,
       cycle: this.run.cycle,

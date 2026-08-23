@@ -1,7 +1,7 @@
 /**
  * Object Pool. Projektile, Partikel und Schadenszahlen entstehen und
- * verschwinden staendig - ohne Pool wuerde der Garbage Collector auf
- * Mobilgeraeten regelmaessig ruckeln.
+ * verschwinden ständig - ohne Pool würde der Garbage Collector auf
+ * Mobilgeräten regelmaessig ruckeln.
  */
 export class Pool {
   constructor(factory, reset, initial = 0) {

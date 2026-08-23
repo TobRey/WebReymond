@@ -3,7 +3,7 @@ import { rand, TAU } from '../core/util.js';
 
 /**
  * Kurzlebige Effekte: Partikel, Schadenszahlen, Einmal-Animationen.
- * Alles laeuft ueber Pools und harte Obergrenzen, damit ein Bosskampf
+ * Alles läuft über Pools und harte Obergrenzen, damit ein Bosskampf
  * die Framerate nicht kippt.
  */
 const MAX_PARTICLES = 220;

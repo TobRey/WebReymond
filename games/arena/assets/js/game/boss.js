@@ -6,9 +6,9 @@ const BOMB_STATE = { FLYING: 0, ARMED: 1 };
 
 /**
  * Bossverhalten: verfolgt den Spieler wie ein normaler Gegner und wirft
- * zusaetzlich Bomben.
+ * zusätzlich Bomben.
  *
- * Wichtig fuer die Fairness: Der Aufprall der Bombe macht keinen Schaden.
+ * Wichtig für die Fairness: Der Aufprall der Bombe macht keinen Schaden.
  * Erst die Explosion trifft - und nur, wer sich in diesem Moment im
  * sichtbaren Radius befindet.
  */
@@ -62,7 +62,7 @@ export class BossController {
         continue;
       }
 
-      // Scharf: Warnkreis waechst, danach explodiert die Bombe.
+      // Scharf: Warnkreis wächst, danach explodiert die Bombe.
       if (bomb.time >= bomb.delay) {
         this.explode(bomb);
         this.bombs.splice(i, 1);
@@ -118,7 +118,7 @@ export class BossController {
     if (!player.dead && dx * dx + dy * dy <= bomb.radius * bomb.radius) {
       arena.damagePlayer(bomb.damage * arena.run.damageDifficulty);
     }
-    // Gegner in der Naehe bekommen ebenfalls etwas ab.
+    // Gegner in der Nähe bekommen ebenfalls etwas ab.
     arena.enemies.inRadius(bomb.x, bomb.y, bomb.radius, (enemy) => {
       if (enemy.boss) return;
       arena.damageEnemy(enemy, bomb.damage * 0.35, false, 0, bomb.x, bomb.y);
@@ -146,7 +146,7 @@ export class BossController {
     }
   }
 
-  /** Die Bomben selbst fliegen ueber den Figuren. */
+  /** Die Bomben selbst fliegen über den Figuren. */
   draw(ctx, time) {
     const sprite = Assets.get('assets/sprites/bombe1.gif');
 

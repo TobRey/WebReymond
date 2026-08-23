@@ -1,6 +1,6 @@
 /* ==========================================================================
-   Arena Admin - Dashboard fuer Maps, Gegner, Waffen, Upgrades und Balancing.
-   Alle Aenderungen gehen ueber die serverseitige API und landen in
+   Arena Admin - Dashboard für Maps, Gegner, Waffen, Upgrades und Balancing.
+   Alle Änderungen gehen über die serverseitige API und landen in
    data/content.json - genau der Datei, aus der das Spiel liest.
    ========================================================================== */
 
@@ -26,7 +26,7 @@ async function api(action, body = {}) {
     headers: { 'Content-Type': 'application/json', 'X-CSRF': state.csrf },
     body: JSON.stringify({ ...body, csrf: state.csrf }),
   });
-  const data = await res.json().catch(() => ({ ok: false, error: 'Ungueltige Antwort' }));
+  const data = await res.json().catch(() => ({ ok: false, error: 'Ungültige Antwort' }));
   if (!data.ok) throw new Error(data.error || 'Fehler');
   if (data.content) state.content = data.content;
   return data;
@@ -82,9 +82,9 @@ document.addEventListener('keydown', (e) => {
 
 function confirmDialog(text, onYes) {
   const body = el('p', 'muted', text);
-  openModal('Bitte bestaetigen', body, [
+  openModal('Bitte bestätigen', body, [
     { label: 'Abbrechen', class: 'btn--ghost', onClick: (close) => close() },
-    { label: 'Loeschen', class: 'btn--danger', onClick: (close) => { close(); onYes(); } },
+    { label: 'Löschen', class: 'btn--danger', onClick: (close) => { close(); onYes(); } },
   ]);
 }
 
@@ -193,6 +193,7 @@ function setView(name) {
   $('view-title').textContent = {
     dashboard: 'Dashboard', maps: 'Maps', enemies: 'Gegner', weapons: 'Waffen',
     upgrades: 'Upgrades', player: 'Spieler', balance: 'Balancing', audio: 'Audio',
+    characters: 'Charaktere',
   }[name];
   $('view-actions').textContent = '';
   const host = $('view');
@@ -237,7 +238,7 @@ views.dashboard = (host) => {
   host.appendChild(cards);
 
   const info = el('div', 'card');
-  info.appendChild(el('h3', null, 'Kurzuebersicht'));
+  info.appendChild(el('h3', null, 'Kurzübersicht'));
   const list = el('div', 'form');
   list.appendChild(el('p', 'muted',
     `Wellendauer ${c.balance.waveDuration}s · Bossdauer ${c.balance.bossDuration}s · ` +
@@ -251,9 +252,9 @@ views.dashboard = (host) => {
   const actions = el('div', 'card');
   actions.appendChild(el('h3', null, 'Wartung'));
   const row = el('div', 'editor__tools');
-  const resetBtn = el('button', 'btn btn--danger', 'Alles auf Standard zuruecksetzen');
+  const resetBtn = el('button', 'btn btn--danger', 'Alles auf Standard zurücksetzen');
   resetBtn.addEventListener('click', () => confirmDialog(
-    'Setzt Maps, Gegner, Waffen, Upgrades und Balancing auf die Startwerte zurueck. Hochgeladene Dateien bleiben erhalten.',
+    'Setzt Maps, Gegner, Waffen, Upgrades und Balancing auf die Startwerte zurück. Hochgeladene Dateien bleiben erhalten.',
     async () => {
       try {
         await api('reset', { section: 'all' });
@@ -274,7 +275,7 @@ views.maps = (host) => {
   const wrap = el('div', 'tablewrap');
   const table = el('table', 'table');
   table.innerHTML = `<thead><tr>
-    <th class="keep">Vorschau</th><th class="keep">Name</th><th>Aufloesung</th>
+    <th class="keep">Vorschau</th><th class="keep">Name</th><th>Auflösung</th>
     <th>Collision</th><th>Erstellt</th><th class="keep">Status</th><th class="keep"></th>
   </tr></thead>`;
   const body = el('tbody');
@@ -303,12 +304,12 @@ views.maps = (host) => {
     actions.appendChild(actionBtn('Vorschau', () => window.open('../' + map.image, '_blank', 'noopener')));
     actions.appendChild(actionBtn('Collision', () => openCollisionEditor(map)));
     actions.appendChild(actionBtn('Bearbeiten', () => editMap(map)));
-    actions.appendChild(actionBtn('Loeschen', () => confirmDialog(
-      `Map "${map.name}" wirklich loeschen?`,
+    actions.appendChild(actionBtn('Löschen', () => confirmDialog(
+      `Map "${map.name}" wirklich löschen?`,
       async () => {
         try {
           await api('delete', { section: 'maps', id: map.id });
-          toast('Map geloescht');
+          toast('Map gelöscht');
           setView('maps');
         } catch (e) { toast(e.message, 'error'); }
       },
@@ -347,7 +348,7 @@ function countMask(collision) {
 function newMapFlow() {
   const body = el('div', 'form');
   const drop = el('label', 'filedrop');
-  drop.textContent = 'Kartenbild waehlen (PNG, GIF, JPG, WEBP - max. 12 MB)';
+  drop.textContent = 'Kartenbild wählen (PNG, GIF, JPG, WEBP - max. 12 MB)';
   const input = el('input');
   input.type = 'file';
   input.accept = 'image/png,image/gif,image/jpeg,image/webp';
@@ -361,7 +362,7 @@ function newMapFlow() {
   let uploaded = null;
   input.addEventListener('change', async () => {
     if (!input.files.length) return;
-    drop.textContent = 'Laedt hoch ...';
+    drop.textContent = 'Lädt hoch ...';
     try {
       uploaded = await uploadFile(input.files[0], nameInput.value);
       preview.textContent = '';
@@ -369,10 +370,10 @@ function newMapFlow() {
       img.src = '../' + uploaded.path;
       preview.appendChild(img);
       preview.appendChild(el('span', 'muted', `${uploaded.width} × ${uploaded.height}`));
-      drop.textContent = 'Anderes Bild waehlen';
+      drop.textContent = 'Anderes Bild wählen';
     } catch (err) {
       toast(err.message, 'error');
-      drop.textContent = 'Kartenbild waehlen';
+      drop.textContent = 'Kartenbild wählen';
     }
     drop.appendChild(input);
   });
@@ -406,7 +407,7 @@ function newMapFlow() {
 function editMap(map) {
   const body = el('div', 'form');
   const name = textInput(map.name);
-  const active = checkInput('Map ist im Spiel auswaehlbar', map.active);
+  const active = checkInput('Map ist im Spiel auswählbar', map.active);
   const spawnX = textInput(Math.round(map.spawn.x), { type: 'number' });
   const spawnY = textInput(Math.round(map.spawn.y), { type: 'number' });
 
@@ -444,8 +445,8 @@ function editMap(map) {
  * Malt Hindernisse auf eine Karte.
  *
  * Gespeichert wird ein Bitraster in Kartenkoordinaten (Standard 128x128),
- * nicht in Bildschirmpixeln - dadurch passt die Maske unabhaengig von
- * Zoom, Geraet und Aufloesung.
+ * nicht in Bildschirmpixeln - dadurch passt die Maske unabhängig von
+ * Zoom, Gerät und Auflösung.
  */
 function openCollisionEditor(map) {
   const cols = map.collision?.cols || 128;
@@ -474,9 +475,9 @@ function openCollisionEditor(map) {
   const spawnBtn = el('button', 'btn btn--sm', 'Startpunkt');
   const zoneBtn = el('button', 'btn btn--sm', 'Gegnerzone');
   const zoneClearBtn = el('button', 'btn btn--sm', 'Zonen leeren');
-  const undoBtn = el('button', 'btn btn--sm', 'Rueckgaengig');
+  const undoBtn = el('button', 'btn btn--sm', 'Rückgängig');
   const redoBtn = el('button', 'btn btn--sm', 'Wiederholen');
-  const clearBtn = el('button', 'btn btn--sm btn--danger', 'Alles loeschen');
+  const clearBtn = el('button', 'btn btn--sm btn--danger', 'Alles löschen');
   const fitBtn = el('button', 'btn btn--sm', 'Einpassen');
 
   const sizeWrap = el('label', 'slider');
@@ -505,7 +506,7 @@ function openCollisionEditor(map) {
   tools.appendChild(zoomWrap);
   root.appendChild(tools);
 
-  /* Buehne */
+  /* Bühne */
   const stage = el('div', 'editor__stage');
   const wrap = el('div');
   wrap.style.position = 'absolute';
@@ -543,7 +544,7 @@ function openCollisionEditor(map) {
   stage.appendChild(wrap);
   root.appendChild(stage);
   root.appendChild(el('p', 'editor__hint',
-    'Ein Finger malt, zwei Finger verschieben und zoomen. Rote Flaechen sind im Spiel blockiert und dort unsichtbar. '
+    'Ein Finger malt, zwei Finger verschieben und zoomen. Rote Flächen sind im Spiel blockiert und dort unsichtbar. '
     + 'Der gruene Kreis ist der Startpunkt, blaue Kreise sind optionale Gegner-Spawnzonen (ohne Zonen spawnen Gegner rund um den Bildausschnitt).'));
 
   /* Zeichnen */
@@ -841,7 +842,7 @@ views.enemies = (host) => {
     const actions = el('td', 'actions keep');
     actions.appendChild(actionBtn('Bearbeiten', () => editEnemy(enemy)));
     actions.appendChild(actionBtn('Duplizieren', () => duplicate('enemies', enemy)));
-    actions.appendChild(actionBtn('Loeschen', () => removeItem('enemies', enemy, enemy.name), 'btn--danger'));
+    actions.appendChild(actionBtn('Löschen', () => removeItem('enemies', enemy, enemy.name), 'btn--danger'));
     tr.appendChild(actions);
     body.appendChild(tr);
   }
@@ -887,9 +888,9 @@ function editEnemy(enemy) {
   grid.appendChild(field('Basisschaden', damage));
   grid.appendChild(field('Tempo (px/s)', speed));
   grid.appendChild(field('Geld beim Tod', reward));
-  grid.appendChild(field('Spawn-Gewicht', weight, '0 = spawnt nicht zufaellig'));
+  grid.appendChild(field('Spawn-Gewicht', weight, '0 = spawnt nicht zufällig'));
   grid.appendChild(field('Kontaktschaden-Pause (s)', cooldown));
-  grid.appendChild(field('Sprite-Hoehe (px)', scale));
+  grid.appendChild(field('Sprite-Höhe (px)', scale));
   grid.appendChild(field('Bevorzugte Welle', wave));
   body.appendChild(grid);
 
@@ -985,7 +986,7 @@ function editEnemy(enemy) {
     const hRow = el('div', 'grid2');
     hRow.appendChild(field('Form', shapeSel));
     hRow.appendChild(field(shapeSel.value === 'rect' ? 'Breite' : 'Radius', size));
-    const hField = field('Hoehe', sizeH);
+    const hField = field('Höhe', sizeH);
     hField.dataset.h = '1';
     hField.hidden = data.hitbox.shape !== 'rect';
     hRow.appendChild(hField);
@@ -1013,7 +1014,7 @@ function editEnemy(enemy) {
       label: 'Speichern',
       class: 'btn--primary',
       onClick: async (close) => {
-        if (+health.value <= 0) return toast('Leben muss groesser als 0 sein.', 'error');
+        if (+health.value <= 0) return toast('Leben muss größer als 0 sein.', 'error');
         if (!spritePath) return toast('Ein Gegner braucht ein Sprite.', 'error');
         try {
           await api('put', {
@@ -1046,7 +1047,7 @@ views.weapons = (host) => {
   const table = el('table', 'table');
   table.innerHTML = `<thead><tr>
     <th class="keep">Sprite</th><th class="keep">Name</th><th>Typ</th><th>Schaden</th>
-    <th>Cooldown</th><th>Reichweite</th><th>Groesse</th><th class="keep">Status</th><th class="keep"></th>
+    <th>Cooldown</th><th>Reichweite</th><th>Größe</th><th class="keep">Status</th><th class="keep"></th>
   </tr></thead>`;
   const body = el('tbody');
 
@@ -1070,7 +1071,7 @@ views.weapons = (host) => {
     const actions = el('td', 'actions keep');
     actions.appendChild(actionBtn('Bearbeiten', () => editWeapon(weapon)));
     actions.appendChild(actionBtn('Duplizieren', () => duplicate('weapons', weapon)));
-    actions.appendChild(actionBtn('Loeschen', () => removeItem('weapons', weapon, weapon.name), 'btn--danger'));
+    actions.appendChild(actionBtn('Löschen', () => removeItem('weapons', weapon, weapon.name), 'btn--danger'));
     tr.appendChild(actions);
     body.appendChild(tr);
   }
@@ -1107,7 +1108,7 @@ function editWeapon(weapon) {
     { value: 'MAGIC', label: 'MAGIC - Zielsuchendes Geschoss' },
     { value: 'MELEE_ARC', label: 'MELEE_ARC - Schwung vor dem Spieler' },
     { value: 'MELEE_360', label: 'MELEE_360 - volle Drehung' },
-    { value: 'THRUST', label: 'THRUST - Stoss nach vorne' },
+    { value: 'THRUST', label: 'THRUST - Stoß nach vorne' },
     { value: 'GRENADE', label: 'GRENADE - Wurf mit Explosion' },
   ]);
   const projectile = selectInput(data.projectile, [
@@ -1133,6 +1134,8 @@ function editWeapon(weapon) {
   const recoil = textInput(data.recoil, { type: 'number', min: 0, max: 60, step: 1 });
   const spriteScale = textInput(data.spriteScale ?? 46, { type: 'number', min: 6, max: 400, step: 2 });
   const projectileSize = textInput(data.projectileSize ?? 16, { type: 'number', min: 3, max: 200, step: 1 });
+  const holdOffsetY = textInput(data.holdOffsetY ?? -6, { type: 'number', min: -120, max: 120, step: 1 });
+  const holdDistance = textInput(data.holdDistance ?? 20, { type: 'number', min: -60, max: 200, step: 1 });
 
   grid.appendChild(field('Typ', type));
   grid.appendChild(field('Projektil', projectile));
@@ -1140,21 +1143,23 @@ function editWeapon(weapon) {
   grid.appendChild(field('Cooldown (s)', cooldown, 'kleiner = schneller'));
   grid.appendChild(field('Reichweite', range));
   grid.appendChild(field('Projektiltempo', pspeed));
-  grid.appendChild(field('Rueckstoss', knock));
+  grid.appendChild(field('Rückstoß', knock));
   grid.appendChild(field('Krit. Chance (%)', critC));
   grid.appendChild(field('Krit. Schaden (%)', critD));
-  grid.appendChild(field('AoE-Radius', aoe, 'nur fuer Granate / Explosionen'));
+  grid.appendChild(field('AoE-Radius', aoe, 'nur für Granate / Explosionen'));
   grid.appendChild(field('Schwungwinkel', arc, 'nur MELEE_ARC'));
-  grid.appendChild(field('Durchschlaege', pierce));
+  grid.appendChild(field('Durchschläge', pierce));
   grid.appendChild(field('Streuung (Grad)', spread));
-  grid.appendChild(field('Rueckstoss-Animation', recoil));
-  grid.appendChild(field('Waffensprite-Groesse (px)', spriteScale, 'Laenge in der Hand bzw. beim Schwung'));
-  grid.appendChild(field('Projektil-Groesse (px)', projectileSize, 'Hoehe des Schusses / Pfeils'));
+  grid.appendChild(field('Rückstoß-Animation', recoil));
+  grid.appendChild(field('Waffensprite-Größe (px)', spriteScale, 'Länge in der Hand bzw. beim Schwung'));
+  grid.appendChild(field('Projektil-Größe (px)', projectileSize, 'Höhe des Schusses / Pfeils'));
+  grid.appendChild(field('Waffenhöhe (px)', holdOffsetY, 'negativ = höher, positiv = tiefer'));
+  grid.appendChild(field('Abstand zum Körper (px)', holdDistance));
   body.appendChild(grid);
 
-  // Live-Vorschau: zeigt Waffe und Projektil in echter Spielgroesse.
+  // Live-Vorschau: zeigt Waffe und Projektil in echter Spielgröße.
   const previewCard = el('div', 'field');
-  previewCard.appendChild(el('label', null, 'Vorschau (Spielgroesse)'));
+  previewCard.appendChild(el('label', null, 'Vorschau (Spielgröße)'));
   const previewCanvas = el('canvas');
   previewCanvas.width = 420;
   previewCanvas.height = 130;
@@ -1170,7 +1175,7 @@ function editWeapon(weapon) {
   function drawPreview() {
     pctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
     pctx.imageSmoothingEnabled = false;
-    // Massstab: der Spieler ist 78 px hoch - als Groessenvergleich daneben.
+    // Maßstab: der Spieler ist 78 px hoch - als Größenvergleich daneben.
     pctx.fillStyle = 'rgba(255,255,255,.07)';
     pctx.fillRect(24, 130 - 78, 34, 78);
     pctx.fillStyle = '#8b95ad';
@@ -1178,10 +1183,18 @@ function editWeapon(weapon) {
     pctx.fillText('Spieler', 20, 128);
 
     const len = +spriteScale.value || 46;
+    const offY = +holdOffsetY.value || 0;
+    const dist = +holdDistance.value || 0;
     if (weaponImg.complete && weaponImg.naturalWidth) {
       const h = (weaponImg.naturalHeight / weaponImg.naturalWidth) * len;
-      pctx.drawImage(weaponImg, 110, 65 - h / 2, len, h);
+      // Waffe relativ zur Spielerfigur (grauer Balken) zeichnen.
+      pctx.drawImage(weaponImg, 41 + dist, 130 - 78 / 2 + offY - h / 2, len, h);
     }
+    pctx.strokeStyle = 'rgba(108,140,255,.5)';
+    pctx.beginPath();
+    pctx.moveTo(24, 130 - 78 / 2);
+    pctx.lineTo(400, 130 - 78 / 2);
+    pctx.stroke();
     const size = +projectileSize.value || 16;
     if (type.value === 'PROJECTILE' && projectile.value === 'schuss' && shotImg.complete && shotImg.naturalWidth) {
       const w = (shotImg.naturalWidth / shotImg.naturalHeight) * size;
@@ -1213,11 +1226,12 @@ function editWeapon(weapon) {
   weaponImg.onload = drawPreview;
   shotImg.onload = drawPreview;
   weaponImg.src = '../' + spritePath;
-  [spriteScale, projectileSize, type, projectile].forEach((i) => i.addEventListener('input', drawPreview));
+  [spriteScale, projectileSize, holdOffsetY, holdDistance, type, projectile]
+    .forEach((i) => i.addEventListener('input', drawPreview));
   drawPreview();
   body.appendChild(field('Beschreibung', desc));
 
-  const active = checkInput('Waffe ist im Spiel verfuegbar', data.active);
+  const active = checkInput('Waffe ist im Spiel verfügbar', data.active);
   const starter = checkInput('Als Starterwaffe anbieten', data.starter);
   body.appendChild(active);
   body.appendChild(starter);
@@ -1228,7 +1242,7 @@ function editWeapon(weapon) {
       label: 'Speichern',
       class: 'btn--primary',
       onClick: async (close) => {
-        if (+cooldown.value <= 0) return toast('Cooldown muss groesser als 0 sein.', 'error');
+        if (+cooldown.value <= 0) return toast('Cooldown muss größer als 0 sein.', 'error');
         try {
           await api('put', {
             section: 'weapons',
@@ -1239,7 +1253,8 @@ function editWeapon(weapon) {
               knockback: +knock.value, critChance: +critC.value, critDamage: +critD.value,
               aoeRadius: +aoe.value, arc: +arc.value, pierce: +pierce.value, spread: +spread.value,
               recoil: +recoil.value, spriteScale: +spriteScale.value,
-              projectileSize: +projectileSize.value, description: desc.value,
+              projectileSize: +projectileSize.value, holdOffsetY: +holdOffsetY.value,
+              holdDistance: +holdDistance.value, description: desc.value,
               active: active.input.checked, starter: starter.input.checked,
             },
           });
@@ -1255,10 +1270,10 @@ function editWeapon(weapon) {
 /* -------------------------------------------------------------- Upgrades */
 const STATS = [
   ['damage', 'Schaden'], ['attackSpeed', 'Angriffstempo'], ['moveSpeed', 'Bewegungstempo'],
-  ['maxHealth', 'Max. Leben'], ['armor', 'Ruestung'], ['shield', 'Schild'],
+  ['maxHealth', 'Max. Leben'], ['armor', 'Rüstung'], ['shield', 'Schild'],
   ['critChance', 'Krit. Chance'], ['critDamage', 'Krit. Schaden'],
   ['projectileSpeed', 'Projektiltempo'], ['range', 'Reichweite'],
-  ['knockback', 'Rueckstoss'], ['dodge', 'Ausweichen'], ['regen', 'Regeneration'],
+  ['knockback', 'Rückstoß'], ['dodge', 'Ausweichen'], ['regen', 'Regeneration'],
 ];
 
 views.upgrades = (host) => {
@@ -1287,7 +1302,7 @@ views.upgrades = (host) => {
     const actions = el('td', 'actions keep');
     actions.appendChild(actionBtn('Bearbeiten', () => editUpgrade(up)));
     actions.appendChild(actionBtn('Duplizieren', () => duplicate('upgrades', up)));
-    actions.appendChild(actionBtn('Loeschen', () => removeItem('upgrades', up, up.name), 'btn--danger'));
+    actions.appendChild(actionBtn('Löschen', () => removeItem('upgrades', up, up.name), 'btn--danger'));
     tr.appendChild(actions);
     body.appendChild(tr);
   }
@@ -1330,7 +1345,7 @@ function editUpgrade(up) {
   grid.appendChild(field('Modifikator', modType));
   grid.appendChild(field('Wert', value));
   grid.appendChild(field('Seltenheit', rarity));
-  grid.appendChild(field('Gewicht', weight, 'hoeher = haeufiger'));
+  grid.appendChild(field('Gewicht', weight, 'höher = häufiger'));
   grid.appendChild(field('Max. Stapel', maxStack));
   body.appendChild(grid);
   body.appendChild(spriteField('Icon (optional)', data.icon, (p) => { iconPath = p; }));
@@ -1365,13 +1380,13 @@ function editUpgrade(up) {
 const PLAYER_FIELDS = [
   ['maxHealth', 'Max. Leben', 1, 1],
   ['moveSpeed', 'Bewegungstempo (px/s)', 10, 1],
-  ['armor', 'Ruestung', 0, 0.5],
+  ['armor', 'Rüstung', 0, 0.5],
   ['damageMult', 'Basis-Schadensfaktor', 0.01, 0.05],
   ['critChance', 'Krit. Chance (%)', 0, 1],
   ['critDamage', 'Krit. Schaden (%)', 0, 5],
   ['dodge', 'Ausweichen (%)', 0, 1],
   ['regen', 'Regeneration (HP/s)', 0, 0.1],
-  ['scale', 'Sprite-Hoehe (px)', 8, 2],
+  ['scale', 'Sprite-Höhe (px)', 8, 2],
 ];
 
 views.player = (host) => {
@@ -1386,7 +1401,7 @@ views.player = (host) => {
   }
   form.appendChild(grid);
 
-  form.appendChild(el('h3', null, 'Hitbox (Fuesse)'));
+  form.appendChild(el('h3', null, 'Hitbox (Füße)'));
   const hb = el('div', 'grid2');
   const rx = textInput(p.hitbox.rx, { type: 'number', min: 2, step: 1 });
   const ry = textInput(p.hitbox.ry, { type: 'number', min: 2, step: 1 });
@@ -1410,8 +1425,8 @@ views.player = (host) => {
   save.addEventListener('click', async () => {
     const player = { ...p, ...sprites, hitbox: { rx: +rx.value, ry: +ry.value, oy: +oy.value } };
     for (const [key] of PLAYER_FIELDS) player[key] = +inputs[key].value;
-    if (player.maxHealth <= 0) return toast('Leben muss groesser als 0 sein.', 'error');
-    if (player.moveSpeed <= 0) return toast('Tempo muss groesser als 0 sein.', 'error');
+    if (player.maxHealth <= 0) return toast('Leben muss größer als 0 sein.', 'error');
+    if (player.moveSpeed <= 0) return toast('Tempo muss größer als 0 sein.', 'error');
     try {
       await api('settings', { player });
       toast('Spielerwerte gespeichert');
@@ -1438,7 +1453,7 @@ const BALANCE_FIELDS = [
   ['bossBombCooldown', 'Bossbomben-Cooldown (s)', 0.5, 0.1],
   ['bossBombMinCooldown', 'Minimaler Bomben-Cooldown (s)', 0.3, 0.1],
   ['bossBombRadius', 'Bombenradius', 20, 5],
-  ['bossBombDelay', 'Bombenverzoegerung (s)', 0.1, 0.1],
+  ['bossBombDelay', 'Bombenverzögerung (s)', 0.1, 0.1],
   ['bossBombFlightTime', 'Bomben-Flugzeit (s)', 0.1, 0.05],
   ['upgradeChoices', 'Upgrade-Karten pro Welle', 1, 1],
   ['rarityRareBase', 'Chance Rare (%)', 0, 1],
@@ -1482,6 +1497,226 @@ views.balance = (host) => {
   host.appendChild(help);
 };
 
+/* ------------------------------------------------------------- Charaktere */
+views.characters = (host) => {
+  addAction('Neuer Charakter', () => editCharacter(null));
+
+  const wrap = el('div', 'tablewrap');
+  const table = el('table', 'table');
+  table.innerHTML = `<thead><tr>
+    <th class="keep">Sprite</th><th class="keep">Name</th><th>Fähigkeit</th><th>Bilder</th>
+    <th>Tempo Frames</th><th>Kosten</th><th class="keep">Status</th><th class="keep"></th>
+  </tr></thead>`;
+  const body = el('tbody');
+
+  for (const character of state.content.characters || []) {
+    const tr = el('tr');
+    const cell = el('td', 'keep');
+    const img = el('img', 'thumb');
+    const front = character.sprites?.front || {};
+    img.src = '../' + ((front.frames && front.frames[0]) || front.gif || '');
+    if (character.tint) img.style.filter = `hue-rotate(${character.tint}deg) saturate(1.15)`;
+    img.alt = '';
+    cell.appendChild(img);
+    tr.appendChild(cell);
+
+    tr.appendChild(el('td', 'keep', character.name));
+    tr.appendChild(el('td', null, character.title || '-'));
+    const counts = ['front', 'back', 'side']
+      .map((d) => (character.sprites?.[d]?.frames?.length) || (character.sprites?.[d]?.gif ? 'GIF' : 0));
+    tr.appendChild(el('td', null, counts.join(' / ')));
+    tr.appendChild(el('td', null, Math.round(character.frameDuration || 130) + ' ms'));
+    tr.appendChild(el('td', null, character.starter ? 'frei' : character.unlockCost + ' XP'));
+
+    const status = el('td', 'keep');
+    status.appendChild(el('span', 'badge ' + (character.active ? 'badge--on' : 'badge--off'),
+      character.active ? 'aktiv' : 'aus'));
+    tr.appendChild(status);
+
+    const actions = el('td', 'actions keep');
+    actions.appendChild(actionBtn('Bearbeiten', () => editCharacter(character)));
+    actions.appendChild(actionBtn('Duplizieren', () => duplicate('characters', character)));
+    actions.appendChild(actionBtn('Löschen', () => removeItem('characters', character, character.name), 'btn--danger'));
+    tr.appendChild(actions);
+    body.appendChild(tr);
+  }
+  table.appendChild(body);
+  wrap.appendChild(table);
+  host.appendChild(wrap);
+};
+
+function editCharacter(character) {
+  const isNew = !character;
+  const data = character ? JSON.parse(JSON.stringify(character)) : {
+    id: '', name: 'Neuer Charakter', title: '', description: '', perk: '', tint: 0,
+    sprites: {
+      front: { gif: 'assets/sprites/playerfront.gif', frames: [] },
+      back: { gif: 'assets/sprites/playerback.gif', frames: [] },
+      side: { gif: 'assets/sprites/playerside.gif', frames: [] },
+    },
+    frameDuration: 130, dustSprite: 'assets/sprites/staub.gif', scale: 78,
+    hitbox: { rx: 14, ry: 9, oy: 24 },
+    mods: { maxHealth: 1, moveSpeed: 1, damageMult: 1, attackSpeed: 1, range: 1,
+            projectileSpeed: 1, armor: 0, critChance: 0, critDamage: 0, dodge: 0, regen: 0, shield: 0 },
+    starter: false, unlockCost: 20, active: true, order: 99,
+  };
+
+  const body = el('div', 'form');
+  const name = textInput(data.name);
+  const title = textInput(data.title, { placeholder: 'z. B. Späherin' });
+  const desc = el('textarea');
+  desc.className = 'input';
+  desc.value = data.description || '';
+
+  body.appendChild(field('Name', name));
+  body.appendChild(field('Kurzbezeichnung', title));
+  body.appendChild(field('Beschreibung', desc));
+
+  /* --- Sprites je Richtung: GIF oder bis zu fünf Einzelbilder ---------- */
+  body.appendChild(el('h3', null, 'Sprites'));
+  body.appendChild(el('p', 'muted',
+    'Pro Richtung entweder ein animiertes GIF oder bis zu fünf Einzelbilder. '
+    + 'Liegen Einzelbilder vor, baut das Spiel daraus die Animation.'));
+
+  const spriteState = JSON.parse(JSON.stringify(data.sprites));
+  for (const [dir, label] of [['front', 'Nach vorne (unten)'], ['back', 'Nach hinten (oben)'], ['side', 'Seitlich']]) {
+    body.appendChild(directionEditor(dir, label, spriteState));
+  }
+
+  const grid = el('div', 'grid2');
+  const frameDuration = textInput(data.frameDuration ?? 130, { type: 'number', min: 20, max: 2000, step: 10 });
+  const tint = textInput(data.tint ?? 0, { type: 'number', min: 0, max: 360, step: 5 });
+  const scale = textInput(data.scale ?? 78, { type: 'number', min: 8, max: 600, step: 2 });
+  grid.appendChild(field('Bildwechsel (ms)', frameDuration, 'gilt für Einzelbilder'));
+  grid.appendChild(field('Farbdrehung (Grad)', tint, '0 = Originalfarben'));
+  grid.appendChild(field('Sprite-Höhe (px)', scale));
+  body.appendChild(grid);
+
+  let dustPath = data.dustSprite;
+  body.appendChild(spriteField('Staub beim Laufen', data.dustSprite, (p) => { dustPath = p; }));
+
+  /* --- Fähigkeiten ----------------------------------------------------- */
+  body.appendChild(el('h3', null, 'Fähigkeiten'));
+  const perk = selectInput(data.perk || '', [
+    { value: '', label: 'keine besondere Fähigkeit' },
+    { value: 'lifesteal', label: 'Lebensraub - jeder Kill heilt' },
+    { value: 'thorns', label: 'Dornen - Nahkampfschaden zurück' },
+    { value: 'luckyCards', label: 'Glückskarten - bessere Upgrades' },
+  ]);
+  body.appendChild(field('Sonderfähigkeit', perk));
+
+  const modFields = {};
+  const modGrid = el('div', 'grid2');
+  for (const [key, label, step] of [
+    ['maxHealth', 'Leben (Faktor)', 0.05], ['moveSpeed', 'Tempo (Faktor)', 0.02],
+    ['damageMult', 'Schaden (Faktor)', 0.02], ['attackSpeed', 'Angriffstempo (Faktor)', 0.02],
+    ['range', 'Reichweite (Faktor)', 0.05], ['projectileSpeed', 'Projektiltempo (Faktor)', 0.05],
+    ['armor', 'Rüstung (+)', 1], ['critChance', 'Krit-Chance (+%)', 1],
+    ['critDamage', 'Krit-Schaden (+%)', 5], ['dodge', 'Ausweichen (+%)', 1],
+    ['regen', 'Regeneration (+HP/s)', 0.1], ['shield', 'Startschild (+)', 5],
+  ]) {
+    modFields[key] = textInput(data.mods?.[key] ?? (step < 1 && key.includes('Speed') ? 1 : 0), { type: 'number', step });
+    modGrid.appendChild(field(label, modFields[key]));
+  }
+  body.appendChild(modGrid);
+
+  const hb = el('div', 'grid2');
+  const rx = textInput(data.hitbox?.rx ?? 14, { type: 'number', min: 2, step: 1 });
+  const ry = textInput(data.hitbox?.ry ?? 9, { type: 'number', min: 2, step: 1 });
+  const oy = textInput(data.hitbox?.oy ?? 24, { type: 'number', step: 1 });
+  hb.appendChild(field('Hitbox Radius X', rx));
+  hb.appendChild(field('Hitbox Radius Y', ry));
+  hb.appendChild(field('Hitbox Versatz Y', oy));
+  body.appendChild(hb);
+
+  const starter = checkInput('Von Anfang an spielbar', data.starter);
+  const active = checkInput('Charakter ist auswählbar', data.active);
+  const cost = textInput(data.unlockCost ?? 20, { type: 'number', min: 0, step: 5 });
+  body.appendChild(starter);
+  body.appendChild(field('Freischaltkosten (Erfahrungspunkte)', cost));
+  body.appendChild(active);
+
+  openModal(isNew ? 'Charakter anlegen' : 'Charakter bearbeiten', body, [
+    { label: 'Abbrechen', class: 'btn--ghost', onClick: (close) => close() },
+    {
+      label: 'Speichern',
+      class: 'btn--primary',
+      onClick: async (close) => {
+        const mods = {};
+        for (const [key, input] of Object.entries(modFields)) mods[key] = +input.value;
+        try {
+          await api('put', {
+            section: 'characters',
+            item: {
+              ...data, id: data.id || slug(name.value), name: name.value, title: title.value,
+              description: desc.value, perk: perk.value, tint: +tint.value,
+              sprites: spriteState, frameDuration: +frameDuration.value, dustSprite: dustPath,
+              scale: +scale.value, hitbox: { rx: +rx.value, ry: +ry.value, oy: +oy.value },
+              mods, starter: starter.input.checked, unlockCost: +cost.value, active: active.input.checked,
+            },
+          });
+          close();
+          toast('Gespeichert');
+          setView('characters');
+        } catch (e) { toast(e.message, 'error'); }
+      },
+    },
+  ], true);
+}
+
+/** Ein GIF-Feld plus fünf Einzelbild-Plätze für eine Blickrichtung. */
+function directionEditor(dir, label, spriteState) {
+  const box = el('div', 'card');
+  box.appendChild(el('h4', null, label));
+  const entry = spriteState[dir] || (spriteState[dir] = { gif: '', frames: [] });
+
+  box.appendChild(spriteField('Animiertes GIF (optional)', entry.gif, (p) => { entry.gif = p; }));
+
+  const frames = el('div', 'framerow');
+  const render = () => {
+    frames.textContent = '';
+    for (let i = 0; i < 5; i++) {
+      const slot = el('div', 'frameslot');
+      const path = entry.frames[i];
+      if (path) {
+        const img = el('img');
+        img.src = '../' + path;
+        img.alt = '';
+        slot.appendChild(img);
+        const remove = el('button', 'frameslot__x', '✕');
+        remove.title = 'Bild entfernen';
+        remove.addEventListener('click', () => {
+          entry.frames.splice(i, 1);
+          render();
+        });
+        slot.appendChild(remove);
+      } else {
+        slot.classList.add('is-empty');
+        slot.appendChild(el('span', null, 'Bild ' + (i + 1)));
+      }
+      const upload = el('input');
+      upload.type = 'file';
+      upload.accept = 'image/png,image/gif,image/jpeg,image/webp';
+      upload.addEventListener('change', async () => {
+        if (!upload.files.length) return;
+        try {
+          const data = await uploadFile(upload.files[0]);
+          entry.frames[i] = data.path;
+          entry.frames = entry.frames.filter(Boolean);
+          render();
+          toast('Bild ' + (i + 1) + ' gesetzt');
+        } catch (err) { toast(err.message, 'error'); }
+      });
+      slot.appendChild(upload);
+      frames.appendChild(slot);
+    }
+  };
+  render();
+  box.appendChild(el('div', 'muted', 'Einzelbilder (überschreiben das GIF):'));
+  box.appendChild(frames);
+  return box;
+}
+
 /* ------------------------------------------------------------------ Audio */
 views.audio = (host) => {
   const a = state.content.audio || {};
@@ -1506,7 +1741,7 @@ views.audio = (host) => {
   upload.appendChild(fileInput);
   fileInput.addEventListener('change', async () => {
     if (!fileInput.files.length) return;
-    upload.textContent = 'Laedt hoch ...';
+    upload.textContent = 'Lädt hoch ...';
     try {
       const form = new FormData();
       form.append('file', fileInput.files[0]);
@@ -1537,15 +1772,15 @@ views.audio = (host) => {
   const grid = el('div', 'grid2');
   const musicVol = textInput(a.musicVolume ?? 0.5, { type: 'number', min: 0, max: 1, step: 0.05 });
   const sfxVol = textInput(a.sfxVolume ?? 0.8, { type: 'number', min: 0, max: 1, step: 0.05 });
-  grid.appendChild(field('Musiklautstaerke (0-1)', musicVol));
-  grid.appendChild(field('Effektlautstaerke (0-1)', sfxVol, 'greift, sobald Sounddateien hinterlegt sind'));
+  grid.appendChild(field('Musiklautstärke (0-1)', musicVol));
+  grid.appendChild(field('Effektlautstärke (0-1)', sfxVol, 'greift, sobald Sounddateien hinterlegt sind'));
   form.appendChild(grid);
 
   const enabled = checkInput('Musik startet automatisch', a.musicEnabled !== false);
   form.appendChild(enabled);
   form.appendChild(el('p', 'muted',
-    'Spieler koennen die Musik im Spiel jederzeit ueber den Notenknopf abschalten; '
-    + 'diese Wahl wird auf dem Geraet gemerkt. Browser starten Ton erst nach der ersten Beruehrung.'));
+    'Spieler können die Musik im Spiel jederzeit über den Notenknopf abschalten; '
+    + 'diese Wahl wird auf dem Gerät gemerkt. Browser starten Ton erst nach der ersten Berührung.'));
 
   const save = el('button', 'btn btn--primary', 'Audio speichern');
   save.addEventListener('click', async () => {
@@ -1556,6 +1791,7 @@ views.audio = (host) => {
           musicVolume: +musicVol.value,
           sfxVolume: +sfxVol.value,
           musicEnabled: enabled.input.checked,
+          sounds,
         },
       });
       toast('Audio gespeichert');
@@ -1566,14 +1802,112 @@ views.audio = (host) => {
   card.appendChild(form);
   host.appendChild(card);
 
-  const info = el('div', 'card');
-  info.appendChild(el('h3', null, 'Soundeffekte nachruesten'));
-  info.appendChild(el('p', 'muted',
-    'Die Audio-Schicht kennt bereits diese Ereignisse: shoot, melee, hit, crit, enemyDeath, '
-    + 'explosion, upgrade, bossSpawn, bossWarning, playerHit, coin, gameOver, uiClick. '
-    + 'Dateien nach assets/audio/ legen und in assets/js/main.js mit '
-    + "Audio.register('shoot', 'assets/audio/shoot.wav') registrieren."));
-  host.appendChild(info);
+  /* --- Einzelne Soundeffekte ------------------------------------------ */
+  const soundCard = el('div', 'card');
+  soundCard.appendChild(el('h3', null, 'Soundeffekte'));
+  soundCard.appendChild(el('p', 'muted',
+    'Je Ereignis eine Datei und eine eigene Lautstärke. Ohne Datei bleibt das Ereignis still.'));
+
+  const sounds = JSON.parse(JSON.stringify(a.sounds || {}));
+  const list = el('div', 'soundlist');
+
+  for (const [id, slot] of Object.entries(sounds)) {
+    const row = el('div', 'soundrow');
+    row.appendChild(el('div', 'soundrow__name', slot.label || id));
+
+    const fileLabel = el('label', 'btn btn--sm', slot.src ? 'Ersetzen' : 'Datei wählen');
+    const file = el('input');
+    file.type = 'file';
+    file.accept = 'audio/mpeg,audio/ogg,audio/wav,audio/mp4,.mp3,.ogg,.wav,.m4a';
+    file.style.display = 'none';
+    fileLabel.appendChild(file);
+
+    const status = el('div', 'soundrow__file muted', slot.src ? slot.src.split('/').pop() : 'kein Ton');
+    const preview = el('button', 'btn btn--sm btn--ghost', '▶');
+    preview.title = 'Anhören';
+    preview.disabled = !slot.src;
+    preview.addEventListener('click', () => {
+      const audio = new Audio('../' + sounds[id].src);
+      audio.volume = sounds[id].volume;
+      audio.play().catch(() => toast('Wiedergabe blockiert - bitte erneut tippen.', 'error'));
+    });
+
+    const clear = el('button', 'btn btn--sm btn--ghost', '✕');
+    clear.title = 'Ton entfernen';
+    clear.addEventListener('click', () => {
+      sounds[id].src = '';
+      status.textContent = 'kein Ton';
+      preview.disabled = true;
+      fileLabel.firstChild.textContent = 'Datei wählen';
+    });
+
+    file.addEventListener('change', async () => {
+      if (!file.files.length) return;
+      status.textContent = 'lädt ...';
+      try {
+        const form = new FormData();
+        form.append('file', file.files[0]);
+        form.append('kind', 'audio');
+        form.append('name', id);
+        form.append('csrf', state.csrf);
+        const res = await fetch('../api.php?action=upload', {
+          method: 'POST', headers: { 'X-CSRF': state.csrf }, body: form,
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || 'Upload fehlgeschlagen');
+        sounds[id].src = data.path;
+        status.textContent = data.path.split('/').pop();
+        preview.disabled = false;
+        fileLabel.firstChild.textContent = 'Ersetzen';
+        toast(slot.label + ' gesetzt');
+      } catch (err) {
+        status.textContent = 'Fehler';
+        toast(err.message, 'error');
+      }
+      file.value = '';
+    });
+
+    const vol = el('input');
+    vol.type = 'range';
+    vol.min = '0';
+    vol.max = '1';
+    vol.step = '0.05';
+    vol.value = String(slot.volume ?? 0.8);
+    vol.className = 'soundrow__vol';
+    const volText = el('span', 'muted', Math.round((slot.volume ?? 0.8) * 100) + '%');
+    vol.addEventListener('input', () => {
+      sounds[id].volume = +vol.value;
+      volText.textContent = Math.round(+vol.value * 100) + '%';
+    });
+
+    row.appendChild(status);
+    row.appendChild(vol);
+    row.appendChild(volText);
+    row.appendChild(preview);
+    row.appendChild(fileLabel);
+    row.appendChild(clear);
+    list.appendChild(row);
+  }
+  soundCard.appendChild(list);
+
+  const saveSounds = el('button', 'btn btn--primary', 'Soundeffekte speichern');
+  saveSounds.addEventListener('click', async () => {
+    try {
+      await api('settings', {
+        audio: {
+          musicTrack: track,
+          musicVolume: +musicVol.value,
+          sfxVolume: +sfxVol.value,
+          musicEnabled: enabled.input.checked,
+          sounds,
+        },
+      });
+      toast('Soundeffekte gespeichert');
+      setView('audio');
+    } catch (e) { toast(e.message, 'error'); }
+  });
+  soundCard.appendChild(saveSounds);
+  host.appendChild(soundCard);
 };
 
 /* ----------------------------------------------------------------- Helfer */
@@ -1598,14 +1932,14 @@ async function duplicate(section, item) {
 }
 
 async function removeItem(section, item, label) {
-  // Vor dem Loeschen pruefen, ob das Sprite noch woanders haengt.
+  // Vor dem Löschen prüfen, ob das Sprite noch woanders hängt.
   let extra = '';
-  if (section === 'enemies' && item.boss) extra = ' Ohne Boss faellt die Bosswelle aus.';
+  if (section === 'enemies' && item.boss) extra = ' Ohne Boss fällt die Bosswelle aus.';
   if (section === 'weapons' && item.starter) extra = ' Diese Waffe wird aktuell als Starterwaffe angeboten.';
-  confirmDialog(`"${label}" wirklich loeschen?${extra}`, async () => {
+  confirmDialog(`"${label}" wirklich löschen?${extra}`, async () => {
     try {
       await api('delete', { section, id: item.id });
-      toast('Geloescht');
+      toast('Gelöscht');
       setView(state.view);
     } catch (e) { toast(e.message, 'error'); }
   });

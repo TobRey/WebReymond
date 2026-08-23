@@ -5,12 +5,12 @@ export const RARITY_LABEL = {
   common: 'Gewoehnlich',
   rare: 'Selten',
   epic: 'Episch',
-  legendary: 'Legendaer',
+  legendary: 'Legendär',
 };
 
 /**
  * Wuerfelt die Auswahlkarten nach einer Welle.
- * Hoehere Zyklen erhoehen die Chance auf seltene Karten leicht.
+ * Höhere Zyklen erhoehen die Chance auf seltene Karten leicht.
  */
 export function rollChoices(content, run, count = 3) {
   const balance = content.balance;
@@ -37,7 +37,8 @@ export function rollChoices(content, run, count = 3) {
   const pool = content.upgrades.filter((u) => u.active !== false);
   let guard = 0;
   while (cards.length < count && guard++ < 60) {
-    const rarity = rollRarity(balance, run.cycle);
+    // Fähigkeit "Glückskarten" verschiebt die Seltenheiten nach oben.
+    const rarity = rollRarity(balance, run.cycle + (run.perk === 'luckyCards' ? 2 : 0));
     let options = pool.filter(
       (u) => u.rarity === rarity && !usedIds.has(u.id) && run.stackCount(u.id) < u.maxStack,
     );
@@ -80,10 +81,10 @@ export function formatModifier(upgrade) {
   const sign = upgrade.value >= 0 ? '+' : '';
   const label = {
     damage: 'Schaden', attackSpeed: 'Angriffstempo', moveSpeed: 'Tempo',
-    maxHealth: 'Max. Leben', armor: 'Ruestung', shield: 'Schild',
+    maxHealth: 'Max. Leben', armor: 'Rüstung', shield: 'Schild',
     critChance: 'Krit. Chance', critDamage: 'Krit. Schaden',
     projectileSpeed: 'Projektiltempo', range: 'Reichweite',
-    knockback: 'Rueckstoss', dodge: 'Ausweichen', regen: 'Regeneration',
+    knockback: 'Rückstoß', dodge: 'Ausweichen', regen: 'Regeneration',
   }[upgrade.stat] || upgrade.stat;
 
   if (upgrade.modType === 'percent') return `${sign}${upgrade.value}% ${label}`;

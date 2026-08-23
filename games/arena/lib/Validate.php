@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-/** Saeubert und prueft die Daten, die aus dem Admin-Dashboard kommen. */
+/** Säubert und prüft die Daten, die aus dem Admin-Dashboard kommen. */
 final class Validate
 {
     public static function num(mixed $v, float $min, float $max, float $fallback): float
@@ -80,6 +80,8 @@ final class Validate
             'recoil' => self::num($in['recoil'] ?? 6, 0, 60, 6),
             'spriteScale' => self::num($in['spriteScale'] ?? 46, 6, 400, 46),
             'projectileSize' => self::num($in['projectileSize'] ?? 16, 3, 200, 16),
+            'holdOffsetY' => self::num($in['holdOffsetY'] ?? -6, -120, 120, -6),
+            'holdDistance' => self::num($in['holdDistance'] ?? 20, -60, 200, 20),
             'description' => self::text($in['description'] ?? '', 200),
             'active' => self::bool($in['active'] ?? true),
             'starter' => self::bool($in['starter'] ?? false),
@@ -137,6 +139,72 @@ final class Validate
             'weight' => self::num($in['weight'] ?? 100, 0, 10000, 100),
             'maxStack' => self::int($in['maxStack'] ?? 10, 1, 999, 10),
             'active' => self::bool($in['active'] ?? true),
+        ];
+    }
+
+    /**
+     * Ein Charakter. Je Richtung entweder ein GIF oder bis zu fünf Einzelbilder.
+     *
+     * @param array<string, mixed> $in
+     * @return array<string, mixed>
+     */
+    public static function character(array $in): array
+    {
+        $perks = ['', 'lifesteal', 'thorns', 'luckyCards'];
+        $perk = is_string($in['perk'] ?? null) && in_array($in['perk'], $perks, true) ? $in['perk'] : '';
+
+        $sprites = [];
+        $given = is_array($in['sprites'] ?? null) ? $in['sprites'] : [];
+        foreach (['front', 'back', 'side'] as $dir) {
+            $entry = is_array($given[$dir] ?? null) ? $given[$dir] : [];
+            $frames = [];
+            if (is_array($entry['frames'] ?? null)) {
+                foreach (array_slice($entry['frames'], 0, 5) as $frame) {
+                    $path = self::assetPath($frame, '');
+                    if ($path !== '') {
+                        $frames[] = $path;
+                    }
+                }
+            }
+            $sprites[$dir] = [
+                'gif' => self::assetPath($entry['gif'] ?? '', ''),
+                'frames' => $frames,
+            ];
+        }
+
+        $mods = is_array($in['mods'] ?? null) ? $in['mods'] : [];
+        $clean = [];
+        foreach ([
+            'maxHealth' => [0.2, 5, 1.0], 'moveSpeed' => [0.2, 5, 1.0], 'damageMult' => [0.2, 5, 1.0],
+            'attackSpeed' => [0.2, 5, 1.0], 'range' => [0.2, 5, 1.0], 'projectileSpeed' => [0.2, 5, 1.0],
+            'armor' => [0, 200, 0], 'critChance' => [0, 100, 0], 'critDamage' => [0, 500, 0],
+            'dodge' => [0, 75, 0], 'regen' => [0, 50, 0], 'shield' => [0, 500, 0],
+        ] as $key => [$min, $max, $fallback]) {
+            $clean[$key] = self::num($mods[$key] ?? $fallback, (float) $min, (float) $max, (float) $fallback);
+        }
+
+        $hb = is_array($in['hitbox'] ?? null) ? $in['hitbox'] : [];
+        return [
+            'id' => self::id($in['id'] ?? '', 'char'),
+            'name' => self::text($in['name'] ?? '', 24, 'Neuer Charakter'),
+            'title' => self::text($in['title'] ?? '', 30),
+            'description' => self::text($in['description'] ?? '', 200),
+            'perk' => $perk,
+            'tint' => self::num($in['tint'] ?? 0, 0, 360, 0),
+            'sprites' => $sprites,
+            'frameDuration' => self::num($in['frameDuration'] ?? 130, 20, 2000, 130),
+            'dustSprite' => self::assetPath($in['dustSprite'] ?? '', Defaults::SPRITE_BASE . 'staub.gif'),
+            'scale' => self::num($in['scale'] ?? 78, 8, 600, 78),
+            'hitbox' => [
+                'rx' => self::num($hb['rx'] ?? 14, 2, 200, 14),
+                'ry' => self::num($hb['ry'] ?? 9, 2, 200, 9),
+                'oy' => self::num($hb['oy'] ?? 24, -200, 200, 24),
+            ],
+            'mods' => $clean,
+            'starter' => self::bool($in['starter'] ?? false),
+            'unlockCost' => self::int($in['unlockCost'] ?? 20, 0, 10000, 20),
+            'active' => self::bool($in['active'] ?? true),
+            'order' => self::int($in['order'] ?? 99, 0, 999, 99),
         ];
     }
 
@@ -222,11 +290,28 @@ final class Validate
         if ($track !== '' && !preg_match('#^assets/(audio|uploads)/[A-Za-z0-9._-]+$#', $track)) {
             $track = $d['musicTrack'];
         }
+        $slots = Defaults::soundSlots();
+        $given = is_array($in['sounds'] ?? null) ? $in['sounds'] : [];
+        $sounds = [];
+        foreach ($slots as $id => $slot) {
+            $entry = is_array($given[$id] ?? null) ? $given[$id] : [];
+            $src = is_string($entry['src'] ?? null) ? trim($entry['src']) : '';
+            if ($src !== '' && !preg_match('#^assets/(audio|uploads)/[A-Za-z0-9._-]+$#', $src)) {
+                $src = '';
+            }
+            $sounds[$id] = [
+                'src' => $src,
+                'volume' => self::num($entry['volume'] ?? 0.8, 0, 1, 0.8),
+                'label' => $slot['label'],
+            ];
+        }
+
         return [
             'musicTrack' => $track,
             'musicVolume' => self::num($in['musicVolume'] ?? $d['musicVolume'], 0, 1, $d['musicVolume']),
             'sfxVolume' => self::num($in['sfxVolume'] ?? $d['sfxVolume'], 0, 1, $d['sfxVolume']),
             'musicEnabled' => self::bool($in['musicEnabled'] ?? true),
+            'sounds' => $sounds,
         ];
     }
 

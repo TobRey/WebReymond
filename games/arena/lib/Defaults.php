@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * Alle Startwerte des Spiels an einer Stelle. Das Admin-Dashboard
- * bearbeitet exakt diese Datenmodelle, das Spiel liest sie unveraendert.
+ * bearbeitet exakt diese Datenmodelle, das Spiel liest sie unverändert.
  */
 final class Defaults
 {
@@ -17,6 +17,7 @@ final class Defaults
             'player' => self::player(),
             'balance' => self::balance(),
             'audio' => self::audio(),
+            'characters' => self::characters(),
             'weapons' => self::weapons(),
             'enemies' => self::enemies(),
             'upgrades' => self::upgrades(),
@@ -54,7 +55,39 @@ final class Defaults
             'musicVolume' => 0.5,
             'sfxVolume' => 0.8,
             'musicEnabled' => true,
+            // Je Ereignis eine Datei und eine eigene Lautstärke.
+            'sounds' => self::soundSlots(),
         ];
+    }
+
+    /**
+     * Alle Ton-Ereignisse des Spiels. Ohne Datei bleibt ein Ereignis still.
+     *
+     * @return array<string, array{src: string, volume: float, label: string}>
+     */
+    public static function soundSlots(): array
+    {
+        $slots = [
+            'shoot' => 'Schuss',
+            'melee' => 'Nahkampfschlag',
+            'hit' => 'Treffer am Gegner',
+            'crit' => 'Kritischer Treffer',
+            'enemyDeath' => 'Gegner stirbt',
+            'explosion' => 'Explosion',
+            'run' => 'Laufschritte',
+            'playerHit' => 'Spieler wird getroffen',
+            'coin' => 'Geld eingesammelt',
+            'upgrade' => 'Upgrade gewählt',
+            'bossSpawn' => 'Boss erscheint',
+            'bossWarning' => 'Bombenwarnung',
+            'gameOver' => 'Run beendet',
+            'uiClick' => 'Menüklick',
+        ];
+        $out = [];
+        foreach ($slots as $id => $label) {
+            $out[$id] = ['src' => '', 'volume' => 0.8, 'label' => $label];
+        }
+        return $out;
     }
 
     /** @return array<string, mixed> */
@@ -86,27 +119,92 @@ final class Defaults
         ];
     }
 
+    /**
+     * Spielbare Charaktere.
+     *
+     * Sprites: Entweder ein animiertes GIF je Richtung oder bis zu fünf
+     * Einzelbilder, aus denen das Spiel die Animation selbst baut. Bis eigene
+     * Sprites hochgeladen sind, unterscheiden sich die Figuren über eine
+     * Farbtönung (tint = Farbdrehung in Grad).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function characters(): array
+    {
+        $s = self::SPRITE_BASE;
+        $base = [
+            'front' => ['gif' => $s . 'playerfront.gif', 'frames' => []],
+            'back' => ['gif' => $s . 'playerback.gif', 'frames' => []],
+            'side' => ['gif' => $s . 'playerside.gif', 'frames' => []],
+        ];
+
+        // id, Name, Tönung, Fähigkeitstext, Perk, Werte-Abweichungen, frei von Anfang an
+        $rows = [
+            ['nova', 'Nova', 0, 'Späherin', 'Schnell unterwegs und flink im Abzug.', '',
+             ['moveSpeed' => 1.10, 'critChance' => 5], true],
+            ['bruno', 'Bruno', 200, 'Bollwerk', 'Viel Leben und Rüstung, dafür etwas langsamer.', '',
+             ['maxHealth' => 1.30, 'armor' => 3, 'moveSpeed' => 0.94], true],
+            ['kira', 'Kira', 310, 'Duellantin', 'Mehr Schaden und schnellere Angriffe.', '',
+             ['damageMult' => 1.12, 'attackSpeed' => 1.08], true],
+            ['ruun', 'Ruun', 140, 'Magier', 'Weitere Reichweite und bessere Upgrade-Karten.', 'luckyCards',
+             ['range' => 1.15, 'projectileSpeed' => 1.20], false],
+            ['vera', 'Vera', 340, 'Vampirin', 'Jeder Kill heilt dich, dafür weniger Grundleben.', 'lifesteal',
+             ['maxHealth' => 0.88], false],
+            ['tor', 'Tor', 55, 'Wächter', 'Startet mit Schild und wirft Nahkampfschaden zurück.', 'thorns',
+             ['maxHealth' => 1.20, 'shield' => 25], false],
+        ];
+
+        $out = [];
+        foreach ($rows as $i => $row) {
+            [$id, $name, $tint, $title, $desc, $perk, $mods, $starter] = $row;
+            $out[] = [
+                'id' => $id,
+                'name' => $name,
+                'title' => $title,
+                'description' => $desc,
+                'perk' => $perk,
+                'tint' => $tint,
+                'sprites' => $base,
+                'frameDuration' => 130,
+                'dustSprite' => $s . 'staub.gif',
+                'scale' => 78,
+                'hitbox' => ['rx' => 14, 'ry' => 9, 'oy' => 24],
+                'mods' => array_merge([
+                    'maxHealth' => 1.0, 'moveSpeed' => 1.0, 'damageMult' => 1.0,
+                    'attackSpeed' => 1.0, 'range' => 1.0, 'projectileSpeed' => 1.0,
+                    'armor' => 0, 'critChance' => 0, 'critDamage' => 0,
+                    'dodge' => 0, 'regen' => 0, 'shield' => 0,
+                ], $mods),
+                'starter' => $starter,
+                'unlockCost' => $starter ? 0 : 20,
+                'active' => true,
+                'order' => $i,
+            ];
+        }
+        return $out;
+    }
+
     /** @return list<array<string, mixed>> */
     public static function weapons(): array
     {
         $s = self::SPRITE_BASE;
         // damage/cooldown ergeben die DPS. Nahkampf darf mehr, weil riskanter.
-        // Flaechenwaffen treffen viele Ziele und machen pro Ziel weniger.
-        // Die letzten beiden Zahlen sind die Darstellungsgroessen in Pixeln:
+        // Flächenwaffen treffen viele Ziele und machen pro Ziel weniger.
+        // Die letzten beiden Zahlen sind die Darstellungsgrößen in Pixeln:
         // Waffensprite (in der Hand bzw. beim Schwung) und Projektil.
         $w = [
             ['pistole', 'Pistole', 'pistole.png', 'PROJECTILE', 'schuss',
              22, 0.40, 430, 640, 90, 8, 60, 0, 'Schneller Einzelschuss mit solidem Schaden.', 46, 16],
             ['sturmgewehr', 'Sturmgewehr', 'sturmgewehr.png', 'PROJECTILE', 'schuss',
-             8, 0.11, 390, 760, 35, 6, 55, 0, 'Sehr hohe Feuerrate, dafuer wenig Schaden pro Schuss.', 54, 14],
+             8, 0.11, 390, 760, 35, 6, 55, 0, 'Sehr hohe Feuerrate, dafür wenig Schaden pro Schuss.', 54, 14],
             ['bogen', 'Bogen', 'bogen.png', 'PROJECTILE', 'pfeil',
              46, 0.78, 540, 800, 110, 12, 70, 0, 'Langsamer Schuss, hoher Einzelschaden, durchbohrt 1 Gegner.', 50, 20],
             ['armbrust', 'Armbrust', 'armbrust.png', 'PROJECTILE', 'pfeil',
-             85, 1.35, 640, 980, 150, 14, 80, 0, 'Lange Nachladezeit, dafuer massiver Schaden, durchbohrt 2 Gegner.', 56, 26],
+             85, 1.35, 640, 980, 150, 14, 80, 0, 'Lange Nachladezeit, dafür massiver Schaden, durchbohrt 2 Gegner.', 56, 26],
             ['zauberstab', 'Zauberstab', 'zauberstab.png', 'MAGIC', 'magic',
              28, 0.55, 500, 430, 60, 10, 65, 0, 'Magisches Geschoss mit leichter Zielsuche - trifft fast immer.', 50, 18],
             ['speer', 'Speer', 'speer.png', 'THRUST', '',
-             48, 0.62, 165, 0, 130, 10, 65, 0, 'Stoss nach vorne mit schmalem Trefferbereich und hohem Schaden.', 120, 16],
+             48, 0.62, 165, 0, 130, 10, 65, 0, 'Stoß nach vorne mit schmalem Trefferbereich und hohem Schaden.', 120, 16],
             ['dolch', 'Dolch', 'dolch.png', 'MELEE_ARC', '',
              15, 0.20, 100, 0, 45, 15, 70, 0, 'Blitzschnelle Stiche auf kurze Distanz.', 58, 16],
             ['schwert', 'Schwert', 'schwert.png', 'MELEE_ARC', '',
@@ -114,7 +212,7 @@ final class Defaults
             ['axt', 'Axt', 'axt.png', 'MELEE_360', '',
              18, 0.95, 155, 0, 140, 8, 60, 0, 'Volle 360-Grad-Drehung, trifft alles rundherum.', 88, 16],
             ['granate', 'Granate', 'granate.png', 'GRENADE', 'granate',
-             55, 1.90, 400, 420, 190, 8, 60, 130, 'Wurfgeschoss mit verzoegerter Explosion und grossem Radius.', 46, 34],
+             55, 1.90, 400, 420, 190, 8, 60, 130, 'Wurfgeschoss mit verzögerter Explosion und großem Radius.', 46, 34],
         ];
 
         $out = [];
@@ -122,6 +220,8 @@ final class Defaults
             [$id, $name, $sprite, $type, $projectile, $damage, $cooldown, $range,
              $projectileSpeed, $knockback, $critChance, $critDamage, $aoe, $desc,
              $spriteScale, $projectileSize] = $row;
+            // Nahkampfwaffen liegen etwas höher in der Hand als Schusswaffen.
+            $melee = in_array($type, ['MELEE_ARC', 'MELEE_360', 'THRUST'], true);
             $out[] = [
                 'id' => $id,
                 'name' => $name,
@@ -144,6 +244,8 @@ final class Defaults
                 'recoil' => $id === 'sturmgewehr' ? 5 : ($id === 'armbrust' ? 12 : 6),
                 'spriteScale' => $spriteScale,
                 'projectileSize' => $projectileSize,
+                'holdOffsetY' => $melee ? -10 : -6,
+                'holdDistance' => 20,
                 'description' => $desc,
                 'active' => true,
                 'starter' => in_array($id, ['pistole', 'bogen', 'schwert', 'zauberstab'], true),
@@ -194,29 +296,29 @@ final class Defaults
     {
         // stat, modType (percent|flat), value, rarity, weight, maxStack
         $rows = [
-            ['sharp_blade', 'Scharfe Klinge', 'damage', 'percent', 8, 'common', 100, 12, 'Deine Waffe schlaegt haerter zu.'],
-            ['swift_feet', 'Flinke Fuesse', 'moveSpeed', 'percent', 8, 'common', 100, 10, 'Du bewegst dich spuerbar schneller.'],
-            ['tough_skin', 'Zaehe Haut', 'maxHealth', 'flat', 20, 'common', 100, 15, 'Mehr maximale Lebenspunkte.'],
-            ['rapid_fire', 'Schnellfeuer', 'attackSpeed', 'percent', 7, 'common', 100, 12, 'Deine Waffe greift oefter an.'],
-            ['long_arm', 'Langer Arm', 'range', 'percent', 10, 'common', 90, 8, 'Groessere Reichweite.'],
-            ['tailwind', 'Rueckenwind', 'projectileSpeed', 'percent', 12, 'common', 80, 8, 'Projektile fliegen schneller.'],
+            ['sharp_blade', 'Scharfe Klinge', 'damage', 'percent', 8, 'common', 100, 12, 'Deine Waffe schlägt härter zu.'],
+            ['swift_feet', 'Flinke Füße', 'moveSpeed', 'percent', 8, 'common', 100, 10, 'Du bewegst dich spürbar schneller.'],
+            ['tough_skin', 'Zähe Haut', 'maxHealth', 'flat', 20, 'common', 100, 15, 'Mehr maximale Lebenspunkte.'],
+            ['rapid_fire', 'Schnellfeuer', 'attackSpeed', 'percent', 7, 'common', 100, 12, 'Deine Waffe greift öfter an.'],
+            ['long_arm', 'Langer Arm', 'range', 'percent', 10, 'common', 90, 8, 'Größere Reichweite.'],
+            ['tailwind', 'Rückenwind', 'projectileSpeed', 'percent', 12, 'common', 80, 8, 'Projektile fliegen schneller.'],
 
-            ['precision', 'Praezision', 'critChance', 'flat', 5, 'rare', 100, 10, 'Hoehere Chance auf kritische Treffer.'],
+            ['precision', 'Präzision', 'critChance', 'flat', 5, 'rare', 100, 10, 'Höhere Chance auf kritische Treffer.'],
             ['impact', 'Wucht', 'knockback', 'percent', 25, 'rare', 70, 8, 'Gegner werden weiter zurueckgestossen.'],
             ['leather_hide', 'Lederhaut', 'armor', 'flat', 3, 'rare', 100, 10, 'Reduziert jeden erlittenen Treffer.'],
-            ['regrowth', 'Regeneration', 'regen', 'flat', 0.9, 'rare', 90, 8, 'Heilt dich langsam ueber Zeit.'],
+            ['regrowth', 'Regeneration', 'regen', 'flat', 0.9, 'rare', 90, 8, 'Heilt dich langsam über Zeit.'],
             ['evasion', 'Ausweichen', 'dodge', 'flat', 4, 'rare', 80, 8, 'Chance, einem Treffer komplett auszuweichen.'],
 
             ['berserk', 'Berserker', 'damage', 'percent', 18, 'epic', 100, 8, 'Deutlich mehr Waffenschaden.'],
             ['time_pressure', 'Zeitdruck', 'attackSpeed', 'percent', 16, 'epic', 100, 8, 'Deutlich schnellere Angriffe.'],
             ['crit_fury', 'Kritische Wut', 'critDamage', 'percent', 35, 'epic', 90, 8, 'Kritische Treffer richten mehr an.'],
             ['barrier', 'Barriere', 'shield', 'flat', 30, 'epic', 90, 6, 'Schild, der Schaden vor der Lebensleiste schluckt.'],
-            ['vitality', 'Vitalitaet', 'maxHealth', 'percent', 15, 'epic', 90, 6, 'Prozentual mehr Leben.'],
+            ['vitality', 'Vitalität', 'maxHealth', 'percent', 15, 'epic', 90, 6, 'Prozentual mehr Leben.'],
 
             ['bloodlust', 'Blutrausch', 'damage', 'percent', 30, 'legendary', 100, 4, 'Massiver Schadensschub.'],
             ['twin_heart', 'Zwillingsherz', 'maxHealth', 'percent', 40, 'legendary', 90, 3, 'Enorm viel zusaetzliches Leben.'],
             ['time_rift', 'Zeitriss', 'attackSpeed', 'percent', 28, 'legendary', 90, 3, 'Angriffe kommen deutlich schneller.'],
-            ['master_strike', 'Meisterhieb', 'critChance', 'flat', 12, 'legendary', 80, 3, 'Stark erhoehte kritische Trefferchance.'],
+            ['master_strike', 'Meisterhieb', 'critChance', 'flat', 12, 'legendary', 80, 3, 'Stark erhöhte kritische Trefferchance.'],
         ];
 
         $out = [];
@@ -254,7 +356,7 @@ final class Defaults
     }
 
     /**
-     * Ergaenzt fehlende Schluessel, damit aeltere Speicherstaende weiterlaufen.
+     * Ergänzt fehlende Schlüssel, damit ältere Speicherstaende weiterlaufen.
      *
      * @param array<string, mixed> $data
      * @return array<string, mixed>
@@ -264,6 +366,17 @@ final class Defaults
         $data['player'] = array_merge(self::player(), is_array($data['player'] ?? null) ? $data['player'] : []);
         $data['balance'] = array_merge(self::balance(), is_array($data['balance'] ?? null) ? $data['balance'] : []);
         $data['audio'] = array_merge(self::audio(), is_array($data['audio'] ?? null) ? $data['audio'] : []);
+        // Neue Ton-Ereignisse ergänzen, bestehende Einstellungen behalten.
+        $slots = self::soundSlots();
+        $saved = is_array($data['audio']['sounds'] ?? null) ? $data['audio']['sounds'] : [];
+        foreach ($slots as $id => $slot) {
+            $slots[$id] = array_merge($slot, is_array($saved[$id] ?? null) ? $saved[$id] : []);
+            $slots[$id]['label'] = $slot['label'];
+        }
+        $data['audio']['sounds'] = $slots;
+        if (!isset($data['characters']) || !is_array($data['characters']) || !count($data['characters'])) {
+            $data['characters'] = self::characters();
+        }
         // Aeltere Waffen ohne Groessenangaben bekommen sinnvolle Standardwerte.
         if (is_array($data['weapons'] ?? null)) {
             foreach ($data['weapons'] as $i => $weapon) {
@@ -273,6 +386,13 @@ final class Defaults
                 }
                 if (!isset($weapon['projectileSize'])) {
                     $data['weapons'][$i]['projectileSize'] = 16;
+                }
+                if (!isset($weapon['holdOffsetY'])) {
+                    $melee = in_array($weapon['type'] ?? '', ['MELEE_ARC', 'MELEE_360', 'THRUST'], true);
+                    $data['weapons'][$i]['holdOffsetY'] = $melee ? -10 : -6;
+                }
+                if (!isset($weapon['holdDistance'])) {
+                    $data['weapons'][$i]['holdDistance'] = 20;
                 }
             }
         }

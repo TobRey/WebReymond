@@ -1,8 +1,8 @@
 /**
- * Kollisionsmaske als Bitraster ueber der Karte.
+ * Kollisionsmaske als Bitraster über der Karte.
  *
  * Pixelgenaue Pruefungen waeren auf dem Handy zu teuer, deshalb liegt
- * ueber dem Kartenbild ein grobes Raster (Standard 128x128). Eine Abfrage
+ * über dem Kartenbild ein grobes Raster (Standard 128x128). Eine Abfrage
  * kostet damit nur eine Handvoll Array-Zugriffe.
  */
 export class CollisionMask {
@@ -26,7 +26,7 @@ export class CollisionMask {
     return this.cellBlocked((x / this.cellW) | 0, (y / this.cellH) | 0);
   }
 
-  /** Prueft eine Ellipse (Fuss-Hitbox) gegen das Raster. */
+  /** Prueft eine Ellipse (Fuß-Hitbox) gegen das Raster. */
   blockedEllipse(x, y, rx, ry) {
     const x0 = ((x - rx) / this.cellW) | 0;
     const x1 = ((x + rx) / this.cellW) | 0;
@@ -41,8 +41,8 @@ export class CollisionMask {
   }
 
   /**
-   * Bewegt eine Entitaet und loest Kollisionen achsenweise auf.
-   * Dadurch gleitet man an Waenden entlang, statt haengen zu bleiben.
+   * Bewegt eine Entität und löst Kollisionen achsenweise auf.
+   * Dadurch gleitet man an Wänden entlang, statt hängen zu bleiben.
    */
   moveEntity(entity, dx, dy, rx, ry) {
     let moved = false;
@@ -67,7 +67,7 @@ export class CollisionMask {
     return x - rx >= 0 && y - ry >= 0 && x + rx <= this.worldWidth && y + ry <= this.worldHeight;
   }
 
-  /** Freie Position in der Naehe finden - z. B. wenn etwas eingeklemmt ist. */
+  /** Freie Position in der Nähe finden - z. B. wenn etwas eingeklemmt ist. */
   nearestFree(x, y, rx, ry, maxRadius = 260) {
     if (!this.blockedEllipse(x, y, rx, ry) && this.insideWorld(x, y, rx, ry)) return { x, y };
     for (let r = this.cellW; r <= maxRadius; r += this.cellW) {

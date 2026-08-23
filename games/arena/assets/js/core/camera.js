@@ -1,7 +1,7 @@
 import { clamp } from './util.js';
 
 /**
- * Kamera mit weicher Verfolgung. Sie zeigt nie ueber den Kartenrand hinaus;
+ * Kamera mit weicher Verfolgung. Sie zeigt nie über den Kartenrand hinaus;
  * ist die Karte kleiner als der Bildschirm, wird sie mittig gezeigt.
  */
 export class Camera {
@@ -36,7 +36,7 @@ export class Camera {
   }
 
   follow(x, y, dt) {
-    // Exponentielle Annaeherung - framerateunabhaengig.
+    // Exponentielle Annäherung - framerateunabhaengig.
     const t = 1 - Math.exp(-this.smooth * dt);
     this.x += (x - this.x) * t;
     this.y += (y - this.y) * t;
@@ -72,7 +72,7 @@ export class Camera {
     return this.y - this.viewHeight / 2 + this.shakeY;
   }
 
-  /** Sichtbarkeitstest fuer Offscreen-Culling. */
+  /** Sichtbarkeitstest für Offscreen-Culling. */
   visible(x, y, margin = 80) {
     return (
       x > this.left - margin &&

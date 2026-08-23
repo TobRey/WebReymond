@@ -1,5 +1,5 @@
 /**
- * Raster-Hash fuer Nachbarschaftsabfragen.
+ * Raster-Hash für Nachbarschaftsabfragen.
  * Ohne ihn muesste jedes Projektil gegen jeden Gegner geprueft werden -
  * bei 80 Gegnern und 60 Projektilen waeren das 4800 Tests pro Frame.
  */
@@ -34,7 +34,7 @@ export class SpatialHash {
     for (const item of items) this.insert(item);
   }
 
-  /** Ruft fn fuer alle Objekte im Umkreis auf (grob, Zellenraster). */
+  /** Ruft fn für alle Objekte im Umkreis auf (grob, Zellenraster). */
   query(x, y, radius, fn) {
     const min = this.cellSize;
     const cx0 = ((x - radius) / min) | 0;
