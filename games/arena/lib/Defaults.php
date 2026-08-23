@@ -60,32 +60,62 @@ final class Defaults
         ];
     }
 
+    public const AUDIO_BASE = 'assets/audio/';
+
+    /**
+     * Baustein für jeden Ton im Spiel.
+     *
+     * Bis zu vier Varianten je Ereignis; abgespielt wird eine zufällige.
+     * "chance" steuert, wie oft der Ton überhaupt kommt (100 = immer) -
+     * damit klingen Dauergeräusche wie Schüsse nicht wie ein Presslufthammer.
+     *
+     * @param list<string> $files
+     * @return array<string, mixed>
+     */
+    public static function soundSet(array $files = [], float $volume = 0.8, int $chance = 100): array
+    {
+        $variants = [];
+        foreach (array_slice($files, 0, 4) as $file) {
+            $variants[] = ['src' => self::AUDIO_BASE . $file, 'volume' => 1.0];
+        }
+        return [
+            'enabled' => true,
+            'chance' => $chance,
+            'volume' => $volume,
+            'variants' => $variants,
+        ];
+    }
+
     /**
      * Alle Ton-Ereignisse des Spiels. Ohne Datei bleibt ein Ereignis still.
      *
-     * @return array<string, array{src: string, volume: float, label: string}>
+     * @return array<string, array<string, mixed>>
      */
     public static function soundSlots(): array
     {
+        // label, Dateien (bis zu vier), Lautstärke, Häufigkeit in Prozent
         $slots = [
-            'shoot' => 'Schuss',
-            'melee' => 'Nahkampfschlag',
-            'hit' => 'Treffer am Gegner',
-            'crit' => 'Kritischer Treffer',
-            'enemyDeath' => 'Gegner stirbt',
-            'explosion' => 'Explosion',
-            'run' => 'Laufschritte',
-            'playerHit' => 'Spieler wird getroffen',
-            'coin' => 'Geld eingesammelt',
-            'upgrade' => 'Upgrade gewählt',
-            'bossSpawn' => 'Boss erscheint',
-            'bossWarning' => 'Bombenwarnung',
-            'gameOver' => 'Run beendet',
-            'uiClick' => 'Menüklick',
+            'shoot' => ['Schuss', ['laser.mp3'], 0.55, 100],
+            'melee' => ['Nahkampfschlag', ['swoosh.mp3', 'short-swoosh.mp3', 'player-attack.mp3', 'player-heavy-attack.mp3'], 0.6, 100],
+            'hit' => ['Treffer am Gegner', ['hit-knife.mp3', 'hit-sword.mp3'], 0.35, 45],
+            'crit' => ['Kritischer Treffer', ['hit-sword.mp3'], 0.6, 100],
+            'enemyDeath' => ['Gegner stirbt', ['death-enemy.mp3', 'death-enemy2.mp3'], 0.5, 70],
+            'explosion' => ['Explosion', ['player-heavy-attack.mp3'], 0.7, 100],
+            'run' => ['Laufschritte', ['walk.mp3'], 0.35, 100],
+            'playerHit' => ['Spieler wird getroffen', ['player-damage.mp3'], 0.8, 100],
+            'coin' => ['Geld eingesammelt', [], 0.6, 100],
+            'upgrade' => ['Upgrade gewählt', ['selected-upgrade.mp3'], 0.8, 100],
+            'waveClear' => ['Welle geschafft', ['level-clear.mp3'], 0.7, 100],
+            'bossSpawn' => ['Boss erscheint', ['boss.mp3'], 0.8, 100],
+            'bossWarning' => ['Bombenwarnung', ['short-swoosh.mp3'], 0.5, 100],
+            'gameStart' => ['Run startet', ['start-game.mp3'], 0.7, 100],
+            'gameOver' => ['Run beendet', ['death-player.mp3', 'game-over.mp3'], 0.8, 100],
+            'uiClick' => ['Menüklick', [], 0.5, 100],
         ];
+
         $out = [];
-        foreach ($slots as $id => $label) {
-            $out[$id] = ['src' => '', 'volume' => 0.8, 'label' => $label];
+        foreach ($slots as $id => [$label, $files, $volume, $chance]) {
+            $out[$id] = self::soundSet($files, $volume, $chance) + ['label' => $label];
         }
         return $out;
     }
@@ -246,6 +276,8 @@ final class Defaults
                 'projectileSize' => $projectileSize,
                 'holdOffsetY' => $melee ? -10 : -6,
                 'holdDistance' => 20,
+                // Eigener Ton je Waffe; leer heißt: allgemeiner Schuss- bzw. Schlagton.
+                'sound' => self::weaponSound($id, $melee),
                 'description' => $desc,
                 'active' => true,
                 'starter' => in_array($id, ['pistole', 'bogen', 'schwert', 'zauberstab'], true),
@@ -253,6 +285,21 @@ final class Defaults
             ];
         }
         return $out;
+    }
+
+    /** Passender Ton je Waffe aus den mitgelieferten Dateien. */
+    public static function weaponSound(string $id, bool $melee): array
+    {
+        return match ($id) {
+            'bogen', 'armbrust' => self::soundSet(['arrow.mp3'], 0.6),
+            'sturmgewehr' => self::soundSet(['laser.mp3'], 0.35),
+            'pistole' => self::soundSet(['laser.mp3'], 0.55),
+            'granate' => self::soundSet(['short-swoosh.mp3'], 0.6),
+            'schwert', 'axt' => self::soundSet(['swoosh.mp3', 'player-heavy-attack.mp3'], 0.6),
+            'dolch' => self::soundSet(['short-swoosh.mp3', 'player-attack.mp3'], 0.5),
+            'speer' => self::soundSet(['player-attack.mp3', 'swoosh.mp3'], 0.55),
+            default => $melee ? self::soundSet(['swoosh.mp3'], 0.6) : self::soundSet(['laser.mp3'], 0.5),
+        };
     }
 
     /** @return list<array<string, mixed>> */
@@ -266,6 +313,8 @@ final class Defaults
                 'spawnWeight' => 100, 'boss' => false, 'contactCooldown' => 0.8,
                 'scale' => 64, 'hitbox' => ['shape' => 'circle', 'r' => 19, 'ox' => 0, 'oy' => 4],
                 'wave' => 1,
+                'soundHit' => self::soundSet(['hit-knife.mp3'], 0.35, 40),
+                'soundDeath' => self::soundSet(['death-enemy.mp3'], 0.35, 100),
             ],
             [
                 'id' => 'enemy2', 'name' => 'Schleicher', 'sprite' => $s . 'enemy2.gif',
@@ -273,6 +322,8 @@ final class Defaults
                 'spawnWeight' => 100, 'boss' => false, 'contactCooldown' => 0.8,
                 'scale' => 74, 'hitbox' => ['shape' => 'circle', 'r' => 21, 'ox' => 0, 'oy' => 4],
                 'wave' => 2,
+                'soundHit' => self::soundSet(['hit-knife.mp3'], 0.35, 40),
+                'soundDeath' => self::soundSet(['death-enemy2.mp3'], 0.35, 100),
             ],
             [
                 'id' => 'enemy3', 'name' => 'Brecher', 'sprite' => $s . 'enemy3.gif',
@@ -280,6 +331,8 @@ final class Defaults
                 'spawnWeight' => 100, 'boss' => false, 'contactCooldown' => 0.9,
                 'scale' => 96, 'hitbox' => ['shape' => 'circle', 'r' => 25, 'ox' => 0, 'oy' => 6],
                 'wave' => 3,
+                'soundHit' => self::soundSet(['hit-sword.mp3'], 0.4, 40),
+                'soundDeath' => self::soundSet(['death-enemy.mp3', 'death-enemy2.mp3'], 0.4, 100),
             ],
             [
                 'id' => 'boss1', 'name' => 'Bombenwerfer', 'sprite' => $s . 'boss1.gif',
@@ -287,6 +340,8 @@ final class Defaults
                 'spawnWeight' => 0, 'boss' => true, 'contactCooldown' => 1.0,
                 'scale' => 190, 'hitbox' => ['shape' => 'circle', 'r' => 46, 'ox' => 0, 'oy' => 8],
                 'wave' => 4,
+                'soundHit' => self::soundSet(['hit-sword.mp3'], 0.5, 40),
+                'soundDeath' => self::soundSet(['boss.mp3'], 0.5, 100),
             ],
         ];
     }
@@ -370,10 +425,26 @@ final class Defaults
         $slots = self::soundSlots();
         $saved = is_array($data['audio']['sounds'] ?? null) ? $data['audio']['sounds'] : [];
         foreach ($slots as $id => $slot) {
-            $slots[$id] = array_merge($slot, is_array($saved[$id] ?? null) ? $saved[$id] : []);
+            $old = is_array($saved[$id] ?? null) ? $saved[$id] : [];
+            // Frühere Fassung hatte nur eine Datei je Ereignis.
+            if (isset($old['src']) && !isset($old['variants'])) {
+                $old['variants'] = $old['src'] !== '' ? [['src' => $old['src'], 'volume' => 1.0]] : [];
+                unset($old['src']);
+            }
+            $slots[$id] = array_merge($slot, $old);
             $slots[$id]['label'] = $slot['label'];
         }
         $data['audio']['sounds'] = $slots;
+        if (is_array($data['enemies'] ?? null)) {
+            foreach ($data['enemies'] as $i => $enemy) {
+                if (!isset($enemy['soundHit'])) {
+                    $data['enemies'][$i]['soundHit'] = self::soundSet([], 0.35, 40);
+                }
+                if (!isset($enemy['soundDeath'])) {
+                    $data['enemies'][$i]['soundDeath'] = self::soundSet([], 0.5, 100);
+                }
+            }
+        }
         if (!isset($data['characters']) || !is_array($data['characters']) || !count($data['characters'])) {
             $data['characters'] = self::characters();
         }
@@ -393,6 +464,10 @@ final class Defaults
                 }
                 if (!isset($weapon['holdDistance'])) {
                     $data['weapons'][$i]['holdDistance'] = 20;
+                }
+                if (!isset($weapon['sound'])) {
+                    $melee = in_array($weapon['type'] ?? '', ['MELEE_ARC', 'MELEE_360', 'THRUST'], true);
+                    $data['weapons'][$i]['sound'] = self::weaponSound((string) ($weapon['id'] ?? ''), $melee);
                 }
             }
         }

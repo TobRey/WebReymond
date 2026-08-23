@@ -334,16 +334,27 @@ begrenzt (Leben > 0, Cooldown > 0, Pfade nur innerhalb der Asset-Ordner usw.).
 
 ### Soundeffekte
 
-Im Admin unter **Audio** hat jedes Ereignis eine eigene Zeile: Datei hochladen,
-Lautstärke per Regler, Vorhören, entfernen. Ohne Datei bleibt das Ereignis still.
+18 Sounddateien liegen bei und sind fertig verdrahtet. Jeder Ton besteht aus:
 
-Vorhandene Ereignisse: Schuss, Nahkampfschlag, Treffer am Gegner, kritischer
-Treffer, Gegner stirbt, Explosion, **Laufschritte**, Spieler wird getroffen,
-Geld eingesammelt, Upgrade gewählt, Boss erscheint, Bombenwarnung, Run beendet,
-Menüklick.
+* **bis zu vier Dateien** – das Spiel wählt bei jedem Mal zufällig eine davon,
+  damit sich Wiederholungen nicht abnutzen,
+* einer **Lautstärke je Datei** und einer **Lautstärke für das ganze Ereignis**,
+* einer **Häufigkeit in Prozent** (100 % = bei jedem Mal),
+* einem **An/Aus-Schalter** – standardmäßig ist alles an.
 
-Die Laufschritte laufen im Takt der Bewegungsgeschwindigkeit und werden
-gedrosselt, damit sie sich nicht überlagern.
+Das gilt an drei Stellen:
+
+| Wo | Was |
+|----|-----|
+| **Audio** | 16 allgemeine Ereignisse: Schuss, Nahkampfschlag, Treffer, kritischer Treffer, Gegner stirbt, Explosion, Laufschritte, Spieler getroffen, Geld, Upgrade, Welle geschafft, Boss erscheint, Bombenwarnung, Run startet, Run beendet, Menüklick |
+| **Waffen** | eigener Angriffston je Waffe – ohne eigene Datei greift der allgemeine Schuss- bzw. Schlagton |
+| **Gegner** | eigener Treffer- und Todeston je Gegnertyp |
+
+Beispiel aus den Standardwerten: Der Nahkampfschlag hat vier Dateien
+(`swoosh`, `short-swoosh`, `player-attack`, `player-heavy-attack`), der Bogen
+seinen eigenen `arrow`-Ton, und der Trefferton läuft nur zu 45 %, damit er bei
+schnellen Waffen nicht hämmert. Die Laufschritte laufen im Takt der
+Bewegungsgeschwindigkeit.
 
 **Upload-Größe:** Das Projekt bringt `.user.ini` und `.htaccess` mit 24 MB mit.
 Ignoriert dein Hoster beides (manche Setups tun das), nennt die Fehlermeldung
@@ -361,7 +372,7 @@ vollständig, nutzt aber Ersatz:
 | `pfeil` | fehlt | Pfeile für Bogen und Armbrust werden **programmatisch gezeichnet** (Schaft, Spitze, Federn). Sobald `assets/sprites/pfeil.png` existiert, im Admin bei der Waffe als Projektil auswählen. |
 | `explosion2` | fehlt | Die Bossbombe nutzt `explosion1.gif` (15 Frames). Granaten nutzen `explosion.gif`. |
 | Kartenbilder | fehlten komplett | `assets/uploads/map-arena.png` (2048×2048) wurde als Startwelt generiert, inklusive passender Kollisionsmaske. Eigene Karten jederzeit im Admin hochladen. |
-| Soundeffekte | fehlen | Musik ist vorhanden (`assets/audio/music-arena.mp3`). Für Treffer, Schüsse und Explosionen liegen keine Dateien bei — die Ereignisse sind verdrahtet und warten nur auf `Audio.register(...)`, siehe Abschnitt Musik und Ton. |
+| Soundeffekte | **vorhanden** | 18 Dateien unter `assets/audio/` sind eingebaut und den Ereignissen, Waffen und Gegnern zugeordnet. Nur „Geld eingesammelt" und „Menüklick" haben noch keine Datei. |
 
 Vorhandene und genutzte Assets: `playerfront`, `playerback`, `playerside`,
 `staub`, `enemy1`, `enemy2`, `enemy3`, `boss1`, `bombe1`, `explosion`,
@@ -414,6 +425,12 @@ Automatisiert im echten Browser geprüft (Chromium, Desktop und Mobil-Viewport):
   überlebt den Reload
 * Waffenhöhe, Sounddatei je Ereignis und Bildtempo im Admin gespeichert und im
   Spiel wirksam
+* Tonvarianten: 400 Nahkampfschläge verteilen sich gleichmäßig auf die vier
+  Dateien (106/95/103/96)
+* Häufigkeit greift: 1000 Treffer bei 45 % ergaben 446 Wiedergaben
+* Abgeschalteter Ton spielt 0 von 50 Mal
+* Im echten Spiel gemessen (6 s mit Bogen, laufend): walk 46×, arrow 7×
+  (eigener Waffenton statt Laser), death-enemy 5×, Trefferton 3×
 * Musik startet erst nach der ersten Geste, läuft in Schleife, blendet bei
   Overlays auf 30 % ab und wieder hoch; Aus-Schalter überlebt den Reload
 * Waffen- und Projektilgröße im Admin geändert (46→130 px und 16→52 px) und im

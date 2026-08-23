@@ -264,7 +264,7 @@ async function renderScores() {
 /* ----------------------------------------------------------------- Audio */
 function initAudio() {
   const cfg = content.audio || {};
-  Audio.configure(cfg);
+  Audio.configure(content);
   if (cfg.musicEnabled === false) Audio.setMusicOn(false);
   syncSoundButtons();
   if (Audio.settings.musicOn) Audio.startMusic();
@@ -440,6 +440,7 @@ async function startRun(weapon) {
   });
   loop.start();
   arena.start();
+  Audio.play('gameStart');
   Audio.duckMusic(false);
   if (Audio.settings.musicOn) Audio.startMusic();
   banner('Welle 1', false);

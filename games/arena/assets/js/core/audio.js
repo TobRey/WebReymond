@@ -120,39 +120,78 @@ export const Audio = {
 
   /* --------------------------------------------------------- Soundeffekte */
 
-  register(event, src, volume = 1) {
-    if (!EVENTS.includes(event)) EVENTS.push(event);
-    if (!src) {
-      clips.delete(event);
+  /**
+   * Registriert einen Ton mit bis zu vier Varianten.
+   * Beim Abspielen wird zufällig eine davon gewählt.
+   */
+  registerSet(key, set) {
+    if (!set || !Array.isArray(set.variants) || !set.variants.length) {
+      clips.delete(key);
       return;
     }
-    const audio = new window.Audio(src);
-    audio.preload = 'none';        // erst laden, wenn der Ton wirklich gebraucht wird
-    clips.set(event, { audio, volume });
+    clips.set(key, {
+      enabled: set.enabled !== false,
+      chance: typeof set.chance === 'number' ? set.chance : 100,
+      volume: typeof set.volume === 'number' ? set.volume : 0.8,
+      variants: set.variants.map((variant) => {
+        const audio = new window.Audio(variant.src);
+        audio.preload = 'none';   // erst laden, wenn der Ton gebraucht wird
+        return { audio, volume: typeof variant.volume === 'number' ? variant.volume : 1 };
+      }),
+    });
+  },
+
+  /** Einzelne Datei registrieren - kurze Form für eigene Erweiterungen. */
+  register(event, src, volume = 1) {
+    Audio.registerSet(event, { enabled: true, chance: 100, volume, variants: [{ src, volume: 1 }] });
   },
 
   /**
-   * Übernimmt die komplette Tonkonfiguration aus dem Admin:
-   * Musiktitel, Lautstärken und je Ereignis eine Datei.
+   * Übernimmt die komplette Tonkonfiguration: Musik, Ereignisse,
+   * Waffen- und Gegnertöne.
    */
-  configure(config = {}) {
-    if (config.musicTrack) Audio.setMusic(config.musicTrack, config.musicVolume);
-    if (typeof config.sfxVolume === 'number') settings.sfxMaster = config.sfxVolume;
-    const sounds = config.sounds || {};
-    for (const [event, entry] of Object.entries(sounds)) {
-      Audio.register(event, entry && entry.src, entry && typeof entry.volume === 'number' ? entry.volume : 1);
+  configure(content = {}) {
+    const audio = content.audio || {};
+    if (audio.musicTrack) Audio.setMusic(audio.musicTrack, audio.musicVolume);
+    if (typeof audio.sfxVolume === 'number') {
+      settings.sfxMaster = audio.sfxVolume;
+      saveSettings();
+    }
+    for (const [event, set] of Object.entries(audio.sounds || {})) Audio.registerSet(event, set);
+    for (const weapon of content.weapons || []) Audio.registerSet('weapon:' + weapon.id, weapon.sound);
+    for (const enemy of content.enemies || []) {
+      Audio.registerSet('enemy:' + enemy.id + ':hit', enemy.soundHit);
+      Audio.registerSet('enemy:' + enemy.id + ':death', enemy.soundDeath);
     }
   },
 
   play(event, { volume = 1, rate = 1 } = {}) {
     if (!settings.sfxOn || !unlocked) return;
     const clip = clips.get(event);
-    if (!clip) return;             // Kein Sound hinterlegt - bewusst still.
-    const node = clip.audio.cloneNode();
+    if (!clip || !clip.enabled) return;      // Kein Ton hinterlegt oder abgeschaltet.
+    if (clip.chance < 100 && Math.random() * 100 >= clip.chance) return;
+
+    // Zufällige Variante, damit sich Wiederholungen nicht abnutzen.
+    const variant = clip.variants[(Math.random() * clip.variants.length) | 0];
+    const node = variant.audio.cloneNode();
     node.volume = Math.max(0, Math.min(1,
-      volume * clip.volume * (settings.sfxVolume ?? 1) * (settings.sfxMaster ?? 0.8)));
+      volume * variant.volume * clip.volume * (settings.sfxVolume ?? 1) * (settings.sfxMaster ?? 0.8)));
     node.playbackRate = rate;
     node.play().catch(() => {});
+  },
+
+  /**
+   * Spielt den ersten vorhandenen Ton aus einer Liste von Schlüsseln.
+   * So kann eine Waffe einen eigenen Ton haben und sonst auf den
+   * allgemeinen Schuss- oder Schlagton zurückfallen.
+   */
+  playFirst(keys, options) {
+    for (const key of keys) {
+      if (key && clips.has(key)) {
+        Audio.play(key, options);
+        return;
+      }
+    }
   },
 
   /** Wiederholende Geräusche wie Schritte mit eigenem Mindestabstand. */
@@ -207,5 +246,17 @@ export const Audio = {
   /** Nur für Diagnose und Tests. */
   get element() {
     return music;
+  },
+
+  /** Zeigt, was für einen Schlüssel hinterlegt ist. */
+  describe(key) {
+    const clip = clips.get(key);
+    if (!clip) return null;
+    return {
+      enabled: clip.enabled,
+      chance: clip.chance,
+      volume: clip.volume,
+      variants: clip.variants.map((v) => v.audio.src.split('/').pop()),
+    };
   },
 };

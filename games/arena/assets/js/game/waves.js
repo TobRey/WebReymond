@@ -1,6 +1,7 @@
 import { Assets } from '../gfx/assets.js';
 import { findSpawnPoint } from '../world/spawn.js';
 import { weighted } from '../core/util.js';
+import { Audio } from '../core/audio.js';
 
 /**
  * Wellen und Zyklen.
@@ -135,6 +136,7 @@ export class WaveController {
     this.state = WAVE_STATE.INTERMISSION;
     // Jede geschaffte Welle ist später genau ein Erfahrungspunkt.
     this.run.wavesCleared = (this.run.wavesCleared || 0) + 1;
+    Audio.play('waveClear');
     this.arena.emit('waveEnd', {
       wave: this.run.wave,
       cycle: this.run.cycle,

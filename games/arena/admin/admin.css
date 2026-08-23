@@ -229,3 +229,26 @@ textarea { min-height: 78px; resize: vertical; }
   .soundrow { grid-template-columns: 1fr auto; grid-auto-rows: auto; }
   .soundrow__file { grid-column: 1 / -1; }
 }
+
+/* ------------------------------------------------------------ Ton-Editor */
+.soundset {
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px;
+  background: rgba(255, 255, 255, .02); display: grid; gap: 9px; margin-bottom: 10px;
+}
+.soundset__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.soundset__label { font-weight: 600; font-size: 14px; }
+.soundset__head .check { min-height: 32px; }
+.soundset__slots { display: grid; gap: 7px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.soundslot {
+  position: relative; display: grid; grid-template-columns: 1fr 80px auto auto;
+  gap: 6px; align-items: center;
+  border: 1px solid var(--line); border-radius: 9px; padding: 6px 8px;
+  background: rgba(255, 255, 255, .02); font-size: 12.5px; min-height: 42px;
+}
+.soundslot.is-empty { border-style: dashed; grid-template-columns: 1fr; }
+.soundslot.is-busy { opacity: .5; }
+.soundslot__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.soundslot input[type="range"] { width: 100%; accent-color: var(--accent); }
+.soundslot input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.soundset__controls { display: flex; gap: 16px; flex-wrap: wrap; }
+.soundset__controls .slider input { width: 110px; }

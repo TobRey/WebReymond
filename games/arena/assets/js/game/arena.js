@@ -227,7 +227,10 @@ export class Arena {
     this.run.damageDealt += damage;
 
     this.effects.number(enemy.x, enemy.y - enemy.radius - 6, formatNumber(damage), { crit });
-    Audio.play(crit ? 'crit' : 'hit');
+    // Eigener Trefferton des Gegners, sonst der allgemeine.
+    Audio.playFirst(crit
+      ? ['crit', 'enemy:' + enemy.def.id + ':hit', 'hit']
+      : ['enemy:' + enemy.def.id + ':hit', 'hit']);
 
     if (knockback > 0) {
       const dx = enemy.x - fromX;
@@ -262,7 +265,7 @@ export class Arena {
       color: enemy.boss ? '#ff8b6b' : 'rgba(220,120,140,0.9)',
       speed: enemy.boss ? 320 : 150, size: enemy.boss ? 6 : 3, life: 0.5,
     });
-    Audio.play('enemyDeath');
+    Audio.playFirst(['enemy:' + enemy.def.id + ':death', 'enemyDeath']);
 
     if (enemy.boss) {
       this.run.bossKills++;

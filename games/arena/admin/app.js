@@ -184,6 +184,161 @@ function spriteField(label, value, onChange) {
   return wrap;
 }
 
+/* ---------------------------------------------------------- Ton-Editor */
+/**
+ * Editor für einen Ton mit bis zu vier Dateien.
+ *
+ * Beim Abspielen wählt das Spiel zufällig eine davon. "Häufigkeit" legt
+ * fest, wie oft der Ton überhaupt kommt - praktisch für Treffergeräusche,
+ * die sonst bei jedem Schuss hämmern.
+ *
+ * @returns Element mit .read() für den aktuellen Stand
+ */
+function soundSetEditor(label, set, { compact = false } = {}) {
+  const data = {
+    enabled: set?.enabled !== false,
+    chance: typeof set?.chance === 'number' ? set.chance : 100,
+    volume: typeof set?.volume === 'number' ? set.volume : 0.8,
+    variants: Array.isArray(set?.variants) ? set.variants.map((v) => ({ ...v })) : [],
+  };
+
+  const box = el('div', 'soundset');
+  const head = el('div', 'soundset__head');
+  head.appendChild(el('div', 'soundset__label', label));
+
+  const enabled = el('input');
+  enabled.type = 'checkbox';
+  enabled.checked = data.enabled;
+  const enabledLabel = el('label', 'check');
+  enabledLabel.appendChild(enabled);
+  enabledLabel.appendChild(el('span', null, 'an'));
+  head.appendChild(enabledLabel);
+  box.appendChild(head);
+
+  /* Vier Plätze für Dateien */
+  const slots = el('div', 'soundset__slots');
+  const render = () => {
+    slots.textContent = '';
+    for (let i = 0; i < 4; i++) {
+      const variant = data.variants[i];
+      const slot = el('div', 'soundslot' + (variant ? '' : ' is-empty'));
+
+      if (variant) {
+        slot.appendChild(el('div', 'soundslot__name', variant.src.split('/').pop()));
+
+        const vol = el('input');
+        vol.type = 'range';
+        vol.min = '0';
+        vol.max = '1';
+        vol.step = '0.05';
+        vol.value = String(variant.volume ?? 1);
+        vol.title = 'Lautstärke dieser Datei';
+        vol.addEventListener('input', () => { variant.volume = +vol.value; });
+        slot.appendChild(vol);
+
+        const play = el('button', 'btn btn--sm btn--ghost', '▶');
+        play.title = 'Anhören';
+        play.addEventListener('click', () => {
+          const audio = new window.Audio('../' + variant.src);
+          audio.volume = Math.min(1, (variant.volume ?? 1) * data.volume);
+          audio.play().catch(() => toast('Wiedergabe blockiert - bitte nochmal tippen.', 'error'));
+        });
+        slot.appendChild(play);
+
+        const remove = el('button', 'btn btn--sm btn--ghost', '✕');
+        remove.title = 'Entfernen';
+        remove.addEventListener('click', () => {
+          data.variants.splice(i, 1);
+          render();
+        });
+        slot.appendChild(remove);
+      } else {
+        slot.appendChild(el('div', 'soundslot__name muted', 'Datei ' + (i + 1)));
+        const upload = el('input');
+        upload.type = 'file';
+        upload.accept = 'audio/mpeg,audio/ogg,audio/wav,audio/mp4,.mp3,.ogg,.wav,.m4a';
+        upload.addEventListener('change', async () => {
+          if (!upload.files.length) return;
+          slot.classList.add('is-busy');
+          try {
+            const form = new FormData();
+            form.append('file', upload.files[0]);
+            form.append('kind', 'audio');
+            form.append('name', upload.files[0].name.replace(/\.[^.]+$/, ''));
+            form.append('csrf', state.csrf);
+            const res = await fetch('../api.php?action=upload', {
+              method: 'POST', headers: { 'X-CSRF': state.csrf }, body: form,
+            });
+            const result = await res.json();
+            if (!result.ok) throw new Error(result.error || 'Upload fehlgeschlagen');
+            data.variants[i] = { src: result.path, volume: 1 };
+            data.variants = data.variants.filter(Boolean);
+            render();
+          } catch (err) {
+            toast(err.message, 'error');
+            slot.classList.remove('is-busy');
+          }
+        });
+        slot.appendChild(upload);
+      }
+      slots.appendChild(slot);
+    }
+  };
+  render();
+  box.appendChild(slots);
+
+  /* Lautstärke und Häufigkeit */
+  const controls = el('div', 'soundset__controls');
+  const volume = el('input');
+  volume.type = 'range';
+  volume.min = '0';
+  volume.max = '1';
+  volume.step = '0.05';
+  volume.value = String(data.volume);
+  const volumeText = el('span', 'muted', Math.round(data.volume * 100) + '%');
+  volume.addEventListener('input', () => {
+    data.volume = +volume.value;
+    volumeText.textContent = Math.round(data.volume * 100) + '%';
+  });
+
+  const chance = el('input');
+  chance.type = 'range';
+  chance.min = '0';
+  chance.max = '100';
+  chance.step = '5';
+  chance.value = String(data.chance);
+  const chanceText = el('span', 'muted', data.chance + '%');
+  chance.addEventListener('input', () => {
+    data.chance = +chance.value;
+    chanceText.textContent = data.chance + '%';
+  });
+
+  const volWrap = el('label', 'slider');
+  volWrap.appendChild(el('span', null, 'Lautstärke'));
+  volWrap.appendChild(volume);
+  volWrap.appendChild(volumeText);
+  const chanceWrap = el('label', 'slider');
+  chanceWrap.appendChild(el('span', null, 'Häufigkeit'));
+  chanceWrap.appendChild(chance);
+  chanceWrap.appendChild(chanceText);
+  controls.appendChild(volWrap);
+  controls.appendChild(chanceWrap);
+  box.appendChild(controls);
+
+  if (!compact) {
+    box.appendChild(el('p', 'muted',
+      'Mehrere Dateien werden zufällig abgewechselt. Häufigkeit 100 % heißt: bei jedem Mal.'));
+  }
+
+  box.read = () => ({
+    enabled: enabled.checked,
+    chance: data.chance,
+    volume: data.volume,
+    variants: data.variants.filter(Boolean).slice(0, 4),
+  });
+  return box;
+}
+
 /* ------------------------------------------------------------ Navigation */
 const views = {};
 
@@ -857,6 +1012,8 @@ function editEnemy(enemy) {
     id: '', name: 'Neuer Gegner', sprite: 'assets/sprites/enemy1.gif',
     health: 40, damage: 8, speed: 70, reward: 4, spawnWeight: 100, boss: false,
     contactCooldown: 0.8, scale: 64, wave: 0,
+    soundHit: { enabled: true, chance: 40, volume: 0.35, variants: [] },
+    soundDeath: { enabled: true, chance: 100, volume: 0.5, variants: [] },
     hitbox: { shape: 'circle', r: 20, w: 40, h: 40, ox: 0, oy: 0 },
   };
 
@@ -896,6 +1053,12 @@ function editEnemy(enemy) {
 
   const boss = checkInput('Ist ein Boss (erscheint in Welle 4)', data.boss);
   body.appendChild(boss);
+
+  body.appendChild(el('h3', null, 'Töne'));
+  const hitSound = soundSetEditor('Treffer', data.soundHit, { compact: true });
+  const deathSound = soundSetEditor('Tod', data.soundDeath, { compact: true });
+  body.appendChild(hitSound);
+  body.appendChild(deathSound);
 
   body.appendChild(el('h3', null, 'Hitbox'));
   body.appendChild(hitboxHost);
@@ -1027,6 +1190,7 @@ function editEnemy(enemy) {
               health: +health.value, damage: +damage.value, speed: +speed.value,
               reward: +reward.value, spawnWeight: +weight.value, boss: boss.input.checked,
               contactCooldown: +cooldown.value, scale: +scale.value, wave: +wave.value,
+              soundHit: hitSound.read(), soundDeath: deathSound.read(),
               hitbox: hitboxHost._read(),
             },
           });
@@ -1087,6 +1251,8 @@ function editWeapon(weapon) {
     projectile: 'schuss', damage: 20, cooldown: 0.5, range: 400, projectileSpeed: 600,
     knockback: 80, critChance: 8, critDamage: 60, aoeRadius: 0, arc: 360, pierce: 0,
     spread: 0, recoil: 6, spriteScale: 46, projectileSize: 16,
+    holdOffsetY: -6, holdDistance: 20,
+    sound: { enabled: true, chance: 100, volume: 0.6, variants: [] },
     description: '', active: true, starter: false, damageType: 'physical',
   };
 
@@ -1231,6 +1397,12 @@ function editWeapon(weapon) {
   drawPreview();
   body.appendChild(field('Beschreibung', desc));
 
+  body.appendChild(el('h3', null, 'Angriffston'));
+  const soundEditor = soundSetEditor('Ton beim Angriff', data.sound, { compact: true });
+  body.appendChild(soundEditor);
+  body.appendChild(el('p', 'muted',
+    'Ohne eigene Datei nimmt das Spiel den allgemeinen Schuss- bzw. Schlagton.'));
+
   const active = checkInput('Waffe ist im Spiel verfügbar', data.active);
   const starter = checkInput('Als Starterwaffe anbieten', data.starter);
   body.appendChild(active);
@@ -1252,7 +1424,7 @@ function editWeapon(weapon) {
               cooldown: +cooldown.value, range: +range.value, projectileSpeed: +pspeed.value,
               knockback: +knock.value, critChance: +critC.value, critDamage: +critD.value,
               aoeRadius: +aoe.value, arc: +arc.value, pierce: +pierce.value, spread: +spread.value,
-              recoil: +recoil.value, spriteScale: +spriteScale.value,
+              recoil: +recoil.value, sound: soundEditor.read(), spriteScale: +spriteScale.value,
               projectileSize: +projectileSize.value, holdOffsetY: +holdOffsetY.value,
               holdDistance: +holdDistance.value, description: desc.value,
               active: active.input.checked, starter: starter.input.checked,
@@ -1773,7 +1945,7 @@ views.audio = (host) => {
   const musicVol = textInput(a.musicVolume ?? 0.5, { type: 'number', min: 0, max: 1, step: 0.05 });
   const sfxVol = textInput(a.sfxVolume ?? 0.8, { type: 'number', min: 0, max: 1, step: 0.05 });
   grid.appendChild(field('Musiklautstärke (0-1)', musicVol));
-  grid.appendChild(field('Effektlautstärke (0-1)', sfxVol, 'greift, sobald Sounddateien hinterlegt sind'));
+  grid.appendChild(field('Effektlautstärke (0-1)', sfxVol, 'Grundlautstärke über allen Effekten'));
   form.appendChild(grid);
 
   const enabled = checkInput('Musik startet automatisch', a.musicEnabled !== false);
@@ -1791,7 +1963,7 @@ views.audio = (host) => {
           musicVolume: +musicVol.value,
           sfxVolume: +sfxVol.value,
           musicEnabled: enabled.input.checked,
-          sounds,
+          sounds: a.sounds,
         },
       });
       toast('Audio gespeichert');
@@ -1806,92 +1978,21 @@ views.audio = (host) => {
   const soundCard = el('div', 'card');
   soundCard.appendChild(el('h3', null, 'Soundeffekte'));
   soundCard.appendChild(el('p', 'muted',
-    'Je Ereignis eine Datei und eine eigene Lautstärke. Ohne Datei bleibt das Ereignis still.'));
+    'Je Ereignis bis zu vier Dateien - das Spiel wählt zufällig eine davon. '
+    + 'Lautstärke und Häufigkeit gelten für das ganze Ereignis, jede Datei hat '
+    + 'zusätzlich einen eigenen Regler.'));
 
-  const sounds = JSON.parse(JSON.stringify(a.sounds || {}));
-  const list = el('div', 'soundlist');
-
-  for (const [id, slot] of Object.entries(sounds)) {
-    const row = el('div', 'soundrow');
-    row.appendChild(el('div', 'soundrow__name', slot.label || id));
-
-    const fileLabel = el('label', 'btn btn--sm', slot.src ? 'Ersetzen' : 'Datei wählen');
-    const file = el('input');
-    file.type = 'file';
-    file.accept = 'audio/mpeg,audio/ogg,audio/wav,audio/mp4,.mp3,.ogg,.wav,.m4a';
-    file.style.display = 'none';
-    fileLabel.appendChild(file);
-
-    const status = el('div', 'soundrow__file muted', slot.src ? slot.src.split('/').pop() : 'kein Ton');
-    const preview = el('button', 'btn btn--sm btn--ghost', '▶');
-    preview.title = 'Anhören';
-    preview.disabled = !slot.src;
-    preview.addEventListener('click', () => {
-      const audio = new Audio('../' + sounds[id].src);
-      audio.volume = sounds[id].volume;
-      audio.play().catch(() => toast('Wiedergabe blockiert - bitte erneut tippen.', 'error'));
-    });
-
-    const clear = el('button', 'btn btn--sm btn--ghost', '✕');
-    clear.title = 'Ton entfernen';
-    clear.addEventListener('click', () => {
-      sounds[id].src = '';
-      status.textContent = 'kein Ton';
-      preview.disabled = true;
-      fileLabel.firstChild.textContent = 'Datei wählen';
-    });
-
-    file.addEventListener('change', async () => {
-      if (!file.files.length) return;
-      status.textContent = 'lädt ...';
-      try {
-        const form = new FormData();
-        form.append('file', file.files[0]);
-        form.append('kind', 'audio');
-        form.append('name', id);
-        form.append('csrf', state.csrf);
-        const res = await fetch('../api.php?action=upload', {
-          method: 'POST', headers: { 'X-CSRF': state.csrf }, body: form,
-        });
-        const data = await res.json();
-        if (!data.ok) throw new Error(data.error || 'Upload fehlgeschlagen');
-        sounds[id].src = data.path;
-        status.textContent = data.path.split('/').pop();
-        preview.disabled = false;
-        fileLabel.firstChild.textContent = 'Ersetzen';
-        toast(slot.label + ' gesetzt');
-      } catch (err) {
-        status.textContent = 'Fehler';
-        toast(err.message, 'error');
-      }
-      file.value = '';
-    });
-
-    const vol = el('input');
-    vol.type = 'range';
-    vol.min = '0';
-    vol.max = '1';
-    vol.step = '0.05';
-    vol.value = String(slot.volume ?? 0.8);
-    vol.className = 'soundrow__vol';
-    const volText = el('span', 'muted', Math.round((slot.volume ?? 0.8) * 100) + '%');
-    vol.addEventListener('input', () => {
-      sounds[id].volume = +vol.value;
-      volText.textContent = Math.round(+vol.value * 100) + '%';
-    });
-
-    row.appendChild(status);
-    row.appendChild(vol);
-    row.appendChild(volText);
-    row.appendChild(preview);
-    row.appendChild(fileLabel);
-    row.appendChild(clear);
-    list.appendChild(row);
+  const editors = {};
+  for (const [id, slot] of Object.entries(a.sounds || {})) {
+    const editor = soundSetEditor(slot.label || id, slot);
+    editors[id] = editor;
+    soundCard.appendChild(editor);
   }
-  soundCard.appendChild(list);
 
   const saveSounds = el('button', 'btn btn--primary', 'Soundeffekte speichern');
   saveSounds.addEventListener('click', async () => {
+    const sounds = {};
+    for (const [id, editor] of Object.entries(editors)) sounds[id] = editor.read();
     try {
       await api('settings', {
         audio: {

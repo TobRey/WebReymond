@@ -67,7 +67,7 @@ export class WeaponController {
           sprite: Assets.get(weapon.sprite),
         });
         player.recoil = 0.4;
-        Audio.play('melee');
+        Audio.playFirst(['weapon:' + weapon.id, 'melee']);
         break;
       }
 
@@ -88,7 +88,7 @@ export class WeaponController {
           sprite: Assets.get(weapon.sprite),
         });
         player.recoil = 0.5;
-        Audio.play('melee');
+        Audio.playFirst(['weapon:' + weapon.id, 'melee']);
         break;
       }
 
@@ -119,13 +119,13 @@ export class WeaponController {
         });
         p.flightTime = flight;
         player.recoil = 0.6;
-        Audio.play('shoot');
+        Audio.playFirst(['weapon:' + weapon.id, 'shoot']);
         break;
       }
 
       case 'MAGIC': {
         this.spawnShot(weapon, originX, originY, this.aim, 'magic', 5.2);
-        Audio.play('shoot');
+        Audio.playFirst(['weapon:' + weapon.id, 'shoot']);
         break;
       }
 
@@ -135,7 +135,7 @@ export class WeaponController {
         const spread = weapon.spread ? rand(-weapon.spread, weapon.spread) * (Math.PI / 180) : 0;
         const kind = weapon.projectile === 'pfeil' ? 'arrow' : 'bullet';
         this.spawnShot(weapon, originX, originY, lead + spread, kind, 0);
-        Audio.play('shoot');
+        Audio.playFirst(['weapon:' + weapon.id, 'shoot']);
         break;
       }
     }

@@ -54,6 +54,45 @@ final class Validate
         return substr($v, 0, 40);
     }
 
+    /**
+     * Ein Ton mit bis zu vier Varianten.
+     *
+     * @param mixed $in
+     * @return array<string, mixed>
+     */
+    public static function soundSet(mixed $in, float $defaultVolume = 0.8): array
+    {
+        $in = is_array($in) ? $in : [];
+        $variants = [];
+
+        // Frühere Fassung kannte nur eine Datei.
+        if (isset($in['src']) && !isset($in['variants'])) {
+            $in['variants'] = is_string($in['src']) && $in['src'] !== ''
+                ? [['src' => $in['src'], 'volume' => 1.0]] : [];
+        }
+
+        if (is_array($in['variants'] ?? null)) {
+            foreach (array_slice($in['variants'], 0, 4) as $variant) {
+                $src = is_array($variant) ? ($variant['src'] ?? '') : $variant;
+                $src = is_string($src) ? trim($src) : '';
+                if ($src === '' || !preg_match('#^assets/(audio|uploads)/[A-Za-z0-9._-]+$#', $src)) {
+                    continue;
+                }
+                $variants[] = [
+                    'src' => $src,
+                    'volume' => self::num(is_array($variant) ? ($variant['volume'] ?? 1) : 1, 0, 1, 1.0),
+                ];
+            }
+        }
+
+        return [
+            'enabled' => self::bool($in['enabled'] ?? true),
+            'chance' => self::int($in['chance'] ?? 100, 0, 100, 100),
+            'volume' => self::num($in['volume'] ?? $defaultVolume, 0, 1, $defaultVolume),
+            'variants' => $variants,
+        ];
+    }
+
     /** @param array<string, mixed> $in @return array<string, mixed> */
     public static function weapon(array $in): array
     {
@@ -82,6 +121,7 @@ final class Validate
             'projectileSize' => self::num($in['projectileSize'] ?? 16, 3, 200, 16),
             'holdOffsetY' => self::num($in['holdOffsetY'] ?? -6, -120, 120, -6),
             'holdDistance' => self::num($in['holdDistance'] ?? 20, -60, 200, 20),
+            'sound' => self::soundSet($in['sound'] ?? null, 0.6),
             'description' => self::text($in['description'] ?? '', 200),
             'active' => self::bool($in['active'] ?? true),
             'starter' => self::bool($in['starter'] ?? false),
@@ -107,6 +147,8 @@ final class Validate
             'contactCooldown' => self::num($in['contactCooldown'] ?? 0.8, 0.05, 20, 0.8),
             'scale' => self::num($in['scale'] ?? 64, 8, 600, 64),
             'wave' => self::int($in['wave'] ?? 0, 0, 99, 0),
+            'soundHit' => self::soundSet($in['soundHit'] ?? null, 0.35),
+            'soundDeath' => self::soundSet($in['soundDeath'] ?? null, 0.5),
             'hitbox' => [
                 'shape' => $shape,
                 'r' => self::num($hb['r'] ?? 20, 2, 400, 20),
@@ -294,16 +336,8 @@ final class Validate
         $given = is_array($in['sounds'] ?? null) ? $in['sounds'] : [];
         $sounds = [];
         foreach ($slots as $id => $slot) {
-            $entry = is_array($given[$id] ?? null) ? $given[$id] : [];
-            $src = is_string($entry['src'] ?? null) ? trim($entry['src']) : '';
-            if ($src !== '' && !preg_match('#^assets/(audio|uploads)/[A-Za-z0-9._-]+$#', $src)) {
-                $src = '';
-            }
-            $sounds[$id] = [
-                'src' => $src,
-                'volume' => self::num($entry['volume'] ?? 0.8, 0, 1, 0.8),
-                'label' => $slot['label'],
-            ];
+            $sounds[$id] = self::soundSet($given[$id] ?? null, (float) $slot['volume'])
+                + ['label' => $slot['label']];
         }
 
         return [
