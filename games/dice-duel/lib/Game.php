@@ -39,13 +39,18 @@ final class Game
         ];
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * Der Token wird nur als Hash abgelegt - so ist selbst eine versehentlich
+     * oeffentlich erreichbare Raumdatei kein nutzbares Login.
+     *
+     * @return array<string, mixed>
+     */
     public static function newPlayer(string $name, string $token, int $slot): array
     {
         return [
             'slot' => $slot,
             'name' => $name,
-            'token' => $token,
+            'token' => self::hashToken($token),
             'score' => 0,
             'money' => Content::START_MONEY,
             'streak' => 0,
@@ -479,6 +484,11 @@ final class Game
     private static function logEntry(?int $slot, string $text): array
     {
         return ['slot' => $slot, 'text' => $text, 'at' => time()];
+    }
+
+    public static function hashToken(string $token): string
+    {
+        return hash('sha256', $token);
     }
 
     public static function dieType(string $id): string

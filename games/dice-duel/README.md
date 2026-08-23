@@ -28,6 +28,18 @@ Dann `http://127.0.0.1:8080` in zwei Browserfenstern öffnen.
 
 **Voraussetzungen:** PHP 8.1 oder neuer. Keine Extensions außer dem Standardumfang.
 
+#### Hinweis zu nginx
+
+Für Apache liegt in `data/` bereits eine `.htaccess`, die den Ordner sperrt.
+nginx ignoriert diese Datei – dort gehört folgender Block in die Server‑Config:
+
+```nginx
+location ^~ /dice-duel/data/ { deny all; return 404; }
+```
+
+Kritisch ist das nicht: Sitzungs‑Tokens werden nur als SHA‑256‑Hash gespeichert,
+eine lesbare Raumdatei wäre also kein nutzbares Login.
+
 ---
 
 ## Aufbau

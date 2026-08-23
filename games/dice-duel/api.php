@@ -82,8 +82,9 @@ function slotForToken(array $room, string $token): ?int
     if ($token === '') {
         return null;
     }
+    $hash = Game::hashToken($token);
     foreach ($room['players'] as $player) {
-        if (hash_equals((string) $player['token'], $token)) {
+        if (hash_equals((string) $player['token'], $hash)) {
             return (int) $player['slot'];
         }
     }
@@ -247,8 +248,9 @@ switch ($action) {
                 if (count($room['rematchVotes']) >= 2 && count($room['players']) === 2) {
                     foreach ($room['players'] as $i => $p) {
                         $room['players'][$i] = array_merge(
-                            Game::newPlayer((string) $p['name'], (string) $p['token'], (int) $p['slot']),
-                            ['lastSeen' => time()]
+                            Game::newPlayer((string) $p['name'], '', (int) $p['slot']),
+                            // Token bleibt der bereits gehashte Wert des Spielers.
+                            ['token' => (string) $p['token'], 'lastSeen' => time()]
                         );
                     }
                     Game::startMatch($room);
