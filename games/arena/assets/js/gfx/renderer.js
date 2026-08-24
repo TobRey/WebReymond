@@ -3,6 +3,9 @@ import { TAU, clamp } from '../core/util.js';
 
 const silhouettes = new WeakMap();
 
+/** Flammen auf brennenden Gegnern - identisch zu arena.js. */
+const BURN_SPRITE = 'assets/sprites/feuer.gif';
+
 /** Weisse Silhouette eines Frames - für das Aufblitzen bei Treffern. */
 function silhouette(frame) {
   let cached = silhouettes.get(frame);
@@ -73,7 +76,9 @@ export class Renderer {
 
     arena.map.draw(ctx, camera);
     arena.bossCtrl.drawGround(ctx);
+    arena.pickups.draw(ctx, time);
     this.drawEntities(time);
+    this.drawBurning(time);
     arena.projectiles.draw(ctx, time);
     arena.melee.draw(ctx);
     arena.bossCtrl.draw(ctx, time);
@@ -227,6 +232,34 @@ export class Renderer {
           ctx.drawImage(sil, enemy.x - width / 2, drawY, width, height);
         }
       }
+    }
+    ctx.restore();
+  }
+
+  /**
+   * Flammen auf allen brennenden Gegnern.
+   *
+   * Eigener Durchgang nach den Figuren: Im Gedränge stehen die Gegner
+   * dicht beieinander, und ein Feuer an den Füßen würde sonst hinter dem
+   * Nachbarn verschwinden. So sieht man immer, wen es erwischt hat.
+   * In der letzten halben Sekunde blendet die Animation aus.
+   */
+  drawBurning(time) {
+    const sprite = Assets.get(BURN_SPRITE);
+    if (!sprite) return;
+    const { ctx, arena } = this;
+    const ratio = sprite.width / sprite.height;
+
+    ctx.save();
+    for (const enemy of arena.enemies.list) {
+      if (!enemy.alive || enemy.burnTime <= 0) continue;
+      if (!arena.camera.visible(enemy.x, enemy.y, enemy.scale)) continue;
+
+      const h = enemy.scale * 0.66;
+      const w = ratio * h;
+      const frame = sprite.frameAt(time * 1000 + enemy.burnPhase);
+      ctx.globalAlpha = Math.min(1, enemy.burnTime * 2) * 0.9;
+      ctx.drawImage(frame, enemy.x - w / 2, enemy.y + enemy.radius * 0.45 - h, w, h);
     }
     ctx.restore();
   }

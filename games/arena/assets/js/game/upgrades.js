@@ -85,8 +85,14 @@ export function formatModifier(upgrade) {
     critChance: 'Krit. Chance', critDamage: 'Krit. Schaden',
     projectileSpeed: 'Projektiltempo', range: 'Reichweite',
     knockback: 'Rückstoß', dodge: 'Ausweichen', regen: 'Regeneration',
+    burn: 'Feuerschaden', potionRate: 'Flaschen-Chance',
   }[upgrade.stat] || upgrade.stat;
 
+  if (upgrade.stat === 'burn') {
+    return upgrade.modType === 'percent'
+      ? `${sign}${upgrade.value}% ${label}`
+      : `${sign}${upgrade.value} ${label} / Sek.`;
+  }
   if (upgrade.modType === 'percent') return `${sign}${upgrade.value}% ${label}`;
   if (upgrade.stat === 'regen') return `${sign}${upgrade.value} ${label} / Sek.`;
   if (upgrade.stat === 'critChance' || upgrade.stat === 'dodge') return `${sign}${upgrade.value} Punkte ${label}`;

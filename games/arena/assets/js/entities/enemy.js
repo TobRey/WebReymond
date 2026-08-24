@@ -20,6 +20,8 @@ export class EnemyManager {
         contactTimer: 0, knockX: 0, knockY: 0, flip: false, animOffset: 0,
         wander: 0, wanderTimer: 0, spawnTime: 0, sprite: null, scale: 64,
         contactCooldown: 0.8, deathTime: 0, hitboxOx: 0, hitboxOy: 0, id: 0,
+        burnDps: 0, burnTime: 0, burnTick: 0, burnNumber: 0, burnPhase: 0,
+        slowTime: 0, slowFactor: 1,
       }),
       (e, options) => {
         Object.assign(e, options);
@@ -34,6 +36,13 @@ export class EnemyManager {
         e.spawnTime = 0;
         e.animOffset = rand(0, 1200);
         e.deathTime = 0;
+        e.burnDps = 0;
+        e.burnTime = 0;
+        e.burnTick = 0;
+        e.burnNumber = 0;
+        e.burnPhase = rand(0, 900);
+        e.slowTime = 0;
+        e.slowFactor = 1;
       },
       40,
     );
@@ -123,10 +132,17 @@ export class EnemyManager {
       vx /= len;
       vy /= len;
 
+      // Frost der Fähigkeit "Frost" bremst den Gegner vorübergehend.
+      if (e.slowTime > 0) {
+        e.slowTime -= dt;
+        if (e.slowTime <= 0) e.slowFactor = 1;
+      }
+      const speed = e.speed * (e.slowTime > 0 ? e.slowFactor : 1);
+
       // Anfahren statt sofortige Richtungswechsel.
       const accel = 9;
-      e.vx += (vx * e.speed - e.vx) * Math.min(1, accel * dt);
-      e.vy += (vy * e.speed - e.vy) * Math.min(1, accel * dt);
+      e.vx += (vx * speed - e.vx) * Math.min(1, accel * dt);
+      e.vy += (vy * speed - e.vy) * Math.min(1, accel * dt);
 
       // Rückstoß klingt exponentiell ab.
       if (e.knockX || e.knockY) {
@@ -146,7 +162,7 @@ export class EnemyManager {
       // Hängt der Gegner an einer Wand, seitlich daran entlanggleiten.
       if (!movedX && !movedY && (stepX || stepY)) {
         const side = e.wander >= 0 ? 1 : -1;
-        map.mask.moveEntity(e, -dy * side * e.speed * dt, dx * side * e.speed * dt, e.radius * 0.75, ry);
+        map.mask.moveEntity(e, -dy * side * speed * dt, dx * side * speed * dt, e.radius * 0.75, ry);
         e.wander = -e.wander;
       }
 

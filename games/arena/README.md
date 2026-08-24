@@ -68,6 +68,7 @@ arena/
 ├── lib/
 │   ├── Defaults.php          Alle Startwerte: Waffen, Gegner, Upgrades, Balancing, Map
 │   ├── Store.php             Persistenz in data/content.php (atomar, mit Sperre)
+│   ├── Version.php           Cache-Verwaltung: Import Map und no-store
 │   ├── Accounts.php          Spielerkonten, Erfahrung, Bestenliste
 │   ├── Auth.php              Admin-Session, Code-Hash, Fehlversuchsbremse
 │   └── Validate.php          Prüft und begrenzt alle Admin-Eingaben
@@ -79,10 +80,10 @@ arena/
 │   ├── js/
 │   │   ├── core/             loop, input, camera, spatial, pool, audio, util
 │   │   ├── gfx/              gif (Decoder), assets, renderer, effects
-│   │   ├── world/            map, collision, spawn
+│   │   ├── world/            map, collision, spawn, pickups (Heilflaschen)
 │   │   ├── entities/         player, enemy
 │   │   ├── combat/           weapon, projectiles, melee
-│   │   ├── game/             arena, run, stats, waves, boss, upgrades
+│   │   ├── game/             arena, run, stats, waves, boss, upgrades, perks
 │   │   └── main.js           Menü, HUD, Overlays, Spielstart
 │   ├── css/game.css
 │   ├── sprites/              deine Sprites
@@ -157,6 +158,25 @@ Zusätzlich werden GIF-Frames beim Dekodieren über eine 32-Bit-Palette
 geschrieben (statt vier Einzelbytes) und Frames über 384 px verkleinert – im
 Spiel werden sie ohnehin nur 60–200 px hoch gezeichnet.
 
+### Warum Änderungen aus dem Admin sofort ankommen
+
+Das Spiel besteht aus 27 ES-Modulen, die sich gegenseitig mit relativen Pfaden
+laden. Früher hing nur an `main.js` eine Versionsnummer – der Browser holte
+also `main.js` neu und nahm die 26 importierten Dateien weiter aus seinem
+Zwischenspeicher. Ein Upload wirkte dann halb oder gar nicht, und im Admin
+geänderte Werte tauchten im Spiel nicht auf.
+
+Jetzt gilt:
+
+* `index.php` und das Dashboard senden `Cache-Control: no-store`. Die Seite
+  trägt die Spieldaten in sich und darf nie aus dem Zwischenspeicher kommen.
+* Eine **Import Map** in der Seite hängt an **jedes** Modul seine eigene
+  Versionsnummer aus dem Änderungsdatum der Datei. Wird eine Datei ersetzt,
+  ändert sich ihre Adresse – der Browser muss sie neu holen.
+
+Beides läuft über PHP und braucht keine `.htaccess`, die viele FTP-Programme
+ohnehin überspringen.
+
 ### Performance
 
 * Fester Simulationstakt (1/60 s) mit Delta-Time — 60-Hz- und 120-Hz-Geräte
@@ -193,20 +213,51 @@ und der Freischaltpreis kommt aus den Serverdaten, nicht aus der Anfrage.
 
 ## Charaktere
 
-Sechs Figuren mit eigenen Werten und Fähigkeiten:
+Fünfzehn Figuren, drei davon von Anfang an frei. Jede hat eigene Werte, zwölf
+haben zusätzlich eine **Spezialfähigkeit** – und jede dieser Fähigkeiten ist im
+Spiel wirklich umgesetzt, nicht nur ein Satz auf der Karte.
 
-| Charakter | Rolle | Fähigkeit | Frei |
-|-----------|-------|-----------|------|
-| Nova | Späherin | +10 % Tempo, +5 % Krit | ja |
-| Bruno | Bollwerk | +30 % Leben, +3 Rüstung, −6 % Tempo | ja |
-| Kira | Duellantin | +12 % Schaden, +8 % Angriffstempo | ja |
-| Ruun | Magier | +15 % Reichweite, +20 % Projektiltempo, bessere Upgrade-Karten | 20 XP |
-| Vera | Vampirin | Jeder Kill heilt (Boss: 25 HP), −12 % Leben | 20 XP |
-| Tor | Wächter | +20 % Leben, 25 Startschild, wirft Nahkampfschaden zurück | 20 XP |
+| Charakter | Rolle | Fähigkeit | Werte | Frei |
+|-----------|-------|-----------|-------|------|
+| Nova | Späherin | – | +12 % Tempo, +15 % Aufsammeln, +6 % Krit | ja |
+| Bruno | Bollwerk | – | +30 % Leben, +3 Rüstung, +25 % Rückstoß, −6 % Tempo | ja |
+| Kira | Duellantin | – | +12 % Schaden, +10 % Angriffstempo, +20 % Krit-Schaden | ja |
+| Ruun | Magier | Glückskarten | +18 % Reichweite, +20 % Projektiltempo, −8 % Leben | 20 XP |
+| Vera | Vampirin | Lebensraub | −12 % Leben, +5 % Angriffstempo | 20 XP |
+| Tor | Wächter | Wächter | +20 % Leben, 30 Startschild, −4 % Tempo | 20 XP |
+| Ember | Brandstifterin | Brandstifter | +4 Feuerschaden, −6 % Schaden | 20 XP |
+| Sela | Frostläuferin | Frost | +8 % Tempo, +10 % Reichweite | 20 XP |
+| Grom | Berserker | Blutrausch | +10 % Leben, +2 Rüstung, −5 % Angriffstempo | 20 XP |
+| Zeno | Sprengmeister | Sprengmeister | +5 % Schaden, +5 % Reichweite, −8 % Leben | 20 XP |
+| Mira | Sammlerin | Magnet | doppelte Aufsammelreichweite, +50 % Flaschen | 20 XP |
+| Dax | Glücksritter | Goldrausch | +60 % Geld, +5 % Ausweichen, −5 % Leben | 20 XP |
+| Iva | Scharfschützin | Scharfschütze | +30 % Reichweite, +25 % Projektiltempo, −14 % Leben | 20 XP |
+| Ossa | Zähe Haut | Zweiter Atem | +15 % Leben, +2 Rüstung, +0,5 HP/s | 20 XP |
+| Nix | Klingentänzerin | Dornen | +12 % Ausweichen, +6 % Tempo, −6 % Leben | 20 XP |
 
-Die drei Sonderfähigkeiten sind echte Mechaniken, keine reinen Zahlen:
-**Lebensraub** heilt bei jedem Kill, **Dornen** gibt 30 % des Kontaktschadens
-zurück, **Glückskarten** verschiebt die Seltenheiten der Upgrade-Karten nach oben.
+### Die zwölf Spezialfähigkeiten
+
+| Fähigkeit | Wirkung im Spiel |
+|-----------|------------------|
+| Lebensraub | Jeder Kill heilt 1,5 HP, ein Boss 25 HP. |
+| Dornen | 30 % des Kontaktschadens plus 4 gehen an den Gegner zurück. |
+| Glückskarten | Die Seltenheit der Upgrade-Karten wird um zwei Zyklen angehoben. |
+| Blutrausch | Bis **+60 % Schaden**, linear steigend mit fehlendem Leben. |
+| Zweiter Atem | Einmal je Welle überlebst du den Todesstoß mit 25 % Leben. |
+| Brandstifter | Treffer zünden mit 3 HP/s – auch ganz ohne Verbrennungs-Upgrade. |
+| Frost | Getroffene Gegner laufen 1,6 s lang nur noch mit 45 % Tempo. |
+| Sprengmeister | Getötete Gegner reißen im Umkreis von 95 px 55 % ihres Lebens mit. |
+| Magnet | Doppelte Aufsammelreichweite, doppelt so viele Heilflaschen. |
+| Goldrausch | 60 % mehr Geld für jeden Gegner. |
+| Wächter | Zu Beginn jeder Welle ist der Schild wieder komplett voll. |
+| Scharfschütze | Bis **+55 % Schaden**, je weiter der Gegner entfernt ist. |
+
+Im Admin unter **Charaktere** lassen sich pro Figur **siebzehn Werte** einstellen:
+Faktoren für Leben, Tempo, Schaden, Angriffstempo, Reichweite, Projektiltempo,
+Rückstoß, Aufsammelreichweite, Heilflaschen-Chance und Geld, dazu Zuschläge für
+Rüstung, Krit-Chance, Krit-Schaden, Ausweichen, Regeneration, Startschild und
+Feuerschaden. Die Fähigkeit wird aus einer Liste gewählt, ihre Wirkung steht
+direkt darunter.
 
 ### Eigene Sprites: GIF oder fünf Einzelbilder
 
@@ -308,13 +359,48 @@ Klinge über ihm steht.
 
 ## Upgrades
 
-20 Upgrades in vier Seltenheiten (Common, Rare, Epic, Legendary). Nach jeder
+23 Upgrades in vier Seltenheiten (Common, Rare, Epic, Legendary). Nach jeder
 Welle werden drei Karten gezogen; mit steigendem Zyklus wachsen die Chancen auf
 seltene Karten (`rarityCycleBonus`).
 
 Beeinflussbare Werte: Schaden, Angriffstempo, Bewegungstempo, Max. Leben,
 Rüstung, Schild, Krit-Chance, Krit-Schaden, Projektiltempo, Reichweite,
-Rückstoß, Ausweichen, Regeneration.
+Rückstoß, Ausweichen, Regeneration, **Feuerschaden** und
+**Heilflaschen-Chance**.
+
+### Verbrennung
+
+| Karte | Seltenheit | Wirkung | Max. Stufen |
+|-------|-----------|---------|-------------|
+| Verbrennung | Selten | +3 Feuerschaden / Sek. | 10 |
+| Inferno | Episch | +9 Feuerschaden / Sek. | 6 |
+
+Ein Treffer setzt den Gegner in Brand: Er verliert `burnDuration` Sekunden lang
+(Standard 3) weiter Leben und trägt dabei sichtbar Flammen. Jede weitere Stufe
+addiert sich, deshalb fängt die erste Karte bewusst klein an – eine Stufe macht
+9 Schaden pro Brand, zehn Stufen 90. Der Feuerschaden wird mit dem
+Schadensfaktor des Runs multipliziert, damit er in späten Zyklen nicht
+bedeutungslos wird.
+
+Ein neuer Treffer frischt die Brenndauer auf, stapelt aber keine zweiten
+Brände auf demselben Gegner. Abgerechnet wird alle 0,25 s, eine Schadenszahl
+erscheint nur etwa einmal pro Sekunde je Gegner – sonst würden die orangen
+Zahlen bei vielen Gegnern alles andere überdecken.
+
+### Heilflaschen
+
+Alle `potionInterval` Sekunden (Standard 14) wird gewürfelt; mit
+`potionChance` (Standard 35 %) erscheint eine Flasche in Laufweite –
+höchstens `potionMax` (Standard 3) gleichzeitig, jede verschwindet nach
+`potionLifetime` (Standard 26 s) und blinkt vorher.
+
+* Aufgesammelt heilt sie `potionHeal` Prozent (Standard 10) des Maximallebens.
+* In Aufsammelreichweite fliegt sie dir entgegen.
+* **Bei vollem Leben bleibt sie liegen**, statt sich zu verschwenden.
+* Die Karte **Alchemie** (Selten, +40 %, bis 6 Stufen) erhöht die Chance.
+
+Gemessen ohne Alchemie: knapp **15 Flaschen in zehn Minuten**, also etwa eine
+alle vierzig Sekunden. Mit zwei Stufen Alchemie sind es 27.
 
 Mit `weaponOfferChance` (Standard 28 %) kann statt eines Upgrades eine **neue
 Waffe** angeboten werden. Da es nur einen Waffenslot gibt, fragt das Spiel dann
@@ -382,8 +468,19 @@ früheren Version wird beim ersten Start automatisch übernommen.
   Startwunsch und löst ihn bei der ersten Geste (Tippen, Klick, Taste) ein.
 * Während Pause, Statistik- und Upgrade-Bildschirm wird die Musik automatisch
   auf 30 % heruntergeblendet und danach wieder hochgezogen.
-* Der **♪-Knopf** im HUD und im Hauptmenü schaltet den Ton ab. Die Wahl wird pro
-  Gerät im `localStorage` gemerkt.
+* Der **🔊-Knopf** im HUD und im Hauptmenü schaltet alles stumm und wieder an.
+  Feiner geht es in der **Pause**: dort sitzen getrennte Schalter und Regler für
+  Musik und Effekte. Beides wird pro Gerät im `localStorage` gemerkt.
+* Musik und Effekte sind **unabhängig** voneinander. Früher hat der Tonknopf
+  beides zusammen abgeschaltet und das gespeichert – wer die Musik einmal aus
+  hatte, bekam dauerhaft überhaupt keinen Ton mehr. Das ist behoben; der
+  Speicherschlüssel wurde gewechselt, damit alte, festhängende Einstellungen
+  nicht mitwandern.
+* **Mobilgeräte:** Ein Ton, der erst mitten im Spiel zum ersten Mal geladen
+  wird, bleibt dort stumm. Deshalb werden bei der ersten Berührung alle
+  hinterlegten Dateien einmal lautlos angespielt und sofort wieder angehalten.
+  Danach klingen sie zuverlässig. Je Datei stehen drei fertige Abspieler bereit,
+  damit sich schnelle Wiederholungen nicht gegenseitig abschneiden.
 * Im Admin unter **Audio**: eigenen Titel hochladen (MP3, OGG, WAV, M4A, max.
   20 MB), Grundlautstärke setzen, Autostart an- oder abschalten. Die
   Dateiprüfung läuft über die Signatur, nicht über die Endung.
@@ -501,3 +598,25 @@ Automatisiert im echten Browser geprüft (Chromium, Desktop und Mobil-Viewport):
   liefern 0 Byte — auch ohne `.htaccess`
 * Alte `data/content.json` wird beim Start übernommen, Admin-Login und
   gespeicherte Waffenwerte funktionieren danach unverändert
+* Verbrennung: ohne Upgrade brennt nichts; eine Stufe ergibt 3 HP/s, drei
+  Stufen 9 HP/s; 9,6 Schaden in 1,1 s; nach der Brenndauer erlischt das Feuer;
+  Feuer allein tötet einen Gegner
+* Flammen erscheinen auf jedem brennenden Gegner, auch im Gedränge
+* Heilflasche: heilt exakt 10 %, fliegt aus 70 px Entfernung zu, bleibt bei
+  vollem Leben liegen, verschwindet nach Ablauf der Zeit
+* Spawnrate über 600 simulierte Sekunden gemessen: 14,8 Flaschen im Schnitt
+  (erwartet 14,7), mit zwei Stufen Alchemie 26,8
+* Alle zwölf Spezialfähigkeiten einzeln im Spiel nachgemessen: Blutrausch
+  100 → 154 Schaden bei 10 % Leben, Scharfschütze 103 → 155 auf Distanz,
+  Brandstifter zündet ohne Upgrade (3 HP/s), Frost setzt Tempo auf 45 % für
+  1,6 s, Sprengmeister nimmt Nachbarn 19 von 34 Leben, Zweiter Atem rettet
+  einmal (25 Leben) und beim zweiten Mal nicht mehr, Goldrausch 100 → 160 Geld,
+  Wächter füllt den Schild zum Wellenstart auf
+* Ton ohne Autoplay-Ausnahme im Browser: 16 Töne im Spiel, Stummschalten
+  ergibt 0, Wiedereinschalten 14 – und mit **abgeschalteter Musik** laufen die
+  Effekte weiter (der alte Fehler)
+* Alle drei HUD-Knöpfe per Touch bedient: Spiel läuft nach dem Schließen
+  weiter, weder Pause noch Eingabe bleiben hängen
+* Waffen- und Projektilgröße im Admin auf 132 / 54 px gesetzt: nach dem
+  Neuladen genau diese Werte im Spiel und am fliegenden Projektil
+* Alle 27 Module werden mit eigener Versionsnummer geladen (vorher nur eine)

@@ -54,6 +54,11 @@ export class WaveController {
     this.state = WAVE_STATE.RUNNING;
     this.spawnAccumulator = 0;
     this.bossEnraged = false;
+
+    // Fähigkeit "Wächter": Schild ist zu jeder Welle wieder voll.
+    if (this.run.perk === 'guardian') this.run.shield = this.run.stats.maxShield;
+    // Fähigkeit "Zweiter Atem" steht einmal je Welle bereit.
+    if (this.run.perk === 'secondWind') this.run.secondWindReady = true;
     this.timeLeft = this.isBossWave ? this.balance.bossDuration : this.balance.waveDuration;
 
     if (this.isBossWave) {

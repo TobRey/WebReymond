@@ -1,4 +1,5 @@
 import { emptyModifiers, applyUpgrade, resolveStats, resolveWeapon } from './stats.js';
+import { PERK_LABELS } from './perks.js';
 
 /**
  * Zustand eines Durchlaufs: Statistiken, Upgrades, Geld, Welle, Zyklus.
@@ -33,6 +34,8 @@ export class RunState {
     this.health = this.stats.maxHealth;
     this.shield = this.stats.maxShield;
     this.wavesCleared = 0;      // zählt die Erfahrungspunkte des Runs mit
+    // Fähigkeit "Zweiter Atem": einmal je Welle verfügbar.
+    this.secondWindReady = this.perk === 'secondWind';
   }
 
   get difficulty() {
@@ -89,7 +92,11 @@ export class RunState {
   }
 
   addMoney(amount) {
-    const value = Math.max(0, Math.round(amount * (this.balance.moneyMultiplier || 1)));
+    // Fähigkeit "Goldrausch" und der Geld-Faktor des Charakters wirken hier.
+    const perk = this.perk === 'greed' ? 1.6 : 1;
+    const value = Math.max(0, Math.round(
+      amount * (this.balance.moneyMultiplier || 1) * (this.stats.moneyMult || 1) * perk,
+    ));
     this.money += value;
     return value;
   }
@@ -113,6 +120,9 @@ export class RunState {
       ['Rückstoß', Math.round(w.knockback)],
       ['Ausweichen', s.dodge.toFixed(1) + '%'],
       ['Regeneration', s.regen.toFixed(1) + ' HP/s'],
+      ['Feuerschaden', s.burn > 0 ? (s.burn * s.damageMult).toFixed(1) + ' HP/s' : '-'],
+      ['Aufsammelreichweite', Math.round(s.pickupRange)],
+      ['Fähigkeit', PERK_LABELS[this.perk] || '-'],
       ['Geld', this.money],
       ['Charakter', this.character ? this.character.name : '-'],
       ['Zyklus', this.cycle],

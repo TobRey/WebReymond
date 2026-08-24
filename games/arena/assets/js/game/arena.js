@@ -4,6 +4,7 @@ import { Camera } from '../core/camera.js';
 import { Audio } from '../core/audio.js';
 import { GameMap } from '../world/map.js';
 import { playerSpawn } from '../world/spawn.js';
+import { Pickups } from '../world/pickups.js';
 import { Player } from '../entities/player.js';
 import { EnemyManager } from '../entities/enemy.js';
 import { Projectiles } from '../combat/projectiles.js';
@@ -13,7 +14,15 @@ import { WaveController, WAVE_STATE } from './waves.js';
 import { BossController } from './boss.js';
 import { RunState } from './run.js';
 import { Renderer } from '../gfx/renderer.js';
-import { formatNumber } from '../core/util.js';
+import { formatNumber, rand, TAU } from '../core/util.js';
+import { PERK_VALUES, perkDamageMultiplier } from './perks.js';
+
+/** Flammen auf brennenden Gegnern. */
+const BURN_SPRITE = 'assets/sprites/feuer.gif';
+/** Heilflasche, die auf der Karte liegt. */
+const POTION_SPRITE = 'assets/sprites/heiltrank.png';
+/** Feuerschaden wird in diesem Takt abgerechnet. */
+const BURN_TICK = 0.25;
 
 /**
  * Zentrale Spielinstanz: haelt Welt, Entitäten und Regeln zusammen und
@@ -32,6 +41,7 @@ export class Arena {
     this.enemies = new EnemyManager(this.map);
     this.projectiles = new Projectiles(this.map);
     this.melee = new MeleeAttacks();
+    this.pickups = new Pickups(this.map);
     this.character = character || (content.characters && content.characters[0]) || null;
     this.run = new RunState(content, weaponDef, this.character);
     this.weapon = new WeaponController(this);
@@ -45,6 +55,13 @@ export class Arena {
     this.debug = false;
     this.gameOver = false;
     this.time = 0;
+
+    // Heilflaschen: erster Versuch nach dem halben Intervall, damit nicht
+    // gleich zu Beginn eine Flasche vor den Fuessen liegt.
+    this.potionTimer = (content.balance.potionInterval || 14) * 0.5;
+
+    // Gegner, die ausserhalb der Trefferkette gestorben sind (Feuer, Explosion).
+    this._pendingKills = [];
   }
 
   on(event, handler) {
@@ -111,6 +128,8 @@ export class Arena {
     // Der Rest lädt im Hintergrund weiter und ist da, bevor er gebraucht wird.
     this.backgroundLoad = Assets.loadAll([
       'assets/sprites/schuss.png',
+      BURN_SPRITE,
+      POTION_SPRITE,
       'assets/sprites/explosion.gif',
       'assets/sprites/explosion1.gif',
       'assets/sprites/bombe1.gif',
@@ -159,6 +178,8 @@ export class Arena {
     );
     this.bossCtrl.update(dt);
     this.contactDamage(dt);
+    this.updateBurn(dt);
+    this.updatePotions(dt);
     this.effects.update(dt);
     this.waves.update(dt);
     this.camera.follow(this.player.x, this.player.y + 10, dt);
@@ -189,7 +210,7 @@ export class Arena {
 
       // Fähigkeit "Dornen": ein Teil des Schadens geht zurück.
       if (this.run.perk === 'thorns') {
-        this.damageEnemy(enemy, enemy.damage * 0.3 + 4, false, 40, px, py);
+        this.damageEnemy(enemy, enemy.damage * PERK_VALUES.thornsShare + PERK_VALUES.thornsFlat, false, 40, px, py);
       }
 
       // Kleiner Rückstoß auf beide Seiten macht Treffer spürbar.
@@ -202,6 +223,18 @@ export class Arena {
   damagePlayer(amount) {
     const result = this.player.takeDamage(amount);
     if (result === 0) return;
+
+    // Fähigkeit "Zweiter Atem": einmal je Welle überlebt man den Todesstoß.
+    if (this.player.dead && this.run.secondWindReady) {
+      this.run.secondWindReady = false;
+      this.player.dead = false;
+      this.player.invuln = 1.4;
+      this.run.health = Math.max(1, Math.round(this.run.stats.maxHealth * PERK_VALUES.secondWindHeal / 100));
+      this.effects.number(this.player.x, this.player.y - 52, 'Zweiter Atem!', { color: '#5ee08a' });
+      this.effects.burst(this.player.x, this.player.y, 26, { color: '#5ee08a', speed: 220, size: 4, life: 0.6 });
+      this.camera.addShake(0.4);
+      this.emit('secondWind', null);
+    }
     if (result === -1) {
       this.effects.number(this.player.x, this.player.y - 30, 'Ausweichen', { color: '#7fd6c2' });
       return;
@@ -256,11 +289,18 @@ export class Arena {
 
   damageEnemy(enemy, amount, crit, knockback, fromX, fromY) {
     if (!enemy.alive || enemy.health <= 0) return;
-    const damage = Math.max(1, amount);
+    // Blutrausch und Scharfschütze wirken auf jeden Treffer.
+    const damage = Math.max(1, amount * perkDamageMultiplier(this.run, this.player, enemy));
     enemy.health -= damage;
     enemy.hitFlash = 1;
     this.run.damageDealt += damage;
 
+    this.igniteEnemy(enemy);
+    // Fähigkeit "Frost": getroffene Gegner werden träge.
+    if (this.run.perk === 'frost') {
+      enemy.slowFactor = PERK_VALUES.frostFactor;
+      enemy.slowTime = PERK_VALUES.frostDuration;
+    }
     this.effects.number(enemy.x, enemy.y - enemy.radius - 6, formatNumber(damage), { crit });
     // Eigener Trefferton des Gegners, sonst der allgemeine.
     Audio.playFirst(crit
@@ -286,7 +326,7 @@ export class Arena {
 
     // Fähigkeit "Lebensraub": jeder Kill heilt ein wenig.
     if (this.run.perk === 'lifesteal' && !this.player.dead) {
-      const heal = enemy.boss ? 25 : 1.5;
+      const heal = enemy.boss ? PERK_VALUES.lifestealBoss : PERK_VALUES.lifestealNormal;
       const before = this.run.health;
       this.run.health = Math.min(this.run.stats.maxHealth, this.run.health + heal);
       if (this.run.health > before) {
@@ -302,6 +342,24 @@ export class Arena {
     });
     Audio.playFirst(['enemy:' + enemy.def.id + ':death', 'enemyDeath']);
 
+    // Fähigkeit "Sprengmeister": die Leiche reißt Umstehende mit.
+    // Der Schaden geht nicht über damageEnemy, sonst könnte eine Kette
+    // aus Explosionen sich selbst befeuern.
+    if (this.run.perk === 'blast' && !enemy.boss) {
+      const radius = PERK_VALUES.blastRadius;
+      const damage = Math.max(4, enemy.maxHealth * PERK_VALUES.blastShare);
+      this.effects.burst(enemy.x, enemy.y, 16, { color: '#ffa14d', speed: 240, size: 4, life: 0.35 });
+      this.enemies.inRadius(enemy.x, enemy.y, radius, (other) => {
+        if (other === enemy || !other.alive) return;
+        other.health -= damage;
+        other.hitFlash = 1;
+        this.run.damageDealt += damage;
+        this.effects.number(other.x, other.y - other.radius - 6, formatNumber(damage), { color: '#ffa14d' });
+        if (other.health <= 0) this._pendingKills.push(other);
+      });
+      this.flushKills();
+    }
+
     if (enemy.boss) {
       this.run.bossKills++;
       this.bossDefeated = true;
@@ -314,6 +372,153 @@ export class Arena {
     }
     this.enemies.sweep();
     this.emit('kill', enemy);
+  }
+
+  /* --------------------------------------------------- Verbrennung */
+
+  /**
+   * Setzt einen getroffenen Gegner in Brand.
+   *
+   * Der Feuerschaden wächst mit jedem Verbrennungs-Upgrade und zieht mit
+   * dem Schadensfaktor des Runs mit - sonst wäre er ab Zyklus drei
+   * bedeutungslos. Ein neuer Treffer frischt die Brenndauer auf, stapelt
+   * sich aber nicht zu mehreren Braenden auf demselben Gegner.
+   */
+  igniteEnemy(enemy) {
+    // Fähigkeit "Brandstifter" zündet auch ohne Verbrennungs-Upgrade.
+    const base = this.run.perk === 'pyro' ? PERK_VALUES.pyroBurn : 0;
+    const burn = this.run.stats.burn + base;
+    if (burn <= 0 || !enemy.alive) return;
+    const dps = burn * this.run.stats.damageMult;
+    enemy.burnDps = Math.max(enemy.burnDps, dps);
+    enemy.burnTime = this.content.balance.burnDuration || 3;
+  }
+
+  /** Rechnet den Feuerschaden aller brennenden Gegner ab. */
+  updateBurn(dt) {
+    // Tote erst nach der Schleife melden: killEnemy räumt die Liste auf,
+    // und das darf nicht mitten im Durchlauf passieren.
+    const burned = this._pendingKills;
+    burned.length = 0;
+
+    for (const enemy of this.enemies.list) {
+      if (!enemy.alive || enemy.burnTime <= 0) continue;
+
+      enemy.burnTime -= dt;
+      enemy.burnTick += dt;
+      if (enemy.burnNumber > 0) enemy.burnNumber -= dt;
+
+      if (enemy.burnTick < BURN_TICK) {
+        if (enemy.burnTime <= 0) enemy.burnDps = 0;
+        continue;
+      }
+
+      const damage = enemy.burnDps * enemy.burnTick;
+      enemy.burnTick = 0;
+      enemy.health -= damage;
+      this.run.damageDealt += damage;
+
+      // Nur etwa einmal pro Sekunde eine Zahl - sonst überdeckt das Feuer
+      // bei vielen Gegnern alle anderen Trefferzahlen.
+      if (enemy.burnNumber <= 0) {
+        enemy.burnNumber = 1;
+        this.effects.number(enemy.x, enemy.y - enemy.radius - 14, formatNumber(damage * (1 / BURN_TICK)), {
+          color: '#ff9a3c',
+        });
+      }
+      if (Math.random() < 0.5) {
+        this.effects.burst(enemy.x + rand(-6, 6), enemy.y - enemy.radius * 0.2, 1, {
+          color: '#ffb347', speed: 40, size: 2, life: 0.35, angle: -Math.PI / 2, spread: 1.1,
+        });
+      }
+
+      if (enemy.burnTime <= 0) enemy.burnDps = 0;
+      if (enemy.health <= 0) burned.push(enemy);
+    }
+
+    this.flushKills();
+  }
+
+  /** Erledigt Gegner, die ausserhalb der normalen Trefferkette gestorben sind. */
+  flushKills() {
+    const list = this._pendingKills;
+    if (!list.length) return;
+    const copy = list.slice();
+    list.length = 0;
+    for (const enemy of copy) {
+      if (enemy.alive) this.killEnemy(enemy);
+    }
+  }
+
+  /* --------------------------------------------------- Heilflaschen */
+
+  /**
+   * Lässt hin und wieder eine Heilflasche in der Nähe erscheinen.
+   *
+   * "Zufällig auf der Karte" heisst hier: in Laufweite, aber nie direkt vor
+   * den Fuessen. Wäre es die ganze 2048er-Karte, fände man nie eine.
+   */
+  updatePotions(dt) {
+    const balance = this.content.balance;
+    const max = balance.potionMax ?? 3;
+    const reichweite = this.run.stats.pickupRange
+      * (this.run.perk === 'magnet' ? PERK_VALUES.magnetRange : 1);
+    this.pickups.update(dt, this.player, reichweite, (p) => this.collectPickup(p));
+    if (max <= 0 || this.player.dead) return;
+
+    this.potionTimer -= dt;
+    if (this.potionTimer > 0) return;
+    this.potionTimer = balance.potionInterval || 14;
+
+    if (this.pickups.count >= max) return;
+    const chance = (balance.potionChance ?? 0.35) * (this.run.stats.potionRateMult || 1)
+      * (this.run.perk === 'magnet' ? PERK_VALUES.magnetPotion : 1);
+    if (Math.random() > chance) return;
+    this.spawnPotion();
+  }
+
+  spawnPotion() {
+    const sprite = Assets.get(POTION_SPRITE);
+    if (!sprite) {
+      // Lädt noch im Hintergrund - dann eben beim nächsten Versuch.
+      Assets.load(POTION_SPRITE);
+      return null;
+    }
+    for (let i = 0; i < 24; i++) {
+      const angle = Math.random() * TAU;
+      const distance = rand(200, 620);
+      const x = Math.min(this.map.width - 30, Math.max(30, this.player.x + Math.cos(angle) * distance));
+      const y = Math.min(this.map.height - 30, Math.max(30, this.player.y + Math.sin(angle) * distance));
+      if (this.map.mask.blockedEllipse(x, y, 14, 10)) continue;
+      const p = this.pickups.spawn(x, y, sprite, {
+        kind: 'heal',
+        life: this.content.balance.potionLifetime || 26,
+      });
+      this.effects.burst(x, y, 8, { color: '#ff6b6b', speed: 60, size: 2, life: 0.5 });
+      this.emit('pickupSpawn', p);
+      return p;
+    }
+    return null;
+  }
+
+  /** @returns true, wenn der Gegenstand wirklich aufgenommen wurde. */
+  collectPickup(p) {
+    if (p.kind !== 'heal') return false;
+    const stats = this.run.stats;
+    // Bei vollem Leben bleibt die Flasche liegen, statt sich zu verschwenden.
+    if (this.run.health >= stats.maxHealth) return false;
+
+    const percent = this.content.balance.potionHeal ?? 10;
+    const heal = Math.max(1, Math.round((stats.maxHealth * percent) / 100));
+    const before = this.run.health;
+    this.run.health = Math.min(stats.maxHealth, this.run.health + heal);
+    const gained = Math.round(this.run.health - before);
+
+    this.effects.number(this.player.x, this.player.y - 46, '+' + gained, { color: '#5ee08a' });
+    this.effects.burst(this.player.x, this.player.y, 14, { color: '#5ee08a', speed: 150, size: 3, life: 0.45 });
+    Audio.play('potion');
+    this.emit('pickup', { kind: 'heal', amount: gained });
+    return true;
   }
 
   /* --------------------------------------------------------------- Boss */
@@ -408,6 +613,7 @@ export class Arena {
     this.projectiles.clear();
     this.melee.clear();
     this.effects.clear();
+    this.pickups.clear();
     this.bossCtrl.reset();
   }
 

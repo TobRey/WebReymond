@@ -160,11 +160,26 @@ final class Validate
         ];
     }
 
+    /**
+     * Grenzen für alle Charakter-Abweichungen.
+     * Faktoren liegen um 1.0, Zuschläge starten bei 0.
+     */
+    public const MOD_LIMITS = [
+        'maxHealth' => [0.2, 5, 1.0], 'moveSpeed' => [0.2, 5, 1.0], 'damageMult' => [0.2, 5, 1.0],
+        'attackSpeed' => [0.2, 5, 1.0], 'range' => [0.2, 5, 1.0], 'projectileSpeed' => [0.2, 5, 1.0],
+        'knockback' => [0.0, 5, 1.0], 'pickupRange' => [0.2, 8, 1.0], 'potionRate' => [0.0, 8, 1.0],
+        'money' => [0.2, 10, 1.0],
+        'armor' => [0, 200, 0.0], 'critChance' => [0, 100, 0.0], 'critDamage' => [0, 500, 0.0],
+        'dodge' => [0, 75, 0.0], 'regen' => [0, 50, 0.0], 'shield' => [0, 500, 0.0],
+        'burn' => [0, 500, 0.0],
+    ];
+
     /** @param array<string, mixed> $in @return array<string, mixed> */
     public static function upgrade(array $in): array
     {
         $stats = ['damage', 'attackSpeed', 'moveSpeed', 'maxHealth', 'armor', 'shield', 'critChance',
-                  'critDamage', 'projectileSpeed', 'range', 'knockback', 'dodge', 'regen'];
+                  'critDamage', 'projectileSpeed', 'range', 'knockback', 'dodge', 'regen',
+                  'burn', 'potionRate'];
         $rarities = ['common', 'rare', 'epic', 'legendary'];
         $stat = is_string($in['stat'] ?? null) && in_array($in['stat'], $stats, true) ? $in['stat'] : 'damage';
         $rarity = is_string($in['rarity'] ?? null) && in_array($in['rarity'], $rarities, true) ? $in['rarity'] : 'common';
@@ -192,7 +207,7 @@ final class Validate
      */
     public static function character(array $in): array
     {
-        $perks = ['', 'lifesteal', 'thorns', 'luckyCards'];
+        $perks = array_keys(Defaults::perks());
         $perk = is_string($in['perk'] ?? null) && in_array($in['perk'], $perks, true) ? $in['perk'] : '';
 
         $sprites = [];
@@ -216,12 +231,7 @@ final class Validate
 
         $mods = is_array($in['mods'] ?? null) ? $in['mods'] : [];
         $clean = [];
-        foreach ([
-            'maxHealth' => [0.2, 5, 1.0], 'moveSpeed' => [0.2, 5, 1.0], 'damageMult' => [0.2, 5, 1.0],
-            'attackSpeed' => [0.2, 5, 1.0], 'range' => [0.2, 5, 1.0], 'projectileSpeed' => [0.2, 5, 1.0],
-            'armor' => [0, 200, 0], 'critChance' => [0, 100, 0], 'critDamage' => [0, 500, 0],
-            'dodge' => [0, 75, 0], 'regen' => [0, 50, 0], 'shield' => [0, 500, 0],
-        ] as $key => [$min, $max, $fallback]) {
+        foreach (self::MOD_LIMITS as $key => [$min, $max, $fallback]) {
             $clean[$key] = self::num($mods[$key] ?? $fallback, (float) $min, (float) $max, (float) $fallback);
         }
 
@@ -360,6 +370,8 @@ final class Validate
             'moneyMultiplier' => [0.1, 20], 'contactDamageCooldown' => [0.1, 10],
             'bossBombCooldown' => [0.5, 60], 'bossBombRadius' => [20, 900], 'bossBombDelay' => [0.1, 10],
             'bossBombFlightTime' => [0.1, 6], 'bossBombMinCooldown' => [0.3, 30],
+            'burnDuration' => [0.2, 60], 'potionInterval' => [1, 600], 'potionChance' => [0, 1],
+            'potionMax' => [0, 20], 'potionHeal' => [1, 100], 'potionLifetime' => [3, 600],
             'upgradeChoices' => [1, 6], 'rarityRareBase' => [0, 100], 'rarityEpicBase' => [0, 100],
             'rarityLegendaryBase' => [0, 100], 'rarityCycleBonus' => [1, 4], 'weaponOfferChance' => [0, 1],
         ];
@@ -370,6 +382,7 @@ final class Validate
         }
         $out['maxEnemies'] = (int) $out['maxEnemies'];
         $out['upgradeChoices'] = (int) $out['upgradeChoices'];
+        $out['potionMax'] = (int) $out['potionMax'];
         return $out;
     }
 }

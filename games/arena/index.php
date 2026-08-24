@@ -3,10 +3,16 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/lib/Defaults.php';
 require_once __DIR__ . '/lib/Store.php';
+require_once __DIR__ . '/lib/Version.php';
+
+// Die Seite traegt die Spieldaten in sich - sie darf nie aus dem Cache kommen,
+// sonst spielt man mit Werten von vorgestern weiter.
+Version::noStore();
 
 $store = new Store();
 $content = $store->read();
-$version = (string) (@filemtime(__DIR__ . '/assets/js/main.js') ?: time());
+$version = Version::stamp(__DIR__);
+$importMap = Version::importMap(__DIR__);
 
 ?>
 <!DOCTYPE html>
@@ -158,11 +164,11 @@ $version = (string) (@filemtime(__DIR__ . '/assets/js/main.js') ?: time());
   </div>
 </div>
 
-<div id="overlay-stats" class="overlay" hidden>
+<div id="overlay-stats" class="overlay" data-dismiss hidden>
   <div class="overlay__inner overlay__inner--scroll">
     <header class="panel__head">
       <h2>Statistiken</h2>
-      <button class="btn btn--quiet" data-close-stats>Schließen</button>
+      <button class="btn btn--primary" data-close-stats>Weiterspielen</button>
     </header>
     <div id="stats-grid" class="statgrid"></div>
     <h3 class="subhead">Gewählte Upgrades</h3>
@@ -170,14 +176,29 @@ $version = (string) (@filemtime(__DIR__ . '/assets/js/main.js') ?: time());
   </div>
 </div>
 
-<div id="overlay-pause" class="overlay overlay--dialog" hidden>
+<div id="overlay-pause" class="overlay overlay--dialog" data-dismiss hidden>
   <div class="dialog">
     <h3>Pause</h3>
+
+    <div class="soundpanel">
+      <label class="soundrow">
+        <span>Musik</span>
+        <input id="opt-music" type="checkbox" class="switch">
+        <input id="vol-music" type="range" min="0" max="100" step="5" aria-label="Musiklautstärke">
+      </label>
+      <label class="soundrow">
+        <span>Effekte</span>
+        <input id="opt-sfx" type="checkbox" class="switch">
+        <input id="vol-sfx" type="range" min="0" max="100" step="5" aria-label="Effektlautstärke">
+      </label>
+    </div>
+
     <div class="dialog__actions dialog__actions--column">
-      <button id="pause-resume" class="btn btn--primary">Weiter</button>
+      <button id="pause-resume" class="btn btn--primary btn--lg">Weiter</button>
       <button id="pause-debug" class="btn btn--quiet">Debug-Ansicht</button>
       <button id="pause-quit" class="btn btn--quiet">Run beenden</button>
     </div>
+    <p class="muted dialog__hint">Tippe neben das Fenster, um weiterzuspielen.</p>
   </div>
 </div>
 
@@ -206,6 +227,10 @@ $version = (string) (@filemtime(__DIR__ . '/assets/js/main.js') ?: time());
 <div id="toasts" class="toasts"></div>
 
 <script>window.ARENA_CONTENT = <?= json_encode($content, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;</script>
+<script>window.ARENA_PERKS = <?= json_encode(Defaults::perks(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;</script>
+<script type="importmap">
+<?= json_encode(['imports' => $importMap], JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?>
+</script>
 <script type="module" src="assets/js/main.js?v=<?= htmlspecialchars($version, ENT_QUOTES) ?>"></script>
 </body>
 </html>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/lib/Auth.php';
 require_once dirname(__DIR__) . '/lib/Defaults.php';
 require_once dirname(__DIR__) . '/lib/Store.php';
+require_once dirname(__DIR__) . '/lib/Validate.php';
 
 Auth::start();
 $isAdmin = Auth::isAdmin();
@@ -15,7 +16,13 @@ if ($isAdmin && empty($_SESSION['arena_csrf'])) {
 $csrf = $isAdmin ? (string) $_SESSION['arena_csrf'] : '';
 $content = $isAdmin ? (new Store())->read() : null;
 $uploadLimit = $isAdmin ? (string) ini_get('upload_max_filesize') : '';
-$version = (string) (@filemtime(__DIR__ . '/app.js') ?: time());
+require_once dirname(__DIR__) . '/lib/Version.php';
+Version::noStore();
+$version = (string) max(
+    (int) (@filemtime(__DIR__ . '/app.js') ?: 0),
+    (int) (@filemtime(__DIR__ . '/admin.css') ?: 0),
+    (int) Version::stamp(dirname(__DIR__)),
+) ?: (string) time();
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -120,6 +127,8 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     ))) ?>
   };
 </script>
+<script>window.ARENA_PERKS = <?= json_encode(Defaults::perks(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+window.ARENA_MODS = <?= json_encode(Validate::MOD_LIMITS, JSON_UNESCAPED_SLASHES) ?>;</script>
 <script type="module" src="app.js?v=<?= htmlspecialchars($version, ENT_QUOTES) ?>"></script>
 <?php endif; ?>
 </body>

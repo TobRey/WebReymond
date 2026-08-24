@@ -1456,6 +1456,7 @@ const STATS = [
   ['critChance', 'Krit. Chance'], ['critDamage', 'Krit. Schaden'],
   ['projectileSpeed', 'Projektiltempo'], ['range', 'Reichweite'],
   ['knockback', 'Rückstoß'], ['dodge', 'Ausweichen'], ['regen', 'Regeneration'],
+  ['burn', 'Feuerschaden (Verbrennung)'], ['potionRate', 'Heilflaschen-Chance'],
 ];
 
 views.upgrades = (host) => {
@@ -1637,6 +1638,12 @@ const BALANCE_FIELDS = [
   ['bossBombRadius', 'Bombenradius', 20, 5],
   ['bossBombDelay', 'Bombenverzögerung (s)', 0.1, 0.1],
   ['bossBombFlightTime', 'Bomben-Flugzeit (s)', 0.1, 0.05],
+  ['burnDuration', 'Brenndauer (s)', 0.2, 0.1],
+  ['potionInterval', 'Heilflasche: Versuch alle (s)', 1, 1],
+  ['potionChance', 'Heilflasche: Chance je Versuch (0-1)', 0, 0.05],
+  ['potionMax', 'Heilflaschen gleichzeitig', 0, 1],
+  ['potionHeal', 'Heilflasche heilt (%)', 1, 1],
+  ['potionLifetime', 'Heilflasche verschwindet nach (s)', 3, 1],
   ['upgradeChoices', 'Upgrade-Karten pro Welle', 1, 1],
   ['rarityRareBase', 'Chance Rare (%)', 0, 1],
   ['rarityEpicBase', 'Chance Epic (%)', 0, 1],
@@ -1676,6 +1683,14 @@ views.balance = (host) => {
   help.appendChild(el('p', 'muted',
     'Gegnerleben = Basisleben × Lebensskalierung^(Zyklus-1). Bei 1.45 hat Zyklus 3 also das ' +
     (1.45 ** 2).toFixed(2) + '-fache. Schaden, Tempo, Spawnrate und Geld laufen nach derselben Formel.'));
+  const perAttempt = (b.potionChance ?? 0.35) * 100;
+  help.appendChild(el('p', 'muted',
+    'Heilflaschen: Alle ' + (b.potionInterval ?? 14) + ' s wird gewürfelt, mit ' + perAttempt.toFixed(0) +
+    ' % erscheint eine Flasche in Laufweite – höchstens ' + (b.potionMax ?? 3) + ' gleichzeitig. ' +
+    'Das Upgrade "Alchemie" erhöht diese Chance. Aufgesammelt wird nur bei fehlendem Leben.'));
+  help.appendChild(el('p', 'muted',
+    'Verbrennung: Getroffene Gegner brennen ' + (b.burnDuration ?? 3) + ' s lang. Der Feuerschaden kommt ' +
+    'aus den Upgrades "Verbrennung" und "Inferno" und wird mit dem Schadensfaktor des Runs multipliziert.'));
   host.appendChild(help);
 };
 
@@ -1703,7 +1718,9 @@ views.characters = (host) => {
     tr.appendChild(cell);
 
     tr.appendChild(el('td', 'keep', character.name));
-    tr.appendChild(el('td', null, character.title || '-'));
+    tr.appendChild(el('td', null,
+      (character.title || '-') + ((PERK_INFO[character.perk] && character.perk)
+        ? ' · ' + PERK_INFO[character.perk].label : '')));
     const counts = ['front', 'back', 'side']
       .map((d) => (character.sprites?.[d]?.frames?.length) || (character.sprites?.[d]?.gif ? 'GIF' : 0));
     tr.appendChild(el('td', null, counts.join(' / ')));
@@ -1727,6 +1744,42 @@ views.characters = (host) => {
   host.appendChild(wrap);
 };
 
+/* Fähigkeiten und Werte kommen vom Server, damit Spiel und Admin dasselbe kennen. */
+const PERK_INFO = window.ARENA_PERKS || { '': { label: 'Keine', description: '' } };
+const PERKS = Object.entries(PERK_INFO).map(([id, info]) => [id, info.label]);
+
+const MOD_FIELDS = [
+  ['maxHealth', 'Leben (Faktor)', 0.05, '1.30 = dreißig Prozent mehr Leben'],
+  ['moveSpeed', 'Tempo (Faktor)', 0.02, ''],
+  ['damageMult', 'Schaden (Faktor)', 0.02, ''],
+  ['attackSpeed', 'Angriffstempo (Faktor)', 0.02, ''],
+  ['range', 'Reichweite (Faktor)', 0.05, ''],
+  ['projectileSpeed', 'Projektiltempo (Faktor)', 0.05, ''],
+  ['knockback', 'Rückstoß (Faktor)', 0.05, ''],
+  ['pickupRange', 'Aufsammelreichweite (Faktor)', 0.1, 'wie weit Heilflaschen zufliegen'],
+  ['potionRate', 'Heilflaschen-Chance (Faktor)', 0.1, ''],
+  ['money', 'Geld (Faktor)', 0.1, ''],
+  ['armor', 'Rüstung (+)', 1, 'zieht von jedem Treffer ab'],
+  ['critChance', 'Krit-Chance (+%)', 1, ''],
+  ['critDamage', 'Krit-Schaden (+%)', 5, ''],
+  ['dodge', 'Ausweichen (+%)', 1, 'Chance, einen Treffer ganz zu vermeiden'],
+  ['regen', 'Regeneration (+HP/s)', 0.1, ''],
+  ['shield', 'Startschild (+)', 5, 'fängt Schaden vor dem Leben ab'],
+  ['burn', 'Feuerschaden (+HP/s)', 1, 'Gegner brennen auch ohne Upgrade'],
+];
+
+/** Standardwert je Feld: Faktoren 1, Zuschläge 0 - kommt aus den Servergrenzen. */
+const MOD_DEFAULT = (() => {
+  const limits = window.ARENA_MODS || {};
+  const out = {};
+  for (const [key] of MOD_FIELDS) out[key] = limits[key] ? limits[key][2] : 0;
+  return out;
+})();
+
+function defaultMods() {
+  return { ...MOD_DEFAULT };
+}
+
 function editCharacter(character) {
   const isNew = !character;
   const data = character ? JSON.parse(JSON.stringify(character)) : {
@@ -1738,8 +1791,7 @@ function editCharacter(character) {
     },
     frameDuration: 130, dustSprite: 'assets/sprites/staub.gif', scale: 78,
     hitbox: { rx: 14, ry: 9, oy: 24 },
-    mods: { maxHealth: 1, moveSpeed: 1, damageMult: 1, attackSpeed: 1, range: 1,
-            projectileSpeed: 1, armor: 0, critChance: 0, critDamage: 0, dodge: 0, regen: 0, shield: 0 },
+    mods: defaultMods(),
     starter: false, unlockCost: 20, active: true, order: 99,
   };
 
@@ -1778,27 +1830,28 @@ function editCharacter(character) {
   body.appendChild(spriteField('Staub beim Laufen', data.dustSprite, (p) => { dustPath = p; }));
 
   /* --- Fähigkeiten ----------------------------------------------------- */
-  body.appendChild(el('h3', null, 'Fähigkeiten'));
-  const perk = selectInput(data.perk || '', [
-    { value: '', label: 'keine besondere Fähigkeit' },
-    { value: 'lifesteal', label: 'Lebensraub - jeder Kill heilt' },
-    { value: 'thorns', label: 'Dornen - Nahkampfschaden zurück' },
-    { value: 'luckyCards', label: 'Glückskarten - bessere Upgrades' },
-  ]);
+  body.appendChild(el('h3', null, 'Spezialfähigkeit'));
+  const perk = selectInput(data.perk || '', PERKS.map(([value, label]) => ({ value, label })));
   body.appendChild(field('Sonderfähigkeit', perk));
+  const perkNote = el('p', 'muted');
+  const syncPerkNote = () => {
+    perkNote.textContent = (PERK_INFO[perk.value] || {}).description || '';
+  };
+  perk.addEventListener('change', syncPerkNote);
+  syncPerkNote();
+  body.appendChild(perkNote);
+
+  body.appendChild(el('h3', null, 'Werte'));
+  body.appendChild(el('p', 'muted',
+    'Faktoren rechnen mit den Grundwerten des Spielers: 1.00 ist unverändert, '
+    + '1.20 sind zwanzig Prozent mehr. Zuschläge kommen oben drauf.'));
 
   const modFields = {};
   const modGrid = el('div', 'grid2');
-  for (const [key, label, step] of [
-    ['maxHealth', 'Leben (Faktor)', 0.05], ['moveSpeed', 'Tempo (Faktor)', 0.02],
-    ['damageMult', 'Schaden (Faktor)', 0.02], ['attackSpeed', 'Angriffstempo (Faktor)', 0.02],
-    ['range', 'Reichweite (Faktor)', 0.05], ['projectileSpeed', 'Projektiltempo (Faktor)', 0.05],
-    ['armor', 'Rüstung (+)', 1], ['critChance', 'Krit-Chance (+%)', 1],
-    ['critDamage', 'Krit-Schaden (+%)', 5], ['dodge', 'Ausweichen (+%)', 1],
-    ['regen', 'Regeneration (+HP/s)', 0.1], ['shield', 'Startschild (+)', 5],
-  ]) {
-    modFields[key] = textInput(data.mods?.[key] ?? (step < 1 && key.includes('Speed') ? 1 : 0), { type: 'number', step });
-    modGrid.appendChild(field(label, modFields[key]));
+  for (const [key, label, step, hint] of MOD_FIELDS) {
+    const fallback = MOD_DEFAULT[key];
+    modFields[key] = textInput(data.mods?.[key] ?? fallback, { type: 'number', step });
+    modGrid.appendChild(field(label, modFields[key], hint));
   }
   body.appendChild(modGrid);
 
@@ -1824,7 +1877,7 @@ function editCharacter(character) {
       label: 'Speichern',
       class: 'btn--primary',
       onClick: async (close) => {
-        const mods = {};
+        const mods = defaultMods();
         for (const [key, input] of Object.entries(modFields)) mods[key] = +input.value;
         try {
           await api('put', {

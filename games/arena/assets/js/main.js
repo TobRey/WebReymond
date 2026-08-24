@@ -169,6 +169,14 @@ function renderCharacters() {
     body.appendChild(el('div', 'char__title', character.title || ''));
     body.appendChild(el('div', 'char__desc', character.description || ''));
 
+    const perk = perkInfo(character);
+    if (perk) {
+      const skill = el('div', 'char__perk');
+      skill.appendChild(el('b', null, perk.label));
+      skill.appendChild(el('span', null, perk.description));
+      body.appendChild(skill);
+    }
+
     const tags = el('div', 'char__tags');
     for (const text of characterHighlights(character)) tags.appendChild(el('span', 'tag', text));
     body.appendChild(tags);
@@ -204,16 +212,26 @@ function characterHighlights(character) {
   if (mods.attackSpeed && mods.attackSpeed !== 1) out.push(pct(mods.attackSpeed) + ' Angriffstempo');
   if (mods.range && mods.range !== 1) out.push(pct(mods.range) + ' Reichweite');
   if (mods.projectileSpeed && mods.projectileSpeed !== 1) out.push(pct(mods.projectileSpeed) + ' Projektiltempo');
+  if (mods.knockback && mods.knockback !== 1) out.push(pct(mods.knockback) + ' Rückstoß');
+  if (mods.pickupRange && mods.pickupRange !== 1) out.push(pct(mods.pickupRange) + ' Aufsammeln');
+  if (mods.potionRate && mods.potionRate !== 1) out.push(pct(mods.potionRate) + ' Heilflaschen');
+  if (mods.money && mods.money !== 1) out.push(pct(mods.money) + ' Geld');
   if (mods.armor) out.push('+' + mods.armor + ' Rüstung');
   if (mods.critChance) out.push('+' + mods.critChance + '% Krit');
+  if (mods.critDamage) out.push('+' + mods.critDamage + '% Krit-Schaden');
+  if (mods.dodge) out.push('+' + mods.dodge + '% Ausweichen');
+  if (mods.regen) out.push('+' + mods.regen + ' HP/s');
   if (mods.shield) out.push('+' + mods.shield + ' Schild');
-  const perks = {
-    lifesteal: 'Kills heilen dich',
-    thorns: 'Nahkampfschaden zurück',
-    luckyCards: 'Bessere Upgrade-Karten',
-  };
-  if (perks[character.perk]) out.push(perks[character.perk]);
+  if (mods.burn) out.push('+' + mods.burn + ' Feuerschaden');
   return out;
+}
+
+/** Name und Wirkung der Spezialfähigkeit - kommt aus den Spieldaten. */
+function perkInfo(character) {
+  const catalogue = window.ARENA_PERKS || {};
+  const entry = catalogue[character.perk || ''];
+  if (!entry || !character.perk) return null;
+  return entry;
 }
 
 async function unlockCharacter(character) {
@@ -271,21 +289,39 @@ function initAudio() {
 }
 
 function syncSoundButtons() {
-  const on = Audio.settings.musicOn;
+  const s = Audio.settings;
+  const stumm = Audio.muted;
   const icon = $('btn-sound');
   if (icon) {
-    icon.textContent = on ? '♪' : '✕';
-    icon.title = on ? 'Musik aus' : 'Musik an';
-    icon.style.opacity = on ? '1' : '0.55';
+    icon.textContent = stumm ? '🔇' : '🔊';
+    icon.title = stumm ? 'Ton an' : 'Ton aus';
+    icon.style.opacity = stumm ? '0.55' : '1';
   }
   const menuBtn = $('btn-sound-menu');
-  if (menuBtn) menuBtn.textContent = 'Musik: ' + (on ? 'an' : 'aus');
+  if (menuBtn) menuBtn.textContent = 'Ton: ' + (stumm ? 'aus' : 'an');
+
+  // Regler in der Pause spiegeln denselben Zustand.
+  const music = $('opt-music');
+  const sfx = $('opt-sfx');
+  const volMusic = $('vol-music');
+  const volSfx = $('vol-sfx');
+  if (music) music.checked = s.musicOn;
+  if (sfx) sfx.checked = s.sfxOn;
+  if (volMusic) {
+    volMusic.value = String(Math.round((s.musicVolume ?? 1) * 100));
+    volMusic.disabled = !s.musicOn;
+  }
+  if (volSfx) {
+    volSfx.value = String(Math.round((s.sfxVolume ?? 1) * 100));
+    volSfx.disabled = !s.sfxOn;
+  }
 }
 
+/** Das Lautsprechersymbol schaltet alles stumm - Musik und Effekte. */
 function toggleSound() {
-  Audio.setMusicOn(!Audio.settings.musicOn);
-  Audio.setSfxOn(Audio.settings.musicOn);
+  Audio.setMuted(!Audio.muted);
   syncSoundButtons();
+  if (!Audio.muted) Audio.play('uiClick');
 }
 
 /* --------------------------------------------------------------- Screens */
@@ -537,7 +573,9 @@ function updateHud(force) {
     $('debug-panel').hidden = false;
     $('debug-panel').textContent =
       `FPS ${loop ? loop.fps : 0}\nGegner ${arena.enemies.count}\nProjektile ${arena.projectiles.count}\n` +
-      `Partikel ${arena.effects.particles.count}\nPos ${Math.round(arena.player.x)}, ${Math.round(arena.player.y)}`;
+      `Partikel ${arena.effects.particles.count}\nFlaschen ${arena.pickups.count}\n` +
+      `Brennend ${arena.enemies.list.filter((e) => e.burnTime > 0).length}\n` +
+      `Pos ${Math.round(arena.player.x)}, ${Math.round(arena.player.y)}`;
   } else {
     $('debug-panel').hidden = true;
   }
@@ -586,6 +624,7 @@ function statIcon(stat) {
     damage: '⚔', attackSpeed: '⚡', moveSpeed: '👟', maxHealth: '❤', armor: '🛡',
     shield: '🔷', critChance: '🎯', critDamage: '💥', projectileSpeed: '🏹',
     range: '📏', knockback: '💨', dodge: '🌀', regen: '✚',
+    burn: '🔥', potionRate: '🧪',
   }[stat] || '★';
 }
 
@@ -613,7 +652,7 @@ function finishUpgrade() {
 
 /* ------------------------------------------------------------------ Stats */
 function showStats() {
-  if (!arena) return;
+  if (!arena || !loop) return;
   loop.setPaused(true);
   Audio.duckMusic(true);
   const grid = $('stats-grid');
@@ -742,28 +781,65 @@ $('btn-worlds').addEventListener('click', () => {
   showScreen('screen-worlds');
 });
 document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => showScreen('screen-menu')));
-document.querySelectorAll('[data-close-stats]').forEach((b) =>
-  b.addEventListener('click', () => {
-    $('overlay-stats').hidden = true;
-    if (!arena || !arena.isIntermission) Audio.duckMusic(false);
-    if (loop && !arena.isIntermission && !arena.gameOver) loop.setPaused(false);
+/**
+ * Zurueck ins laufende Spiel.
+ *
+ * Ein einziger Weg fuer alle Wege hinaus: Pause, Statistik, Fenster wieder
+ * im Vordergrund. Vorher konnte man haengenbleiben, wenn ein Overlay zwar
+ * zuging, die Schleife aber pausiert blieb.
+ */
+function resumeGame() {
+  $('overlay-pause').hidden = true;
+  $('overlay-stats').hidden = true;
+  if (!arena || !loop) return;
+  // Waehrend Upgrade-Auswahl, Waffentausch oder nach dem Tod bleibt es pausiert.
+  const blockiert = !$('overlay-upgrade').hidden || !$('overlay-swap').hidden
+    || arena.gameOver || arena.isIntermission;
+  Audio.duckMusic(blockiert);
+  if (!blockiert) {
+    input.reset();
+    loop.setPaused(false);
+  }
+}
+
+document.querySelectorAll('[data-close-stats]').forEach((b) => b.addEventListener('click', resumeGame));
+
+// Tippen neben das Fenster schliesst Pause und Statistik ebenfalls.
+document.querySelectorAll('.overlay[data-dismiss]').forEach((o) =>
+  o.addEventListener('pointerdown', (e) => {
+    if (e.target === o) resumeGame();
   }),
 );
 
 $('btn-stats').addEventListener('click', showStats);
 $('btn-sound').addEventListener('click', toggleSound);
 $('btn-sound-menu').addEventListener('click', toggleSound);
-$('btn-pause').addEventListener('click', () => {
-  if (!loop) return;
+$('btn-pause').addEventListener('click', pauseGame);
+$('pause-resume').addEventListener('click', resumeGame);
+
+function pauseGame() {
+  if (!loop || !arena) return;
   loop.setPaused(true);
   Audio.duckMusic(true);
+  syncSoundButtons();
   $('overlay-pause').hidden = false;
+}
+
+// Ton-Regler in der Pause.
+$('opt-music').addEventListener('change', (e) => {
+  Audio.setMusicOn(e.target.checked);
+  syncSoundButtons();
 });
-$('pause-resume').addEventListener('click', () => {
-  $('overlay-pause').hidden = true;
-  Audio.duckMusic(false);
-  if (!arena.isIntermission && !arena.gameOver) loop.setPaused(false);
+$('opt-sfx').addEventListener('change', (e) => {
+  Audio.setSfxOn(e.target.checked);
+  syncSoundButtons();
+  if (e.target.checked) Audio.play('uiClick');
 });
+$('vol-music').addEventListener('input', (e) => Audio.setMusicVolume(+e.target.value / 100));
+$('vol-sfx').addEventListener('input', (e) => {
+  Audio.setSfxVolume(+e.target.value / 100);
+});
+$('vol-sfx').addEventListener('change', () => Audio.play('uiClick'));
 $('pause-debug').addEventListener('click', () => {
   arena.debug = !arena.debug;
   updateHud(true);
@@ -798,16 +874,12 @@ window.addEventListener('orientationchange', () => setTimeout(() => {
 
 // Pausieren, sobald das Spiel aus dem Blick geraet.
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && loop && !loop.paused) {
-    loop.setPaused(true);
-    if (arena && !arena.gameOver && !arena.isIntermission) $('overlay-pause').hidden = false;
+  if (document.hidden && loop && !loop.paused && arena && !arena.gameOver && !arena.isIntermission) {
+    pauseGame();
   }
 });
 window.addEventListener('blur', () => {
-  if (loop && !loop.paused && arena && !arena.gameOver && !arena.isIntermission) {
-    loop.setPaused(true);
-    $('overlay-pause').hidden = false;
-  }
+  if (loop && !loop.paused && arena && !arena.gameOver && !arena.isIntermission) pauseGame();
 });
 
 // Browser-Gesten auf der Spielfläche unterbinden.
@@ -820,8 +892,9 @@ window.addEventListener('keydown', (e) => {
     updateHud(true);
   }
   if (e.code === 'Escape' && loop && arena && !arena.gameOver) {
-    loop.setPaused(true);
-    $('overlay-pause').hidden = false;
+    // Escape schaltet um: auf und wieder zu.
+    if ($('overlay-pause').hidden && $('overlay-stats').hidden) pauseGame();
+    else resumeGame();
   }
 });
 
@@ -849,6 +922,7 @@ function checkOrientation() {
 window.__assets = { Assets };
 
 window.ARENA_DEBUG = {
+  audio: Audio,
   get arena() {
     return arena;
   },

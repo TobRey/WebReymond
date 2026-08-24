@@ -9,11 +9,14 @@ final class Defaults
 {
     public const SPRITE_BASE = 'assets/sprites/';
 
+    /** Inhaltsversion. Erhöhen, wenn neue Standardinhalte nachgetragen werden sollen. */
+    public const VERSION = 2;
+
     /** @return array<string, mixed> */
     public static function content(): array
     {
         return [
-            'version' => 1,
+            'version' => self::VERSION,
             'player' => self::player(),
             'balance' => self::balance(),
             'audio' => self::audio(),
@@ -104,6 +107,7 @@ final class Defaults
             'run' => ['Laufschritte', ['walk.mp3'], 0.35, 100],
             'playerHit' => ['Spieler wird getroffen', ['player-damage.mp3'], 0.8, 100],
             'coin' => ['Geld eingesammelt', [], 0.6, 100],
+            'potion' => ['Heilflasche eingesammelt', ['selected-upgrade.mp3'], 0.55, 100],
             'upgrade' => ['Upgrade gewählt', ['selected-upgrade.mp3'], 0.8, 100],
             'waveClear' => ['Welle geschafft', ['level-clear.mp3'], 0.7, 100],
             'bossSpawn' => ['Boss erscheint', ['boss.mp3'], 0.8, 100],
@@ -140,6 +144,15 @@ final class Defaults
             'bossBombDelay' => 1.3,
             'bossBombFlightTime' => 0.85,
             'bossBombMinCooldown' => 1.8,
+            // Verbrennung: wie lange ein getroffener Gegner brennt.
+            'burnDuration' => 3.0,
+            // Heilflaschen: Versuch alle X Sekunden, mit dieser Chance,
+            // höchstens so viele gleichzeitig, jede heilt X Prozent.
+            'potionInterval' => 14.0,
+            'potionChance' => 0.35,
+            'potionMax' => 3,
+            'potionHeal' => 10,
+            'potionLifetime' => 26.0,
             'upgradeChoices' => 3,
             'rarityRareBase' => 26,
             'rarityEpicBase' => 9,
@@ -159,6 +172,61 @@ final class Defaults
      *
      * @return list<array<string, mixed>>
      */
+
+    /**
+     * Spezialfaehigkeiten der Charaktere.
+     *
+     * Jede Fähigkeit ist im Spiel echt umgesetzt - sie steht nicht nur im
+     * Text. Die Staerke der meisten liegt in den Balancing-Werten, damit sie
+     * sich im Admin nachjustieren lassen.
+     *
+     * @return array<string, array{label: string, description: string}>
+     */
+    public static function perks(): array
+    {
+        return [
+            '' => ['label' => 'Keine', 'description' => 'Nur die Werte des Charakters zählen.'],
+            'lifesteal' => ['label' => 'Lebensraub',
+                'description' => 'Jeder getötete Gegner heilt dich ein wenig, Bosse deutlich mehr.'],
+            'thorns' => ['label' => 'Dornen',
+                'description' => 'Wer dich berührt, nimmt einen Teil des Schadens selbst.'],
+            'luckyCards' => ['label' => 'Glückskarten',
+                'description' => 'Deine Upgrade-Karten sind spürbar öfter selten oder besser.'],
+            'berserk' => ['label' => 'Blutrausch',
+                'description' => 'Je weniger Leben du hast, desto härter triffst du - bis zu +60 %.'],
+            'secondWind' => ['label' => 'Zweiter Atem',
+                'description' => 'Einmal je Welle überlebst du einen tödlichen Treffer mit einem Rest Leben.'],
+            'pyro' => ['label' => 'Brandstifter',
+                'description' => 'Deine Treffer zünden Gegner an, auch ohne Verbrennungs-Upgrade.'],
+            'frost' => ['label' => 'Frost',
+                'description' => 'Getroffene Gegner werden für kurze Zeit deutlich langsamer.'],
+            'blast' => ['label' => 'Sprengmeister',
+                'description' => 'Getötete Gegner explodieren und reißen Umstehende mit.'],
+            'magnet' => ['label' => 'Magnet',
+                'description' => 'Große Aufsammelreichweite, und Heilflaschen erscheinen doppelt so oft.'],
+            'greed' => ['label' => 'Goldrausch',
+                'description' => 'Deutlich mehr Geld für jeden Gegner.'],
+            'guardian' => ['label' => 'Wächter',
+                'description' => 'Nach jeder Welle füllt sich dein Schild wieder komplett auf.'],
+            'sniper' => ['label' => 'Scharfschütze',
+                'description' => 'Je weiter der Gegner weg ist, desto mehr Schaden richtest du an.'],
+        ];
+    }
+
+    /** Standardwerte für alle Charakter-Abweichungen. @return array<string, float> */
+    public static function characterMods(): array
+    {
+        return [
+            // Faktoren: 1.0 = unverändert
+            'maxHealth' => 1.0, 'moveSpeed' => 1.0, 'damageMult' => 1.0, 'attackSpeed' => 1.0,
+            'range' => 1.0, 'projectileSpeed' => 1.0, 'knockback' => 1.0, 'pickupRange' => 1.0,
+            'potionRate' => 1.0, 'money' => 1.0,
+            // Zuschläge: 0 = unverändert
+            'armor' => 0.0, 'critChance' => 0.0, 'critDamage' => 0.0,
+            'dodge' => 0.0, 'regen' => 0.0, 'shield' => 0.0, 'burn' => 0.0,
+        ];
+    }
+
     public static function characters(): array
     {
         $s = self::SPRITE_BASE;
@@ -168,20 +236,39 @@ final class Defaults
             'side' => ['gif' => $s . 'playerside.gif', 'frames' => []],
         ];
 
-        // id, Name, Tönung, Fähigkeitstext, Perk, Werte-Abweichungen, frei von Anfang an
+        // id, Name, Tönung, Titel, Text, Fähigkeit, Werte, von Anfang an frei
         $rows = [
             ['nova', 'Nova', 0, 'Späherin', 'Schnell unterwegs und flink im Abzug.', '',
-             ['moveSpeed' => 1.10, 'critChance' => 5], true],
+             ['moveSpeed' => 1.12, 'critChance' => 6, 'pickupRange' => 1.15], true],
             ['bruno', 'Bruno', 200, 'Bollwerk', 'Viel Leben und Rüstung, dafür etwas langsamer.', '',
-             ['maxHealth' => 1.30, 'armor' => 3, 'moveSpeed' => 0.94], true],
+             ['maxHealth' => 1.30, 'armor' => 3, 'moveSpeed' => 0.94, 'knockback' => 1.25], true],
             ['kira', 'Kira', 310, 'Duellantin', 'Mehr Schaden und schnellere Angriffe.', '',
-             ['damageMult' => 1.12, 'attackSpeed' => 1.08], true],
-            ['ruun', 'Ruun', 140, 'Magier', 'Weitere Reichweite und bessere Upgrade-Karten.', 'luckyCards',
-             ['range' => 1.15, 'projectileSpeed' => 1.20], false],
+             ['damageMult' => 1.12, 'attackSpeed' => 1.10, 'critDamage' => 20], true],
+
+            ['ruun', 'Ruun', 140, 'Magier', 'Weite Reichweite und deutlich bessere Upgrade-Karten.', 'luckyCards',
+             ['range' => 1.18, 'projectileSpeed' => 1.20, 'maxHealth' => 0.92], false],
             ['vera', 'Vera', 340, 'Vampirin', 'Jeder Kill heilt dich, dafür weniger Grundleben.', 'lifesteal',
-             ['maxHealth' => 0.88], false],
-            ['tor', 'Tor', 55, 'Wächter', 'Startet mit Schild und wirft Nahkampfschaden zurück.', 'thorns',
-             ['maxHealth' => 1.20, 'shield' => 25], false],
+             ['maxHealth' => 0.88, 'attackSpeed' => 1.05], false],
+            ['tor', 'Tor', 55, 'Wächter', 'Startet mit Schild, das sich nach jeder Welle wieder füllt.', 'guardian',
+             ['maxHealth' => 1.20, 'shield' => 30, 'moveSpeed' => 0.96], false],
+            ['ember', 'Ember', 20, 'Brandstifterin', 'Ihre Treffer setzen Gegner ganz von allein in Brand.', 'pyro',
+             ['burn' => 4, 'damageMult' => 0.94, 'moveSpeed' => 1.05], false],
+            ['sela', 'Sela', 175, 'Frostläuferin', 'Getroffene Gegner werden träge und kommen kaum an sie heran.', 'frost',
+             ['moveSpeed' => 1.08, 'range' => 1.10, 'maxHealth' => 0.95], false],
+            ['grom', 'Grom', 15, 'Berserker', 'Je knapper sein Leben, desto härter schlägt er zu.', 'berserk',
+             ['maxHealth' => 1.10, 'armor' => 2, 'attackSpeed' => 0.95], false],
+            ['zeno', 'Zeno', 260, 'Sprengmeister', 'Jeder getötete Gegner reißt seine Nachbarn mit.', 'blast',
+             ['damageMult' => 1.05, 'maxHealth' => 0.92, 'range' => 1.05], false],
+            ['mira', 'Mira', 90, 'Sammlerin', 'Zieht alles an sich und findet doppelt so viele Heilflaschen.', 'magnet',
+             ['pickupRange' => 2.0, 'potionRate' => 1.5, 'moveSpeed' => 1.04], false],
+            ['dax', 'Dax', 40, 'Glücksritter', 'Verdient deutlich mehr Geld an jedem Gegner.', 'greed',
+             ['money' => 1.6, 'maxHealth' => 0.95, 'dodge' => 5], false],
+            ['iva', 'Iva', 210, 'Scharfschützin', 'Trifft auf Distanz härter als jeder andere.', 'sniper',
+             ['range' => 1.30, 'projectileSpeed' => 1.25, 'maxHealth' => 0.86, 'critChance' => 4], false],
+            ['ossa', 'Ossa', 120, 'Zähe Haut', 'Überlebt einmal je Welle einen tödlichen Treffer.', 'secondWind',
+             ['maxHealth' => 1.15, 'armor' => 2, 'regen' => 0.5], false],
+            ['nix', 'Nix', 290, 'Klingentänzerin', 'Wer sie berührt, blutet selbst - und sie weicht oft aus.', 'thorns',
+             ['dodge' => 12, 'moveSpeed' => 1.06, 'maxHealth' => 0.94], false],
         ];
 
         $out = [];
@@ -199,12 +286,7 @@ final class Defaults
                 'dustSprite' => $s . 'staub.gif',
                 'scale' => 78,
                 'hitbox' => ['rx' => 14, 'ry' => 9, 'oy' => 24],
-                'mods' => array_merge([
-                    'maxHealth' => 1.0, 'moveSpeed' => 1.0, 'damageMult' => 1.0,
-                    'attackSpeed' => 1.0, 'range' => 1.0, 'projectileSpeed' => 1.0,
-                    'armor' => 0, 'critChance' => 0, 'critDamage' => 0,
-                    'dodge' => 0, 'regen' => 0, 'shield' => 0,
-                ], $mods),
+                'mods' => array_merge(self::characterMods(), $mods),
                 'starter' => $starter,
                 'unlockCost' => $starter ? 0 : 20,
                 'active' => true,
@@ -359,19 +441,22 @@ final class Defaults
             ['tailwind', 'Rückenwind', 'projectileSpeed', 'percent', 12, 'common', 80, 8, 'Projektile fliegen schneller.'],
 
             ['precision', 'Präzision', 'critChance', 'flat', 5, 'rare', 100, 10, 'Höhere Chance auf kritische Treffer.'],
-            ['impact', 'Wucht', 'knockback', 'percent', 25, 'rare', 70, 8, 'Gegner werden weiter zurueckgestossen.'],
+            ['impact', 'Wucht', 'knockback', 'percent', 25, 'rare', 70, 8, 'Gegner werden weiter zurückgestoßen.'],
             ['leather_hide', 'Lederhaut', 'armor', 'flat', 3, 'rare', 100, 10, 'Reduziert jeden erlittenen Treffer.'],
             ['regrowth', 'Regeneration', 'regen', 'flat', 0.9, 'rare', 90, 8, 'Heilt dich langsam über Zeit.'],
             ['evasion', 'Ausweichen', 'dodge', 'flat', 4, 'rare', 80, 8, 'Chance, einem Treffer komplett auszuweichen.'],
+            ['burning', 'Verbrennung', 'burn', 'flat', 3, 'rare', 95, 10, 'Getroffene Gegner fangen Feuer und verlieren weiter Leben. Jede Stufe brennt heißer.'],
+            ['alchemy', 'Alchemie', 'potionRate', 'percent', 40, 'rare', 70, 6, 'Heilflaschen erscheinen deutlich häufiger auf der Karte.'],
 
             ['berserk', 'Berserker', 'damage', 'percent', 18, 'epic', 100, 8, 'Deutlich mehr Waffenschaden.'],
             ['time_pressure', 'Zeitdruck', 'attackSpeed', 'percent', 16, 'epic', 100, 8, 'Deutlich schnellere Angriffe.'],
             ['crit_fury', 'Kritische Wut', 'critDamage', 'percent', 35, 'epic', 90, 8, 'Kritische Treffer richten mehr an.'],
             ['barrier', 'Barriere', 'shield', 'flat', 30, 'epic', 90, 6, 'Schild, der Schaden vor der Lebensleiste schluckt.'],
             ['vitality', 'Vitalität', 'maxHealth', 'percent', 15, 'epic', 90, 6, 'Prozentual mehr Leben.'],
+            ['inferno', 'Inferno', 'burn', 'flat', 9, 'epic', 85, 6, 'Deine Flammen fressen sich deutlich tiefer.'],
 
             ['bloodlust', 'Blutrausch', 'damage', 'percent', 30, 'legendary', 100, 4, 'Massiver Schadensschub.'],
-            ['twin_heart', 'Zwillingsherz', 'maxHealth', 'percent', 40, 'legendary', 90, 3, 'Enorm viel zusaetzliches Leben.'],
+            ['twin_heart', 'Zwillingsherz', 'maxHealth', 'percent', 40, 'legendary', 90, 3, 'Enorm viel zusätzliches Leben.'],
             ['time_rift', 'Zeitriss', 'attackSpeed', 'percent', 28, 'legendary', 90, 3, 'Angriffe kommen deutlich schneller.'],
             ['master_strike', 'Meisterhieb', 'critChance', 'flat', 12, 'legendary', 80, 3, 'Stark erhöhte kritische Trefferchance.'],
         ];
@@ -447,6 +532,13 @@ final class Defaults
         }
         if (!isset($data['characters']) || !is_array($data['characters']) || !count($data['characters'])) {
             $data['characters'] = self::characters();
+        } else {
+            // Fehlende Werte ergänzen, damit ältere Charaktere alle neuen
+            // Felder kennen - sonst greift im Spiel der Standard 1.0/0.
+            foreach ($data['characters'] as $i => $char) {
+                $mods = is_array($char['mods'] ?? null) ? $char['mods'] : [];
+                $data['characters'][$i]['mods'] = array_merge(self::characterMods(), $mods);
+            }
         }
         // Aeltere Waffen ohne Groessenangaben bekommen sinnvolle Standardwerte.
         if (is_array($data['weapons'] ?? null)) {
@@ -476,6 +568,38 @@ final class Defaults
                 $data[$key] = self::$key();
             }
         }
+
+        // Einmalig: Upgrades nachtragen, die es beim letzten Speichern noch
+        // nicht gab (Verbrennung, Inferno, Alchemie). Über die Version, damit
+        // später gelöschte Upgrades nicht bei jedem Start zurückkommen.
+        $version = (int) ($data['version'] ?? 1);
+        if ($version < self::VERSION) {
+            $known = [];
+            foreach ($data['upgrades'] as $up) {
+                if (isset($up['id'])) {
+                    $known[(string) $up['id']] = true;
+                }
+            }
+            foreach (self::upgrades() as $up) {
+                if (!isset($known[$up['id']])) {
+                    $data['upgrades'][] = $up;
+                }
+            }
+
+            // Dasselbe für die neuen Charaktere mit Spezialfähigkeiten.
+            $haveChars = [];
+            foreach ($data['characters'] as $char) {
+                if (isset($char['id'])) {
+                    $haveChars[(string) $char['id']] = true;
+                }
+            }
+            foreach (self::characters() as $char) {
+                if (!isset($haveChars[$char['id']])) {
+                    $data['characters'][] = $char;
+                }
+            }
+        }
+        $data['version'] = self::VERSION;
         return $data;
     }
 }

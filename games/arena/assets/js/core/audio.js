@@ -10,9 +10,25 @@ const EVENTS = [
   'upgrade', 'bossSpawn', 'bossWarning', 'playerHit', 'coin', 'gameOver', 'uiClick',
 ];
 
-const STORAGE_KEY = 'arena.audio';
+// Neuer Schluessel: Die alte Fassung hat mit dem Musikknopf auch die
+// Effekte abgeschaltet und das gespeichert. Wer davon betroffen war, hatte
+// dauerhaft keinen Ton mehr. Mit einem neuen Schluessel starten alle wieder
+// mit Ton, und Musik und Effekte sind ab jetzt getrennt.
+const STORAGE_KEY = 'arena.audio.v2';
 const clips = new Map();
 const throttled = new Map();
+/** Wie viele fertige Abspieler je Tondatei bereitstehen. */
+const NODES_PER_VARIANT = 3;
+
+/** Nimmt einen freien Abspieler, sonst den aeltesten im Ringpuffer. */
+function pickNode(variant) {
+  for (const node of variant.nodes) {
+    if (node.paused || node.ended) return node;
+  }
+  const node = variant.nodes[variant.next % variant.nodes.length];
+  variant.next++;
+  return node;
+}
 
 let music = null;
 let musicSrc = '';
@@ -27,6 +43,7 @@ function loadSettings() {
   // musicVolume ist der Regler des Spielers (0-1) und multipliziert die
   // im Admin gesetzte Grundlautstärke.
   const fallback = { musicOn: true, sfxOn: true, musicVolume: 1, sfxVolume: 1, sfxMaster: 0.8 };
+  // musicOn und sfxOn sind zwei unabhaengige Schalter.
   try {
     return { ...fallback, ...(JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}) };
   } catch {
@@ -40,10 +57,44 @@ function saveSettings() {
   } catch { /* privater Modus */ }
 }
 
-/** Erste Nutzergeste schaltet die Wiedergabe frei. */
+/**
+ * Erste Nutzergeste schaltet die Wiedergabe frei.
+ *
+ * Auf Mobilgeraeten reicht das allein nicht: Ein Ton, der spaeter ausserhalb
+ * einer Geste zum ersten Mal geladen wird, bleibt dort stumm. Deshalb werden
+ * hier alle hinterlegten Dateien einmal lautlos angespielt und sofort wieder
+ * angehalten - danach duerfen sie jederzeit klingen.
+ */
 function unlock() {
+  if (unlocked) return;
   unlocked = true;
+  primeAll();
   if (wantsPlay) Audio.startMusic();
+}
+
+function prime(clip) {
+  for (const variant of clip.variants) {
+    for (const audio of variant.nodes) primeNode(audio);
+  }
+}
+
+function primeNode(audio) {
+  if (audio.__primed) return;
+  audio.__primed = true;
+  audio.preload = 'auto';
+  audio.muted = true;
+  const done = () => {
+    audio.pause();
+    audio.currentTime = 0;
+    audio.muted = false;
+  };
+  const p = audio.play();
+  if (p && typeof p.then === 'function') p.then(done).catch(() => { audio.muted = false; });
+  else done();
+}
+
+function primeAll() {
+  for (const clip of clips.values()) prime(clip);
 }
 ['pointerdown', 'keydown', 'touchstart'].forEach((type) =>
   window.addEventListener(type, unlock, { once: true, passive: true }));
@@ -129,16 +180,26 @@ export const Audio = {
       clips.delete(key);
       return;
     }
-    clips.set(key, {
+    const clip = {
       enabled: set.enabled !== false,
       chance: typeof set.chance === 'number' ? set.chance : 100,
       volume: typeof set.volume === 'number' ? set.volume : 0.8,
+      // Je Variante mehrere fertige Abspieler. Auf Mobilgeraeten darf ein
+      // frisch erzeugtes Element ausserhalb einer Nutzergeste nicht tönen -
+      // vorbereitete duerfen es. Drei reichen, damit sich schnelle
+      // Wiederholungen nicht gegenseitig abschneiden.
       variants: set.variants.map((variant) => {
-        const audio = new window.Audio(variant.src);
-        audio.preload = 'none';   // erst laden, wenn der Ton gebraucht wird
-        return { audio, volume: typeof variant.volume === 'number' ? variant.volume : 1 };
+        const nodes = [];
+        for (let i = 0; i < NODES_PER_VARIANT; i++) {
+          const audio = new window.Audio(variant.src);
+          audio.preload = 'auto';
+          nodes.push(audio);
+        }
+        return { nodes, src: variant.src, volume: typeof variant.volume === 'number' ? variant.volume : 1, next: 0 };
       }),
-    });
+    };
+    clips.set(key, clip);
+    if (unlocked) prime(clip);
   },
 
   /** Einzelne Datei registrieren - kurze Form für eigene Erweiterungen. */
@@ -173,11 +234,15 @@ export const Audio = {
 
     // Zufällige Variante, damit sich Wiederholungen nicht abnutzen.
     const variant = clip.variants[(Math.random() * clip.variants.length) | 0];
-    const node = variant.audio.cloneNode();
+    const node = pickNode(variant);
     node.volume = Math.max(0, Math.min(1,
       volume * variant.volume * clip.volume * (settings.sfxVolume ?? 1) * (settings.sfxMaster ?? 0.8)));
     node.playbackRate = rate;
-    node.play().catch(() => {});
+    try {
+      node.currentTime = 0;
+    } catch { /* noch nicht geladen - dann spielt er ab Anfang */ }
+    const p = node.play();
+    if (p && typeof p.catch === 'function') p.catch(() => {});
   },
 
   /**
@@ -230,6 +295,22 @@ export const Audio = {
     if (music && settings.musicOn) fadeTo(Audio.volume, 0.2);
   },
 
+  setSfxVolume(value) {
+    settings.sfxVolume = Math.max(0, Math.min(1, value));
+    saveSettings();
+  },
+
+  /** Ein Schalter für alles - hinter dem Lautsprechersymbol im Spiel. */
+  get muted() {
+    return !settings.musicOn && !settings.sfxOn;
+  },
+
+  setMuted(on) {
+    Audio.setMusicOn(!on);
+    Audio.setSfxOn(!on);
+    return Audio.muted;
+  },
+
   /** Effektive Musiklautstärke: Admin-Grundwert mal Spielerregler. */
   get volume() {
     return Math.max(0, Math.min(1, musicTargetVolume * (settings.musicVolume ?? 1)));
@@ -256,7 +337,7 @@ export const Audio = {
       enabled: clip.enabled,
       chance: clip.chance,
       volume: clip.volume,
-      variants: clip.variants.map((v) => v.audio.src.split('/').pop()),
+      variants: clip.variants.map((v) => v.src.split('/').pop()),
     };
   },
 };

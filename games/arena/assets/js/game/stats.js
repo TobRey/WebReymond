@@ -16,6 +16,9 @@ export const STAT_LABELS = {
   knockback: 'Rückstoß',
   dodge: 'Ausweichen',
   regen: 'Regeneration',
+  burn: 'Feuerschaden',
+  potionRate: 'Heilflaschen',
+  pickupRange: 'Aufsammelreichweite',
 };
 
 export function emptyModifiers() {
@@ -33,6 +36,9 @@ export function emptyModifiers() {
     knockback: { percent: 0, flat: 0 },
     dodge: { percent: 0, flat: 0 },
     regen: { percent: 0, flat: 0 },
+    burn: { percent: 0, flat: 0 },
+    potionRate: { percent: 0, flat: 0 },
+    pickupRange: { percent: 0, flat: 0 },
   };
 }
 
@@ -66,9 +72,19 @@ export function resolveStats(base, mods, character = null) {
     critDamage: (base.critDamage + add('critDamage') + flat('critDamage')) * pct('critDamage'),
     projectileSpeedMult: pct('projectileSpeed') * mult('projectileSpeed'),
     rangeMult: pct('range') * mult('range'),
-    knockbackMult: pct('knockback'),
+    knockbackMult: pct('knockback') * mult('knockback'),
     dodge: Math.min(75, (base.dodge + add('dodge') + flat('dodge')) * pct('dodge')),
     regen: (base.regen + add('regen') + flat('regen')) * pct('regen'),
+    // Feuerschaden pro Sekunde. Ohne Verbrennung und ohne Brandstifter-
+    // Fähigkeit ist er 0 - dann brennt auch nichts.
+    burn: Math.max(0, (add('burn') + flat('burn')) * pct('burn')),
+    // Faktor auf die Spawnchance der Heilflaschen (1 = unverändert).
+    potionRateMult: (pct('potionRate') + flat('potionRate') / 100) * mult('potionRate'),
+    // Reichweite, ab der Heilflaschen zum Spieler fliegen.
+    pickupRange: Math.max(20, (base.pickupRange || 90) * mult('pickupRange') * pct('pickupRange')
+      + flat('pickupRange')),
+    // Geld-Faktor des Charakters.
+    moneyMult: mult('money'),
   };
 }
 
