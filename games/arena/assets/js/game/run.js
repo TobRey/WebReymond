@@ -36,6 +36,17 @@ export class RunState {
     this.wavesCleared = 0;      // zählt die Erfahrungspunkte des Runs mit
     // Fähigkeit "Zweiter Atem": einmal je Welle verfügbar.
     this.secondWindReady = this.perk === 'secondWind';
+
+    // Sondereffekte der Upgrade-Karten: id -> Stufe.
+    this.effects = new Map();
+    // Dauerhafte Zuschlaege, die Effekte im Lauf der Runde ansammeln.
+    this.bonusDamage = 0;
+    this.bonusHealth = 0;
+    // Kurzzeitige Schuebe: id -> Restzeit in Sekunden.
+    this.timed = new Map();
+    this.killStreak = 0;
+    this.killStreakTime = 0;
+    this.untouchedTime = 0;
   }
 
   get difficulty() {
@@ -54,14 +65,29 @@ export class RunState {
     return Math.pow(this.balance.rewardScaling, this.cycle - 1);
   }
 
+  /** Wie oft ein Sondereffekt gewaehlt wurde (0 = gar nicht). */
+  effectLevel(id) {
+    return this.effects.get(id) || 0;
+  }
+
+  hasEffect(id) {
+    return (this.effects.get(id) || 0) > 0;
+  }
+
   addUpgrade(upgrade) {
     const existing = this.upgrades.find((u) => u.upgrade.id === upgrade.id);
     if (existing) existing.count++;
     else this.upgrades.push({ upgrade, count: 1 });
 
+    if (upgrade.effect) {
+      this.effects.set(upgrade.effect, (this.effects.get(upgrade.effect) || 0) + 1);
+    }
+
     const beforeMax = this.stats.maxHealth;
     const beforeShield = this.stats.maxShield;
-    applyUpgrade(this.mods, upgrade);
+    // Eine Karte kann mehrere Werte gleichzeitig verschieben.
+    const mods = Array.isArray(upgrade.mods) && upgrade.mods.length ? upgrade.mods : [upgrade];
+    for (const mod of mods) applyUpgrade(this.mods, mod);
     this.recalc();
 
     // Mehr Maximalleben heilt auch sofort um die Differenz.
@@ -123,6 +149,9 @@ export class RunState {
       ['Feuerschaden', s.burn > 0 ? (s.burn * s.damageMult).toFixed(1) + ' HP/s' : '-'],
       ['Aufsammelreichweite', Math.round(s.pickupRange)],
       ['Fähigkeit', PERK_LABELS[this.perk] || '-'],
+      ['Lebensraub', s.lifesteal > 0 ? s.lifesteal.toFixed(1) + '%' : '-'],
+      ['Glück', s.luck > 0 ? '+' + Math.round(s.luck) : '-'],
+      ['Dornen', s.thorns > 0 ? Math.round(s.thorns) : '-'],
       ['Geld', this.money],
       ['Charakter', this.character ? this.character.name : '-'],
       ['Zyklus', this.cycle],

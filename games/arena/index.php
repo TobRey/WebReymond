@@ -60,6 +60,12 @@ $importMap = Version::importMap(__DIR__);
     </div>
   </div>
 
+  <button id="btn-ult" class="ultbtn" data-ui title="Druckwelle">
+    <span class="ultbtn__fuell" id="ult-fuell"></span>
+    <span class="ultbtn__icon">◎</span>
+    <span class="ultbtn__zeit" id="ult-zeit"></span>
+  </button>
+
   <div class="hud__buttons">
     <button id="btn-sound" class="iconbtn" data-ui title="Musik an/aus">♪</button>
     <button id="btn-stats" class="iconbtn" data-ui title="Statistiken">≡</button>
@@ -68,6 +74,14 @@ $importMap = Version::importMap(__DIR__);
 
   <div id="debug-panel" class="debug" hidden></div>
   <div id="wave-banner" class="banner" hidden></div>
+
+<!-- Countdown vor jeder Welle und nach der Pause -->
+<div id="countdown" class="countdown" hidden>
+  <div class="countdown__inner">
+    <div id="countdown-kicker" class="countdown__kicker">Bereit?</div>
+    <div id="countdown-zahl" class="countdown__zahl">3</div>
+  </div>
+</div>
 </div>
 
 <!-- ------------------------------------------------------------ Menü -->

@@ -234,25 +234,103 @@ final class Validate
     /** @param array<string, mixed> $in @return array<string, mixed> */
     public static function upgrade(array $in): array
     {
-        $stats = ['damage', 'attackSpeed', 'moveSpeed', 'maxHealth', 'armor', 'shield', 'critChance',
-                  'critDamage', 'projectileSpeed', 'range', 'knockback', 'dodge', 'regen',
-                  'burn', 'potionRate'];
         $rarities = ['common', 'rare', 'epic', 'legendary'];
-        $stat = is_string($in['stat'] ?? null) && in_array($in['stat'], $stats, true) ? $in['stat'] : 'damage';
         $rarity = is_string($in['rarity'] ?? null) && in_array($in['rarity'], $rarities, true) ? $in['rarity'] : 'common';
-        $modType = ($in['modType'] ?? 'percent') === 'flat' ? 'flat' : 'percent';
+        $effekte = array_keys(self::upgradeEffects());
+        $effect = is_string($in['effect'] ?? null) && in_array($in['effect'], $effekte, true) ? $in['effect'] : '';
+
+        // Eine Karte darf mehrere Werte gleichzeitig verschieben.
+        $mods = [];
+        if (is_array($in['mods'] ?? null)) {
+            foreach (array_slice($in['mods'], 0, 8) as $m) {
+                if (!is_array($m)) {
+                    continue;
+                }
+                $mods[] = [
+                    'stat' => self::upgradeStat($m['stat'] ?? ''),
+                    'modType' => ($m['modType'] ?? 'percent') === 'flat' ? 'flat' : 'percent',
+                    'value' => self::num($m['value'] ?? 0, -100000, 100000, 0),
+                ];
+            }
+        }
+        if (!$mods) {
+            $mods[] = [
+                'stat' => self::upgradeStat($in['stat'] ?? ''),
+                'modType' => ($in['modType'] ?? 'percent') === 'flat' ? 'flat' : 'percent',
+                'value' => self::num($in['value'] ?? 5, -100000, 100000, 5),
+            ];
+        }
+
         return [
             'id' => self::id($in['id'] ?? '', 'upgrade'),
             'name' => self::text($in['name'] ?? '', 40, 'Neues Upgrade'),
             'description' => self::text($in['description'] ?? '', 200),
             'icon' => self::assetPath($in['icon'] ?? '', ''),
-            'stat' => $stat,
-            'modType' => $modType,
-            'value' => self::num($in['value'] ?? 5, -1000, 100000, 5),
+            'stat' => $mods[0]['stat'],
+            'modType' => $mods[0]['modType'],
+            'value' => $mods[0]['value'],
+            'mods' => $mods,
+            'effect' => $effect,
             'rarity' => $rarity,
             'weight' => self::num($in['weight'] ?? 100, 0, 10000, 100),
             'maxStack' => self::int($in['maxStack'] ?? 10, 1, 999, 10),
             'active' => self::bool($in['active'] ?? true),
+        ];
+    }
+
+    /** Alle Werte, die eine Upgrade-Karte verschieben darf. @return list<string> */
+    public static function upgradeStats(): array
+    {
+        return ['damage', 'attackSpeed', 'moveSpeed', 'maxHealth', 'armor', 'shield', 'critChance',
+                'critDamage', 'projectileSpeed', 'range', 'knockback', 'dodge', 'regen',
+                'burn', 'potionRate', 'pickupRange', 'lifesteal', 'luck', 'money',
+                'projectileDamage', 'meleeRange', 'rangedAttackSpeed', 'thorns'];
+    }
+
+    public static function upgradeStat(mixed $v): string
+    {
+        return is_string($v) && in_array($v, self::upgradeStats(), true) ? $v : 'damage';
+    }
+
+    /**
+     * Sondereffekte, die eine Karte mitbringen kann.
+     * Der Schluessel steht in den Daten, die Beschreibung im Dashboard.
+     *
+     * @return array<string, string>
+     */
+    public static function upgradeEffects(): array
+    {
+        return [
+            '' => 'kein Sondereffekt',
+            'lifesteal' => 'Lebensraub - ein Teil des Schadens heilt',
+            'critHeal' => 'Kritische Treffer heilen zusätzlich',
+            'thorns' => 'Berührende Gegner nehmen Schaden',
+            'killFrenzy' => 'Kills geben kurz mehr Angriffstempo',
+            'hurtFrenzy' => 'Treffer geben kurz mehr Angriffstempo',
+            'multikill' => 'Schnelle Kills geben kurz mehr Schaden',
+            'untouched' => 'Ohne Treffer wächst der Schaden',
+            'berserk' => 'Wenig Leben - mehr Schaden',
+            'execute' => 'Mehr Schaden gegen verletzte Gegner',
+            'doubleShot' => 'Chance auf ein zweites Projektil',
+            'ghostShot' => 'Projektile durchdringen Gegner',
+            'chainExplode' => 'Getötete Gegner explodieren',
+            'collide' => 'Kollision verursacht Schaden',
+            'waveHeal' => 'Heilt nach jeder Welle',
+            'treasure' => 'Bosse und Truhen geben mehr',
+            'lastPotato' => 'Überlebt einmal je Welle tödlichen Schaden',
+            'blackhole' => 'Zieht regelmässig Gegner an',
+            'slowmo' => 'Bei wenig Leben werden Gegner langsamer',
+            'midas' => 'Kills geben manchmal Bonusgeld',
+            'deathwave' => 'Bei wenig Leben entlädt sich eine Druckwelle',
+            'soulEater' => 'Bosskills geben dauerhaft Schaden',
+            'hunger' => 'Viele Kills geben dauerhaft Leben',
+            'clone' => 'Feuert regelmässig einen zweiten Schuss',
+            'bloodPact' => 'Mehr Schaden, jede Welle kostet Leben',
+            'greedCurse' => 'Mehr Beute, zähere Gegner',
+            'chaos' => 'Jede Welle ein Vorteil und ein Nachteil',
+            'goldenDice' => 'Jede Welle ein zufälliger Wert dauerhaft besser',
+            'mutation' => 'Jede Welle mehr Schaden, stärkere Gegner',
+            'potatoGod' => 'Alles besser - und mehr Elitegegner',
         ];
     }
 
@@ -272,17 +350,30 @@ final class Validate
         foreach (['front', 'back', 'side'] as $dir) {
             $entry = is_array($given[$dir] ?? null) ? $given[$dir] : [];
             $frames = [];
+            $flips = [];
+            $rohFlips = is_array($entry['flips'] ?? null) ? array_values($entry['flips']) : [];
             if (is_array($entry['frames'] ?? null)) {
-                foreach (array_slice($entry['frames'], 0, 5) as $frame) {
-                    $path = self::assetPath($frame, '');
-                    if ($path !== '') {
-                        $frames[] = $path;
+                foreach (array_values($entry['frames']) as $i => $frame) {
+                    if (count($frames) >= 5) {
+                        break;
                     }
+                    $path = self::assetPath($frame, '');
+                    if ($path === '') {
+                        continue;
+                    }
+                    $frames[] = $path;
+                    // Jedes Einzelbild laesst sich einzeln spiegeln.
+                    $flips[] = self::bool($rohFlips[$i] ?? false);
                 }
             }
             $sprites[$dir] = [
                 'gif' => self::assetPath($entry['gif'] ?? '', ''),
                 'frames' => $frames,
+                'flips' => $flips,
+                // Ganze Richtung spiegeln - z. B. wenn das Sprite falsch herum ist.
+                'flip' => self::bool($entry['flip'] ?? false),
+                // Groesse nur dieser Richtung, unabhaengig von der Hitbox.
+                'scale' => self::num($entry['scale'] ?? 1, 0.2, 4, 1),
             ];
         }
 
@@ -414,10 +505,15 @@ final class Validate
     public static function audio(array $in): array
     {
         $d = Defaults::audio();
-        $track = is_string($in['musicTrack'] ?? null) ? trim($in['musicTrack']) : '';
-        if ($track !== '' && !preg_match('#^assets/(audio|uploads)/[A-Za-z0-9._-]+$#', $track)) {
-            $track = $d['musicTrack'];
-        }
+        $pfad = static function (mixed $v, string $fallback): string {
+            $v = is_string($v) ? trim($v) : '';
+            if ($v === '') {
+                return '';
+            }
+            return preg_match('#^assets/(audio|uploads)/[A-Za-z0-9._-]+$#', $v) ? $v : $fallback;
+        };
+        $track = $pfad($in['musicTrack'] ?? null, $d['musicTrack']);
+        $menu = $pfad($in['musicMenu'] ?? null, $d['musicMenu']);
         $slots = Defaults::soundSlots();
         $given = is_array($in['sounds'] ?? null) ? $in['sounds'] : [];
         $sounds = [];
@@ -428,6 +524,7 @@ final class Validate
 
         return [
             'musicTrack' => $track,
+            'musicMenu' => $menu,
             'musicVolume' => self::num($in['musicVolume'] ?? $d['musicVolume'], 0, 1, $d['musicVolume']),
             'sfxVolume' => self::num($in['sfxVolume'] ?? $d['sfxVolume'], 0, 1, $d['sfxVolume']),
             'musicEnabled' => self::bool($in['musicEnabled'] ?? true),
@@ -448,6 +545,8 @@ final class Validate
             'bossBombFlightTime' => [0.1, 6], 'bossBombMinCooldown' => [0.3, 30],
             'burnDuration' => [0.2, 60],
             'waveMixShare' => [0, 1], 'waveStartEnemies' => [0, 60],
+            'ultCooldown' => [1, 600], 'ultRadius' => [20, 2000],
+            'ultKnockback' => [0, 20000], 'ultDamage' => [0, 100000],
             'upgradeChoices' => [1, 6], 'rarityRareBase' => [0, 100], 'rarityEpicBase' => [0, 100],
             'rarityLegendaryBase' => [0, 100], 'rarityCycleBonus' => [1, 4], 'weaponOfferChance' => [0, 1],
         ];

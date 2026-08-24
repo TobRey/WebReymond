@@ -12,6 +12,17 @@
  * nicht an der Zahl der Gegner.
  */
 const UNREACHABLE = 0xffff;
+/**
+ * Ab so vielen Zellen Abstand gilt eine Zelle als frei.
+ *
+ * Klein halten: Ein hoher Wert laesst die Gegner auf offener Flaeche weite
+ * Boegen um jeden Stein laufen, statt nur Ecken zu meiden.
+ */
+const CLEARANCE_MAX = 2;
+/** Aufschlag je fehlender Zelle Abstand, in Schritten. */
+const CLEARANCE_COST = 2;
+/** Hoechste Kosten einer einzelnen Zelle - bestimmt die Zahl der Eimer. */
+const MAX_COST = 1 + CLEARANCE_MAX * CLEARANCE_COST;
 
 export class FlowField {
   constructor(mask) {
@@ -32,11 +43,65 @@ export class FlowField {
       }
     }
 
+    /*
+     * Abstand zur naechsten Wand, in Zellen (0 = Wand).
+     *
+     * Ein Gegner ist rund eine Zelle breit. Laeuft er stur ueber die
+     * kuerzeste Linie, schrammt er staendig an Ecken entlang und bleibt
+     * haengen. Deshalb bekommen wandnahe Zellen beim Fluten einen
+     * Aufschlag - der Weg wird minimal laenger, dafuer haelt er Abstand.
+     */
+    this.clearance = new Uint8Array(count);
+    this.buildClearance();
+
+    // Eimer-Warteschlange: Kosten liegen zwischen 1 und MAX_COST.
+    this.buckets = [];
+    for (let i = 0; i <= MAX_COST; i++) this.buckets.push([]);
+
     this.goalX = -1;
     this.goalY = -1;
     this.timer = 0;
     this.ready = false;
     this.rebuilds = 0;
+  }
+
+  /** Fuellt clearance per Breitensuche von allen Waenden aus. */
+  buildClearance() {
+    const { cols, rows, open, clearance, queue } = this;
+    clearance.fill(255);
+    let head = 0;
+    let tail = 0;
+    for (let i = 0; i < open.length; i++) {
+      if (!open[i]) {
+        clearance[i] = 0;
+        queue[tail++] = i;
+      }
+    }
+    // Auch der Kartenrand zaehlt als Wand.
+    for (let x = 0; x < cols; x++) {
+      for (const y of [0, rows - 1]) {
+        const i = y * cols + x;
+        if (clearance[i] !== 0) { clearance[i] = 0; queue[tail++] = i; }
+      }
+    }
+    for (let y = 0; y < rows; y++) {
+      for (const x of [0, cols - 1]) {
+        const i = y * cols + x;
+        if (clearance[i] !== 0) { clearance[i] = 0; queue[tail++] = i; }
+      }
+    }
+
+    while (head < tail) {
+      const index = queue[head++];
+      const d = clearance[index] + 1;
+      if (d > CLEARANCE_MAX) continue;
+      const x = index % cols;
+      const y = (index / cols) | 0;
+      if (x > 0 && clearance[index - 1] > d) { clearance[index - 1] = d; queue[tail++] = index - 1; }
+      if (x < cols - 1 && clearance[index + 1] > d) { clearance[index + 1] = d; queue[tail++] = index + 1; }
+      if (y > 0 && clearance[index - cols] > d) { clearance[index - cols] = d; queue[tail++] = index - cols; }
+      if (y < rows - 1 && clearance[index + cols] > d) { clearance[index + cols] = d; queue[tail++] = index + cols; }
+    }
   }
 
   /** Zellenindex einer Weltposition, oder -1 ausserhalb der Karte. */
@@ -64,18 +129,32 @@ export class FlowField {
     this.build(cx, cy);
   }
 
+  /**
+   * Flutet die Karte vom Spieler aus.
+   *
+   * Kein reines Breitensuchen: Jede Zelle kostet 1 plus einen Aufschlag,
+   * wenn sie dicht an einer Wand liegt. Dadurch fuehrt der guenstigste Weg
+   * an Ecken vorbei statt daran entlang. Weil die Kosten klein und ganz-
+   * zahlig sind, reicht eine Eimer-Warteschlange (Dial-Dijkstra) - das
+   * bleibt genauso schnell wie eine Breitensuche.
+   *
+   * Wichtig: Der Aufschlag muss hier hinein, nicht erst bei der
+   * Richtungswahl. Sonst entstehen Senken, in denen kein Nachbar besser
+   * aussieht als die eigene Zelle - der Gegner bleibt dann stehen.
+   */
   build(cx, cy) {
     if (cx < 0 || cy < 0 || cx >= this.cols || cy >= this.rows) return;
     this.goalX = cx;
     this.goalY = cy;
     this.rebuilds++;
 
-    const { dist, queue, open, cols, rows } = this;
+    const { dist, open, clearance, cols, rows, buckets } = this;
     dist.fill(UNREACHABLE);
+    for (const b of buckets) b.length = 0;
 
     let start = cy * cols + cx;
     // Steht der Spieler in einer blockierten Zelle (z. B. halb in der Wand),
-    // wird der nächste freie Nachbar zum Ziel.
+    // wird der naechste freie Nachbar zum Ziel.
     if (!open[start]) {
       start = this.nearestOpen(cx, cy);
       if (start < 0) {
@@ -84,35 +163,43 @@ export class FlowField {
       }
     }
 
-    let head = 0;
-    let tail = 0;
+    const eimer = buckets.length;
     dist[start] = 0;
-    queue[tail++] = start;
+    buckets[0].push(start);
+    let offen = 1;
+    let d = 0;
+    let schutz = cols * rows * (MAX_COST + 1);
 
-    while (head < tail) {
-      const index = queue[head++];
-      const d = dist[index] + 1;
-      const x = index % cols;
-      const y = (index / cols) | 0;
+    while (offen > 0 && schutz-- > 0) {
+      const bucket = buckets[d % eimer];
+      while (bucket.length) {
+        const index = bucket.pop();
+        offen--;
+        if (dist[index] !== d) continue;      // veralteter Eintrag
 
-      // Vier Nachbarn reichen: Die Richtung wird später aus acht Nachbarn
-      // gewählt, dadurch entstehen trotzdem Diagonalen.
-      if (x > 0) {
-        const n = index - 1;
-        if (open[n] && dist[n] === UNREACHABLE) { dist[n] = d; queue[tail++] = n; }
+        const x = index % cols;
+        const y = (index / cols) | 0;
+        // Vier Nachbarn genuegen: Die Richtung waehlt spaeter aus acht,
+        // dadurch entstehen trotzdem saubere Diagonalen.
+        for (let k = 0; k < 4; k++) {
+          let n = -1;
+          if (k === 0 && x > 0) n = index - 1;
+          else if (k === 1 && x < cols - 1) n = index + 1;
+          else if (k === 2 && y > 0) n = index - cols;
+          else if (k === 3 && y < rows - 1) n = index + cols;
+          if (n < 0 || !open[n]) continue;
+
+          const frei = clearance[n];
+          const aufschlag = frei >= CLEARANCE_MAX ? 0 : (CLEARANCE_MAX - frei) * CLEARANCE_COST;
+          const nd = d + 1 + aufschlag;
+          if (nd < dist[n]) {
+            dist[n] = nd;
+            buckets[nd % eimer].push(n);
+            offen++;
+          }
+        }
       }
-      if (x < cols - 1) {
-        const n = index + 1;
-        if (open[n] && dist[n] === UNREACHABLE) { dist[n] = d; queue[tail++] = n; }
-      }
-      if (y > 0) {
-        const n = index - cols;
-        if (open[n] && dist[n] === UNREACHABLE) { dist[n] = d; queue[tail++] = n; }
-      }
-      if (y < rows - 1) {
-        const n = index + cols;
-        if (open[n] && dist[n] === UNREACHABLE) { dist[n] = d; queue[tail++] = n; }
-      }
+      d++;
     }
     this.ready = true;
   }

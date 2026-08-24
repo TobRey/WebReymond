@@ -38,7 +38,10 @@ export function rollChoices(content, run, count = 3) {
   let guard = 0;
   while (cards.length < count && guard++ < 60) {
     // Fähigkeit "Glückskarten" verschiebt die Seltenheiten nach oben.
-    const rarity = rollRarity(balance, run.cycle + (run.perk === 'luckyCards' ? 2 : 0));
+    // Glueck (Karte "Glücksklee") und die Fähigkeit "Glückskarten"
+    // verschieben die Seltenheiten nach oben.
+    const glueck = (run.stats.luck || 0) / 10;
+    const rarity = rollRarity(balance, run.cycle + (run.perk === 'luckyCards' ? 2 : 0) + glueck);
     let options = pool.filter(
       (u) => u.rarity === rarity && !usedIds.has(u.id) && run.stackCount(u.id) < u.maxStack,
     );
@@ -56,7 +59,7 @@ export function rollChoices(content, run, count = 3) {
       rarity: upgrade.rarity,
       title: upgrade.name,
       description: upgrade.description,
-      valueText: formatModifier(upgrade),
+      valueText: formatModifiers(upgrade),
       icon: upgrade.icon,
     });
   }
@@ -75,6 +78,12 @@ export function rollRarity(balance, cycle) {
   if (roll < legendary + epic) return 'epic';
   if (roll < legendary + epic + rare) return 'rare';
   return 'common';
+}
+
+/** Alle Werte einer Karte als kurze Zeile. */
+export function formatModifiers(upgrade) {
+  const mods = Array.isArray(upgrade.mods) && upgrade.mods.length ? upgrade.mods : [upgrade];
+  return mods.map((mod) => formatModifier(mod)).join(' · ');
 }
 
 export function formatModifier(upgrade) {

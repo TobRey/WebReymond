@@ -324,7 +324,7 @@ function initAudio() {
   Audio.configure(content);
   if (cfg.musicEnabled === false) Audio.setMusicOn(false);
   syncSoundButtons();
-  if (Audio.settings.musicOn) Audio.startMusic();
+  if (Audio.settings.musicOn) Audio.playTrack('menu');
 }
 
 function syncSoundButtons() {
@@ -368,7 +368,10 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('is-active', s.id === id));
   const inGame = !id;
   $('hud').hidden = !inGame;
+  $('btn-ult').hidden = !inGame;
   input.enabled = inGame;
+  // Ausserhalb der Runde laeuft die Menuemusik, im Kampf die Kampfmusik.
+  if (!inGame) Audio.playTrack('menu');
 }
 
 function toast(message, kind) {
@@ -538,10 +541,11 @@ async function startRun(weapon) {
     },
   });
   loop.start();
-  arena.start();
   Audio.play('gameStart');
-  Audio.ensureMusic();
-  banner('Welle 1', false);
+  Audio.playTrack('game');
+  // Welle 1 vorbereiten, dann drei Sekunden Vorlauf.
+  arena.start();
+  countdown(arena.run.cycle, arena.run.wave, () => arena.waves.beginSpawning());
 
   // Sicherheitsnetz: Weist der Browser die Wiedergabe einmal ab, versucht
   // es das Spiel während des Runs regelmäßig erneut.
@@ -569,9 +573,12 @@ function wireArena(instance) {
     $('boss-name').textContent = (instance.boss && instance.boss.def.name) || 'Boss';
   });
   instance.on('bossEnrage', () => toast('Der Boss wird wütend!', 'error'));
+  instance.on('effectNote', (text) => toast(text));
   instance.on('death', (summary) => {
     loop.setPaused(true);
-    Audio.duckMusic(true);
+    countdownStop();
+    // Nach dem Tod ist die Runde vorbei - die Menuemusik uebernimmt.
+    Audio.playTrack('menu');
     saveBest(summary);
     showDeath(summary);
     submitRun(summary);
@@ -587,6 +594,82 @@ function banner(text, boss) {
   banner._t = setTimeout(() => {
     node.hidden = true;
   }, 2200);
+}
+
+/* ------------------------------------------------------------- Countdown */
+/**
+ * Drei Sekunden Vorlauf vor jeder Welle und nach jeder Pause.
+ *
+ * Ohne den Vorlauf stand man nach dem Fortsetzen sofort wieder unter
+ * Beschuss, ohne die Lage erfassen zu koennen. Der Countdown haelt die
+ * Schleife an und gibt sie danach frei.
+ *
+ * @param welle   Wellennummer fuer die Anzeige
+ * @param zyklus  Zyklusnummer fuer die Anzeige
+ * @param fertig  wird nach dem Countdown aufgerufen
+ */
+let countdownTimer = 0;
+
+function countdown(zyklus, welle, fertig, text) {
+  countdownStop();
+  if (!loop) {
+    if (fertig) fertig();
+    return;
+  }
+  loop.setPaused(true);
+
+  const box = $('countdown');
+  const zahl = $('countdown-zahl');
+  const kicker = $('countdown-kicker');
+  kicker.textContent = text || (welle === 4 ? `Zyklus ${zyklus} · Boss` : `Zyklus ${zyklus} · Welle ${welle} von 4`);
+  box.hidden = false;
+
+  let rest = 3;
+  const zeige = (wert) => {
+    zahl.classList.remove('is-tick', 'is-los');
+    // Neustart der Animation erzwingen.
+    void zahl.offsetWidth;
+    zahl.textContent = wert;
+    zahl.classList.add('is-tick');
+    if (wert === 'LOS!') zahl.classList.add('is-los');
+    Audio.play(wert === 'LOS!' ? 'waveClear' : 'uiClick', { volume: wert === 'LOS!' ? 1 : 0.7 });
+  };
+
+  zeige(String(rest));
+  countdownTimer = setInterval(() => {
+    rest -= 1;
+    if (rest > 0) {
+      zeige(String(rest));
+      return;
+    }
+    if (rest === 0) {
+      zeige('LOS!');
+      return;
+    }
+    countdownStop();
+    box.hidden = true;
+    if (fertig) fertig();
+    // Erst jetzt laeuft das Spiel wieder.
+    if (arena && !arena.gameOver && !arena.isIntermission
+        && $('overlay-upgrade').hidden && $('overlay-swap').hidden
+        && $('overlay-pause').hidden && $('overlay-stats').hidden) {
+      input.reset();
+      loop.setPaused(false);
+      Audio.ensureMusic();
+    }
+  }, 700);
+}
+
+function countdownStop() {
+  clearInterval(countdownTimer);
+  countdownTimer = 0;
+  const box = $('countdown');
+  if (box) box.hidden = true;
+}
+
+/** Laeuft gerade ein Countdown? */
+function countdownAktiv() {
+  return countdownTimer !== 0;
 }
 
 /* -------------------------------------------------------------------- HUD */
@@ -627,6 +710,15 @@ function updateHud(force) {
     $('hud-weapon-name').textContent = run.weapon.name;
   }
 
+  // Ultimate-Knopf: Fuellstand und Restzeit.
+  const ultBtn = $('btn-ult');
+  if (ultBtn) {
+    const bereit = arena.ultReady;
+    ultBtn.classList.toggle('is-ready', bereit);
+    $('ult-fuell').style.setProperty('--fuell', (arena.ultProgress * 100).toFixed(0) + '%');
+    $('ult-zeit').textContent = bereit ? 'BEREIT' : Math.ceil(arena.ultTimer) + 's';
+  }
+
   if (arena.debug) {
     $('debug-panel').hidden = false;
     $('debug-panel').textContent =
@@ -664,7 +756,8 @@ function showUpgrades(info) {
       img.alt = '';
       node.appendChild(img);
     } else {
-      node.appendChild(el('div', 'card__icon--stat', statIcon(card.upgrade.stat)));
+      node.appendChild(el('div', 'card__icon--stat',
+        card.upgrade.effect ? effectIcon(card.upgrade.effect) : statIcon(card.upgrade.stat)));
     }
 
     node.appendChild(el('div', 'card__title', card.title));
@@ -677,12 +770,26 @@ function showUpgrades(info) {
   $('overlay-upgrade').hidden = false;
 }
 
+/** Symbol fuer Karten mit Sondereffekt. */
+function effectIcon(effect) {
+  return {
+    lifesteal: '🩸', critHeal: '🦷', thorns: '🌵', killFrenzy: '⚡', hurtFrenzy: '💉',
+    multikill: '💢', untouched: '✨', berserk: '😤', execute: '🪓', doubleShot: '🎯',
+    ghostShot: '👻', chainExplode: '💣', collide: '🏃', waveHeal: '🩹', treasure: '💎',
+    lastPotato: '🥔', blackhole: '🕳', slowmo: '⏳', midas: '👑', deathwave: '🌊',
+    soulEater: '💀', hunger: '🍖', clone: '🧬', bloodPact: '🩸', greedCurse: '🪙',
+    chaos: '🎲', goldenDice: '🎲', mutation: '🧪', potatoGod: '🥔',
+  }[effect] || '★';
+}
+
 function statIcon(stat) {
   return {
     damage: '⚔', attackSpeed: '⚡', moveSpeed: '👟', maxHealth: '❤', armor: '🛡',
     shield: '🔷', critChance: '🎯', critDamage: '💥', projectileSpeed: '🏹',
     range: '📏', knockback: '💨', dodge: '🌀', regen: '✚',
-    burn: '🔥', potionRate: '🧪',
+    burn: '🔥', potionRate: '🧪', pickupRange: '🧲', lifesteal: '🩸', luck: '🍀',
+    money: '💰', projectileDamage: '⚙', meleeRange: '🤜', rangedAttackSpeed: '🔫',
+    thorns: '🌵',
   }[stat] || '★';
 }
 
@@ -705,7 +812,9 @@ function finishUpgrade() {
   $('overlay-swap').hidden = true;
   updateHud(true);
   arena.waves.advance();
-  loop.setPaused(false);
+  updateHud(true);
+  // Die neue Welle startet erst nach dem Countdown.
+  countdown(arena.run.cycle, arena.run.wave, () => arena.waves.beginSpawning());
 }
 
 /* ------------------------------------------------------------------ Stats */
@@ -811,6 +920,7 @@ function showDeath(summary) {
 
 function quitToMenu() {
   clearInterval(musicWatch);
+  countdownStop();
   if (loop) loop.stop();
   if (arena) arena.destroy();
   arena = null;
@@ -856,9 +966,9 @@ function resumeGame() {
     || arena.gameOver || arena.isIntermission;
   Audio.duckMusic(blockiert);
   if (!blockiert) {
-    input.reset();
-    loop.setPaused(false);
+    // Nach der Pause erst drei Sekunden Vorlauf.
     Audio.ensureMusic();
+    countdown(arena.run.cycle, arena.run.wave, () => arena.waves.beginSpawning(), 'Weiter');
   }
 }
 
@@ -871,6 +981,15 @@ document.querySelectorAll('.overlay[data-dismiss]').forEach((o) =>
   }),
 );
 
+$('btn-ult').addEventListener('click', () => {
+  if (!arena || !loop || loop.paused) return;
+  if (!arena.useUlt()) {
+    toast('Druckwelle lädt noch: ' + Math.ceil(arena.ultTimer) + ' s', 'error');
+    return;
+  }
+  updateHud(true);
+});
+
 $('btn-stats').addEventListener('click', showStats);
 $('btn-sound').addEventListener('click', toggleSound);
 $('btn-sound-menu').addEventListener('click', toggleSound);
@@ -879,6 +998,7 @@ $('pause-resume').addEventListener('click', resumeGame);
 
 function pauseGame() {
   if (!loop || !arena) return;
+  countdownStop();
   loop.setPaused(true);
   Audio.duckMusic(true);
   syncSoundButtons();
@@ -953,6 +1073,11 @@ canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
 window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && arena && loop && !loop.paused) {
+    e.preventDefault();
+    arena.useUlt();
+    updateHud(true);
+  }
   if (e.code === 'F2' && arena) {
     arena.debug = !arena.debug;
     updateHud(true);

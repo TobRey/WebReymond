@@ -83,7 +83,7 @@ arena/
 │   │   ├── world/            map, collision, spawn, pickups, portals, flowfield
 │   │   ├── entities/         player, enemy
 │   │   ├── combat/           weapon, projectiles, melee
-│   │   ├── game/             arena, run, stats, waves, boss, upgrades, perks
+│   │   ├── game/             arena, run, stats, waves, boss, upgrades, perks, effects
 │   │   └── main.js           Menü, HUD, Overlays, Spielstart
 │   ├── css/game.css
 │   ├── sprites/              deine Sprites
@@ -193,13 +193,24 @@ welcher Nachbar näher dran ist, und läuft dorthin.
   fünfmal pro Sekunde. Steht er still, kostet die Wegfindung gar nichts.
 * Diagonalen gelten nur, wenn beide angrenzenden geraden Nachbarn frei sind —
   sonst würden Gegner durch Mauerecken schneiden.
+* **Wandnähe kostet extra.** Jede Zelle kostet 1 plus einen Aufschlag, wenn
+  eine Wand nah ist. Der günstigste Weg führt damit an Ecken vorbei statt
+  daran entlang. Weil die Kosten klein und ganzzahlig sind, reicht eine
+  Eimer-Warteschlange — das bleibt so schnell wie eine Breitensuche. Der
+  Aufschlag muss dabei **in** die Suche, nicht erst in die Richtungswahl:
+  sonst entstehen Senken, in denen kein Nachbar besser aussieht als die
+  eigene Zelle und der Gegner stehen bleibt.
+* Kommt einer trotz allem nicht voran, drückt ihn ein kurzer Stoss von der
+  Wand weg; hilft auch das nach 1,6 s nicht, wird er auf die nächste freie
+  Zelle gesetzt.
 * Im Nahbereich (gut zwei Zellen) steuern Gegner wieder direkt, damit sie
   dicht vor dem Spieler nicht am Zellenraster entlangzucken.
 
 Nachgemessen: Ein Gegner hinter einer 700 px langen Mauer läuft außen herum
-und kommt an. Auf der Standardkarte erreichen **23 von 24** Gegnern den
-Spieler in zwölf Sekunden (vorher 21) bei durchschnittlich 55 px Restabstand
-statt 116 px.
+und kommt nach 9,7 s an. Auf der Standardkarte erreichen in zwölf Sekunden
+**23 von 24** Gegnern den Spieler bei 45 px Restabstand — ohne Wegfindung
+sind es 20 von 24 bei 132 px. Die Neuberechnung kostet **1,75 ms** bei 16 384
+Zellen und vierfach gedrosselter CPU, höchstens fünfmal pro Sekunde.
 
 ### Warum es flüssig läuft
 
@@ -337,10 +348,28 @@ Möglichkeiten:
 * ein **animiertes GIF** – wird wie bisher automatisch zerlegt, oder
 * bis zu **fünf Einzelbilder** – das Spiel baut daraus selbst die Animation.
 
+Je Richtung lassen sich zusätzlich einstellen:
+
+* **Größe dieser Richtung** — nur das Bild, die Hitbox bleibt unberührt.
+  Seitliche Sprites sind oft anders gezeichnet als die von vorne; 1,35 macht
+  das Seitenbild um ein Drittel größer, ohne die Kollision zu verändern.
+* **Ganze Richtung spiegeln** — für Sprites, die falsch herum gezeichnet sind.
+* **Einzelnes Bild spiegeln** — der kleine ⇋-Knopf an jedem Einzelbild dreht
+  genau dieses eine um.
+
+Darunter läuft eine **Laufvorschau**: Die Figur dreht sich durch acht
+Richtungen, ein Pfeil zeigt die Laufrichtung, und Größe, Spiegelung und das
+aktuelle Einzelbild stehen als Text daneben. Änderungen wirken sofort.
+
 Liegen Einzelbilder vor, haben sie Vorrang. Das Tempo steuert **Bildwechsel
 (ms)** – 80 ms sind schnelle Schritte, 200 ms ein ruhiger Gang. Bilder
 unterschiedlicher Größe werden am Fußpunkt zentriert eingepasst, damit die
 Figur beim Wechsel nicht springt.
+
+Der **Staub** unter den Füßen wird beim Laden um 180 Grad gedreht (die
+mitgelieferte Wolke zeigt sonst nach oben) und blendet weit innen aus: voll
+deckend nur im Kern, danach über zwei Stufen bis auf null. Damit ist von der
+rechteckigen Bildkante nichts mehr zu sehen.
 
 Solange keine eigenen Sprites hochgeladen sind, unterscheiden sich die Figuren
 über eine **Farbdrehung** (Feld *Farbdrehung*, 0–360°) auf demselben Basissprite.
@@ -488,16 +517,100 @@ Starthöhe und Startabstand, ohne dass das Spiel gestartet werden muss.
 
 ---
 
+## Ultimate: Druckwelle
+
+Jeder Charakter hat denselben Notknopf — rund, rechts über der Waffenanzeige.
+Er füllt sich sichtbar auf und leuchtet, sobald er bereit ist; am PC löst
+zusätzlich die **Leertaste** aus.
+
+Beim Auslösen stösst eine Druckwelle alle Gegner im Umkreis nach aussen. Nah
+am Spieler wirkt sie am stärksten, Bosse fängt sie zu einem Viertel. Getroffene
+Gegner sind danach kurz benommen, damit sie nicht sofort zurücklaufen.
+
+| Wert | Standard | Bedeutung |
+|------|----------|-----------|
+| `ultCooldown` | 30 s | Abklingzeit |
+| `ultRadius` | 300 px | Wirkungskreis |
+| `ultKnockback` | 1400 | Wucht des Stosses |
+| `ultDamage` | 0 | Schaden (0 = reiner Rückstoss) |
+
+Nachgemessen: Gegner in 80–90 px Abstand landen nach dem Auslösen bei
+158–480 px, die Abklingzeit springt auf 30 s und ein zweiter Druck wird
+abgewiesen.
+
+---
+
+## Countdown und Wellenwechsel
+
+Vor jeder Welle und nach jeder Pause laufen **drei Sekunden** herunter —
+gross in der Bildmitte, mit dem Stand darüber (*Zyklus 1 · Welle 2 von 4*).
+Erst danach erscheinen Boss und Starttruppe. Ohne diesen Vorlauf stand man
+nach dem Fortsetzen sofort wieder unter Beschuss.
+
+Am Ende einer Welle **fallen alle übrigen Gegner um** — ohne Belohnung, wer
+die Welle aussitzt, hat davon nichts. Der Boss bleibt ausgenommen, seinen
+Kampf beendet man selbst.
+
+### Gegner fallen um
+
+Getötete Gegner verschwinden nicht mehr sofort: Sie kippen zur Seite, sacken
+ab und lösen sich nach **einer Sekunde** auf. Der Schwung aus dem Todesstoss
+trägt sie dabei noch ein Stück. Für Treffer, Ziele und die Gegnerzählung sind
+sie sofort raus — nur zu sehen sind sie noch.
+
+---
+
 ## Upgrades
 
-23 Upgrades in vier Seltenheiten (Common, Rare, Epic, Legendary). Nach jeder
-Welle werden drei Karten gezogen; mit steigendem Zyklus wachsen die Chancen auf
-seltene Karten (`rarityCycleBonus`).
+**53 Upgrades** in vier Seltenheiten (Common, Rare, Epic, Legendary). Nach
+jeder Welle werden drei Karten gezogen; mit steigendem Zyklus — und mit
+**Glück** — wachsen die Chancen auf seltene Karten.
+
+Eine Karte kann **mehrere Werte gleichzeitig** verschieben (Proteinshake gibt
+Leben *und* Schaden, Glaskanone gibt Schaden *und* nimmt Rüstung) und
+zusätzlich einen **Sondereffekt** mitbringen, der eigene Logik im Spiel hat.
 
 Beeinflussbare Werte: Schaden, Angriffstempo, Bewegungstempo, Max. Leben,
 Rüstung, Schild, Krit-Chance, Krit-Schaden, Projektiltempo, Reichweite,
-Rückstoß, Ausweichen, Regeneration, **Feuerschaden** und
-**Heilflaschen-Chance**.
+Rückstoß, Ausweichen, Regeneration, Feuerschaden, Heilflaschen-Chance,
+Aufsammelreichweite, **Lebensraub, Glück, Geld, Projektilschaden,
+Nahkampfreichweite, Fernkampftempo und Dornen**.
+
+### Die 29 Sondereffekte
+
+| Effekt | Wirkung |
+|--------|---------|
+| Lebensraub | Ein Teil des Schadens kommt als Leben zurück |
+| Vampirzähne | Kritische Treffer heilen zusätzlich |
+| Dornenhaut | Berührende Gegner nehmen Schaden |
+| Kampfrausch | Kills geben 3 s lang mehr Angriffstempo |
+| Kampfdroge | Nach einem Treffer 2,5 s mehr Angriffstempo |
+| Multikill | Vier Kills in 2,5 s geben 4 s mehr Schaden |
+| Perfektionist | Bis zu +30 % Schaden nach 8 s ohne Treffer |
+| Berserker | Bis zu +50 % Schaden bei fast leerer Leiste |
+| Henker | +35 % gegen Gegner unter halbem Leben |
+| Doppelschuss | 20 % Chance auf ein zweites Projektil |
+| Geistergeschoss | Projektile durchdringen einen Gegner mehr |
+| Kettenreaktion | 28 % Chance, dass die Leiche explodiert |
+| Turbo | Wer dich rammt, nimmt Schaden |
+| Notverband | +12 % Leben zu jeder Welle |
+| Schatzjäger | +60 % aus Bossen und Truhen |
+| Letzte Kartoffel | Überlebt einmal je Welle den Todesstoss |
+| Schwarzes Loch | Zieht alle 9 s alles im Umkreis von 420 px heran |
+| Zeitlupe | Unter 35 % Leben laufen Gegner mit 55 % Tempo |
+| Midas-Hand | 16 % Chance auf Bonusgold je Kill |
+| Todeswelle | Unter 25 % Leben eine Druckwelle, alle 14 s |
+| Seelenfänger | Jeder Boss gibt dauerhaft +6 % Schaden |
+| Unendlicher Hunger | Je 25 Kills dauerhaft +6 Leben |
+| Klonmaschine | Alle 4 s ein zusätzlicher Schuss |
+| Blutpakt | +40 % Schaden, jede Welle kostet 8 Leben |
+| Fluch der Gier | +60 % Geld, +25 % Gegnerleben |
+| Chaos-Kern | Jede Welle ein Vorteil und ein Nachteil |
+| Goldener Würfel | Jede Welle ein zufälliger Wert dauerhaft besser |
+| Mutation | Jede Welle +4 % Schaden, +5 % Gegnerleben |
+| Kartoffelgott | Sechs Werte auf einmal — und zähere Gegner |
+
+Alle Zahlen stehen gebündelt in `assets/js/game/effects.js`.
 
 ### Verbrennung
 
@@ -584,9 +697,9 @@ leicht.
 | **Upgrades** | Anlegen, bearbeiten, duplizieren, löschen; Stat, Modifikator, Seltenheit, Gewicht, Stapel |
 | **Gegenstände** | Tränke, Truhen und eigene Fundstücke: Wirkung, Spawnrate, Anzahl, Lebensdauer, Fundort, Partikelfarbe, Ton |
 | **Spieler** | Basiswerte und alle vier Spieler-Sprites |
-| **Balancing** | Wellendauer, Spawnrate, Skalierung, Bombenwerte, Kartenchancen |
+| **Balancing** | Wellendauer, Spawnrate, Skalierung, Bombenwerte, Kartenchancen, Ultimate |
 | **Charaktere** | Anlegen, bearbeiten, duplizieren, löschen; Sprites (GIF oder 5 Einzelbilder je Richtung), Bildtempo, Farbdrehung, Fähigkeiten, Werte, Hitbox, Freischaltkosten |
-| **Audio** | Musiktitel und **je Ereignis eine eigene Sounddatei** mit eigener Lautstärke, Vorhören, Autostart |
+| **Audio** | **Zwei Musiktitel** (Menü und Kampf) und **je Ereignis eine eigene Sounddatei** mit eigener Lautstärke, Vorhören, Autostart |
 
 ### Karten-Editor
 
@@ -637,6 +750,10 @@ früheren Version wird beim ersten Start automatisch übernommen.
   Startwunsch und löst ihn bei der ersten Geste (Tippen, Klick, Taste) ein.
 * Während Pause, Statistik- und Upgrade-Bildschirm wird die Musik automatisch
   auf 30 % heruntergeblendet und danach wieder hochgezogen.
+* **Zwei Titel:** `music-menu.mp3` läuft im Menü und auf allen Bildschirmen
+  ausserhalb des Kampfes, `music-arena.mp3` nur während einer laufenden Runde.
+  Beim Wechsel blendet der eine aus und der andere ein — im Menü ist die
+  Kampfmusik wirklich aus, nicht nur leise. Beide sind im Admin austauschbar.
 * Der **🔊-Knopf** im HUD und im Hauptmenü schaltet alles stumm und wieder an.
   Feiner geht es in der **Pause**: dort sitzen getrennte Schalter und Regler für
   Musik und Effekte. Beides wird pro Gerät im `localStorage` gemerkt.
@@ -840,3 +957,18 @@ Automatisiert im echten Browser geprüft (Chromium, Desktop und Mobil-Viewport):
   vorher wie nachher); mit *Malen* 5121, mit *Radieren* 4922
 * Menü in Hochkant, Querformat und auf dem Desktop geprüft — der Schriftzug
   wird in keinem Format angeschnitten
+* Menümusik läuft in der Auswahl, Kampfmusik in der Runde; beim Wechsel
+  blendet die eine aus und die andere ein
+* Countdown: sichtbar mit Zahl, Schleife angehalten, danach läuft das Spiel
+* Gefallene Gegner kippen sofort um und sind nach 1,3 s verschwunden
+* Wellenende räumt ab: 5 kämpfende Gegner → 0, 11 fallen um
+* Ultimate: Gegner aus 80–90 px landen bei 158–480 px, Abklingzeit springt
+  auf 30 s, ein zweiter Druck wird abgewiesen
+* Alle 53 Upgrade-Karten nacheinander angewandt: keine Fehler, 29 Effekte
+  aktiv, danach 60 FPS im laufenden Spiel
+* Wellenstart-Effekte greifen (Mutation +0,04 Schaden, Blutpakt kostet Leben)
+* Sprite-Größe und Spiegelung je Richtung gespeichert und im Spiel wirksam
+  (Seite 1,35, gespiegelt)
+* Staub wird gedreht geladen (`staub.gif#faded-gedreht`)
+* Wegfindung: 23 von 24 Ankünften bei 45 px statt 20 von 24 bei 132 px;
+  Gegner hinter einer Mauer kommt nach 9,7 s an

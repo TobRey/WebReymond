@@ -50,6 +50,17 @@ export class Player {
     return this.sprites.front;
   }
 
+  /**
+   * Groessenfaktor der aktuellen Blickrichtung.
+   *
+   * Seitliche Sprites sind oft schmaler oder groesser gezeichnet als die
+   * von vorne - der Faktor gleicht das aus, ohne die Hitbox anzufassen.
+   */
+  get spriteScale() {
+    const skalen = this.sprites.scales || {};
+    return skalen[this.facing] || 1;
+  }
+
   /** Temposchub für eine begrenzte Zeit. */
   boost(factor, seconds) {
     this.boostFactor = Math.max(this.boostFactor, factor);

@@ -19,6 +19,13 @@ export const STAT_LABELS = {
   burn: 'Feuerschaden',
   potionRate: 'Heilflaschen',
   pickupRange: 'Aufsammelreichweite',
+  lifesteal: 'Lebensraub',
+  luck: 'Glück',
+  money: 'Geld',
+  projectileDamage: 'Projektilschaden',
+  meleeRange: 'Nahkampfreichweite',
+  rangedAttackSpeed: 'Fernkampftempo',
+  thorns: 'Dornen',
 };
 
 export function emptyModifiers() {
@@ -39,6 +46,13 @@ export function emptyModifiers() {
     burn: { percent: 0, flat: 0 },
     potionRate: { percent: 0, flat: 0 },
     pickupRange: { percent: 0, flat: 0 },
+    lifesteal: { percent: 0, flat: 0 },
+    luck: { percent: 0, flat: 0 },
+    money: { percent: 0, flat: 0 },
+    projectileDamage: { percent: 0, flat: 0 },
+    meleeRange: { percent: 0, flat: 0 },
+    rangedAttackSpeed: { percent: 0, flat: 0 },
+    thorns: { percent: 0, flat: 0 },
   };
 }
 
@@ -83,8 +97,18 @@ export function resolveStats(base, mods, character = null) {
     // Reichweite, ab der Heilflaschen zum Spieler fliegen.
     pickupRange: Math.max(20, (base.pickupRange || 90) * mult('pickupRange') * pct('pickupRange')
       + flat('pickupRange')),
-    // Geld-Faktor des Charakters.
-    moneyMult: mult('money'),
+    // Geld: Charakterfaktor mal Upgrades.
+    moneyMult: mult('money') * pct('money') + flat('money') / 100,
+    // Anteil des Schadens, der als Leben zurueckkommt (in Prozent).
+    lifesteal: Math.max(0, add('lifesteal') + flat('lifesteal')),
+    // Glueck hebt Kartenseltenheit und Fundchancen an.
+    luck: Math.max(0, add('luck') + flat('luck')),
+    // Schaden, den ein beruehrender Gegner selbst nimmt.
+    thorns: Math.max(0, add('thorns') + flat('thorns')),
+    // Nur fuer Geschosse bzw. nur fuer den Nahkampf.
+    projectileDamageMult: pct('projectileDamage'),
+    meleeRangeMult: pct('meleeRange'),
+    rangedAttackSpeedMult: pct('rangedAttackSpeed'),
   };
 }
 

@@ -248,19 +248,31 @@ async function loadOne(src, maxSide = MAX_SPRITE_SIDE) {
  * Alle Bilder werden auf die Größe des ersten gebracht, damit die
  * Animation nicht springt.
  */
-async function loadSequence(paths, frameDuration) {
+/**
+ * Baut aus Einzelbildern eine Animation.
+ *
+ * @param flips  je Bild true, wenn es gespiegelt werden soll - so lassen
+ *               sich falsch herum gezeichnete Einzelbilder geraderücken,
+ *               ohne die Datei zu ändern.
+ */
+async function loadSequence(paths, frameDuration, flips = []) {
   const images = [];
-  for (const path of paths) {
-    const sprite = await Assets.load(path);
-    if (sprite) images.push(sprite);
+  const spiegel = [];
+  for (let i = 0; i < paths.length; i++) {
+    const sprite = await Assets.load(paths[i]);
+    if (sprite) {
+      images.push(sprite);
+      spiegel.push(!!flips[i]);
+    }
   }
   if (!images.length) return null;
 
   const width = images[0].width;
   const height = images[0].height;
-  const frames = images.map((sprite) => {
+  const frames = images.map((sprite, i) => {
     const frame = sprite.frames[0];
-    if (sprite.width === width && sprite.height === height) return frame;
+    const gespiegelt = spiegel[i];
+    if (!gespiegelt && sprite.width === width && sprite.height === height) return frame;
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
@@ -270,13 +282,34 @@ async function loadSequence(paths, frameDuration) {
     const factor = Math.min(width / sprite.width, height / sprite.height);
     const w = sprite.width * factor;
     const h = sprite.height * factor;
+    if (gespiegelt) {
+      ctx.translate(width, 0);
+      ctx.scale(-1, 1);
+    }
     ctx.drawImage(frame, (width - w) / 2, height - h, w, h);
     return canvas;
   });
-  return new Sprite(frames, frames.map(() => frameDuration), width, height, paths.join('|'));
+  return new Sprite(frames, frames.map(() => frameDuration), width, height,
+    paths.join('|') + (spiegel.some(Boolean) ? '#flip' : ''));
 }
 
 /** Färbt alle Frames eines Sprites um (Farbdrehung in Grad). */
+/** Spiegelt alle Bilder eines Sprites waagerecht. */
+function mirrorSprite(sprite) {
+  const frames = sprite.frames.map((frame) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = sprite.width;
+    canvas.height = sprite.height;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.translate(sprite.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(frame, 0, 0, sprite.width, sprite.height);
+    return canvas;
+  });
+  return new Sprite(frames, sprite.delays.slice(), sprite.width, sprite.height, sprite.src + '#mirror');
+}
+
 function tintSprite(sprite, degrees) {
   if (!degrees) return sprite;
   const frames = sprite.frames.map((frame) => {
@@ -298,7 +331,19 @@ function tintSprite(sprite, degrees) {
  * Verlauf über destination-in lässt die Ränder verlaufen, sodass die
  * Wolke am Boden aufgeht statt als Kachel zu enden.
  */
-function fadeEdges(sprite, softness = 0.42) {
+/**
+ * Blendet die Bildränder weich aus - und dreht das Bild bei Bedarf.
+ *
+ * Der Staub ist ein Rechteck mit harter Kante. Ein radialer Verlauf über
+ * destination-in lässt die Ränder verlaufen, sodass die Wolke am Boden
+ * aufgeht statt als Kachel zu enden. Die Blende setzt bewusst weit innen
+ * an (Standard bei 38 % des Radius), damit von den Bildkanten wirklich
+ * nichts mehr zu sehen ist.
+ *
+ * @param drehen  true dreht das Bild um 180 Grad - der mitgelieferte
+ *                Staub zeigt sonst nach oben statt unter die Füße.
+ */
+function fadeEdges(sprite, softness = 0.62, drehen = false) {
   const frames = sprite.frames.map((frame) => {
     const w = sprite.width;
     const h = sprite.height;
@@ -306,7 +351,16 @@ function fadeEdges(sprite, softness = 0.42) {
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(frame, 0, 0, w, h);
+
+    if (drehen) {
+      ctx.save();
+      ctx.translate(w / 2, h / 2);
+      ctx.rotate(Math.PI);
+      ctx.drawImage(frame, -w / 2, -h / 2, w, h);
+      ctx.restore();
+    } else {
+      ctx.drawImage(frame, 0, 0, w, h);
+    }
 
     ctx.globalCompositeOperation = 'destination-in';
     ctx.save();
@@ -316,7 +370,9 @@ function fadeEdges(sprite, softness = 0.42) {
     ctx.scale(w / 2, h / 2);
     const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
     gradient.addColorStop(0, 'rgba(0,0,0,1)');
-    gradient.addColorStop(Math.max(0, 1 - softness), 'rgba(0,0,0,1)');
+    // Voll deckend nur im inneren Kern, danach lang auslaufend.
+    gradient.addColorStop(Math.max(0, 1 - softness), 'rgba(0,0,0,0.92)');
+    gradient.addColorStop(Math.max(0, 1 - softness * 0.45), 'rgba(0,0,0,0.45)');
     gradient.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = gradient;
     ctx.fillRect(-1, -1, 2, 2);
@@ -324,7 +380,8 @@ function fadeEdges(sprite, softness = 0.42) {
     ctx.globalCompositeOperation = 'source-over';
     return canvas;
   });
-  return new Sprite(frames, sprite.delays.slice(), sprite.width, sprite.height, sprite.src + '#faded');
+  return new Sprite(frames, sprite.delays.slice(), sprite.width, sprite.height,
+    sprite.src + '#faded' + (drehen ? '-gedreht' : ''));
 }
 
 export const Assets = {
@@ -375,17 +432,25 @@ export const Assets = {
    * eine Bilderfolge, dazu die getönte Fassung und der weiche Staub.
    */
   async loadCharacter(character) {
-    const key = 'character:' + character.id + ':' + (character.tint || 0);
+    // Der Schluessel enthaelt alles, was das Aussehen veraendert - sonst
+    // bliebe nach einer Aenderung im Admin das alte Bild im Zwischenspeicher.
+    const teile = ['front', 'back', 'side'].map((dir) => {
+      const e = (character.sprites && character.sprites[dir]) || {};
+      return dir + (e.flip ? 'F' : '') + (e.scale ?? 1) + (e.flips || []).map((f) => (f ? 1 : 0)).join('');
+    });
+    const key = 'character:' + character.id + ':' + (character.tint || 0) + ':' + teile.join(',');
     if (cache.has(key)) return cache.get(key);
 
     const build = async (dir) => {
       const entry = (character.sprites && character.sprites[dir]) || {};
       let sprite = null;
       if (Array.isArray(entry.frames) && entry.frames.length) {
-        sprite = await loadSequence(entry.frames, character.frameDuration || 130);
+        sprite = await loadSequence(entry.frames, character.frameDuration || 130, entry.flips || []);
       }
       if (!sprite && entry.gif) sprite = await Assets.load(entry.gif);
       if (!sprite) sprite = await Assets.load('assets/sprites/playerfront.gif');
+      // Ganze Richtung spiegeln, falls das Sprite falsch herum gezeichnet ist.
+      if (entry.flip) sprite = mirrorSprite(sprite);
       return tintSprite(sprite, character.tint || 0);
     };
 
@@ -393,7 +458,11 @@ export const Assets = {
       build('front'), build('back'), build('side'),
       Assets.load(character.dustSprite || 'assets/sprites/staub.gif'),
     ]);
-    const set = { front, back, side, dust: fadeEdges(dustRaw) };
+    const skalen = {};
+    for (const dir of ['front', 'back', 'side']) {
+      skalen[dir] = ((character.sprites && character.sprites[dir]) || {}).scale || 1;
+    }
+    const set = { front, back, side, dust: fadeEdges(dustRaw, 0.42, true), scales: skalen };
     cache.set(key, set);
     return set;
   },

@@ -1,6 +1,9 @@
 import { Pool } from '../core/pool.js';
 import { SpatialHash } from '../core/spatial.js';
 import { rand, TAU } from '../core/util.js';
+
+/** Wie lange ein gefallener Gegner liegen bleibt, bevor er verschwindet. */
+export const DEATH_DURATION = 1.0;
 import { FlowField } from '../world/flowfield.js';
 
 /**
@@ -26,6 +29,7 @@ export class EnemyManager {
         contactCooldown: 0.8, deathTime: 0, hitboxOx: 0, hitboxOy: 0, id: 0,
         burnDps: 0, burnTime: 0, burnTick: 0, burnNumber: 0, burnPhase: 0,
         slowTime: 0, slowFactor: 1,
+        dying: false, deathTime: 0, deathTilt: 0, stuckTime: 0,
       }),
       (e, options) => {
         Object.assign(e, options);
@@ -47,6 +51,10 @@ export class EnemyManager {
         e.burnPhase = rand(0, 900);
         e.slowTime = 0;
         e.slowFactor = 1;
+        e.dying = false;
+        e.deathTime = 0;
+        e.deathTilt = 0;
+        e.stuckTime = 0;
       },
       40,
     );
@@ -59,6 +67,15 @@ export class EnemyManager {
 
   get count() {
     return this.pool.count;
+  }
+
+  /** Nur die, die noch kaempfen - Sterbende zaehlen nicht mit. */
+  get countAlive() {
+    let n = 0;
+    for (const e of this.pool.active) {
+      if (e.alive && !e.dying) n++;
+    }
+    return n;
   }
 
   clear() {
@@ -99,6 +116,21 @@ export class EnemyManager {
     for (const e of this.pool.active) {
       e.spawnTime += dt;
       if (e.hitFlash > 0) e.hitFlash = Math.max(0, e.hitFlash - dt * 5);
+
+      // Gefallene Gegner kippen um und loesen sich danach auf.
+      if (e.dying) {
+        e.deathTime += dt;
+        e.deathTilt = Math.min(1, e.deathTime / 0.32);
+        // Der Schwung aus dem Todesstoss traegt sie noch ein Stueck.
+        if (e.knockX || e.knockY) {
+          const decay = Math.pow(0.0006, dt);
+          e.knockX *= decay;
+          e.knockY *= decay;
+          map.mask.moveEntity(e, e.knockX * dt, e.knockY * dt, e.radius * 0.7, e.radius * 0.55);
+        }
+        if (e.deathTime >= DEATH_DURATION) e.alive = false;
+        continue;
+      }
 
       // Ziel: Spieler, aber mit leichtem seitlichem Versatz.
       e.wanderTimer -= dt;
@@ -146,6 +178,31 @@ export class EnemyManager {
       vx += sepX * 1.35;
       vy += sepY * 1.35;
 
+      /*
+       * Wandabstoss - aber nur, wenn er wirklich gebraucht wird.
+       *
+       * Ein dauerhafter Druck von der Wand weg kaempft gegen die
+       * Wegfindung: An einem Mauerende hoben sich beide gegenseitig auf
+       * und der Gegner blieb stehen. Deshalb greift der Abstoss erst,
+       * wenn er im letzten Takt nicht vorangekommen ist.
+       */
+      if (e.stuckTime > 0.12) {
+        const zelleX = (e.x / map.mask.cellW) | 0;
+        const zelleY = (e.y / map.mask.cellH) | 0;
+        let wandX = 0;
+        let wandY = 0;
+        for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          if (!map.mask.cellBlocked(zelleX + ox, zelleY + oy)) continue;
+          wandX -= ox;
+          wandY -= oy;
+        }
+        if (wandX || wandY) {
+          const laenge = Math.hypot(wandX, wandY) || 1;
+          vx += (wandX / laenge) * 0.6;
+          vy += (wandY / laenge) * 0.6;
+        }
+      }
+
       const len = Math.hypot(vx, vy) || 1;
       vx /= len;
       vy /= len;
@@ -174,14 +231,36 @@ export class EnemyManager {
       const stepX = (e.vx + e.knockX) * dt;
       const stepY = (e.vy + e.knockY) * dt;
       const ry = e.radius * 0.62;
+      const vorherX = e.x;
+      const vorherY = e.y;
       const movedX = map.mask.moveEntity(e, stepX, 0, e.radius * 0.75, ry);
       const movedY = map.mask.moveEntity(e, 0, stepY, e.radius * 0.75, ry);
+
+      // Kaum von der Stelle gekommen, obwohl er wollte? Dann haengt er.
+      const strecke = Math.hypot(e.x - vorherX, e.y - vorherY);
+      const gewollt = Math.hypot(stepX, stepY);
+      if (gewollt > 0.01 && strecke < gewollt * 0.35) e.stuckTime += dt;
+      else e.stuckTime = 0;
 
       // Hängt der Gegner an einer Wand, seitlich daran entlanggleiten.
       if (!movedX && !movedY && (stepX || stepY)) {
         const side = e.wander >= 0 ? 1 : -1;
-        map.mask.moveEntity(e, -dy * side * speed * dt, dx * side * speed * dt, e.radius * 0.75, ry);
+        const glitt = map.mask.moveEntity(
+          e, -dy * side * speed * dt, dx * side * speed * dt, e.radius * 0.75, ry,
+        );
         e.wander = -e.wander;
+        if (glitt) e.stuckTime = 0;
+      }
+
+      // Steckt er trotz allem fest, wird er auf die naechste freie Zelle
+      // gesetzt, statt in der Ecke zu zappeln.
+      if (e.stuckTime > 1.6) {
+        e.stuckTime = 0;
+        const frei = map.mask.nearestFree(e.x, e.y, e.radius * 0.8, ry, 140);
+        e.x = frei.x;
+        e.y = frei.y;
+        e.knockX = 0;
+        e.knockY = 0;
       }
 
       if (Math.abs(e.vx) > 6) e.flip = e.vx < 0;
@@ -227,3 +306,5 @@ export function enemyHitboxY(e) {
 }
 
 export const ENEMY_ANIM_SPREAD = TAU;
+
+

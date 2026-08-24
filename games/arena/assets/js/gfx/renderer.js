@@ -1,5 +1,6 @@
 import { Assets } from './assets.js';
 import { TAU, clamp } from '../core/util.js';
+import { DEATH_DURATION } from '../entities/enemy.js';
 
 const silhouettes = new WeakMap();
 
@@ -129,6 +130,7 @@ export class Renderer {
     arena.projectiles.draw(ctx, time);
     arena.melee.draw(ctx);
     arena.bossCtrl.draw(ctx, time);
+    this.drawShockwaves(ctx, arena);
     arena.effects.drawParticles(ctx);
     arena.effects.drawAnimations(ctx);
     this.drawHealthbars();
@@ -182,9 +184,11 @@ export class Renderer {
     // Beim Portalsprung zieht sich die Figur kurz zusammen und dehnt sich
     // am Ziel wieder aus - so sieht man den Wechsel, statt ihn nur zu merken.
     const sprung = player.teleport;
+    // Jede Blickrichtung darf eine eigene Groesse haben.
+    const eigen = player.spriteScale;
     const squash = (1 - player.squash * 0.12) * (1 - sprung * 0.55);
-    const height = player.scale * squash;
-    const width = (sprite.width / sprite.height) * player.scale * (1 - sprung * 0.35);
+    const height = player.scale * eigen * squash;
+    const width = (sprite.width / sprite.height) * player.scale * eigen * (1 - sprung * 0.35);
     const frame = sprite.frameAt(player.moving ? player.moveTime * 1000 : 0);
     const drawX = player.x - width / 2;
     const drawY = player.y + player.footOffset * 0.45 - height;
@@ -271,6 +275,18 @@ export class Renderer {
     }
 
     ctx.save();
+
+    // Gefallene Gegner kippen zur Seite, sacken ab und blenden aus.
+    if (enemy.dying) {
+      const t = Math.min(1, enemy.deathTime / DEATH_DURATION);
+      const kippen = enemy.deathTilt * (Math.PI / 2) * (enemy.flip ? -1 : 1);
+      const boden = enemy.y + enemy.radius * 0.45;
+      ctx.globalAlpha = t > 0.62 ? Math.max(0, 1 - (t - 0.62) / 0.38) : 1;
+      ctx.translate(enemy.x, boden);
+      ctx.rotate(kippen * 0.85);
+      ctx.translate(-enemy.x, -boden + enemy.radius * 0.18 * enemy.deathTilt);
+    }
+
     if (enemy.flip) {
       ctx.translate(enemy.x, 0);
       ctx.scale(-1, 1);
@@ -309,7 +325,7 @@ export class Renderer {
 
     ctx.save();
     for (const enemy of arena.enemies.list) {
-      if (!enemy.alive || enemy.burnTime <= 0) continue;
+      if (!enemy.alive || enemy.dying || enemy.burnTime <= 0) continue;
       if (!arena.camera.visible(enemy.x, enemy.y, enemy.scale)) continue;
 
       const h = enemy.scale * 0.66;
@@ -328,6 +344,32 @@ export class Renderer {
    * fill/restore spürbar Bildrate. Ein einmal erzeugter Kreis, skaliert
    * gezeichnet, sieht identisch aus und ist ein einziger drawImage-Aufruf.
    */
+  /** Die Druckwelle der Ultimate als aufziehender Ring. */
+  drawShockwaves(ctx, arena) {
+    for (const w of arena.shockwaves) {
+      const t = Math.min(1, w.time / w.life);
+      // "invers" zieht den Ring zusammen - so sieht ein Abflug anders aus
+      // als eine Ankunft.
+      const anteil = w.invers ? 1 - Math.pow(t, 0.7) : 0.15 + 0.85 * Math.pow(t, 0.55);
+      const r = Math.max(2, w.radius * anteil);
+      const farbe = w.color || '#bfe0ff';
+      ctx.save();
+      ctx.globalAlpha = (1 - t) * 0.85;
+      ctx.strokeStyle = farbe;
+      ctx.lineWidth = 10 * (1 - t) + 2;
+      ctx.beginPath();
+      ctx.arc(w.x, w.y, r, 0, TAU);
+      ctx.stroke();
+
+      ctx.globalAlpha = (1 - t) * 0.3;
+      ctx.lineWidth = 22 * (1 - t) + 2;
+      ctx.beginPath();
+      ctx.arc(w.x, w.y, r * 0.82, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   shadow(x, y, rx, ry) {
     const sprite = shadowSprite();
     if (!sprite) return;
@@ -342,7 +384,7 @@ export class Renderer {
     const height = 4.5 * px + 1.5;
 
     for (const enemy of arena.enemies.list) {
-      if (!enemy.alive || enemy.health >= enemy.maxHealth) continue;
+      if (!enemy.alive || enemy.dying || enemy.health >= enemy.maxHealth) continue;
       if (enemy.boss) continue; // Boss hat die große Leiste im HUD
       if (!arena.camera.visible(enemy.x, enemy.y, enemy.scale)) continue;
 

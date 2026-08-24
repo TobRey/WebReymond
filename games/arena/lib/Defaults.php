@@ -56,6 +56,8 @@ final class Defaults
     {
         return [
             'musicTrack' => 'assets/audio/music-arena.mp3',
+            // Eigener Titel fuer Menue und alle Bildschirme ausserhalb des Kampfes.
+            'musicMenu' => 'assets/audio/music-menu.mp3',
             'musicVolume' => 0.5,
             'sfxVolume' => 0.8,
             'musicEnabled' => true,
@@ -157,6 +159,11 @@ final class Defaults
             // So viele Gegner stehen zum Wellenstart schon bereit, damit es
             // nach der Upgrade-Auswahl sofort weitergeht.
             'waveStartEnemies' => 4,
+            // Ultimate: Druckwelle auf Knopfdruck.
+            'ultCooldown' => 30.0,
+            'ultRadius' => 300.0,
+            'ultKnockback' => 1400.0,
+            'ultDamage' => 0.0,
             'upgradeChoices' => 3,
             'rarityRareBase' => 26,
             'rarityEpicBase' => 9,
@@ -233,10 +240,15 @@ final class Defaults
     public static function characters(): array
     {
         $s = self::SPRITE_BASE;
+        // scale ist die Groesse nur dieser Richtung (1 = wie eingestellt),
+        // flip spiegelt die ganze Richtung, flips einzelne Bilder.
+        $richtung = static fn(string $datei): array => [
+            'gif' => $datei, 'frames' => [], 'flips' => [], 'flip' => false, 'scale' => 1.0,
+        ];
         $base = [
-            'front' => ['gif' => $s . 'playerfront.gif', 'frames' => []],
-            'back' => ['gif' => $s . 'playerback.gif', 'frames' => []],
-            'side' => ['gif' => $s . 'playerside.gif', 'frames' => []],
+            'front' => $richtung($s . 'playerfront.gif'),
+            'back' => $richtung($s . 'playerback.gif'),
+            'side' => $richtung($s . 'playerside.gif'),
         ];
 
         // id, Name, Tönung, Titel, Text, Fähigkeit, Werte, von Anfang an frei
@@ -436,50 +448,171 @@ final class Defaults
     }
 
     /** @return list<array<string, mixed>> */
+    /**
+     * Alle Upgrade-Karten.
+     *
+     * Eine Karte kann mehrere Werte gleichzeitig verschieben (mods) und
+     * zusaetzlich einen Sondereffekt mitbringen (effect), der im Spiel
+     * eigene Logik hat. Reine Wertekarten kommen ohne effect aus.
+     *
+     * Zeilenformat:
+     *   id, Name, Seltenheit, Gewicht, maxStack, Effekt, Beschreibung,
+     *   [[stat, percent|flat, Wert], ...]
+     *
+     * @return list<array<string, mixed>>
+     */
     public static function upgrades(): array
     {
-        // stat, modType (percent|flat), value, rarity, weight, maxStack
         $rows = [
-            ['sharp_blade', 'Scharfe Klinge', 'damage', 'percent', 8, 'common', 100, 12, 'Deine Waffe schlägt härter zu.'],
-            ['swift_feet', 'Flinke Füße', 'moveSpeed', 'percent', 8, 'common', 100, 10, 'Du bewegst dich spürbar schneller.'],
-            ['tough_skin', 'Zähe Haut', 'maxHealth', 'flat', 20, 'common', 100, 15, 'Mehr maximale Lebenspunkte.'],
-            ['rapid_fire', 'Schnellfeuer', 'attackSpeed', 'percent', 7, 'common', 100, 12, 'Deine Waffe greift öfter an.'],
-            ['long_arm', 'Langer Arm', 'range', 'percent', 10, 'common', 90, 8, 'Größere Reichweite.'],
-            ['tailwind', 'Rückenwind', 'projectileSpeed', 'percent', 12, 'common', 80, 8, 'Projektile fliegen schneller.'],
+            // --- Grundwerte -------------------------------------------------
+            ['dicke_haut', 'Dicke Haut', 'common', 100, 12, '', 'Mehr maximale Lebenspunkte.',
+                [['maxHealth', 'flat', 20]]],
+            ['schnelle_finger', 'Schnelle Finger', 'common', 100, 12, '', 'Du greifst spürbar öfter an.',
+                [['attackSpeed', 'percent', 8]]],
+            ['schwere_haende', 'Schwere Hände', 'common', 100, 12, '', 'Jeder Treffer sitzt härter.',
+                [['damage', 'percent', 9]]],
+            ['laufschuhe', 'Laufschuhe', 'common', 100, 10, '', 'Du bist schneller unterwegs.',
+                [['moveSpeed', 'percent', 8]]],
+            ['adlerauge', 'Adlerauge', 'common', 95, 10, '', 'Höhere Chance auf kritische Treffer.',
+                [['critChance', 'flat', 5]]],
+            ['magnet', 'Magnet', 'common', 85, 8, '', 'Gegenstände fliegen dir aus grösserer Entfernung zu.',
+                [['pickupRange', 'percent', 30]]],
+            ['panzerplatte', 'Panzerplatte', 'common', 95, 10, '', 'Zieht von jedem erlittenen Treffer ab.',
+                [['armor', 'flat', 3]]],
+            ['stahlkugeln', 'Stahlkugeln', 'common', 90, 10, '', 'Geschosse richten mehr Schaden an.',
+                [['projectileDamage', 'percent', 12]]],
+            ['lange_arme', 'Lange Arme', 'common', 85, 8, '', 'Grössere Reichweite im Nahkampf.',
+                [['meleeRange', 'percent', 14]]],
+            ['ersatzmagazin', 'Ersatzmagazin', 'common', 85, 8, '', 'Fernkampfwaffen feuern schneller.',
+                [['rangedAttackSpeed', 'percent', 10]]],
+            ['ruhige_hand', 'Ruhige Hand', 'common', 80, 8, '', 'Projektile fliegen schneller.',
+                [['projectileSpeed', 'percent', 14]]],
+            ['sparschwein', 'Sparschwein', 'common', 80, 8, '', 'Mehr Geld für alles, was du einsammelst.',
+                [['money', 'percent', 15]]],
+            ['gluecksklee', 'Glücksklee', 'rare', 80, 8, '', 'Bessere Karten und mehr Fundstücke.',
+                [['luck', 'flat', 10]]],
 
-            ['precision', 'Präzision', 'critChance', 'flat', 5, 'rare', 100, 10, 'Höhere Chance auf kritische Treffer.'],
-            ['impact', 'Wucht', 'knockback', 'percent', 25, 'rare', 70, 8, 'Gegner werden weiter zurückgestoßen.'],
-            ['leather_hide', 'Lederhaut', 'armor', 'flat', 3, 'rare', 100, 10, 'Reduziert jeden erlittenen Treffer.'],
-            ['regrowth', 'Regeneration', 'regen', 'flat', 0.9, 'rare', 90, 8, 'Heilt dich langsam über Zeit.'],
-            ['evasion', 'Ausweichen', 'dodge', 'flat', 4, 'rare', 80, 8, 'Chance, einem Treffer komplett auszuweichen.'],
-            ['burning', 'Verbrennung', 'burn', 'flat', 3, 'rare', 95, 10, 'Getroffene Gegner fangen Feuer und verlieren weiter Leben. Jede Stufe brennt heißer.'],
-            ['alchemy', 'Alchemie', 'potionRate', 'percent', 40, 'rare', 70, 6, 'Heilflaschen erscheinen deutlich häufiger auf der Karte.'],
+            // --- Zwei Werte auf einer Karte ---------------------------------
+            ['proteinshake', 'Proteinshake', 'rare', 90, 8, '', 'Mehr Leben und mehr Schaden.',
+                [['maxHealth', 'flat', 18], ['damage', 'percent', 7]]],
+            ['turnschuhe', 'Turnschuhe', 'rare', 85, 8, '', 'Schneller unterwegs und flinker im Ausweichen.',
+                [['moveSpeed', 'percent', 7], ['dodge', 'flat', 4]]],
+            ['ueberladung', 'Überladung', 'rare', 75, 6, '', 'Deutlich schnellere Angriffe - auf Kosten deiner Gesundheit.',
+                [['attackSpeed', 'percent', 18], ['maxHealth', 'flat', -12]]],
+            ['glaskanone', 'Glaskanone', 'epic', 80, 6, '', 'Viel mehr Schaden, dafür keine Rüstung.',
+                [['damage', 'percent', 24], ['armor', 'flat', -3]]],
+            ['titanruestung', 'Titanrüstung', 'rare', 75, 6, '', 'Schwer gepanzert, dafür langsamer.',
+                [['armor', 'flat', 6], ['moveSpeed', 'percent', -7]]],
+            ['kritische_masse', 'Kritische Masse', 'epic', 90, 8, '', 'Kritische Treffer richten deutlich mehr an.',
+                [['critDamage', 'percent', 35]]],
+            ['regenerator', 'Regenerator', 'rare', 85, 8, '', 'Du heilst dich langsam von selbst.',
+                [['regen', 'flat', 0.9]]],
 
-            ['berserk', 'Berserker', 'damage', 'percent', 18, 'epic', 100, 8, 'Deutlich mehr Waffenschaden.'],
-            ['time_pressure', 'Zeitdruck', 'attackSpeed', 'percent', 16, 'epic', 100, 8, 'Deutlich schnellere Angriffe.'],
-            ['crit_fury', 'Kritische Wut', 'critDamage', 'percent', 35, 'epic', 90, 8, 'Kritische Treffer richten mehr an.'],
-            ['barrier', 'Barriere', 'shield', 'flat', 30, 'epic', 90, 6, 'Schild, der Schaden vor der Lebensleiste schluckt.'],
-            ['vitality', 'Vitalität', 'maxHealth', 'percent', 15, 'epic', 90, 6, 'Prozentual mehr Leben.'],
-            ['inferno', 'Inferno', 'burn', 'flat', 9, 'epic', 85, 6, 'Deine Flammen fressen sich deutlich tiefer.'],
+            // --- Sondereffekte ----------------------------------------------
+            ['blutsauger', 'Blutsauger', 'rare', 85, 8, 'lifesteal',
+                'Ein Teil deines Schadens kommt als Leben zurück.', [['lifesteal', 'flat', 2]]],
+            ['vampirzaehne', 'Vampirzähne', 'epic', 80, 6, 'critHeal',
+                'Kritische Treffer heilen dich zusätzlich.', []],
+            ['dornenhaut', 'Dornenhaut', 'rare', 80, 8, 'thorns',
+                'Wer dich berührt, nimmt selbst Schaden.', [['thorns', 'flat', 6]]],
+            ['kampfrausch', 'Kampfrausch', 'rare', 85, 6, 'killFrenzy',
+                'Jeder Kill gibt kurz mehr Angriffstempo.', []],
+            ['kampfdroge', 'Kampfdroge', 'rare', 80, 6, 'hurtFrenzy',
+                'Nach einem Treffer greifst du kurz schneller an.', []],
+            ['multikill', 'Multikill', 'epic', 80, 6, 'multikill',
+                'Mehrere schnelle Kills geben kurz mehr Schaden.', []],
+            ['perfektionist', 'Perfektionist', 'epic', 80, 6, 'untouched',
+                'Solange du nicht getroffen wirst, wächst dein Schaden.', []],
+            ['berserker', 'Berserker', 'epic', 85, 6, 'berserk',
+                'Je weniger Leben du hast, desto härter triffst du.', []],
+            ['henker', 'Henker', 'epic', 85, 6, 'execute',
+                'Mehr Schaden gegen bereits verletzte Gegner.', []],
+            ['doppelschuss', 'Doppelschuss', 'epic', 80, 6, 'doubleShot',
+                'Chance auf ein zusätzliches Projektil.', []],
+            ['geistergeschoss', 'Geistergeschoss', 'epic', 80, 5, 'ghostShot',
+                'Deine Geschosse durchdringen Gegner.', []],
+            ['kettenreaktion', 'Kettenreaktion', 'epic', 80, 5, 'chainExplode',
+                'Getötete Gegner können explodieren.', []],
+            ['turbo', 'Turbo', 'rare', 75, 6, 'collide',
+                'Schneller unterwegs - und wer dich rammt, nimmt Schaden.',
+                [['moveSpeed', 'percent', 9]]],
+            ['notverband', 'Notverband', 'rare', 85, 6, 'waveHeal',
+                'Nach jeder Welle heilst du ein Stück.', []],
+            ['sammler', 'Sammler', 'rare', 80, 8, '', 'Gegner lassen mehr Geld fallen.',
+                [['money', 'percent', 22]]],
+            ['schatzjaeger', 'Schatzjäger', 'epic', 75, 6, 'treasure',
+                'Bosse und Truhen werfen deutlich mehr ab.', []],
+            ['letzte_kartoffel', 'Letzte Kartoffel', 'legendary', 80, 3, 'lastPotato',
+                'Überlebt einmal je Welle einen tödlichen Treffer.', []],
+            ['schwarzes_loch', 'Schwarzes Loch', 'legendary', 75, 3, 'blackhole',
+                'Zieht regelmässig alle Gegner in der Nähe zu dir.', []],
+            ['zeitlupe', 'Zeitlupe', 'legendary', 75, 3, 'slowmo',
+                'Bei wenig Leben werden alle Gegner träge.', []],
+            ['midas_hand', 'Midas-Hand', 'epic', 80, 5, 'midas',
+                'Kills werfen manchmal eine Handvoll Gold ab.', []],
+            ['todeswelle', 'Todeswelle', 'legendary', 75, 3, 'deathwave',
+                'Fällst du auf wenig Leben, entlädt sich eine Druckwelle.', []],
+            ['seelenfaenger', 'Seelenfänger', 'legendary', 70, 4, 'soulEater',
+                'Jeder Boss macht dich dauerhaft stärker.', []],
+            ['unendlicher_hunger', 'Unendlicher Hunger', 'legendary', 70, 4, 'hunger',
+                'Je 25 Kills wächst dein Maximalleben dauerhaft.', []],
+            ['klonmaschine', 'Klonmaschine', 'legendary', 70, 3, 'clone',
+                'Deine Waffe feuert regelmässig einen zweiten Schuss ab.', []],
+            ['blutpakt', 'Blutpakt', 'legendary', 65, 3, 'bloodPact',
+                'Viel mehr Schaden - jede Welle kostet dich Leben.',
+                [['damage', 'percent', 40]]],
+            ['fluch_der_gier', 'Fluch der Gier', 'legendary', 65, 3, 'greedCurse',
+                'Mehr Beute, aber zähere Gegner.', [['money', 'percent', 60]]],
+            ['chaos_kern', 'Chaos-Kern', 'legendary', 65, 3, 'chaos',
+                'Jede Welle würfelt einen Vorteil und einen Nachteil aus.', []],
+            ['goldener_wuerfel', 'Goldener Würfel', 'legendary', 65, 4, 'goldenDice',
+                'Jede Welle verstärkt einen zufälligen Wert dauerhaft.', []],
+            ['mutation', 'Mutation', 'legendary', 65, 4, 'mutation',
+                'Jede Welle mehr Schaden - aber auch stärkere Gegner.', []],
+            ['kartoffelgott', 'Kartoffelgott', 'legendary', 50, 2, 'potatoGod',
+                'Alles wird besser. Die Gegner allerdings auch.',
+                [['damage', 'percent', 15], ['maxHealth', 'flat', 20], ['moveSpeed', 'percent', 6],
+                 ['attackSpeed', 'percent', 10], ['armor', 'flat', 2], ['critChance', 'flat', 5]]],
 
-            ['bloodlust', 'Blutrausch', 'damage', 'percent', 30, 'legendary', 100, 4, 'Massiver Schadensschub.'],
-            ['twin_heart', 'Zwillingsherz', 'maxHealth', 'percent', 40, 'legendary', 90, 3, 'Enorm viel zusätzliches Leben.'],
-            ['time_rift', 'Zeitriss', 'attackSpeed', 'percent', 28, 'legendary', 90, 3, 'Angriffe kommen deutlich schneller.'],
-            ['master_strike', 'Meisterhieb', 'critChance', 'flat', 12, 'legendary', 80, 3, 'Stark erhöhte kritische Trefferchance.'],
+            // --- Feuer und Fundstücke (schon vorher vorhanden) ---------------
+            ['burning', 'Verbrennung', 'rare', 95, 10, '',
+                'Getroffene Gegner fangen Feuer und verlieren weiter Leben. Jede Stufe brennt heißer.',
+                [['burn', 'flat', 3]]],
+            ['inferno', 'Inferno', 'epic', 85, 6, '',
+                'Deine Flammen fressen sich deutlich tiefer.', [['burn', 'flat', 9]]],
+            ['alchemy', 'Alchemie', 'rare', 70, 6, '',
+                'Heilflaschen erscheinen deutlich häufiger auf der Karte.',
+                [['potionRate', 'percent', 40]]],
         ];
 
         $out = [];
         foreach ($rows as $r) {
-            [$id, $name, $stat, $modType, $value, $rarity, $weight, $maxStack, $desc] = $r;
+            [$id, $name, $rarity, $weight, $maxStack, $effect, $desc, $mods] = $r;
+            $clean = [];
+            foreach ($mods as [$stat, $type, $wert]) {
+                $clean[] = ['stat' => $stat, 'modType' => $type, 'value' => $wert];
+            }
+            // Der erste Wert steht zusaetzlich einzeln - dafuer gibt es
+            // aeltere Anzeigen, die nur ein Feld kennen.
+            $erste = $clean[0] ?? ['stat' => 'damage', 'modType' => 'percent', 'value' => 0];
             $out[] = [
-                'id' => $id, 'name' => $name, 'stat' => $stat, 'modType' => $modType,
-                'value' => $value, 'rarity' => $rarity, 'weight' => $weight,
-                'maxStack' => $maxStack, 'description' => $desc, 'icon' => '', 'active' => true,
+                'id' => $id,
+                'name' => $name,
+                'description' => $desc,
+                'stat' => $erste['stat'],
+                'modType' => $erste['modType'],
+                'value' => $erste['value'],
+                'mods' => $clean,
+                'effect' => $effect,
+                'rarity' => $rarity,
+                'weight' => $weight,
+                'maxStack' => $maxStack,
+                'icon' => '',
+                'active' => true,
             ];
         }
         return $out;
     }
-
 
     /**
      * Gegenstände, die auf der Karte erscheinen.
@@ -618,6 +751,17 @@ final class Defaults
             foreach ($data['characters'] as $i => $char) {
                 $mods = is_array($char['mods'] ?? null) ? $char['mods'] : [];
                 $data['characters'][$i]['mods'] = array_merge(self::characterMods(), $mods);
+                // Neue Sprite-Felder nachtragen.
+                foreach (['front', 'back', 'side'] as $dir) {
+                    if (!isset($data['characters'][$i]['sprites'][$dir])) {
+                        continue;
+                    }
+                    $eintrag = $data['characters'][$i]['sprites'][$dir];
+                    $eintrag['flips'] ??= [];
+                    $eintrag['flip'] ??= false;
+                    $eintrag['scale'] ??= 1.0;
+                    $data['characters'][$i]['sprites'][$dir] = $eintrag;
+                }
             }
         }
         // Aeltere Waffen ohne Groessenangaben bekommen sinnvolle Standardwerte.

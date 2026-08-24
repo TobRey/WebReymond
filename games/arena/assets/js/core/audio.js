@@ -26,12 +26,22 @@ const throttled = new Map();
 
 let ctx = null;
 let master = null;
-let music = null;
-let musicSrc = '';
 let musicTargetVolume = 0.45;
-let fadeTimer = 0;
-let wantsMusic = false;
 let unlocked = false;
+
+/**
+ * Zwei Titel: einer fuer die Menues, einer fuer den Kampf.
+ *
+ * Es laeuft immer hoechstens einer. Beim Wechsel blendet der alte aus und
+ * der neue ein - im Menue ist die Kampfmusik damit wirklich aus, nicht nur
+ * leise.
+ */
+const tracks = {
+  menu: { src: '', el: null, fade: 0 },
+  game: { src: '', el: null, fade: 0 },
+};
+let currentTrack = '';
+let wantsTrack = '';
 let warmTimer = 0;
 
 const settings = loadSettings();
@@ -80,7 +90,7 @@ function unlock() {
     // sollen die Tondateien nicht mit der Karte um Bandbreite streiten.
     // Fehlt ein Ton beim ersten Mal, wird er dann eben nachgeladen.
     if (!warmTimer) warmTimer = setTimeout(warmup, 2500);
-    if (wantsMusic) Audio.startMusic();
+    if (wantsTrack) Audio.playTrack(wantsTrack);
   }
 }
 
@@ -144,91 +154,136 @@ function warmup() {
 
 /* ---------------------------------------------------------------- Musik */
 
-function fadeTo(target, seconds = 1.2) {
-  if (!music) return;
-  clearInterval(fadeTimer);
+/** Blendet einen Titel weich auf die Ziellautstaerke. 0 haelt ihn an. */
+function fadeTrack(track, target, seconds = 1.2) {
+  if (!track || !track.el) return;
+  clearInterval(track.fade);
+  const el = track.el;
   const step = 40;
   const steps = Math.max(1, (seconds * 1000) / step);
-  const delta = (target - music.volume) / steps;
-  fadeTimer = setInterval(() => {
-    if (!music) return clearInterval(fadeTimer);
-    const next = music.volume + delta;
-    if ((delta > 0 && next >= target) || (delta < 0 && next <= target)) {
-      music.volume = Math.max(0, Math.min(1, target));
-      clearInterval(fadeTimer);
-      if (target === 0) music.pause();
+  const delta = (target - el.volume) / steps;
+  track.fade = setInterval(() => {
+    const next = el.volume + delta;
+    if ((delta >= 0 && next >= target) || (delta < 0 && next <= target)) {
+      el.volume = Math.max(0, Math.min(1, target));
+      clearInterval(track.fade);
+      if (target === 0) {
+        el.pause();
+        el.currentTime = 0;
+      }
       return;
     }
-    music.volume = Math.max(0, Math.min(1, next));
+    el.volume = Math.max(0, Math.min(1, next));
   }, step);
+}
+
+function element(track) {
+  if (!track.src) return null;
+  if (!track.el) {
+    const el = new window.Audio(track.src);
+    el.loop = true;
+    el.preload = 'none';
+    el.volume = 0;
+    track.el = el;
+  }
+  return track.el;
 }
 
 export const Audio = {
   events: EVENTS,
 
-  /** Legt den Titel fest. Geladen wird erst beim ersten Abspielen. */
-  setMusic(src, volume) {
+  /**
+   * Legt die beiden Titel fest.
+   *
+   * @param sources {menu, game} - Pfade, leer laesst den jeweiligen Titel weg
+   */
+  setTracks(sources = {}, volume) {
     if (typeof volume === 'number') musicTargetVolume = Math.max(0, Math.min(1, volume));
-    if (!src || src === musicSrc) return;
-    musicSrc = src;
-    if (music) {
-      music.pause();
-      music.src = '';
-      music = null;
+    for (const key of ['menu', 'game']) {
+      const src = sources[key] || '';
+      if (src === tracks[key].src) continue;
+      if (tracks[key].el) {
+        clearInterval(tracks[key].fade);
+        tracks[key].el.pause();
+        tracks[key].el.src = '';
+        tracks[key].el = null;
+      }
+      tracks[key].src = src;
     }
   },
 
-  startMusic() {
-    if (!settings.musicOn || !musicSrc) return;
-    wantsMusic = true;
-    if (!music) {
-      music = new window.Audio(musicSrc);
-      music.loop = true;
-      music.preload = 'auto';
-      music.volume = 0;
-      // Läuft der Titel doch einmal aus, sofort wieder anwerfen.
-      music.addEventListener('ended', () => {
-        if (settings.musicOn) music.play().catch(() => {});
-      });
-    }
-    if (!music.paused) return;
-    music.play()
-      .then(() => fadeTo(Math.min(1, Audio.volume), 1.2))
-      .catch(() => { /* wartet auf die nächste Geste */ });
+  /** Alte Form: setzt nur den Kampftitel. */
+  setMusic(src, volume) {
+    Audio.setTracks({ menu: tracks.menu.src, game: src }, volume);
   },
 
   /**
-   * Sorgt dafür, dass die Musik im Spiel wirklich läuft.
-   *
-   * Wird bei jedem Wellenstart und beim Fortsetzen aufgerufen. Ohne das
-   * blieb die Musik nach einer abgewiesenen Wiedergabe stumm und ging erst
-   * irgendwann später von selbst wieder an.
+   * Wechselt den laufenden Titel. 'menu', 'game' oder '' fuer Stille.
+   * Ein bereits laufender Titel wird nicht neu gestartet.
    */
-  ensureMusic() {
-    if (!settings.musicOn || !musicSrc) return;
-    if (!music || music.paused) {
-      Audio.startMusic();
+  playTrack(key) {
+    wantsTrack = key || '';
+    if (!settings.musicOn) {
+      Audio.stopMusic({ fade: false });
       return;
     }
-    // Nach dem Abblenden auf 30 % wieder auf volle Lautstärke.
-    if (music.volume < Audio.volume * 0.9) fadeTo(Audio.volume, 0.5);
+    const laeuftSchon = currentTrack === key;
+
+    // Alle anderen ausblenden.
+    for (const [name, track] of Object.entries(tracks)) {
+      if (name !== key && track.el && !track.el.paused) fadeTrack(track, 0, 0.5);
+    }
+    currentTrack = key || '';
+    if (!key || !tracks[key]) return;
+
+    const track = tracks[key];
+    const el = element(track);
+    if (!el || !unlocked) return;          // die naechste Geste holt es nach
+
+    if (!el.paused) {
+      // Laeuft bereits - nur sicherstellen, dass er nicht leise haengt.
+      if (el.volume < Audio.volume * 0.9) fadeTrack(track, Audio.volume, 0.5);
+      return;
+    }
+
+    el.preload = 'auto';
+    el.play()
+      .then(() => fadeTrack(track, Audio.volume, laeuftSchon ? 0.4 : 1.0))
+      .catch(() => { /* wartet auf die naechste Geste */ });
+  },
+
+  startMusic() {
+    Audio.playTrack(wantsTrack || currentTrack || 'menu');
+  },
+
+  /**
+   * Sorgt dafuer, dass der gewuenschte Titel wirklich laeuft.
+   * Wird bei jedem Wellenstart und beim Fortsetzen aufgerufen.
+   */
+  ensureMusic() {
+    if (!settings.musicOn || !wantsTrack) return;
+    Audio.playTrack(wantsTrack);
   },
 
   stopMusic({ fade = true } = {}) {
-    wantsMusic = false;
-    if (!music) return;
-    if (fade) fadeTo(0, 0.8);
-    else {
-      music.pause();
-      music.currentTime = 0;
+    for (const track of Object.values(tracks)) {
+      if (!track.el) continue;
+      if (fade) fadeTrack(track, 0, 0.6);
+      else {
+        clearInterval(track.fade);
+        track.el.pause();
+        track.el.currentTime = 0;
+        track.el.volume = 0;
+      }
     }
+    currentTrack = '';
   },
 
   duckMusic(on) {
-    // Während Pause und Upgrade-Auswahl leiser, damit die UI vorne steht.
-    if (!music || !settings.musicOn) return;
-    if (on) fadeTo(Audio.volume * 0.3, 0.4);
-    else Audio.ensureMusic();
+    const track = tracks[currentTrack];
+    if (!track || !track.el || !settings.musicOn) return;
+    if (on) fadeTrack(track, Audio.volume * 0.3, 0.4);
+    else fadeTrack(track, Audio.volume, 0.5);
   },
 
   /* --------------------------------------------------------- Soundeffekte */
@@ -267,7 +322,7 @@ export const Audio = {
   /** Übernimmt Musik, Ereignisse, Waffen- und Gegnertöne aus den Spieldaten. */
   configure(content = {}) {
     const audio = content.audio || {};
-    if (audio.musicTrack) Audio.setMusic(audio.musicTrack, audio.musicVolume);
+    Audio.setTracks({ menu: audio.musicMenu || '', game: audio.musicTrack || '' }, audio.musicVolume);
     if (typeof audio.sfxVolume === 'number') {
       settings.sfxMaster = audio.sfxVolume;
       saveSettings();
@@ -338,7 +393,7 @@ export const Audio = {
   setMusicOn(on) {
     settings.musicOn = !!on;
     saveSettings();
-    if (settings.musicOn) Audio.startMusic();
+    if (settings.musicOn) Audio.playTrack(wantsTrack || 'menu');
     else Audio.stopMusic({ fade: false });
     return settings.musicOn;
   },
@@ -352,7 +407,8 @@ export const Audio = {
   setMusicVolume(value) {
     settings.musicVolume = Math.max(0, Math.min(1, value));
     saveSettings();
-    if (music && settings.musicOn) fadeTo(Audio.volume, 0.2);
+    const track = tracks[currentTrack];
+    if (track && settings.musicOn) fadeTrack(track, Audio.volume, 0.2);
   },
 
   setSfxVolume(value) {
@@ -381,7 +437,13 @@ export const Audio = {
   },
 
   get playing() {
-    return !!music && !music.paused;
+    const track = tracks[currentTrack];
+    return !!(track && track.el && !track.el.paused);
+  },
+
+  /** Welcher Titel gerade laeuft: 'menu', 'game' oder ''. */
+  get track() {
+    return currentTrack;
   },
 
   get ready() {
@@ -389,7 +451,8 @@ export const Audio = {
   },
 
   get element() {
-    return music;
+    const track = tracks[currentTrack];
+    return track ? track.el : null;
   },
 
   /** Nur für Diagnose und Tests. */

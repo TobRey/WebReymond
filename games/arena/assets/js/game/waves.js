@@ -2,6 +2,7 @@ import { Assets } from '../gfx/assets.js';
 import { findSpawnPoint } from '../world/spawn.js';
 import { weighted } from '../core/util.js';
 import { Audio } from '../core/audio.js';
+import { onEffectWaveStart, effectEnemyHealth } from './effects.js';
 
 /**
  * Wellen und Zyklen.
@@ -25,6 +26,8 @@ export class WaveController {
     this.bossActive = false;
     this.bossEnraged = false;
     this.pendingUpgrade = false;
+    // Zwischen Countdown und Wellenbeginn steht die Welle still.
+    this.waiting = false;
   }
 
   get run() {
@@ -43,7 +46,7 @@ export class WaveController {
   scaling() {
     const run = this.run;
     return {
-      health: run.difficulty,
+      health: run.difficulty * effectEnemyHealth(run),
       damage: run.damageDifficulty,
       speed: run.speedDifficulty,
       reward: run.rewardDifficulty,
@@ -61,22 +64,52 @@ export class WaveController {
     if (this.run.perk === 'secondWind') this.run.secondWindReady = true;
     this.timeLeft = this.isBossWave ? this.balance.bossDuration : this.balance.waveDuration;
 
-    if (this.isBossWave) {
-      this.arena.startBossIntro();
-    }
+    // Karten mit Wellenwirkung: heilen, kosten, wuerfeln.
+    const meldungen = onEffectWaveStart(this.run);
+    for (const text of meldungen) this.arena.emit('effectNote', text);
 
-    // Nach der Upgrade-Auswahl ist das Feld meist leergeräumt. Ohne
-    // Starthilfe stünde man ein paar Sekunden allein herum, bis der erste
-    // Gegner hereingelaufen kommt - das fühlte sich an wie ein Neustart.
-    const start = this.balance.waveStartEnemies ?? 4;
-    const fehlend = Math.min(start - this.arena.enemies.count, this.balance.maxEnemies - this.arena.enemies.count);
-    for (let i = 0; i < fehlend; i++) this.spawnEnemy();
-
+    // Die Welle ist vorbereitet, laeuft aber erst nach dem Countdown los.
+    this.waiting = true;
+    this.waitTime = 0;
     this.arena.emit('waveStart', { wave: this.run.wave, cycle: this.run.cycle, boss: this.isBossWave });
+  }
+
+  /**
+   * Gibt die vorbereitete Welle frei - nach dem Countdown.
+   *
+   * Erst hier erscheinen Boss und Starttruppe, damit waehrend der drei
+   * Sekunden Vorlauf niemand von hinten angreift.
+   */
+  beginSpawning() {
+    if (!this.waiting) return;
+    this.waiting = false;
+    this.waitTime = 0;
+
+    if (this.isBossWave) this.arena.startBossIntro();
+
+    // Nach der Upgrade-Auswahl ist das Feld leergeräumt. Ohne Starthilfe
+    // stünde man ein paar Sekunden allein herum, bis der erste Gegner
+    // hereingelaufen kommt.
+    const start = this.balance.waveStartEnemies ?? 4;
+    const fehlend = Math.min(
+      start - this.arena.enemies.countAlive,
+      this.balance.maxEnemies - this.arena.enemies.countAlive,
+    );
+    for (let i = 0; i < fehlend; i++) this.spawnEnemy();
   }
 
   update(dt) {
     if (this.state !== WAVE_STATE.RUNNING) return;
+
+    // Sicherheitsnetz: Laeuft das Spiel, obwohl die Welle noch auf ihren
+    // Countdown wartet, wird sie nach kurzer Zeit von selbst freigegeben.
+    // Ohne das koennte eine Welle haengen bleiben, wenn der Countdown
+    // unterbrochen wird.
+    if (this.waiting) {
+      this.waitTime = (this.waitTime || 0) + dt;
+      if (this.waitTime > 1.5) this.beginSpawning();
+      return;
+    }
 
     this.timeLeft -= dt;
 
@@ -109,7 +142,7 @@ export class WaveController {
   spawnTick(dt, factor) {
     const balance = this.balance;
     const enemies = this.arena.enemies;
-    if (enemies.count >= balance.maxEnemies) return;
+    if (enemies.countAlive >= balance.maxEnemies) return;
 
     const rate = balance.enemySpawnRate
       * Math.pow(balance.spawnRateScaling, this.run.cycle - 1)
@@ -118,7 +151,7 @@ export class WaveController {
 
     this.spawnAccumulator += rate * dt;
     let budget = 4;
-    while (this.spawnAccumulator >= 1 && budget-- > 0 && enemies.count < balance.maxEnemies) {
+    while (this.spawnAccumulator >= 1 && budget-- > 0 && enemies.countAlive < balance.maxEnemies) {
       this.spawnAccumulator -= 1;
       this.spawnEnemy();
     }
@@ -178,6 +211,8 @@ export class WaveController {
     // Jede geschaffte Welle ist später genau ein Erfahrungspunkt.
     this.run.wavesCleared = (this.run.wavesCleared || 0) + 1;
     Audio.play('waveClear');
+    // Die Welle ist vorbei - was von ihr übrig ist, fällt um.
+    this.arena.clearWave();
     this.arena.emit('waveEnd', {
       wave: this.run.wave,
       cycle: this.run.cycle,

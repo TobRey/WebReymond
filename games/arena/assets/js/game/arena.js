@@ -17,6 +17,10 @@ import { RunState } from './run.js';
 import { Renderer } from '../gfx/renderer.js';
 import { formatNumber, rand, TAU } from '../core/util.js';
 import { PERK_VALUES, perkDamageMultiplier } from './perks.js';
+import {
+  EFFECT_VALUES, effectDamageFactor, updateEffects,
+  onEffectKill, onEffectPlayerHit, onEffectWaveStart,
+} from './effects.js';
 
 /** Flammen auf brennenden Gegnern. */
 const BURN_SPRITE = 'assets/sprites/feuer.gif';
@@ -70,6 +74,10 @@ export class Arena {
 
     // Gegner, die ausserhalb der Trefferkette gestorben sind (Feuer, Explosion).
     this._pendingKills = [];
+
+    // Ultimate: Druckwelle auf Knopfdruck, danach Abklingzeit.
+    this.ultTimer = 0;
+    this.shockwaves = [];
   }
 
   on(event, handler) {
@@ -194,6 +202,9 @@ export class Arena {
       (p) => this.damagePlayer(p.damage),
     );
     this.bossCtrl.update(dt);
+    updateEffects(this.run, dt);
+    this.updateEffectTimers(dt);
+    this.updateUlt(dt);
     this.contactDamage(dt);
     this.updateBurn(dt);
     this.updateItems(dt);
@@ -227,9 +238,12 @@ export class Arena {
       this.damagePlayer(enemy.damage);
 
       // Fähigkeit "Dornen": ein Teil des Schadens geht zurück.
+      let zurueck = 0;
       if (this.run.perk === 'thorns') {
-        this.damageEnemy(enemy, enemy.damage * PERK_VALUES.thornsShare + PERK_VALUES.thornsFlat, false, 40, px, py);
+        zurueck += enemy.damage * PERK_VALUES.thornsShare + PERK_VALUES.thornsFlat;
       }
+      zurueck += this.run.stats.thorns;
+      if (zurueck > 0) this.damageEnemy(enemy, zurueck, false, 40, px, py);
 
       // Kleiner Rückstoß auf beide Seiten macht Treffer spürbar.
       const len = Math.hypot(dx, dy) || 1;
@@ -241,6 +255,18 @@ export class Arena {
   damagePlayer(amount) {
     const result = this.player.takeDamage(amount);
     if (result === 0) return;
+    if (result > 0) onEffectPlayerHit(this.run);
+
+    // Upgrade "Letzte Kartoffel": rettet einmal je Welle.
+    if (this.player.dead && this.run.lastPotatoReady && this.run.hasEffect('lastPotato')) {
+      this.run.lastPotatoReady = false;
+      this.player.dead = false;
+      this.player.invuln = 1.6;
+      this.run.health = Math.max(1, Math.round(this.run.stats.maxHealth * 0.3));
+      this.effects.number(this.player.x, this.player.y - 52, 'Letzte Kartoffel!', { color: '#ffd166' });
+      this.effects.burst(this.player.x, this.player.y, 26, { color: '#ffd166', speed: 220, size: 4, life: 0.6 });
+      this.camera.addShake(0.4);
+    }
 
     // Fähigkeit "Zweiter Atem": einmal je Welle überlebt man den Todesstoß.
     if (this.player.dead && this.run.secondWindReady) {
@@ -307,13 +333,25 @@ export class Arena {
 
   damageEnemy(enemy, amount, crit, knockback, fromX, fromY) {
     if (!enemy.alive || enemy.health <= 0) return;
-    // Blutrausch und Scharfschütze wirken auf jeden Treffer.
-    const damage = Math.max(1, amount * perkDamageMultiplier(this.run, this.player, enemy));
+    // Fähigkeit und Upgrade-Effekte wirken auf jeden Treffer.
+    const damage = Math.max(1, amount
+      * perkDamageMultiplier(this.run, this.player, enemy)
+      * effectDamageFactor(this.run, enemy));
     enemy.health -= damage;
     enemy.hitFlash = 1;
     this.run.damageDealt += damage;
 
     this.igniteEnemy(enemy);
+
+    // Lebensraub und heilende Krits.
+    const raub = this.run.stats.lifesteal;
+    let heilung = raub > 0 ? (damage * raub) / 100 : 0;
+    if (crit && this.run.hasEffect('critHeal')) {
+      heilung += EFFECT_VALUES.critHeal * this.run.effectLevel('critHeal');
+    }
+    if (heilung > 0 && !this.player.dead && this.run.health < this.run.stats.maxHealth) {
+      this.run.health = Math.min(this.run.stats.maxHealth, this.run.health + heilung);
+    }
     // Fähigkeit "Frost": getroffene Gegner werden träge.
     if (this.run.perk === 'frost') {
       enemy.slowFactor = PERK_VALUES.frostFactor;
@@ -338,8 +376,13 @@ export class Arena {
   }
 
   killEnemy(enemy) {
-    enemy.alive = false;
+    if (enemy.dying) return;
+    // Der Gegner bleibt noch eine Sekunde als Leiche liegen und faellt um.
+    // health 0 nimmt ihn aus allen Trefferabfragen, alive haelt ihn im Bild.
+    enemy.dying = true;
+    enemy.deathTime = 0;
     enemy.health = 0;
+    enemy.contactTimer = 999;
     this.run.kills++;
 
     // Fähigkeit "Lebensraub": jeder Kill heilt ein wenig.
@@ -352,7 +395,33 @@ export class Arena {
       }
     }
 
-    const money = this.run.addMoney(enemy.reward);
+    onEffectKill(this.run, enemy);
+
+    // Kettenreaktion: der Leichnam reisst Nachbarn mit.
+    const kette = this.run.effectLevel('chainExplode');
+    if (kette > 0 && !enemy.boss && Math.random() < EFFECT_VALUES.chainChance * kette) {
+      const schaden = Math.max(5, enemy.maxHealth * EFFECT_VALUES.chainShare);
+      this.effects.burst(enemy.x, enemy.y, 14, { color: '#ffb066', speed: 220, size: 4, life: 0.35 });
+      this.enemies.inRadius(enemy.x, enemy.y, EFFECT_VALUES.chainRadius, (other) => {
+        if (other === enemy || !other.alive || other.dying) return;
+        other.health -= schaden;
+        other.hitFlash = 1;
+        this.run.damageDealt += schaden;
+        this.effects.number(other.x, other.y - other.radius - 6, formatNumber(schaden), { color: '#ffb066' });
+        if (other.health <= 0) this._pendingKills.push(other);
+      });
+      this.flushKills();
+    }
+
+    // Schatzjaeger und Midas-Hand erhoehen die Ausbeute.
+    let beute = enemy.reward;
+    if (enemy.boss) beute *= 1 + EFFECT_VALUES.treasure * this.run.effectLevel('treasure');
+    const money = this.run.addMoney(beute);
+    const midas = this.run.effectLevel('midas');
+    if (midas > 0 && Math.random() < EFFECT_VALUES.midasChance * midas) {
+      const bonus = this.run.addMoney(EFFECT_VALUES.midasAmount * midas);
+      this.effects.number(enemy.x, enemy.y - enemy.radius - 34, '+' + bonus + ' $', { color: '#ffe08a' });
+    }
     this.effects.number(enemy.x, enemy.y - enemy.radius - 22, '+' + money + ' $', { color: '#ffd166' });
     this.effects.burst(enemy.x, enemy.y, enemy.boss ? 40 : 12, {
       color: enemy.boss ? '#ff8b6b' : 'rgba(220,120,140,0.9)',
@@ -382,13 +451,14 @@ export class Arena {
       this.run.bossKills++;
       this.bossDefeated = true;
       this.boss = null;
+      // Der Boss loest sich sofort auf - seine Explosion ersetzt das Umfallen.
+      enemy.alive = false;
       this.camera.addShake(0.8);
       const sprite = Assets.get('assets/sprites/explosion1.gif') || Assets.get('assets/sprites/explosion.gif');
       if (sprite) {
         this.effects.animation(enemy.x, enemy.y, sprite, { scale: 360 / Math.max(sprite.width, sprite.height) });
       }
     }
-    this.enemies.sweep();
     this.emit('kill', enemy);
   }
 
@@ -420,7 +490,7 @@ export class Arena {
     burned.length = 0;
 
     for (const enemy of this.enemies.list) {
-      if (!enemy.alive || enemy.burnTime <= 0) continue;
+      if (!enemy.alive || enemy.dying || enemy.burnTime <= 0) continue;
 
       enemy.burnTime -= dt;
       enemy.burnTick += dt;
@@ -466,6 +536,163 @@ export class Arena {
     for (const enemy of copy) {
       if (enemy.alive) this.killEnemy(enemy);
     }
+  }
+
+  /**
+   * Effekte, die von selbst zuschlagen: Schwarzes Loch, Zeitlupe,
+   * Todeswelle, Klonmaschine und der Schaden beim Rammen.
+   */
+  updateEffectTimers(dt) {
+    const run = this.run;
+    const player = this.player;
+    if (player.dead) return;
+
+    // Schwarzes Loch: zieht in festem Takt alles heran.
+    const loch = run.effectLevel('blackhole');
+    if (loch > 0) {
+      this._blackhole = (this._blackhole || 0) + dt;
+      if (this._blackhole >= EFFECT_VALUES.blackholeEvery) {
+        this._blackhole = 0;
+        const radius = EFFECT_VALUES.blackholeRadius;
+        this.effects.burst(player.x, player.y, 20, {
+          color: '#b3a6ff', speed: 200, size: 3, life: 0.5, glow: true,
+        });
+        this.enemies.inRadius(player.x, player.y, radius, (enemy) => {
+          const dx = player.x - enemy.x;
+          const dy = player.y - enemy.y;
+          const len = Math.hypot(dx, dy) || 1;
+          enemy.knockX += (dx / len) * EFFECT_VALUES.blackholePull * loch;
+          enemy.knockY += (dy / len) * EFFECT_VALUES.blackholePull * loch;
+        });
+        this.emit('blackhole', null);
+      }
+    }
+
+    // Zeitlupe: bei wenig Leben werden alle Gegner traege.
+    if (run.hasEffect('slowmo')) {
+      const knapp = run.health / Math.max(1, run.stats.maxHealth) < EFFECT_VALUES.slowmoBelow;
+      for (const enemy of this.enemies.list) {
+        if (!enemy.alive || enemy.dying) continue;
+        if (knapp) {
+          enemy.slowFactor = Math.min(enemy.slowFactor, EFFECT_VALUES.slowmoFactor);
+          enemy.slowTime = Math.max(enemy.slowTime, 0.4);
+        }
+      }
+    }
+
+    // Todeswelle: entlaedt sich, wenn es eng wird.
+    if (run.hasEffect('deathwave')) {
+      this._deathwave = Math.max(0, (this._deathwave || 0) - dt);
+      const knapp = run.health / Math.max(1, run.stats.maxHealth) < EFFECT_VALUES.deathwaveBelow;
+      if (knapp && this._deathwave <= 0) {
+        this._deathwave = EFFECT_VALUES.deathwaveCooldown;
+        const radius = EFFECT_VALUES.deathwaveRadius;
+        this.shockwaves.push({ x: player.x, y: player.y, radius, time: 0, life: 0.5, color: '#ff6b8a' });
+        this.enemies.inRadius(player.x, player.y, radius, (enemy) => {
+          const dx = enemy.x - player.x;
+          const dy = enemy.y - player.y;
+          const len = Math.hypot(dx, dy) || 1;
+          enemy.knockX += (dx / len) * 700;
+          enemy.knockY += (dy / len) * 700;
+          this.damageEnemy(enemy, EFFECT_VALUES.deathwaveDamage * run.effectLevel('deathwave'),
+            false, 0, player.x, player.y);
+        });
+        this.camera.addShake(0.5);
+        Audio.playFirst(['ult', 'explosion']);
+      }
+    }
+
+    // Klonmaschine: feuert regelmaessig einen zweiten Schuss.
+    if (run.hasEffect('clone')) {
+      this._clone = (this._clone || 0) + dt;
+      if (this._clone >= EFFECT_VALUES.cloneEvery) {
+        this._clone = 0;
+        this.weapon.fireExtra();
+      }
+    }
+
+    // Turbo: wer den Spieler rammt, nimmt Schaden.
+    if (run.hasEffect('collide')) {
+      const stufe = run.effectLevel('collide');
+      this.enemies.inRadius(player.x, player.y + player.footOffset * 0.3, 42, (enemy) => {
+        this.damageEnemy(enemy, EFFECT_VALUES.collide * stufe * dt, false, 0, player.x, player.y);
+      });
+    }
+  }
+
+  /* ---------------------------------------------------------- Ultimate */
+
+  /** Anteil der Abklingzeit, der schon verstrichen ist (0..1). */
+  get ultReady() {
+    return this.ultTimer <= 0;
+  }
+
+  get ultProgress() {
+    const dauer = this.content.balance.ultCooldown || 30;
+    return Math.max(0, Math.min(1, 1 - this.ultTimer / dauer));
+  }
+
+  updateUlt(dt) {
+    if (this.ultTimer > 0) this.ultTimer = Math.max(0, this.ultTimer - dt);
+
+    // Sichtbare Druckwellen laufen aus.
+    for (let i = this.shockwaves.length - 1; i >= 0; i--) {
+      const w = this.shockwaves[i];
+      w.time += dt;
+      if (w.time >= w.life) this.shockwaves.splice(i, 1);
+    }
+  }
+
+  /**
+   * Druckwelle: stösst alle Gegner im Umkreis massiv weg.
+   *
+   * Radius, Wucht, Schaden und Abklingzeit stehen im Balancing. Der Stoss
+   * geht strikt vom Spieler nach aussen, damit niemand durch die Welle
+   * hindurch auf die andere Seite geschleudert wird.
+   *
+   * @returns true, wenn sie ausgelöst wurde
+   */
+  useUlt() {
+    if (!this.ultReady || this.gameOver || this.player.dead) return false;
+    const balance = this.content.balance;
+    const radius = balance.ultRadius || 300;
+    const wucht = balance.ultKnockback || 1400;
+    const schaden = balance.ultDamage || 0;
+
+    this.ultTimer = balance.ultCooldown || 30;
+    const px = this.player.x;
+    const py = this.player.y + this.player.footOffset * 0.3;
+
+    this.shockwaves.push({ x: px, y: py, radius, time: 0, life: 0.55, color: '#bfe0ff' });
+
+    let getroffen = 0;
+    this.enemies.inRadius(px, py, radius, (enemy) => {
+      const dx = enemy.x - px;
+      const dy = enemy.y - py;
+      const len = Math.hypot(dx, dy) || 1;
+      // Nah am Spieler wirkt die Welle am stärksten.
+      const staerke = 0.45 + 0.55 * (1 - Math.min(1, len / radius));
+      const kraft = wucht * staerke * (enemy.boss ? 0.25 : 1);
+      enemy.knockX += (dx / len) * kraft;
+      enemy.knockY += (dy / len) * kraft;
+      // Kurz betäubt, damit sie nicht sofort zurücklaufen.
+      enemy.slowFactor = Math.min(enemy.slowFactor, 0.4);
+      enemy.slowTime = Math.max(enemy.slowTime, 0.9);
+      enemy.hitFlash = 1;
+      getroffen++;
+      if (schaden > 0) this.damageEnemy(enemy, schaden, false, 0, px, py);
+    });
+
+    this.effects.burst(px, py, 34, {
+      color: '#9fd0ff', speed: 420, size: 4, life: 0.5, glow: true,
+    });
+    this.effects.burst(px, py, 18, {
+      color: '#ffffff', speed: 260, size: 3, life: 0.35, glow: true,
+    });
+    this.camera.addShake(0.7);
+    Audio.playFirst(['ult', 'explosion']);
+    this.emit('ult', { getroffen, radius });
+    return true;
   }
 
   /* ------------------------------------------------- Gegenstände */
@@ -612,6 +839,26 @@ export class Arena {
     return true;
   }
 
+  /**
+   * Raeumt am Wellenende ab: Alles, was noch steht, faellt um.
+   *
+   * Ohne Belohnung - wer die Welle aussitzt, soll davon nichts haben.
+   * Der Boss bleibt ausgenommen, seinen Kampf beendet man selbst.
+   */
+  clearWave() {
+    for (const enemy of this.enemies.list) {
+      if (!enemy.alive || enemy.dying || enemy.boss) continue;
+      enemy.dying = true;
+      enemy.deathTime = 0;
+      enemy.health = 0;
+      enemy.contactTimer = 999;
+      enemy.burnTime = 0;
+      this.effects.burst(enemy.x, enemy.y, 6, {
+        color: 'rgba(200,190,220,0.8)', speed: 90, size: 2.5, life: 0.4,
+      });
+    }
+  }
+
   /* ------------------------------------------------------------ Portale */
 
   /**
@@ -648,11 +895,31 @@ export class Arena {
     this.player.teleport = 1;                 // Anzeige: der Spieler zieht sich zusammen
     this.camera.addShake(0.2);
     Audio.playFirst(['portal', 'upgrade']);
-    this.effects.burst(portal.x, portal.y - 20, 22, {
-      color: portal.kind === 'red' ? '#ff5a4d' : '#4db4ff',
-      speed: 190, size: 3.5, life: 0.5, glow: true,
-    });
+    this.portalFlash(portal, true);
     this.emit('teleportStart', portal);
+  }
+
+  /**
+   * Der sichtbare Teil eines Portalsprungs.
+   *
+   * Ein einziehender Ring beim Abflug, ein aufziehender beim Ankommen,
+   * dazu eine Lichtsäule und Funken in der Portalfarbe. So sieht man den
+   * Wechsel, statt ihn nur zu bemerken.
+   */
+  portalFlash(portal, einzug) {
+    const farbe = portal.kind === 'red' ? '#ff5a4d' : '#4db4ff';
+    this.shockwaves.push({
+      x: portal.x, y: portal.y - 14, radius: einzug ? 90 : 130,
+      time: 0, life: 0.42, color: farbe, invers: einzug,
+    });
+    this.effects.burst(portal.x, portal.y - 20, einzug ? 22 : 30, {
+      color: farbe, speed: einzug ? 150 : 240, size: 3.5, life: 0.55, glow: true,
+    });
+    // Lichtsäule: schmale Funken, die senkrecht aufsteigen.
+    this.effects.burst(portal.x, portal.y - 6, 14, {
+      color: '#ffffff', speed: 220, size: 2.5, life: 0.7,
+      angle: -Math.PI / 2, spread: 0.5, glow: true,
+    });
   }
 
   finishTeleport(t) {
@@ -667,11 +934,8 @@ export class Arena {
     this.camera.snapTo(this.player.x, this.player.y);
     // Sperre, damit man nicht sofort wieder zurückgezogen wird.
     this.portalLock = 1.6;
-    this.effects.burst(ziel.x, ziel.y - 20, 26, {
-      color: ziel.kind === 'red' ? '#ff5a4d' : '#4db4ff',
-      speed: 210, size: 3.5, life: 0.6, glow: true,
-    });
     this.camera.addShake(0.25);
+    this.portalFlash(ziel, false);
     this.emit('teleportEnd', ziel);
   }
 

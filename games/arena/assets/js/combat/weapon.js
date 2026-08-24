@@ -1,5 +1,6 @@
 import { Assets } from '../gfx/assets.js';
 import { rand } from '../core/util.js';
+import { EFFECT_VALUES, effectAttackSpeed } from '../game/effects.js';
 
 /**
  * Mündungsposition einer Waffe.
@@ -45,7 +46,11 @@ export class WeaponController {
     if (player.dead) return;
 
     const weapon = run.weaponStats;
-    this.cooldown -= dt;
+    // Kurzzeitige Schuebe (Kampfrausch, Kampfdroge) und der Fernkampfbonus
+    // wirken erst hier, damit sie nicht in die Grundwerte einwandern.
+    const fernkampf = weapon.type !== 'MELEE_ARC' && weapon.type !== 'MELEE_360' && weapon.type !== 'THRUST';
+    const tempo = effectAttackSpeed(run) * (fernkampf ? (run.stats.rangedAttackSpeedMult || 1) : 1);
+    this.cooldown -= dt * tempo;
 
     const searchRange = weapon.range + 40;
     const target = enemies.nearest(player.x, player.y + player.footOffset * 0.2, searchRange);
@@ -81,13 +86,14 @@ export class WeaponController {
       case 'MELEE_ARC':
       case 'MELEE_360': {
         const full = weapon.type === 'MELEE_360';
+        const reichweite = weapon.range * (run.stats.meleeRangeMult || 1);
         this.arena.melee.spawn({
           type: 'arc',
           x: originX,
           y: originY,
           angle: full ? this.aim : this.aim,
           arc: full ? 360 : weapon.arc,
-          range: weapon.range,
+          range: reichweite,
           damage: weapon.damage,
           knockback: weapon.knockback,
           critChance: weapon.critChance,
@@ -107,7 +113,7 @@ export class WeaponController {
           x: originX,
           y: originY,
           angle: this.aim,
-          range: weapon.range,
+          range: weapon.range * (run.stats.meleeRangeMult || 1),
           width: 44,
           damage: weapon.damage,
           knockback: weapon.knockback,
@@ -165,6 +171,12 @@ export class WeaponController {
         const spread = weapon.spread ? rand(-weapon.spread, weapon.spread) * (Math.PI / 180) : 0;
         const kind = weapon.projectile === 'pfeil' ? 'arrow' : 'bullet';
         this.spawnShot(weapon, originX, originY, lead + spread, kind, 0);
+
+        // Doppelschuss: leicht versetzt, damit man beide sieht.
+        const doppel = run.effectLevel('doubleShot');
+        if (doppel > 0 && Math.random() < EFFECT_VALUES.doubleShot * doppel) {
+          this.spawnShot(weapon, originX, originY, lead + spread + rand(-0.12, 0.12), kind, 0);
+        }
         Audio.playFirst(['weapon:' + weapon.id, 'shoot']);
         break;
       }
@@ -181,6 +193,24 @@ export class WeaponController {
     run.shotsFired = (run.shotsFired || 0) + 1;
   }
 
+  /** Zusatzschuss der Klonmaschine - unabhaengig vom normalen Takt. */
+  fireExtra() {
+    const { run, player, enemies } = this.arena;
+    if (player.dead) return;
+    const weapon = run.weaponStats;
+    const target = enemies.nearest(player.x, player.y + player.footOffset * 0.2, weapon.range + 60);
+    if (!target) return;
+    const winkel = Math.atan2(target.y - player.y, target.x - player.x);
+    const kind = weapon.projectile === 'pfeil' ? 'arrow' : 'bullet';
+    const muendung = muzzleOffsets(weapon);
+    this.spawnShot(
+      weapon,
+      player.x + Math.cos(winkel) * muendung.distance,
+      player.y + player.footOffset * 0.1 + muendung.offsetY + Math.sin(winkel) * muendung.distance * 0.6,
+      winkel, kind, 0,
+    );
+  }
+
   spawnShot(weapon, x, y, angle, kind, homing) {
     const spriteName = kind === 'bullet' ? weapon.projectile : null;
     const sprite = spriteName ? Assets.get('assets/sprites/' + spriteName + '.png') : null;
@@ -192,10 +222,12 @@ export class WeaponController {
       vx: Math.cos(angle) * weapon.projectileSpeed,
       vy: Math.sin(angle) * weapon.projectileSpeed,
       speed: weapon.projectileSpeed,
-      damage: weapon.damage,
+      // Stahlkugeln erhoehen nur den Schaden von Geschossen.
+      damage: weapon.damage * (this.arena.run.stats.projectileDamageMult || 1),
       knockback: weapon.knockback,
       range: weapon.range,
-      pierce: weapon.pierce || 0,
+      pierce: (weapon.pierce || 0)
+        + EFFECT_VALUES.ghostShot * this.arena.run.effectLevel('ghostShot'),
       sprite,
       size: weapon.projectileSize || 16,
       homing,

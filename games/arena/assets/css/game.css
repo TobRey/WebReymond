@@ -678,3 +678,144 @@ button, input, select { font: inherit; color: inherit; }
 }
 .soundrow input:disabled { opacity: .4; }
 .dialog__hint { font-size: 12px; margin: 2px 0 0; text-align: center; }
+
+
+/* ---------------------------------------------------------- Countdown */
+/*
+ * Drei Sekunden vor jeder Welle und nach jeder Pause. Der Countdown liegt
+ * ueber dem Spielfeld, nimmt aber keine Eingaben an - der Kampf steht
+ * ohnehin still.
+ */
+.countdown {
+  position: fixed; inset: 0; z-index: 34;
+  display: grid; place-items: center;
+  pointer-events: none;
+  background: radial-gradient(60% 50% at 50% 50%, rgba(6, 8, 14, .55), rgba(6, 8, 14, .82));
+}
+.countdown__inner { display: grid; justify-items: center; gap: 2px; }
+.countdown__kicker {
+  font-size: clamp(13px, 3.4vw, 17px);
+  letter-spacing: .28em; text-transform: uppercase;
+  color: #e0b23c;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, .9);
+}
+.countdown__zahl {
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-weight: 800;
+  font-size: clamp(96px, 30vw, 190px);
+  line-height: 1;
+  color: #f6efe0;
+  text-shadow:
+    0 0 26px rgba(224, 178, 60, .5),
+    0 6px 0 #4a3a1a,
+    0 10px 34px rgba(0, 0, 0, .85);
+}
+.countdown__zahl.is-tick { animation: countdownPuls .58s var(--ease) both; }
+@keyframes countdownPuls {
+  0% { transform: scale(1.6); opacity: 0; }
+  22% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(.9); opacity: .75; }
+}
+.countdown__zahl.is-los {
+  font-size: clamp(56px, 17vw, 116px);
+  letter-spacing: .1em;
+  color: #7fe6a6;
+  text-shadow: 0 0 30px rgba(94, 224, 138, .6), 0 6px 0 #16442a;
+}
+
+
+/* ----------------------------------------------------------- Ultimate */
+/*
+ * Der Knopf sitzt ueber der Waffenanzeige und fuellt sich waehrend der
+ * Abklingzeit. Bereit leuchtet er, sonst bleibt er gedaempft.
+ */
+.ultbtn {
+  position: fixed;
+  /* Der Knopf liegt im HUD, das Eingaben durchlaesst - er selbst nicht. */
+  pointer-events: auto;
+  right: calc(14px + var(--safe-r));
+  bottom: calc(84px + var(--safe-b));
+  width: 66px; height: 66px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: 2px solid rgba(191, 224, 255, .35);
+  background: radial-gradient(circle at 50% 35%, #2b3550 0%, #151b2a 70%);
+  color: #cfe3ff;
+  overflow: hidden;
+  z-index: 12;
+  transition: transform .12s var(--ease), border-color .2s var(--ease), box-shadow .2s var(--ease);
+}
+.ultbtn__fuell {
+  position: absolute; inset: 0;
+  background: conic-gradient(rgba(124, 108, 255, .55) var(--fuell, 0%), transparent 0);
+  pointer-events: none;
+}
+.ultbtn__icon { position: relative; font-size: 26px; line-height: 1; }
+.ultbtn__zeit {
+  position: absolute; bottom: 7px;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  color: #9fb0d4;
+}
+.ultbtn.is-ready {
+  border-color: #bfe0ff;
+  color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(124, 108, 255, .22), 0 0 26px rgba(159, 208, 255, .55);
+  animation: ultPuls 1.8s ease-in-out infinite;
+}
+.ultbtn.is-ready .ultbtn__zeit { color: #bfe0ff; }
+.ultbtn:active { transform: scale(.92); }
+@keyframes ultPuls {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(124, 108, 255, .18), 0 0 20px rgba(159, 208, 255, .4); }
+  50% { box-shadow: 0 0 0 5px rgba(124, 108, 255, .3), 0 0 34px rgba(159, 208, 255, .75); }
+}
+
+@media (max-width: 520px) {
+  .ultbtn { width: 58px; height: 58px; bottom: calc(76px + var(--safe-b)); }
+  .ultbtn__icon { font-size: 22px; }
+}
+
+
+/* --------------------------------------------- Spielerischer Anstrich */
+/*
+ * Das HUD nimmt die Farben des Titelbildes auf: Gold fuer Werte, Stein
+ * fuer Flaechen. Nur Optik - an den Groessen aendert sich nichts.
+ */
+.pill {
+  border-color: rgba(224, 178, 60, .28);
+  background: linear-gradient(180deg, rgba(43, 36, 55, .88), rgba(24, 20, 32, .9));
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .12), 0 2px 8px rgba(0, 0, 0, .45);
+}
+.pill b { color: #f2d47a; }
+
+.iconbtn {
+  border-color: rgba(224, 178, 60, .3);
+  background: linear-gradient(180deg, rgba(48, 40, 60, .9), rgba(26, 21, 34, .92));
+  color: #ecdfc4;
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .14), 0 2px 8px rgba(0, 0, 0, .5);
+}
+.iconbtn:hover { border-color: #a4854f; color: #fff4dc; }
+
+.hud__weapon {
+  border-color: rgba(224, 178, 60, .3);
+  background: linear-gradient(180deg, rgba(43, 36, 55, .9), rgba(24, 20, 32, .92));
+}
+
+.banner {
+  color: #f6efe0;
+  text-shadow: 0 0 20px rgba(224, 178, 60, .45), 0 4px 0 #4a3a1a, 0 8px 24px rgba(0, 0, 0, .8);
+  letter-spacing: .06em;
+}
+.banner--boss { color: #ffb4a2; text-shadow: 0 0 22px rgba(255, 90, 77, .5), 0 4px 0 #4a1a16; }
+
+/* Lebensbalken im selben Stil. */
+.hpbar {
+  border-color: rgba(224, 178, 60, .28);
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .1), 0 2px 10px rgba(0, 0, 0, .5);
+}
+
+/* Panels der Bildschirme bekommen eine Goldkante. */
+.panel, .overlay__inner--scroll, .dialog {
+  border-color: rgba(224, 178, 60, .22);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 236, 195, .08);
+}
+.panel__head h2, .overlay__title, .dialog h3 { color: #f6efe0; }

@@ -1849,6 +1849,133 @@ function schussVorschau(lies) {
   return box;
 }
 
+/**
+ * Laufvorschau: die Figur laeuft durch alle acht Richtungen.
+ *
+ * Zeigt Groesse und Spiegelung jeder Richtung so, wie das Spiel sie
+ * zeichnet - inklusive der Einzelbild-Animation und des Staubs darunter.
+ */
+function laufVorschau(lies) {
+  const box = el('div', 'field');
+  box.appendChild(el('label', null, 'Vorschau: Laufen in alle Richtungen'));
+
+  const canvas = el('canvas');
+  canvas.width = 460;
+  canvas.height = 230;
+  canvas.style.cssText = 'width:100%;max-width:460px;background:'
+    + 'radial-gradient(120% 90% at 50% 40%, #17222e 0%, #0d1119 70%);'
+    + 'border-radius:12px;image-rendering:pixelated;';
+  box.appendChild(canvas);
+  box.appendChild(el('p', 'muted',
+    'Die Figur läuft im Kreis. Grösse und Spiegelung je Richtung wirken sofort.'));
+
+  const ctx = canvas.getContext('2d');
+  const bilder = new Map();
+  const hole = (pfad) => {
+    if (!pfad) return null;
+    if (!bilder.has(pfad)) {
+      const img = new Image();
+      img.src = '../' + pfad;
+      bilder.set(pfad, img);
+    }
+    const img = bilder.get(pfad);
+    return img.complete && img.naturalWidth ? img : null;
+  };
+
+  let laeuft = true;
+  const start = performance.now();
+
+  function zeichne(jetzt) {
+    if (!laeuft) return;
+    requestAnimationFrame(zeichne);
+    const daten = lies();
+    const sprites = daten.sprites || {};
+    const t = (jetzt - start) / 1000;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = false;
+
+    // Acht Richtungen, alle 1,1 s eine weiter.
+    const schritt = Math.floor(t / 1.1) % 8;
+    const winkel = (schritt / 8) * Math.PI * 2;
+    const grad = ((winkel * 180) / Math.PI + 360) % 360;
+    let richtung = 'side';
+    let spiegeln = false;
+    if (grad > 45 && grad < 135) richtung = 'front';
+    else if (grad > 225 && grad < 315) richtung = 'back';
+    else if (grad >= 135 && grad <= 225) spiegeln = true;
+
+    const eintrag = sprites[richtung] || {};
+    const rahmen = (eintrag.frames || []).filter(Boolean);
+    const index = rahmen.length ? Math.floor(t * 1000 / (daten.frameDuration || 130)) % rahmen.length : 0;
+    const pfad = rahmen.length ? rahmen[index] : eintrag.gif;
+    const bild = hole(pfad);
+    // Einzelbild-Spiegelung plus Richtungs-Spiegelung plus Laufrichtung.
+    const bildSpiegel = rahmen.length ? !!(eintrag.flips || [])[index] : false;
+    const gesamtSpiegel = spiegeln !== (!!eintrag.flip !== bildSpiegel);
+
+    const mx = 230;
+    const my = 158;
+    const hoehe = (daten.scale || 78) * (eintrag.scale || 1);
+
+    // Boden und Laufbahn
+    ctx.save();
+    ctx.strokeStyle = 'rgba(108,140,255,.14)';
+    ctx.beginPath();
+    ctx.arc(mx, my - 22, 84, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    ctx.beginPath();
+    ctx.ellipse(mx, my + 6, 24, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    if (bild) {
+      const breite = (bild.naturalWidth / bild.naturalHeight) * hoehe;
+      const y = my - hoehe + 8;
+      ctx.save();
+      if (daten.tint) ctx.filter = `hue-rotate(${daten.tint}deg) saturate(1.15)`;
+      if (gesamtSpiegel) {
+        ctx.translate(mx, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(bild, -breite / 2, y, breite, hoehe);
+      } else {
+        ctx.drawImage(bild, mx - breite / 2, y, breite, hoehe);
+      }
+      ctx.restore();
+    }
+
+    // Richtungspfeil
+    ctx.save();
+    ctx.translate(mx, my - 22);
+    ctx.rotate(winkel);
+    ctx.fillStyle = '#43d39e';
+    ctx.beginPath();
+    ctx.moveTo(96, 0);
+    ctx.lineTo(80, -7);
+    ctx.lineTo(80, 7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.fillStyle = '#8b95ad';
+    ctx.font = '12px Inter, system-ui, sans-serif';
+    ctx.fillText(
+      richtung + (gesamtSpiegel ? ' (gespiegelt)' : '')
+      + ' · Größe ' + (eintrag.scale || 1).toFixed(2)
+      + ' · ' + Math.round(hoehe) + ' px',
+      12, 20,
+    );
+    ctx.fillText('Bild ' + (rahmen.length ? index + 1 + ' von ' + rahmen.length : 'aus GIF'), 12, 38);
+    ctx.restore();
+  }
+
+  requestAnimationFrame(zeichne);
+  box.stop = () => { laeuft = false; };
+  return box;
+}
+
 /* ----------------------------------------------------- Gegenstände */
 const ITEM_EFFECTS = [
   ['heal', 'Heilen (Prozent vom Maximalleben)'],
@@ -2137,6 +2264,10 @@ const BALANCE_FIELDS = [
   ['potionMax', 'Heilflaschen gleichzeitig', 0, 1],
   ['potionHeal', 'Heilflasche heilt (%)', 1, 1],
   ['potionLifetime', 'Heilflasche verschwindet nach (s)', 3, 1],
+  ['ultCooldown', 'Ultimate: Abklingzeit (s)', 1, 1],
+  ['ultRadius', 'Ultimate: Radius (px)', 20, 10],
+  ['ultKnockback', 'Ultimate: Rückstoß', 0, 50],
+  ['ultDamage', 'Ultimate: Schaden', 0, 5],
   ['waveMixShare', 'Anteil älterer Gegner (0-1)', 0, 0.05],
   ['waveStartEnemies', 'Gegner zum Wellenstart', 0, 1],
   ['upgradeChoices', 'Upgrade-Karten pro Welle', 1, 1],
@@ -2315,6 +2446,13 @@ function editCharacter(character) {
     body.appendChild(directionEditor(dir, label, spriteState));
   }
 
+  body.appendChild(laufVorschau(() => ({
+    sprites: spriteState,
+    scale: +scale.value || 78,
+    tint: +tint.value || 0,
+    frameDuration: +frameDuration.value || 130,
+  })));
+
   const grid = el('div', 'grid2');
   const frameDuration = textInput(data.frameDuration ?? 130, { type: 'number', min: 20, max: 2000, step: 10 });
   const tint = textInput(data.tint ?? 0, { type: 'number', min: 0, max: 360, step: 5 });
@@ -2420,8 +2558,21 @@ function directionEditor(dir, label, spriteState) {
   const box = el('div', 'card');
   box.appendChild(el('h4', null, label));
   const entry = spriteState[dir] || (spriteState[dir] = { gif: '', frames: [] });
+  entry.flips = Array.isArray(entry.flips) ? entry.flips : [];
+  if (typeof entry.scale !== 'number') entry.scale = 1;
+  if (typeof entry.flip !== 'boolean') entry.flip = false;
 
   box.appendChild(spriteField('Animiertes GIF (optional)', entry.gif, (p) => { entry.gif = p; }));
+
+  // Groesse nur dieser Richtung - die Hitbox bleibt davon unberuehrt.
+  const zeile = el('div', 'grid2');
+  const groesse = textInput(entry.scale, { type: 'number', min: 0.2, max: 4, step: 0.05 });
+  groesse.addEventListener('input', () => { entry.scale = +groesse.value || 1; });
+  zeile.appendChild(field('Größe dieser Richtung', groesse, '1.00 = unverändert, nur das Bild'));
+  const spiegeln = checkInput('Ganze Richtung spiegeln', entry.flip);
+  spiegeln.input.addEventListener('change', () => { entry.flip = spiegeln.input.checked; });
+  zeile.appendChild(spiegeln);
+  box.appendChild(zeile);
 
   const frames = el('div', 'framerow');
   const render = () => {
@@ -2433,14 +2584,26 @@ function directionEditor(dir, label, spriteState) {
         const img = el('img');
         img.src = '../' + path;
         img.alt = '';
+        if (entry.flips[i]) img.style.transform = 'scaleX(-1)';
         slot.appendChild(img);
         const remove = el('button', 'frameslot__x', '✕');
         remove.title = 'Bild entfernen';
         remove.addEventListener('click', () => {
           entry.frames.splice(i, 1);
+          entry.flips.splice(i, 1);
           render();
         });
         slot.appendChild(remove);
+
+        // Einzelnes Bild spiegeln - fuer Sprites, die falsch herum sind.
+        const drehen = el('button', 'frameslot__flip', '⇋');
+        drehen.title = 'Dieses Bild spiegeln';
+        if (entry.flips[i]) drehen.classList.add('is-active');
+        drehen.addEventListener('click', () => {
+          entry.flips[i] = !entry.flips[i];
+          render();
+        });
+        slot.appendChild(drehen);
       } else {
         slot.classList.add('is-empty');
         slot.appendChild(el('span', null, 'Bild ' + (i + 1)));
@@ -2453,7 +2616,13 @@ function directionEditor(dir, label, spriteState) {
         try {
           const data = await uploadFile(upload.files[0]);
           entry.frames[i] = data.path;
-          entry.frames = entry.frames.filter(Boolean);
+          entry.flips[i] = entry.flips[i] || false;
+          // Luecken schliessen, Spiegelungen mitziehen.
+          const paare = entry.frames
+            .map((pfad, k) => [pfad, entry.flips[k] || false])
+            .filter(([pfad]) => !!pfad);
+          entry.frames = paare.map(([pfad]) => pfad);
+          entry.flips = paare.map(([, f]) => f);
           render();
           toast('Bild ' + (i + 1) + ' gesetzt');
         } catch (err) { toast(err.message, 'error'); }
@@ -2474,51 +2643,80 @@ views.audio = (host) => {
   const card = el('div', 'card');
   const form = el('div', 'form');
 
-  let track = a.musicTrack || '';
-  const preview = el('audio');
-  preview.controls = true;
-  preview.preload = 'none';
-  preview.style.cssText = 'width:100%;max-width:420px;';
-  if (track) preview.src = '../' + track;
+  /**
+   * Ein Musikfeld mit Vorhoeren und Upload.
+   * Zwei davon: einer fuer die Menues, einer fuer den Kampf.
+   */
+  function musikFeld(label, hinweis, startwert) {
+    let pfad = startwert || '';
+    const row = el('div', 'field');
+    row.appendChild(el('label', null, label));
+    if (hinweis) row.appendChild(el('small', null, hinweis));
 
-  const trackRow = el('div', 'field');
-  trackRow.appendChild(el('label', null, 'Musiktitel'));
-  const trackName = el('div', 'muted', track || 'kein Titel gesetzt');
-  const upload = el('label', 'btn btn--sm', 'Musik hochladen (MP3, OGG, WAV, M4A)');
-  const fileInput = el('input');
-  fileInput.type = 'file';
-  fileInput.accept = 'audio/mpeg,audio/ogg,audio/wav,audio/mp4,.mp3,.ogg,.wav,.m4a';
-  fileInput.style.display = 'none';
-  upload.appendChild(fileInput);
-  fileInput.addEventListener('change', async () => {
-    if (!fileInput.files.length) return;
-    upload.textContent = 'Lädt hoch ...';
-    try {
-      const form = new FormData();
-      form.append('file', fileInput.files[0]);
-      form.append('kind', 'audio');
-      form.append('name', fileInput.files[0].name.replace(/\.[^.]+$/, ''));
-      form.append('csrf', state.csrf);
-      const res = await fetch('../api.php?action=upload', {
-        method: 'POST', headers: { 'X-CSRF': state.csrf }, body: form,
-      });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || 'Upload fehlgeschlagen');
-      track = data.path;
-      trackName.textContent = track;
-      preview.src = '../' + track;
-      toast('Musik hochgeladen');
-    } catch (err) {
-      toast(err.message, 'error');
-    }
-    upload.textContent = 'Musik hochladen (MP3, OGG, WAV, M4A)';
+    const name = el('div', 'muted', pfad || 'kein Titel gesetzt');
+    const preview = el('audio');
+    preview.controls = true;
+    preview.preload = 'none';
+    preview.style.cssText = 'width:100%;max-width:420px;';
+    if (pfad) preview.src = '../' + pfad;
+
+    const upload = el('label', 'btn btn--sm', 'Musik hochladen (MP3, OGG, WAV, M4A)');
+    const fileInput = el('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'audio/mpeg,audio/ogg,audio/wav,audio/mp4,.mp3,.ogg,.wav,.m4a';
+    fileInput.style.display = 'none';
     upload.appendChild(fileInput);
-    fileInput.value = '';
-  });
-  trackRow.appendChild(trackName);
-  trackRow.appendChild(preview);
-  trackRow.appendChild(upload);
-  form.appendChild(trackRow);
+    fileInput.addEventListener('change', async () => {
+      if (!fileInput.files.length) return;
+      upload.textContent = 'Lädt hoch ...';
+      try {
+        const daten = new FormData();
+        daten.append('file', fileInput.files[0]);
+        daten.append('kind', 'audio');
+        daten.append('name', fileInput.files[0].name.replace(/\.[^.]+$/, ''));
+        daten.append('csrf', state.csrf);
+        const res = await fetch('../api.php?action=upload', {
+          method: 'POST', headers: { 'X-CSRF': state.csrf }, body: daten,
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || 'Upload fehlgeschlagen');
+        pfad = data.path;
+        name.textContent = pfad;
+        preview.src = '../' + pfad;
+        toast('Musik hochgeladen');
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+      upload.textContent = 'Musik hochladen (MP3, OGG, WAV, M4A)';
+      upload.appendChild(fileInput);
+      fileInput.value = '';
+    });
+
+    const leeren = el('button', 'btn btn--sm btn--ghost', 'Titel entfernen');
+    leeren.addEventListener('click', () => {
+      pfad = '';
+      name.textContent = 'kein Titel gesetzt';
+      preview.removeAttribute('src');
+    });
+
+    row.appendChild(name);
+    row.appendChild(preview);
+    const knoepfe = el('div', 'actions');
+    knoepfe.appendChild(upload);
+    knoepfe.appendChild(leeren);
+    row.appendChild(knoepfe);
+    row.read = () => pfad;
+    return row;
+  }
+
+  const menuFeld = musikFeld('Musik im Menü',
+    'Läuft im Hauptmenü, in der Auswahl und auf allen Bildschirmen ausserhalb des Kampfes.',
+    a.musicMenu || '');
+  const kampfFeld = musikFeld('Musik im Kampf',
+    'Läuft nur während einer laufenden Runde. Im Menü ist sie aus.',
+    a.musicTrack || '');
+  form.appendChild(menuFeld);
+  form.appendChild(kampfFeld);
 
   const grid = el('div', 'grid2');
   const musicVol = textInput(a.musicVolume ?? 0.5, { type: 'number', min: 0, max: 1, step: 0.05 });
@@ -2538,7 +2736,8 @@ views.audio = (host) => {
     try {
       await api('settings', {
         audio: {
-          musicTrack: track,
+          musicTrack: kampfFeld.read(),
+          musicMenu: menuFeld.read(),
           musicVolume: +musicVol.value,
           sfxVolume: +sfxVol.value,
           musicEnabled: enabled.input.checked,
@@ -2576,7 +2775,8 @@ views.audio = (host) => {
     try {
       await api('settings', {
         audio: {
-          musicTrack: track,
+          musicTrack: kampfFeld.read(),
+          musicMenu: menuFeld.read(),
           musicVolume: +musicVol.value,
           sfxVolume: +sfxVol.value,
           musicEnabled: enabled.input.checked,
