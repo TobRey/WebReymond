@@ -46,6 +46,92 @@ function silhouette(frame) {
 }
 
 /**
+ * Feine Teilchen ueber dem ganzen Bild.
+ *
+ * Sie liegen im Bildschirmraum, nicht in der Welt - so sind sie immer zu
+ * sehen, egal wo die Kamera steht, und kosten keine Umrechnung. Jedes
+ * Teilchen ist ein einzelner Kreis mit langsamer Drift und einem
+ * Sinus-Flimmern; alle Werte liegen in flachen Zahlenfeldern, damit pro
+ * Bild kein Objekt angefasst wird.
+ *
+ * Bei 45 Teilchen sind das 45 Kreise je Bild - neben achtzig Gegnern faellt
+ * das nicht ins Gewicht, und Menge wie Farbe stehen je Karte im Admin.
+ */
+class Staubschleier {
+  constructor() {
+    this.anzahl = 0;
+    this.farbe = '#ffd9a0';
+    this.x = new Float32Array(0);
+    this.y = new Float32Array(0);
+    this.vx = new Float32Array(0);
+    this.vy = new Float32Array(0);
+    this.r = new Float32Array(0);
+    this.phase = new Float32Array(0);
+    this.w = 0;
+    this.h = 0;
+  }
+
+  /** Legt Menge und Farbe fest; nur bei echter Aenderung wird neu gestreut. */
+  setzen(anzahl, farbe, w, h) {
+    const neu = Math.max(0, Math.min(200, anzahl | 0));
+    this.farbe = farbe || '#ffd9a0';
+    this.w = w;
+    this.h = h;
+    if (neu === this.anzahl) return;
+    this.anzahl = neu;
+    this.x = new Float32Array(neu);
+    this.y = new Float32Array(neu);
+    this.vx = new Float32Array(neu);
+    this.vy = new Float32Array(neu);
+    this.r = new Float32Array(neu);
+    this.phase = new Float32Array(neu);
+    for (let i = 0; i < neu; i++) {
+      this.x[i] = Math.random() * w;
+      this.y[i] = Math.random() * h;
+      this.vx[i] = (Math.random() - 0.5) * 14;
+      this.vy[i] = -6 - Math.random() * 16;      // steigen langsam auf
+      this.r[i] = 0.7 + Math.random() * 1.9;
+      this.phase[i] = Math.random() * TAU;
+    }
+  }
+
+  /** Zeichnet und bewegt in einem Durchgang - im Bildschirmraum. */
+  zeichnen(ctx, dt, zeit, w, h) {
+    if (!this.anzahl) return;
+    if (w !== this.w || h !== this.h) {
+      // Fenstergroesse geaendert: Teilchen ins neue Bild holen.
+      for (let i = 0; i < this.anzahl; i++) {
+        this.x[i] = (this.x[i] / Math.max(1, this.w)) * w;
+        this.y[i] = (this.y[i] / Math.max(1, this.h)) * h;
+      }
+      this.w = w;
+      this.h = h;
+    }
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = this.farbe;
+    for (let i = 0; i < this.anzahl; i++) {
+      let px = this.x[i] + this.vx[i] * dt;
+      let py = this.y[i] + this.vy[i] * dt;
+      // Oben hinaus heisst unten wieder herein.
+      if (py < -6) { py = h + 6; px = Math.random() * w; }
+      if (px < -6) px = w + 6;
+      else if (px > w + 6) px = -6;
+      this.x[i] = px;
+      this.y[i] = py;
+
+      const flimmern = 0.35 + 0.3 * Math.sin(zeit * 1.7 + this.phase[i]);
+      ctx.globalAlpha = flimmern;
+      ctx.beginPath();
+      ctx.arc(px, py, this.r[i], 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+/**
  * Zeichnet die Welt. Alles läuft über genau einen Canvas-Kontext mit
  * abgeschalteter Glättung, damit die Pixel-Art scharf bleibt.
  */
@@ -106,10 +192,11 @@ export class Renderer {
     this.ctx.imageSmoothingEnabled = false;
   }
 
-  draw(time) {
+  draw(time, dt = 1 / 60) {
     const { ctx, arena } = this;
     const camera = arena.camera;
     const scale = this.zoom * this.dpr;
+    if (!this.staub) this.staub = new Staubschleier();
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.imageSmoothingEnabled = false;
@@ -138,6 +225,16 @@ export class Renderer {
     if (arena.debug) this.drawDebug();
 
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+
+    // Stimmungsteilchen liegen ueber der Welt, aber unter dem Joystick.
+    const karte = arena.mapDef || {};
+    this.staub.setzen(
+      karte.particleAmount ?? 45,
+      karte.particleColor || '#ffd9a0',
+      this.cssW, this.cssH,
+    );
+    this.staub.zeichnen(ctx, Math.min(0.05, dt), time, this.cssW, this.cssH);
+
     this.drawJoystick();
   }
 

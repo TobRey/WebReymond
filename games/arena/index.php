@@ -25,6 +25,7 @@ $importMap = Version::importMap(__DIR__);
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="description" content="Arena Survivors - mobiles Top-Down-Roguelite mit Wellen, Bossen und Upgrades.">
 <title>Arena Survivors</title>
+<link rel="preload" href="assets/fonts/rubik-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="assets/fonts/pixelify-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/game.css?v=<?= htmlspecialchars($version, ENT_QUOTES) ?>">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%237c6cff'/><path d='M28 66l22-38 22 38z' fill='%23fff'/></svg>">
@@ -90,27 +91,15 @@ $importMap = Version::importMap(__DIR__);
     <div class="menu__buttons">
       <button id="btn-play" class="btn btn--gold btn--xl">Spielen</button>
       <div class="menu__row">
-        <button id="btn-worlds" class="btn btn--stein">Welten</button>
         <button id="btn-scores" class="btn btn--stein">Bestenliste</button>
+        <button id="btn-account" class="btn btn--stein">Anmelden</button>
       </div>
       <div class="menu__row">
-        <button id="btn-account" class="btn btn--stein">Anmelden</button>
         <button id="btn-sound-menu" class="btn btn--stein">Ton: an</button>
+        <a class="btn btn--stein" href="admin/">Admin</a>
       </div>
-      <a class="btn btn--stein btn--klein" href="admin/">Admin</a>
     </div>
     <div id="menu-best" class="menu__best"></div>
-  </div>
-</section>
-
-<!-- ------------------------------------------------------------ Welten -->
-<section id="screen-worlds" class="screen">
-  <div class="panel">
-    <header class="panel__head">
-      <h2>Welt wählen</h2>
-      <button class="btn btn--quiet" data-back>Zurück</button>
-    </header>
-    <div id="world-list" class="worldlist"></div>
   </div>
 </section>
 

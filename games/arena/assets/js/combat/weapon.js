@@ -101,6 +101,10 @@ export class WeaponController {
           duration: Math.min(0.42, Math.max(0.14, weapon.cooldown * 0.6)),
           spriteScale: weapon.spriteScale,
           sprite: Assets.get(weapon.sprite),
+          // Wo der Schlag ansetzt - im Admin einstellbar.
+          offsetY: weapon.attackOffsetY ?? weapon.holdOffsetY ?? -10,
+          offsetX: weapon.attackOffsetX ?? 0,
+          trailColor: weapon.trailColor || '',
         });
         player.recoil = 0.4;
         Audio.playFirst(['weapon:' + weapon.id, 'melee']);
@@ -122,6 +126,10 @@ export class WeaponController {
           duration: Math.min(0.36, Math.max(0.16, weapon.cooldown * 0.55)),
           spriteScale: weapon.spriteScale,
           sprite: Assets.get(weapon.sprite),
+          // Startpunkt des Stichs - im Admin einstellbar.
+          offsetY: weapon.attackOffsetY ?? weapon.holdOffsetY ?? -10,
+          offsetX: weapon.attackOffsetX ?? 0,
+          trailColor: weapon.trailColor || '',
         });
         player.recoil = 0.5;
         Audio.playFirst(['weapon:' + weapon.id, 'melee']);
@@ -182,6 +190,18 @@ export class WeaponController {
       }
     }
 
+    // Echo: jeder vierte Angriff hallt nach und wiederholt sich sofort.
+    const echo = run.effectLevel('echo');
+    if (echo > 0 && !this._imEcho) {
+      run.echoZaehler = (run.echoZaehler || 0) + 1;
+      const jede = Math.max(2, EFFECT_VALUES.echoEvery - (echo - 1));
+      if (run.echoZaehler % jede === 0) {
+        this._imEcho = true;
+        this.fireExtra();
+        this._imEcho = false;
+      }
+    }
+
     player.recoil = Math.max(player.recoil, Math.min(1, (weapon.recoil || 6) / 12));
     effects.burst(
       originX + Math.cos(this.aim) * 22,
@@ -223,13 +243,18 @@ export class WeaponController {
       vy: Math.sin(angle) * weapon.projectileSpeed,
       speed: weapon.projectileSpeed,
       // Stahlkugeln erhoehen nur den Schaden von Geschossen.
-      damage: weapon.damage * (this.arena.run.stats.projectileDamageMult || 1),
+      damage: weapon.damage * (this.arena.run.stats.projectileDamageMult || 1)
+        * (1 + EFFECT_VALUES.bigShotDamage * this.arena.run.effectLevel('bigShot')),
       knockback: weapon.knockback,
       range: weapon.range,
       pierce: (weapon.pierce || 0)
-        + EFFECT_VALUES.ghostShot * this.arena.run.effectLevel('ghostShot'),
+        + EFFECT_VALUES.ghostShot * this.arena.run.effectLevel('ghostShot')
+        + EFFECT_VALUES.pierceAll * this.arena.run.effectLevel('pierceAll'),
       sprite,
-      size: weapon.projectileSize || 16,
+      // Wuchtgeschoss macht die Kugeln groesser - der Schaden dazu steckt
+      // oben im damage-Feld.
+      size: (weapon.projectileSize || 16)
+        * (1 + EFFECT_VALUES.bigShotSize * this.arena.run.effectLevel('bigShot')),
       homing,
       aoeRadius: 0,
       owner: 'player',

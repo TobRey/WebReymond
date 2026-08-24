@@ -10,7 +10,7 @@ final class Defaults
     public const SPRITE_BASE = 'assets/sprites/';
 
     /** Inhaltsversion. Erhöhen, wenn neue Standardinhalte nachgetragen werden sollen. */
-    public const VERSION = 4;
+    public const VERSION = 5;
 
     /** @return array<string, mixed> */
     public static function content(): array
@@ -60,7 +60,9 @@ final class Defaults
             'musicTrack' => 'assets/audio/music-arena.mp3',
             // Eigener Titel fuer Menue und alle Bildschirme ausserhalb des Kampfes.
             'musicMenu' => 'assets/audio/music-menu.mp3',
-            'musicVolume' => 0.5,
+            // Die Musik liegt bewusst leise unter dem Spiel - die
+            // Treffer- und Schussgeraeusche sollen darueber stehen.
+            'musicVolume' => 0.3,
             'sfxVolume' => 0.8,
             'musicEnabled' => true,
             // Je Ereignis eine Datei und eine eigene Lautstärke.
@@ -458,6 +460,13 @@ final class Defaults
                 // "aus der Waffengroesse ableiten".
                 'muzzleOffsetY' => $melee ? -10 : -6,
                 'muzzleDistance' => 0,
+                // Wo der Schlag oder Stich ansetzt. Ohne diese Werte sass
+                // der Angriff immer auf Fusshoehe, obwohl die Waffe mittig
+                // in der Hand lag - der Speer rutschte beim Stich nach unten.
+                'attackOffsetY' => $melee ? -10 : -6,
+                'attackOffsetX' => 0,
+                // Farbe der Schwung- bzw. Stichspur.
+                'trailColor' => $id === 'zauberstab' ? '#c9a8ff' : '#ffe6ae',
                 // Eigener Ton je Waffe; leer heißt: allgemeiner Schuss- bzw. Schlagton.
                 'sound' => self::weaponSound($id, $melee),
                 'description' => $desc,
@@ -664,6 +673,115 @@ final class Defaults
             ['alchemy', 'Alchemie', 'rare', 70, 6, '',
                 'Heilflaschen erscheinen deutlich häufiger auf der Karte.',
                 [['potionRate', 'percent', 40]]],
+
+            // --- Weitere Grundwerte ------------------------------------------
+            ['eisenhaut', 'Eisenhaut', 'common', 95, 10, '', 'Noch etwas mehr Rüstung.',
+                [['armor', 'flat', 2], ['maxHealth', 'flat', 8]]],
+            ['scharfschliff', 'Scharfschliff', 'common', 95, 12, '', 'Die Klinge sitzt besser.',
+                [['damage', 'percent', 7], ['critChance', 'flat', 2]]],
+            ['federleicht', 'Federleicht', 'common', 90, 10, '', 'Leichter auf den Beinen.',
+                [['moveSpeed', 'percent', 6], ['dodge', 'flat', 3]]],
+            ['weitwurf', 'Weitwurf', 'common', 85, 10, '', 'Alles fliegt ein Stück weiter.',
+                [['range', 'percent', 12]]],
+            ['muskelkater', 'Muskelkater', 'common', 85, 10, '', 'Mehr Wucht hinter jedem Schlag.',
+                [['knockback', 'percent', 30], ['damage', 'percent', 4]]],
+            ['erste_hilfe', 'Erste Hilfe', 'common', 85, 8, '', 'Du erholst dich von selbst.',
+                [['regen', 'flat', 1]]],
+            ['lederweste', 'Lederweste', 'common', 90, 10, '', 'Etwas Schutz, etwas Leben.',
+                [['armor', 'flat', 1], ['maxHealth', 'flat', 14]]],
+            ['zielwasser', 'Zielwasser', 'common', 85, 10, '', 'Kritische Treffer richten mehr an.',
+                [['critDamage', 'flat', 25]]],
+            ['taschendieb', 'Taschendieb', 'common', 80, 8, '', 'Du findest ständig Kleingeld.',
+                [['money', 'percent', 22]]],
+            ['ausdauer', 'Ausdauer', 'common', 85, 10, '', 'Mehr Puffer für lange Wellen.',
+                [['maxHealth', 'flat', 15], ['regen', 'flat', 0.5]]],
+            ['tanzschritt', 'Tanzschritt', 'rare', 80, 8, '', 'Du weichst deutlich öfter aus.',
+                [['dodge', 'flat', 8]]],
+            ['bleikugeln', 'Bleikugeln', 'rare', 80, 8, '', 'Schwerere Geschosse, härtere Treffer.',
+                [['projectileDamage', 'percent', 20], ['projectileSpeed', 'percent', -8]]],
+            ['schnellspanner', 'Schnellspanner', 'rare', 80, 8, '', 'Fernkampfwaffen laden spürbar schneller.',
+                [['rangedAttackSpeed', 'percent', 18]]],
+            ['langer_arm', 'Langer Arm', 'rare', 78, 8, '', 'Nahkampf mit deutlich mehr Reichweite.',
+                [['meleeRange', 'percent', 28]]],
+            ['kettenhemd', 'Kettenhemd', 'rare', 78, 8, '', 'Solider Schutz, leicht gebremst.',
+                [['armor', 'flat', 5], ['moveSpeed', 'percent', -4]]],
+            ['blutkonserve', 'Blutkonserve', 'rare', 75, 6, '', 'Viel mehr Leben, etwas träger.',
+                [['maxHealth', 'flat', 45], ['attackSpeed', 'percent', -5]]],
+            ['praezision', 'Präzision', 'rare', 75, 8, '', 'Trifft öfter kritisch und härter.',
+                [['critChance', 'flat', 7], ['critDamage', 'flat', 20]]],
+            ['schildgenerator', 'Schildgenerator', 'rare', 75, 8, '', 'Ein Schild, der Treffer schluckt.',
+                [['shield', 'flat', 25]]],
+            ['zunder', 'Zunder', 'rare', 75, 8, '', 'Deine Flammen brennen heisser.',
+                [['burn', 'flat', 5], ['damage', 'percent', 4]]],
+            ['staubsauger', 'Staubsauger', 'rare', 70, 6, '', 'Zieht alles aus grosser Entfernung an.',
+                [['pickupRange', 'percent', 70]]],
+            ['doppelgold', 'Doppelgold', 'epic', 70, 6, '', 'Gegner lassen deutlich mehr Geld fallen.',
+                [['money', 'percent', 55]]],
+            ['henkersbeil', 'Henkersbeil', 'epic', 70, 6, '', 'Schwer, langsam, vernichtend.',
+                [['damage', 'percent', 32], ['attackSpeed', 'percent', -10]]],
+            ['windschritt', 'Windschritt', 'epic', 70, 6, '', 'Deutlich schneller und flinker.',
+                [['moveSpeed', 'percent', 16], ['dodge', 'flat', 6]]],
+            ['bollwerk_platte', 'Bollwerkplatte', 'epic', 68, 5, '', 'Fels in der Brandung.',
+                [['armor', 'flat', 8], ['maxHealth', 'flat', 30], ['moveSpeed', 'percent', -6]]],
+            ['giftzahn', 'Giftzahn', 'epic', 68, 6, '', 'Krit-Treffer, die wirklich wehtun.',
+                [['critDamage', 'flat', 70], ['critChance', 'flat', 4]]],
+
+            // --- Verrückte Karten mit eigener Logik ---------------------------
+            ['schwarmherz', 'Schwarmherz', 'epic', 75, 5, 'swarm',
+                'Für jeden lebenden Gegner 1 % mehr Schaden. Je voller die Karte, desto härter triffst du.',
+                []],
+            ['einzelgaenger', 'Einzelgänger', 'epic', 72, 5, 'lonewolf',
+                'Je weniger Gegner stehen, desto mehr Schaden - bis zu +45 %.', []],
+            ['goldklinge', 'Goldklinge', 'epic', 70, 5, 'greedyBlade',
+                'Je 100 Geld im Beutel 5 % mehr Schaden. Sparen lohnt sich.', []],
+            ['armenrecht', 'Armenrecht', 'rare', 75, 4, 'pauper',
+                'Solange du fast pleite bist, schlägst du 30 % härter zu.', []],
+            ['schwung', 'Schwung', 'rare', 80, 6, 'momentum',
+                'In Bewegung machst du mehr Schaden. Stillstehen bringt hier nichts.', []],
+            ['bollwerk', 'Bollwerk', 'rare', 80, 6, 'bulwark',
+                'Im Stand machst du mehr Schaden. Wer bleibt, trifft härter.', []],
+            ['zocker', 'Zocker', 'legendary', 60, 1, 'gambler',
+                'Jeder einzelne Treffer macht halben oder doppelten Schaden. Reiner Nervenkitzel.',
+                []],
+            ['schneeball', 'Schneeball', 'epic', 70, 4, 'snowball',
+                'Jeder Kill macht dich dauerhaft ein Stückchen stärker.', []],
+            ['ueberkritisch', 'Überkritisch', 'legendary', 60, 4, 'criticalMass',
+                'Alles über 100 % Krit-Chance wird in Schaden umgemünzt.', []],
+            ['albtraum', 'Albtraum', 'epic', 68, 5, 'nightmare',
+                'Je tiefer im Run, desto härter triffst du - 9 % je Zyklus.', []],
+            ['adrenalin', 'Adrenalin', 'rare', 78, 6, 'adrenalin',
+                'Je weniger Leben, desto schneller greifst du an.', []],
+            ['blutrausch_karte', 'Rage', 'epic', 70, 5, 'rage',
+                'Unter 30 % Leben schlägst du 45 % schneller zu.', []],
+            ['ernte', 'Ernte', 'rare', 78, 6, 'harvest',
+                'Je zehn Kills heilst du dich ein Stück.', []],
+            ['blutgeld', 'Blutgeld', 'epic', 70, 5, 'bloodMoney',
+                'Jeder Kill bringt Münzen und macht dich dauerhaft etwas stärker.', []],
+            ['schutzengel', 'Schutzengel', 'epic', 68, 4, 'guardian',
+                'Nach jedem Treffer bist du kurz unverwundbar.', []],
+            ['vergeltung', 'Vergeltung', 'epic', 68, 5, 'retaliate',
+                'Wer dich trifft, wird von einer Druckwelle weggeschleudert.', []],
+            ['bankier', 'Bankier', 'legendary', 60, 4, 'banker',
+                'Zu Beginn jeder Welle wird dein Gold zu dauerhaftem Schaden - ausgegeben wird nichts.',
+                []],
+            ['roulette', 'Roulette', 'legendary', 58, 3, 'roulette',
+                'Jede Welle verstärkt einen zufälligen Wert - aber richtig.', []],
+            ['frostaura', 'Frostaura', 'epic', 70, 5, 'frostAura',
+                'Alles in deiner Nähe wird träge.', []],
+            ['flammenaura', 'Flammenaura', 'epic', 70, 5, 'flameAura',
+                'Alles in deiner Nähe fängt von selbst Feuer.', []],
+            ['igelpanzer', 'Igelpanzer', 'epic', 70, 5, 'spikes',
+                'Wer dir zu nahe kommt, verliert dauernd Leben.', []],
+            ['zeitriss', 'Zeitriss', 'epic', 68, 4, 'timeWarp',
+                'Alle zwölf Sekunden greifst du drei Sekunden lang fast doppelt so schnell an.', []],
+            ['magnetfeld', 'Magnetfeld', 'rare', 72, 3, 'magnetize',
+                'Alles Herumliegende fliegt dir über die ganze Karte zu.', []],
+            ['durchschlag', 'Durchschlag', 'epic', 70, 4, 'pierceAll',
+                'Deine Projektile durchschlagen drei zusätzliche Gegner je Stufe.', []],
+            ['echo', 'Echo', 'epic', 68, 4, 'echo',
+                'Jeder vierte Schuss hallt nach und feuert sofort noch einmal.', []],
+            ['wuchtgeschoss', 'Wuchtgeschoss', 'rare', 75, 5, 'bigShot',
+                'Deutlich grössere Projektile, die entsprechend mehr anrichten.', []],
         ];
 
         $out = [];
@@ -780,6 +898,9 @@ final class Defaults
             // Portale werden im Karten-Editor gesetzt. Rot und Blau bilden
             // paarweise Verbindungen: das erste Rote fuehrt zum ersten Blauen.
             'portals' => [],
+            // Feine Teilchen ueber dem Bild - Farbe und Menge je Karte.
+            'particleColor' => '#ffd9a0',
+            'particleAmount' => 45,
             'collision' => [
                 'cols' => 128,
                 'rows' => 128,
@@ -877,6 +998,15 @@ final class Defaults
                 if (!isset($weapon['muzzleDistance'])) {
                     $data['weapons'][$i]['muzzleDistance'] = 0;
                 }
+                if (!isset($weapon['attackOffsetY'])) {
+                    $data['weapons'][$i]['attackOffsetY'] = $data['weapons'][$i]['holdOffsetY'] ?? -10;
+                }
+                if (!isset($weapon['attackOffsetX'])) {
+                    $data['weapons'][$i]['attackOffsetX'] = 0;
+                }
+                if (!isset($weapon['trailColor'])) {
+                    $data['weapons'][$i]['trailColor'] = '#ffe6ae';
+                }
                 if (!isset($weapon['sound'])) {
                     $melee = in_array($weapon['type'] ?? '', ['MELEE_ARC', 'MELEE_360', 'THRUST'], true);
                     $data['weapons'][$i]['sound'] = self::weaponSound((string) ($weapon['id'] ?? ''), $melee);
@@ -908,6 +1038,12 @@ final class Defaults
             if (!isset($map['portals']) || !is_array($map['portals'])) {
                 $data['maps'][$i]['portals'] = [];
             }
+            if (!isset($map['particleColor'])) {
+                $data['maps'][$i]['particleColor'] = '#ffd9a0';
+            }
+            if (!isset($map['particleAmount'])) {
+                $data['maps'][$i]['particleAmount'] = 45;
+            }
         }
 
         // Laden und Menue-Aussehen: fehlende Felder ergaenzen, eigene behalten.
@@ -932,6 +1068,14 @@ final class Defaults
                 if (!isset($known[$up['id']])) {
                     $data['upgrades'][] = $up;
                 }
+            }
+
+            // Musik einmalig leiser stellen: Sie soll unter dem Spiel liegen,
+            // nicht darueber. Wer den Regler selbst angefasst hat, merkt das
+            // im Spiel sofort und kann ihn wieder hochziehen.
+            if ($version < 5 && isset($data['audio']['musicVolume'])
+                && (float) $data['audio']['musicVolume'] > 0.3) {
+                $data['audio']['musicVolume'] = 0.3;
             }
 
             // Einmalig das Waffen-Balancing nachziehen. Betroffen sind nur

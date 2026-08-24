@@ -41,6 +41,8 @@ $version = (string) max(
   <form id="login-form" class="login__card" autocomplete="off">
     <h1>Arena Admin</h1>
     <p class="muted">Bitte Admin-Code eingeben.</p>
+    <p class="muted">Wer im Spiel als <b><?= htmlspecialchars(Auth::adminUser(), ENT_QUOTES) ?></b>
+      angemeldet ist, kommt ohne Code herein.</p>
     <input id="login-code" class="input" type="password" inputmode="numeric" placeholder="Code" autocomplete="current-password" required>
     <button class="btn btn--primary" type="submit">Anmelden</button>
     <p id="login-error" class="error" role="alert"></p>

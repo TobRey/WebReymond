@@ -46,7 +46,17 @@ cd arena
 PHP_CLI_SERVER_WORKERS=6 php -S 127.0.0.1:8080
 ```
 
-### Admin-Code ändern
+### In den Adminbereich
+
+`/admin` aufrufen. Zwei Wege führen hinein:
+
+* **Mit dem Adminkonto** — wer im Spiel als **`spielatze`** angemeldet ist,
+  kommt ohne Code direkt hinein. Der Name steht über die Umgebungsvariable
+  `ADMIN_USER` fest (`SetEnv ADMIN_USER meinname`), Standard ist `spielatze`.
+  Geprüft wird die Sitzung, nicht die Anfrage: Wer sich als dieses Konto
+  ausgeben will, muss dessen Passwort kennen.
+* **Mit dem Code** — sonst fragt `/admin` nach dem Admin-Code (Standard
+  `6713`).
 
 Der Code wird **serverseitig** geprüft und nie an den Browser ausgeliefert.
 Quelle in dieser Reihenfolge:
@@ -56,6 +66,15 @@ Quelle in dieser Reihenfolge:
 
 Zum Ändern: `data/admin.php` löschen, `ADMIN_CODE` setzen, Seite neu laden.
 Nach 6 Fehlversuchen ist der Login 5 Minuten gesperrt.
+
+#### Warum man vorher hinausflog
+
+Spieler und Admin liefen unter **zwei getrennten PHP-Sitzungen**
+(`arena_player` und `arena_admin`). PHP kann pro Anfrage aber nur eine
+Sitzung öffnen: Wer sich zuerst meldete, gewann — und jedes
+`session_regenerate_id` des einen warf den anderen hinaus. Wer im Spiel
+angemeldet war, kam deshalb nicht mehr in den Adminbereich. Beide Rollen
+teilen sich jetzt **eine** Sitzung und liegen darin unter eigenen Schlüsseln.
 
 ---
 
@@ -272,13 +291,27 @@ Namen trägt das Bild.
 
 Das Hintergrundbild lässt sich im Admin unter *Laden & Aussehen* austauschen.
 
-### Eine Schrift für alles
+### Zwei Schriften, beide mitgeliefert
 
-Die gesamte Oberfläche benutzt **eine einzige Schrift** — Pixelify Sans, in
-Überschriften wie im Fliesstext, im Menü wie im HUD, in der Anmeldung wie im
-Laden. Sie liegt als `assets/fonts/*.woff2` (20 KB) **beim Spiel selbst**, es
-wird nichts von Google nachgeladen: Das Spiel sieht damit auch ohne Verbindung
-nach aussen gleich aus, und im ZIP ist alles dabei.
+Zuerst lief die ganze Oberfläche in einer einzigen Pixelschrift. Das sah
+stimmig aus, war aber bei 11 px nicht mehr zu gebrauchen: Ein Pixelraster
+liegt dort unter der Auflösung des Displays, und eine **2 war kaum von einer
+8 zu unterscheiden**. Deshalb jetzt zwei Schnitte mit klarer Aufgabenteilung:
+
+* **Pixelify Sans** für alles Grosse — Titel, Knöpfe, Banner, Countdown, die
+  Werte im HUD. Dort ist sie gross genug, um eindeutig zu bleiben, und sie
+  gibt dem Spiel seinen Ton.
+* **Rubik** für Fliesstext und alle Zahlen. Dieselbe warme, runde Anmutung,
+  aber in jeder Grösse eindeutig lesbar.
+
+Zusätzlich wurde **alles angehoben, was vorher bei 10–12 px stand**: Der
+kleinste Text im Spiel ist jetzt 11,5 px, die meisten Angaben 12,5–14 px,
+Zahlen laufen mit `tabular-nums`, damit sie nicht springen.
+
+Beide Schriften liegen als `assets/fonts/*.woff2` (75 KB zusammen) **beim
+Spiel selbst**, es wird nichts von Google nachgeladen — auch im Admin nicht.
+Das Spiel sieht damit ohne Verbindung nach aussen gleich aus, und im ZIP ist
+alles dabei.
 
 Alle Flächen, die vorher schlichtes Darkmode-Grau waren — Panels, Overlays,
 Formulare, die Anmeldung, Regler, Schalter, Lebensbalken, der Ultimate-Knopf —
@@ -416,6 +449,10 @@ Solange keine eigenen Sprites hochgeladen sind, unterscheiden sich die Figuren
 ## Spielablauf
 
 1. **Spielen** → Charakter wählen → Starterwaffe wählen → Run startet sofort.
+   Die **Karte wird ausgewürfelt**, nicht ausgewählt: Es gab dafür einmal
+   einen eigenen Bildschirm, aber wer ihn benutzte, nahm doch jedes Mal
+   dieselbe. Jetzt entscheidet der Zufall unter allen aktiven Karten, und
+   jede Runde beginnt woanders. Im Admin bleibt alles wie gehabt.
 2. Steuerung: **virtueller Joystick** (entsteht dort, wo der Finger die Fläche
    berührt) oder **WASD / Pfeiltasten** am PC.
 3. Die Waffe **zielt und feuert automatisch** auf den nächsten Gegner in Reichweite.
@@ -643,6 +680,62 @@ Zwei Dinge sorgen dafür, dass das Umfallen auch wie ein Umfallen aussieht:
 
 ---
 
+## Stimmung: Teilchen über dem ganzen Bild
+
+Über der Spielfläche schwebt feiner Staub — winzige Punkte, die langsam
+aufsteigen, seitlich driften und dabei sacht flimmern. Sie liegen im
+**Bildschirmraum**, nicht in der Welt: So sind sie immer zu sehen, egal wo
+die Kamera steht, und es fällt keine einzige Umrechnung an.
+
+Farbe und Menge stehen **je Karte** im Admin (*Maps → Bearbeiten*): warmes
+Gold für eine Steinbruch-Arena, kaltes Blau für eine Eishöhle, 0 schaltet sie
+ganz ab. Alle Werte liegen in flachen `Float32Array`s, damit pro Bild kein
+einziges Objekt angefasst wird.
+
+Gemessen: 45 Teilchen auf einem Mobil-Viewport mit 43–50 Gegnern —
+**60 FPS mit und ohne**, kein messbarer Unterschied.
+
+---
+
+## Wie ein Schlag aussieht
+
+Nahkampfwaffen zogen früher einen flachen weissen Keil hinter sich her. Jetzt
+zieht eine **Sichel** mit:
+
+* ein einziger Pfad — aussen ein sauberer Kreisbogen, innen eine Linie aus
+  24 Punkten, deren Abstand zur Klinge hin wächst,
+* gefüllt mit einem **Farbverlauf** entlang der Sehne: hinten unsichtbar,
+  vorne hell. In Streifen gezeichnet gab es sichtbare Kanten — eine Fläche
+  mit Verlauf hat keine,
+* eine **scharfe Vorderkante** direkt an der Klinge, darunter ein weicher
+  Schein,
+* ein paar **Funken**, die entlang der Spur verglühen,
+* alles im Additiv-Modus, damit es leuchtet statt zu decken.
+
+Der Stoss (Speer) bekommt dasselbe in gerade: ein nach vorne spitz
+zulaufender Streifen, ein heller Kern auf der Achse und Funken an der Spitze.
+
+Die **Farbe der Spur** steht je Waffe im Admin — der Zauberstab schwingt
+violett, Stahl bleibt goldweiss.
+
+### Wo ein Schlag ansetzt
+
+Der Angriff sass bisher immer auf Fusshöhe, während die Waffe mittig in der
+Hand lag. Beim Speer sah man das deutlich: zentriert im Stand, aber beim
+Stich rutschte er zehn Pixel nach unten. Jede Waffe hat jetzt zwei eigene
+Werte im Admin:
+
+| Wert | Wirkung |
+|------|---------|
+| **Schlag-Starthöhe** | Höhe des Ansatzpunktes. Derselbe Wert wie die Waffenhöhe lässt den Stich genau dort ansetzen, wo die Waffe liegt. |
+| **Schlag-Startabstand** | schiebt den Ansatzpunkt nach vorne, weg vom Körper. |
+
+Die Vorschau im Waffen-Editor zeigt bei Nahkampfwaffen jetzt den **Schlag
+statt eines Projektils** — Schwung, Stoss und ein grüner Punkt am
+Ansatzpunkt, in allen acht Richtungen.
+
+---
+
 ## Der Laden
 
 Geld war bisher nur eine Zahl im HUD. Jetzt geht **nach jeder Upgrade-Karte
@@ -713,9 +806,10 @@ hintereinander in 195–439 ms.
 
 ## Upgrades
 
-**53 Upgrades** in vier Seltenheiten (Common, Rare, Epic, Legendary). Nach
-jeder Welle werden drei Karten gezogen; mit steigendem Zyklus — und mit
-**Glück** — wachsen die Chancen auf seltene Karten.
+**104 Upgrades** in vier Seltenheiten — 22 gewöhnliche, 32 seltene, 33
+epische, 17 legendäre. Nach jeder Welle werden drei Karten gezogen; mit
+steigendem Zyklus — und mit **Glück** — wachsen die Chancen auf seltene
+Karten. **55 davon tragen einen Sondereffekt** mit eigener Logik im Spiel.
 
 Eine Karte kann **mehrere Werte gleichzeitig** verschieben (Proteinshake gibt
 Leben *und* Schaden, Glaskanone gibt Schaden *und* nimmt Rüstung) und
@@ -741,7 +835,7 @@ Rückstoß, Ausweichen, Regeneration, Feuerschaden, Heilflaschen-Chance,
 Aufsammelreichweite, **Lebensraub, Glück, Geld, Projektilschaden,
 Nahkampfreichweite, Fernkampftempo und Dornen**.
 
-### Die 29 Sondereffekte
+### Die 55 Sondereffekte
 
 | Effekt | Wirkung |
 |--------|---------|
@@ -775,7 +869,41 @@ Nahkampfreichweite, Fernkampftempo und Dornen**.
 | Mutation | Jede Welle +4 % Schaden, +5 % Gegnerleben |
 | Kartoffelgott | Sechs Werte auf einmal — und zähere Gegner |
 
-Alle Zahlen stehen gebündelt in `assets/js/game/effects.js`.
+Und die verrückte Abteilung — Karten, deren Stärke davon abhängt, wie gerade
+gespielt wird:
+
+| Effekt | Wirkung |
+|--------|---------|
+| Schwarmherz | **+1 % Schaden je lebendem Gegner** (bis +60 %) |
+| Einzelgänger | Das Gegenteil: bis +45 %, je leerer die Karte |
+| Goldklinge | +5 % Schaden je 100 Geld im Beutel (bis +50 %) |
+| Armenrecht | +30 % Schaden, solange du unter 60 Geld hast |
+| Schwung | +16 % Schaden, solange du läufst |
+| Bollwerk | +22 % Schaden, solange du stehst |
+| Zocker | Jeder einzelne Treffer halb **oder** doppelt |
+| Schneeball | Jeder Kill dauerhaft +0,25 % Schaden (bis +75 %) |
+| Überkritisch | Alles über 100 % Krit-Chance wird zu Schaden |
+| Albtraum | +9 % Schaden je Zyklus |
+| Adrenalin | Bis +40 % Angriffstempo bei fehlendem Leben |
+| Rage | Unter 30 % Leben +45 % Angriffstempo |
+| Ernte | Je 10 Kills +5 Leben |
+| Blutgeld | Jeder Kill: +3 Gold und dauerhaft +0,15 % Schaden |
+| Schutzengel | Nach jedem Treffer 0,9 s unverwundbar |
+| Vergeltung | Treffer lösen eine Druckwelle aus (220 px, 30 Schaden) |
+| Bankier | Je Welle +4 % Schaden je 100 Gold — ohne dass Gold wegfällt |
+| Roulette | Jede Welle ein zufälliger Wert, aber richtig |
+| Frostaura | Alles im Umkreis von 170 px läuft mit 60 % Tempo |
+| Flammenaura | Alles im Umkreis von 150 px fängt Feuer |
+| Igelpanzer | 14 Schaden/s im Umkreis von 130 px |
+| Zeitriss | Alle 12 s für 3 s +80 % Angriffstempo |
+| Magnetfeld | Aufsammelreichweite über die ganze Karte |
+| Durchschlag | +3 Durchschläge je Stufe |
+| Echo | Jeder vierte Schuss feuert sofort noch einmal |
+| Wuchtgeschoss | +40 % Projektilgrösse, +18 % Projektilschaden |
+
+Alle Zahlen stehen gebündelt in `assets/js/game/effects.js`. Getestet wurde
+das, indem **alle 104 Karten nacheinander auf einen laufenden Run angewandt**
+wurden: keine Fehler, 55 Effekte gleichzeitig aktiv, danach 60 FPS.
 
 ### Verbrennung
 
@@ -856,9 +984,9 @@ leicht.
 | Seite | Kann |
 |-------|------|
 | **Dashboard** | Überblick, alles auf Standard zurücksetzen |
-| **Maps** | Bild hochladen, Hindernisse malen, Startpunkt, Gegnerzonen und **Portale** setzen, aktivieren, löschen |
+| **Maps** | Bild hochladen, Hindernisse malen, Startpunkt, Gegnerzonen und **Portale** setzen, **Farbe und Menge der Stimmungsteilchen**, aktivieren, löschen |
 | **Gegner** | Anlegen, bearbeiten, duplizieren, löschen; Sprite, Werte, Welle, Hitbox |
-| **Waffen** | Anlegen, bearbeiten, duplizieren, löschen; alle Kampfwerte, Verhalten, Starterwaffe |
+| **Waffen** | Anlegen, bearbeiten, duplizieren, löschen; alle Kampfwerte, Verhalten, Starterwaffe, **Ansatzpunkt und Farbe des Schlags** |
 | **Upgrades** | Anlegen, bearbeiten, duplizieren, löschen; Stat, Modifikator, Seltenheit, Gewicht, Stapel |
 | **Gegenstände** | Tränke, Truhen und eigene Fundstücke: Wirkung, Spawnrate, Anzahl, Lebensdauer, Fundort, Partikelfarbe, Ton |
 | **Spieler** | Basiswerte und alle vier Spieler-Sprites |
@@ -923,6 +1051,10 @@ früheren Version wird beim ersten Start automatisch übernommen.
   blendete der alte über eine halbe Sekunde aus — in dieser Zeit hörte man
   beide gleichzeitig. Ein sauberer Übergang ist hier weniger wert als die
   Gewissheit, dass nie zwei Lieder übereinanderliegen.
+* Die **Musik läuft auf 30 %** — sie soll unter dem Spiel liegen, nicht
+  darüber. Treffer, Schüsse und Schritte stehen damit klar im Vordergrund.
+  Die Effektlautstärke bleibt unverändert; beides lässt sich in der Pause
+  getrennt regeln, und der Grundwert steht im Admin unter *Audio*.
 * Der **🔊-Knopf** im HUD und im Hauptmenü schaltet alles stumm und wieder an.
   Feiner geht es in der **Pause**: dort sitzen getrennte Schalter und Regler für
   Musik und Effekte. Beides wird pro Gerät im `localStorage` gemerkt.
@@ -1163,3 +1295,15 @@ Automatisiert im echten Browser geprüft (Chromium, Desktop und Mobil-Viewport):
   den Reload; Charakter-Editor zeigt alle vier Richtungen inklusive Ruhebild
 * Alle Bildschirme in Hochkant (390 × 844), Querformat (844 × 420) und auf dem
   Desktop (1280 × 800) angesehen — keine JavaScript-Fehler, keine 404
+* Startbild: eigenes Bild im Admin hochgeladen, gespeichert und im Menü
+  wiedergefunden (`background-image` zeigt auf die hochgeladene Datei)
+* Adminzugang über alle vier Wege geprüft: Code, danach Spieler-Login
+  (bleibt drin), `spielatze` ohne Code, Abmelden, fremdes Konto (Code wird
+  verlangt)
+* Alle 104 Upgrades nacheinander angewandt: keine Fehler, 55 Effekte
+  gleichzeitig aktiv, danach 60 FPS
+* Stimmungsteilchen kosten nichts: 45 Teilchen mit 43–50 Gegnern — 60 FPS
+  mit und ohne
+* Speer: Ansatzpunkt des Stichs liegt auf Waffenhöhe (−10 px), nicht mehr
+  auf Fusshöhe; Schwung von Schwert, Axt und Dolch mit Sichel und Funken
+  angesehen

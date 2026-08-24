@@ -82,6 +82,77 @@ export const EFFECT_VALUES = {
   goldenDice: 0.05,
   /** Kartoffelgott: zusaetzlicher Zuschlag auf das Gegnerleben. */
   potatoGod: 0.15,
+
+  /* ---------------------------------------------------- Neue Sondereffekte */
+  /** Schwarmherz: Zuschlag je lebendem Gegner, gedeckelt. */
+  swarm: 0.01,
+  swarmMax: 0.6,
+  /** Einzelgaenger: voller Zuschlag, wenn ausser einem niemand mehr steht. */
+  lonewolfMax: 0.45,
+  lonewolfCount: 8,
+  /** Goldklinge: Zuschlag je hundert Geld im Beutel, gedeckelt. */
+  greedyBlade: 0.05,
+  greedyBladeMax: 0.5,
+  /** Armenrecht: Zuschlag, solange weniger als so viel Geld da ist. */
+  pauperBelow: 60,
+  pauperBonus: 0.3,
+  /** Schwung: Zuschlag in Bewegung. */
+  momentum: 0.16,
+  /** Bollwerk: Zuschlag im Stand. */
+  bulwark: 0.22,
+  /** Zocker: halber oder doppelter Schaden, 50:50. */
+  gamblerLow: 0.5,
+  gamblerHigh: 2,
+  /** Schneeball: dauerhafter Zuschlag je Kill, gedeckelt. */
+  snowball: 0.0025,
+  snowballMax: 0.75,
+  /** Kritische Masse: Krit-Chance ueber 100 wird zu Schaden. */
+  criticalMass: 0.01,
+  /** Albtraum: Zuschlag je Zyklus. */
+  nightmare: 0.09,
+  /** Adrenalin: Angriffstempo waechst mit fehlendem Leben. */
+  adrenalin: 0.4,
+  /** Rage: unter dieser Schwelle dieser Zuschlag aufs Angriffstempo. */
+  rageBelow: 0.3,
+  rageBonus: 0.45,
+  /** Ernte: je so viele Kills so viel Heilung. */
+  harvestEvery: 10,
+  harvestHeal: 5,
+  /** Blutgeld: Zusatzgeld je Kill und dauerhafter Schaden je Kill. */
+  bloodMoneyCoins: 3,
+  bloodMoneyDamage: 0.0015,
+  /** Schutzengel: Unverwundbarkeit nach einem Treffer. */
+  guardian: 0.9,
+  /** Vergeltung: Druckwelle beim Treffer. */
+  retaliateRadius: 220,
+  retaliateDamage: 30,
+  retaliateKnockback: 900,
+  /** Bankier: so viel Geld je Welle wird zu diesem Schadenszuschlag. */
+  bankerPer: 100,
+  bankerBonus: 0.04,
+  /** Roulette: Zuschlag des Wellenbonus. */
+  roulette: 2.5,
+  /** Frostaura: Radius und Tempofaktor. */
+  frostAuraRadius: 170,
+  frostAuraFactor: 0.6,
+  /** Flammenaura: Radius. */
+  flameAuraRadius: 150,
+  /** Igel: Radius und Schaden je Sekunde. */
+  spikesRadius: 130,
+  spikesDamage: 14,
+  /** Zeitriss: alle so viele Sekunden so lange doppeltes Angriffstempo. */
+  timeWarpEvery: 12,
+  timeWarpTime: 3,
+  timeWarpBonus: 0.8,
+  /** Magnetfeld: alles auf der Karte fliegt zu. */
+  magnetizeRadius: 1400,
+  /** Durchschlag: zusaetzliche Durchschlaege je Stufe. */
+  pierceAll: 3,
+  /** Echo: jeder so vielte Angriff feuert doppelt. */
+  echoEvery: 4,
+  /** Wuchtgeschoss: groessere Projektile mit mehr Schaden. */
+  bigShotSize: 0.4,
+  bigShotDamage: 0.18,
 };
 
 /** Werte, die der Goldene Würfel und der Chaos-Kern anfassen dürfen. */
@@ -125,8 +196,61 @@ export function effectDamageFactor(run, enemy) {
     faktor += anteil * EFFECT_VALUES.untouchedBonus * perfekt;
   }
 
-  // Dauerhaft angesammelte Zuschlaege (Seelenfaenger, Mutation).
-  faktor += run.bonusDamage;
+  // Schwarmherz: je mehr Gegner stehen, desto haerter triffst du.
+  const schwarm = run.effectLevel('swarm');
+  if (schwarm > 0) {
+    faktor += Math.min(
+      EFFECT_VALUES.swarmMax * schwarm,
+      (run.aliveEnemies || 0) * EFFECT_VALUES.swarm * schwarm,
+    );
+  }
+
+  // Einzelgaenger: das Gegenteil - stark, solange kaum jemand da ist.
+  const einzel = run.effectLevel('lonewolf');
+  if (einzel > 0) {
+    const leere = Math.max(0, EFFECT_VALUES.lonewolfCount - (run.aliveEnemies || 0));
+    faktor += (leere / EFFECT_VALUES.lonewolfCount) * EFFECT_VALUES.lonewolfMax * einzel;
+  }
+
+  // Goldklinge und Armenrecht haengen am Geldbeutel.
+  const klinge = run.effectLevel('greedyBlade');
+  if (klinge > 0) {
+    faktor += Math.min(
+      EFFECT_VALUES.greedyBladeMax * klinge,
+      (run.money / 100) * EFFECT_VALUES.greedyBlade * klinge,
+    );
+  }
+  const arm = run.effectLevel('pauper');
+  if (arm > 0 && run.money < EFFECT_VALUES.pauperBelow) {
+    faktor += EFFECT_VALUES.pauperBonus * arm;
+  }
+
+  // Schwung und Bollwerk schliessen sich gegenseitig aus - beide zusammen
+  // ergeben immer genau einen Zuschlag, je nachdem ob man laeuft.
+  const schwung = run.effectLevel('momentum');
+  if (schwung > 0 && run.moving) faktor += EFFECT_VALUES.momentum * schwung;
+  const bollwerk = run.effectLevel('bulwark');
+  if (bollwerk > 0 && !run.moving) faktor += EFFECT_VALUES.bulwark * bollwerk;
+
+  // Albtraum: je weiter der Run, desto haerter.
+  const albtraum = run.effectLevel('nightmare');
+  if (albtraum > 0) faktor += (run.cycle - 1) * EFFECT_VALUES.nightmare * albtraum;
+
+  // Kritische Masse: alles ueber 100 % Krit-Chance wird zu Schaden.
+  const masse = run.effectLevel('criticalMass');
+  if (masse > 0) {
+    const ueber = Math.max(0, (run.weaponStats.critChance || 0) - 100);
+    faktor += ueber * EFFECT_VALUES.criticalMass * masse;
+  }
+
+  // Dauerhaft angesammelte Zuschlaege (Seelenfaenger, Mutation, Bankier)
+  // und der Schneeball, der mit jedem Kill mitwaechst.
+  faktor += run.bonusDamage + (run.snowballBonus || 0);
+
+  // Zocker wuerfelt zum Schluss: halb oder doppelt.
+  if (run.hasEffect('gambler')) {
+    faktor *= Math.random() < 0.5 ? EFFECT_VALUES.gamblerLow : EFFECT_VALUES.gamblerHigh;
+  }
   return faktor;
 }
 
@@ -135,6 +259,18 @@ export function effectAttackSpeed(run) {
   let faktor = 1;
   if (run.timed.get('killFrenzy')) faktor += EFFECT_VALUES.killFrenzy * run.effectLevel('killFrenzy');
   if (run.timed.get('hurtFrenzy')) faktor += EFFECT_VALUES.hurtFrenzy * run.effectLevel('hurtFrenzy');
+  if (run.timed.get('timeWarp')) faktor += EFFECT_VALUES.timeWarpBonus * run.effectLevel('timeWarp');
+
+  const adrenalin = run.effectLevel('adrenalin');
+  if (adrenalin > 0) {
+    const fehlt = 1 - Math.max(0, run.health) / Math.max(1, run.stats.maxHealth);
+    faktor += fehlt * EFFECT_VALUES.adrenalin * adrenalin;
+  }
+
+  const rage = run.effectLevel('rage');
+  if (rage > 0 && run.health / Math.max(1, run.stats.maxHealth) < EFFECT_VALUES.rageBelow) {
+    faktor += EFFECT_VALUES.rageBonus * rage;
+  }
   return faktor;
 }
 
@@ -183,6 +319,31 @@ export function onEffectKill(run, enemy) {
 
   const seele = run.effectLevel('soulEater');
   if (seele > 0 && enemy && enemy.boss) run.bonusDamage += EFFECT_VALUES.soulEater * seele;
+
+  // Ernte: regelmaessige kleine Heilung.
+  const ernte = run.effectLevel('harvest');
+  if (ernte > 0 && run.kills > 0 && run.kills % EFFECT_VALUES.harvestEvery === 0) {
+    run.health = Math.min(run.stats.maxHealth, run.health + EFFECT_VALUES.harvestHeal * ernte);
+  }
+
+  // Schneeball: jeder Kill macht dich ein Stueckchen staerker - bis zur
+  // Obergrenze, sonst waere ein langer Run irgendwann sinnlos leicht.
+  // Der Zuschlag steht in einem eigenen Feld und wird im Schadensfaktor
+  // dazugerechnet, damit er sich nicht mit anderen Boni verrechnet.
+  const schnee = run.effectLevel('snowball');
+  if (schnee > 0) {
+    run.snowballBonus = Math.min(
+      EFFECT_VALUES.snowballMax * schnee,
+      (run.snowballBonus || 0) + EFFECT_VALUES.snowball * schnee,
+    );
+  }
+
+  // Blutgeld: Kills zahlen doppelt - in Muenzen und in Schlagkraft.
+  const blut = run.effectLevel('bloodMoney');
+  if (blut > 0) {
+    run.addMoney(EFFECT_VALUES.bloodMoneyCoins * blut);
+    run.bonusDamage += EFFECT_VALUES.bloodMoneyDamage * blut;
+  }
 }
 
 /** Der Spieler hat etwas abbekommen. */
@@ -237,6 +398,28 @@ export function onEffectWaveStart(run) {
     run.mods[schlecht[0]][schlecht[1] === 'flat' ? 'flat' : 'percent'] -= schlecht[2] * chaos;
     run.recalc();
     meldungen.push('Chaos: +' + gut[3] + ', −' + schlecht[3]);
+  }
+
+  // Bankier: Geld arbeitet fuer dich - ohne dass es weniger wird.
+  const bank = run.effectLevel('banker');
+  if (bank > 0) {
+    const zuschlag = Math.floor(run.money / EFFECT_VALUES.bankerPer)
+      * EFFECT_VALUES.bankerBonus * bank;
+    if (zuschlag > 0) {
+      run.bonusDamage += zuschlag;
+      meldungen.push('Bankier: +' + Math.round(zuschlag * 100) + ' % Schaden aus deinem Gold');
+    }
+  }
+
+  // Roulette: ein zufaelliger Wert, aber richtig.
+  const roulette = run.effectLevel('roulette');
+  if (roulette > 0) {
+    const wahl = WUERFEL_WERTE[(Math.random() * WUERFEL_WERTE.length) | 0];
+    const [stat, typ, wert, label] = wahl;
+    const menge = Math.round(wert * EFFECT_VALUES.roulette * roulette);
+    run.mods[stat][typ === 'flat' ? 'flat' : 'percent'] += menge;
+    run.recalc();
+    meldungen.push('Roulette: +' + menge + ' ' + label);
   }
 
   // Einmal je Welle wieder verfügbar.

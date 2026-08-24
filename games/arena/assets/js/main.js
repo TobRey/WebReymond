@@ -32,7 +32,6 @@ input.enabled = false;
 
 let arena = null;
 let loop = null;
-let selectedMap = null;
 let selectedCharacter = null;
 let account = null;
 let pendingSwap = null;
@@ -456,37 +455,15 @@ function renderBest() {
 }
 
 /* ----------------------------------------------------------------- Welten */
+/*
+ * Die Karte wird ausgewuerfelt, nicht gewaehlt.
+ *
+ * Vorher gab es einen eigenen Bildschirm dafuer. Mit mehreren Karten wollte
+ * man aber nicht jedes Mal dieselbe nehmen - jetzt entscheidet der Zufall,
+ * und jede Runde beginnt woanders. Im Admin bleibt alles wie gehabt.
+ */
 function activeMaps() {
   return content.maps.filter((m) => m.active && m.image);
-}
-
-function renderWorlds() {
-  const host = $('world-list');
-  host.textContent = '';
-  const maps = activeMaps();
-  if (!maps.length) {
-    host.appendChild(el('p', 'muted', 'Keine aktive Welt. Lege im Admin-Bereich eine Map an.'));
-    return;
-  }
-  for (const map of maps) {
-    const card = el('button', 'world' + (selectedMap && selectedMap.id === map.id ? ' is-selected' : ''));
-    const img = el('img', 'world__img');
-    img.src = map.image;
-    img.alt = map.name;
-    img.loading = 'lazy';
-    card.appendChild(img);
-    const body = el('div', 'world__body');
-    body.appendChild(el('div', 'world__name', map.name));
-    body.appendChild(el('div', 'world__meta', `${map.width} × ${map.height}`));
-    card.appendChild(body);
-    card.addEventListener('click', () => {
-      selectedMap = map;
-      renderWorlds();
-      renderCharacters();
-      showScreen('screen-character');
-    });
-    host.appendChild(card);
-  }
 }
 
 /* ----------------------------------------------------------------- Waffen */
@@ -532,7 +509,7 @@ async function startRun(weapon) {
     toast('Keine Welt vorhanden - lege im Admin eine Map an.', 'error');
     return;
   }
-  const mapDef = selectedMap && maps.find((m) => m.id === selectedMap.id) ? selectedMap : pick(maps);
+  const mapDef = pick(maps);
 
   showScreen('screen-none');
   $('loading').hidden = false;
@@ -832,6 +809,12 @@ function effectIcon(effect) {
     lastPotato: '🥔', blackhole: '🕳', slowmo: '⏳', midas: '👑', deathwave: '🌊',
     soulEater: '💀', hunger: '🍖', clone: '🧬', bloodPact: '🩸', greedCurse: '🪙',
     chaos: '🎲', goldenDice: '🎲', mutation: '🧪', potatoGod: '🥔',
+    swarm: '🐝', lonewolf: '🐺', greedyBlade: '🪙', pauper: '🥣', momentum: '🏃',
+    bulwark: '🗿', gambler: '🎰', snowball: '❄', criticalMass: '☄', nightmare: '🌑',
+    adrenalin: '💗', rage: '🔴', harvest: '🌾', bloodMoney: '💸', guardian: '🕊',
+    retaliate: '💥', banker: '🏦', roulette: '🎡', frostAura: '🧊', flameAura: '🔥',
+    spikes: '🦔', timeWarp: '⏱', magnetize: '🧲', pierceAll: '🏹', echo: '🔁',
+    bigShot: '🔮',
   }[effect] || '★';
 }
 
@@ -1270,7 +1253,6 @@ function quitToMenu() {
 
 /* --------------------------------------------------------------- Bindings */
 $('btn-play').addEventListener('click', () => {
-  selectedMap = null;
   renderCharacters();
   showScreen('screen-character');
 });
@@ -1281,10 +1263,6 @@ $('btn-scores').addEventListener('click', () => {
 $('btn-account').addEventListener('click', () => {
   renderAccountScreen();
   showScreen('screen-account');
-});
-$('btn-worlds').addEventListener('click', () => {
-  renderWorlds();
-  showScreen('screen-worlds');
 });
 document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => showScreen('screen-menu')));
 /**

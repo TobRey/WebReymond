@@ -26,7 +26,7 @@ const throttled = new Map();
 
 let ctx = null;
 let master = null;
-let musicTargetVolume = 0.45;
+let musicTargetVolume = 0.3;
 let unlocked = false;
 
 /**

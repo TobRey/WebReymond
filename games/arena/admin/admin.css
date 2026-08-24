@@ -21,7 +21,7 @@
 html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
   /* Zahlen und Tabellen bleiben in der Systemschrift lesbar; die
      Spielschrift traegt Titel, Navigation und Knoepfe. */
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: Rubik, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased; }
 
 @font-face {
@@ -30,6 +30,13 @@ html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--te
   font-weight: 400 700;
   font-display: swap;
   src: url('../assets/fonts/pixelify-sans-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Rubik';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../assets/fonts/rubik-latin.woff2') format('woff2');
 }
 
 h1, h2, h3, h4, .brand, .nav__item, .btn, .view-title, #view-title {

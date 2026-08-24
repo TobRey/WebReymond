@@ -41,6 +41,9 @@ export class Arena {
     this.listeners = new Map();
 
     this.map = new GameMap(mapDef);
+    // Rohdaten der Karte bleiben erreichbar - der Renderer holt sich daraus
+    // Farbe und Menge der Stimmungsteilchen.
+    this.mapDef = mapDef;
     this.camera = new Camera();
     this.effects = new Effects();
     this.enemies = new EnemyManager(this.map);
@@ -202,6 +205,10 @@ export class Arena {
       (p) => this.damagePlayer(p.damage),
     );
     this.bossCtrl.update(dt);
+    // Werte, die Sondereffekte brauchen: wie viele Gegner stehen und ob
+    // der Spieler laeuft. Einmal je Takt gesetzt statt an jeder Stelle neu.
+    this.run.aliveEnemies = this.enemies.countAlive;
+    this.run.moving = this.player.moving;
     updateEffects(this.run, dt);
     this.updateEffectTimers(dt);
     this.updateUlt(dt);
@@ -255,7 +262,36 @@ export class Arena {
   damagePlayer(amount) {
     const result = this.player.takeDamage(amount);
     if (result === 0) return;
-    if (result > 0) onEffectPlayerHit(this.run);
+    if (result > 0) {
+      onEffectPlayerHit(this.run);
+
+      // Schutzengel: nach einem Treffer kurz unverwundbar.
+      const engel = this.run.effectLevel('guardian');
+      if (engel > 0) {
+        this.player.invuln = Math.max(this.player.invuln, EFFECT_VALUES.guardian * engel);
+        this.effects.burst(this.player.x, this.player.y, 12, {
+          color: '#cfe3ff', speed: 160, size: 3, life: 0.4, glow: true,
+        });
+      }
+
+      // Vergeltung: der Treffer loest eine Druckwelle aus.
+      const vergeltung = this.run.effectLevel('retaliate');
+      if (vergeltung > 0) {
+        const radius = EFFECT_VALUES.retaliateRadius;
+        const px = this.player.x;
+        const py = this.player.y;
+        this.shockwaves.push({ x: px, y: py, radius, time: 0, life: 0.45, color: '#ffb45c' });
+        this.enemies.inRadius(px, py, radius, (enemy) => {
+          const dx = enemy.x - px;
+          const dy = enemy.y - py;
+          const len = Math.hypot(dx, dy) || 1;
+          enemy.knockX += (dx / len) * EFFECT_VALUES.retaliateKnockback;
+          enemy.knockY += (dy / len) * EFFECT_VALUES.retaliateKnockback;
+          this.damageEnemy(enemy, EFFECT_VALUES.retaliateDamage * vergeltung, false, 0, px, py);
+        });
+        this.camera.addShake(0.35);
+      }
+    }
 
     // Upgrade "Letzte Kartoffel": rettet einmal je Welle.
     if (this.player.dead && this.run.lastPotatoReady && this.run.hasEffect('lastPotato')) {
@@ -618,6 +654,50 @@ export class Arena {
         this.damageEnemy(enemy, EFFECT_VALUES.collide * stufe * dt, false, 0, player.x, player.y);
       });
     }
+
+    // Frostaura: alles in der Naehe wird traege.
+    const frost = run.effectLevel('frostAura');
+    if (frost > 0) {
+      const radius = EFFECT_VALUES.frostAuraRadius * (1 + 0.25 * (frost - 1));
+      const faktor = Math.max(0.25, EFFECT_VALUES.frostAuraFactor - 0.08 * (frost - 1));
+      this.enemies.inRadius(player.x, player.y, radius, (enemy) => {
+        enemy.slowFactor = Math.min(enemy.slowFactor, faktor);
+        enemy.slowTime = Math.max(enemy.slowTime, 0.35);
+      });
+    }
+
+    // Flammenaura: alles in der Naehe faengt Feuer.
+    const flamme = run.effectLevel('flameAura');
+    if (flamme > 0) {
+      this._flammenTakt = (this._flammenTakt || 0) + dt;
+      if (this._flammenTakt >= 0.4) {
+        this._flammenTakt = 0;
+        const radius = EFFECT_VALUES.flameAuraRadius * (1 + 0.22 * (flamme - 1));
+        this.enemies.inRadius(player.x, player.y, radius, (enemy) => this.igniteEnemy(enemy));
+      }
+    }
+
+    // Igel: naher Dauerschaden, ohne dass man sich beruehren muss.
+    const igel = run.effectLevel('spikes');
+    if (igel > 0) {
+      const radius = EFFECT_VALUES.spikesRadius * (1 + 0.2 * (igel - 1));
+      this.enemies.inRadius(player.x, player.y, radius, (enemy) => {
+        this.damageEnemy(enemy, EFFECT_VALUES.spikesDamage * igel * dt, false, 0, player.x, player.y);
+      });
+    }
+
+    // Zeitriss: in festem Takt kurz doppeltes Angriffstempo.
+    if (run.hasEffect('timeWarp')) {
+      this._timeWarp = (this._timeWarp || 0) + dt;
+      if (this._timeWarp >= EFFECT_VALUES.timeWarpEvery) {
+        this._timeWarp = 0;
+        run.timed.set('timeWarp', EFFECT_VALUES.timeWarpTime);
+        this.effects.burst(player.x, player.y, 14, {
+          color: '#9fe8ff', speed: 180, size: 3, life: 0.45, glow: true,
+        });
+      }
+    }
+
   }
 
   /* ---------------------------------------------------------- Ultimate */
@@ -705,8 +785,13 @@ export class Arena {
    * Gegenstand bringt seine eigenen Werte mit (Dashboard: Gegenstände).
    */
   updateItems(dt) {
-    const reichweite = this.run.stats.pickupRange
+    // Aufsammelreichweite: Charakterwert, Fähigkeit "Magnet" - und das
+    // Upgrade "Magnetfeld", das praktisch die ganze Karte einsammelt.
+    let reichweite = this.run.stats.pickupRange
       * (this.run.perk === 'magnet' ? PERK_VALUES.magnetRange : 1);
+    if (this.run.hasEffect('magnetize')) {
+      reichweite = Math.max(reichweite, EFFECT_VALUES.magnetizeRadius);
+    }
     this.pickups.update(dt, this.player, reichweite, (p) => this.collectPickup(p));
     if (this.player.dead) return;
 
@@ -986,7 +1071,7 @@ export class Arena {
 
   render(dt, time, fps) {
     this.renderer.adapt(fps, dt);
-    this.renderer.draw(time);
+    this.renderer.draw(time, dt);
   }
 
   resize() {

@@ -1,7 +1,11 @@
 /*
- * Die Spielschrift liegt beim Spiel selbst - kein Nachladen von aussen.
- * So sieht die Seite auch offline und ohne Verbindung zu Google gleich aus,
- * und im ZIP ist alles dabei, was das Spiel braucht.
+ * Zwei Schriften, beide beim Spiel selbst - kein Nachladen von aussen.
+ *
+ * Pixelify Sans traegt Titel, Knoepfe und alles Grosse: Sie gibt den Ton an.
+ * Fuer Fliesstext und Zahlen ist sie aber ungeeignet - bei 11 px liegt ein
+ * Pixelraster unter der Aufloesung, und eine 2 sieht aus wie eine 8. Dort
+ * uebernimmt Rubik: dieselbe warme, runde Anmutung, aber in jeder Groesse
+ * eindeutig lesbar.
  */
 @font-face {
   font-family: 'Pixelify Sans';
@@ -19,6 +23,26 @@
   font-weight: 400 700;
   font-display: swap;
   src: url('../fonts/pixelify-sans-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Rubik';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../fonts/rubik-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Rubik';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../fonts/rubik-latin-ext.woff2') format('woff2');
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
     U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
     U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
@@ -43,7 +67,9 @@
   --danger: #ff5f7e;
   --hp: #5ee08a;
   --shield: #62c8ff;
-  --schrift: "Pixelify Sans", "Trebuchet MS", Verdana, system-ui, sans-serif;
+  /* Anzeige-Schrift (gross) und Lese-Schrift (klein, Zahlen). */
+  --schrift-titel: "Pixelify Sans", "Trebuchet MS", Verdana, system-ui, sans-serif;
+  --schrift: Rubik, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --menu-bg: url('../sprites/menu-hintergrund.jpg');
   --char-bg: url('../sprites/charakter-hintergrund.jpg');
   --radius: 16px;
@@ -73,9 +99,22 @@ html, body {
   -webkit-user-select: none;
 }
 
-h1, h2, h3, h4, p, span, b, i, em, strong, small, label, li, td, th,
-button, input, select, textarea, .logo, .pill b, .statgrid b, .card__value {
+/* Alles Kleine und alle Zahlen in der Lese-Schrift. */
+p, span, b, i, em, strong, small, label, li, td, th,
+input, select, textarea {
   font-family: var(--schrift);
+}
+
+/*
+ * Alles Grosse in der Spielschrift: Titel, Knoepfe, Banner, Countdown,
+ * die Werte im HUD. Hier ist sie gross genug, um eindeutig zu bleiben.
+ */
+h1, h2, h3, h4,
+.logo, .btn, .iconbtn, .overlay__title, .overlay__kicker, .subhead,
+.banner, .countdown__zahl, .countdown__kicker, .shop__titel,
+.angebot__name, .card__title, .charwahl__kopf h2, .charwahl__info h3,
+.panel__head h2, .dialog h3, .charpfeil {
+  font-family: var(--schrift-titel);
 }
 
 #stage {
@@ -420,7 +459,7 @@ button, input, select { font: inherit; color: inherit; }
 .banner {
   position: absolute; left: 50%; top: 26%;
   transform: translate(-50%, -50%);
-  font-family: var(--schrift); font-weight: 700;
+  font-family: var(--schrift-titel); font-weight: 700;
   font-size: clamp(22px, 6vw, 40px);
   letter-spacing: .04em; text-align: center;
   text-shadow: 0 4px 24px rgba(0, 0, 0, .8);
@@ -743,7 +782,7 @@ button, input, select { font: inherit; color: inherit; }
   text-shadow: 0 2px 10px rgba(0, 0, 0, .9);
 }
 .countdown__zahl {
-  font-family: var(--schrift);
+  font-family: var(--schrift-titel);
   font-weight: 800;
   font-size: clamp(96px, 30vw, 190px);
   line-height: 1;
@@ -885,8 +924,13 @@ button, input, select { font: inherit; color: inherit; }
 
 body { color: var(--pergament); }
 
-/* Jeder Bildschirm bekommt denselben steinernen Grund wie das Menue. */
-.screen {
+/*
+ * Jeder Bildschirm bekommt denselben steinernen Grund wie das Menue -
+ * ausser denen, die ein eigenes Bild tragen. Diese Regel steht spaeter in
+ * der Datei als das Titelbild; ohne die Ausnahme haette sie es bei
+ * gleicher Spezifitaet ueberschrieben, und das Startbild waere weg.
+ */
+.screen:not(.screen--titel):not(.screen--charwahl) {
   background:
     radial-gradient(900px 620px at 50% -8%, rgba(224, 178, 60, .12), transparent 62%),
     linear-gradient(180deg, #17121e 0%, #100c16 55%, #0a0710 100%);
@@ -1576,3 +1620,50 @@ input:focus, select:focus, textarea:focus {
   .angebot__bild img { width: 34px; height: 28px; }
   .shop__leiste .btn { min-height: 40px; padding: 9px 16px; font-size: 13px; }
 }
+
+/* ==========================================================================
+   Lesbarkeit
+   --------------------------------------------------------------------------
+   Alles, was vorher bei 10-12 px stand, ist jetzt mindestens 12,5 px gross.
+   Zusammen mit der Lese-Schrift sind Zahlen damit auch auf dem Handy
+   eindeutig - eine 2 lässt sich nicht mehr mit einer 8 verwechseln.
+   ========================================================================== */
+.pill { font-size: 13px; }
+.pill b { font-size: 15px; font-family: var(--schrift); font-variant-numeric: tabular-nums; }
+.hud__weapon { font-size: 13px; }
+.bar span { font-size: 11.5px; font-weight: 700; }
+.bossbar__label { font-size: 12px; }
+
+.card__desc { font-size: 13px; line-height: 1.5; }
+.card__value { font-size: 15px; }
+.card__rarity, .angebot__art { font-size: 11.5px; letter-spacing: .1em; }
+.card__gesamt, .angebot__gesamt { font-size: 12.5px; }
+.card__stufe, .angebot__stufe { font-size: 12px; }
+
+.angebot__name { font-size: 16px; }
+.angebot__wert { font-size: 13.5px; }
+.angebot__text { font-size: 12.5px; line-height: 1.45; }
+.angebot__preis { font-size: 15px; font-variant-numeric: tabular-nums; }
+.shop__geld b { font-size: 19px; }
+
+.charwahl__info .charwahl__titel { font-size: 13.5px; }
+.charwahl__info p { font-size: 13.5px; }
+.charwahl__tags .tag { font-size: 12px; padding: 3px 9px; }
+.charwahl__perk b { font-size: 14px; }
+.charwahl__perk span { font-size: 12.5px; }
+
+.statgrid > * span { font-size: 11.5px; letter-spacing: .08em; }
+.statgrid b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.upgradechip { font-size: 13px; }
+.upgradechip small { font-size: 12px; }
+.overlay__kicker { font-size: 12.5px; }
+.subhead { font-size: 13px; }
+.menu__best { font-size: 14px; }
+.scorerow__meta { font-size: 12.5px; }
+.form-error { font-size: 13.5px; }
+.dialog p { font-size: 14px; }
+.dialog__hint { font-size: 12.5px; }
+.soundrow { font-size: 14px; }
+.toast { font-size: 13.5px; }
+.btn--klein { font-size: 13px; }
+.chip { font-size: 12.5px; }

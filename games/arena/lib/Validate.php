@@ -124,6 +124,10 @@ final class Validate
             // Start des Projektils. Abstand 0 = aus der Waffengroesse ableiten.
             'muzzleOffsetY' => self::num($in['muzzleOffsetY'] ?? -6, -160, 160, -6),
             'muzzleDistance' => self::num($in['muzzleDistance'] ?? 0, 0, 300, 0),
+            // Ansatzpunkt von Schlag und Stich.
+            'attackOffsetY' => self::num($in['attackOffsetY'] ?? -10, -160, 160, -10),
+            'attackOffsetX' => self::num($in['attackOffsetX'] ?? 0, -160, 300, 0),
+            'trailColor' => self::color($in['trailColor'] ?? '', '#ffe6ae'),
             'sound' => self::soundSet($in['sound'] ?? null, 0.6),
             'description' => self::text($in['description'] ?? '', 200),
             'active' => self::bool($in['active'] ?? true),
@@ -331,6 +335,34 @@ final class Validate
             'goldenDice' => 'Jede Welle ein zufälliger Wert dauerhaft besser',
             'mutation' => 'Jede Welle mehr Schaden, stärkere Gegner',
             'potatoGod' => 'Alles besser - und mehr Elitegegner',
+
+            // --- Verrückte Karten ---------------------------------------
+            'swarm' => 'Mehr Schaden je lebendem Gegner',
+            'lonewolf' => 'Mehr Schaden, je weniger Gegner stehen',
+            'greedyBlade' => 'Mehr Schaden je 100 Geld im Beutel',
+            'pauper' => 'Mehr Schaden, solange du fast pleite bist',
+            'momentum' => 'Mehr Schaden in Bewegung',
+            'bulwark' => 'Mehr Schaden im Stand',
+            'gambler' => 'Jeder Treffer halb oder doppelt',
+            'snowball' => 'Jeder Kill macht dauerhaft stärker',
+            'criticalMass' => 'Krit-Chance über 100 % wird zu Schaden',
+            'nightmare' => 'Mehr Schaden je Zyklus',
+            'adrenalin' => 'Angriffstempo wächst mit fehlendem Leben',
+            'rage' => 'Bei wenig Leben deutlich schnellere Angriffe',
+            'harvest' => 'Regelmässige Heilung durch Kills',
+            'bloodMoney' => 'Kills geben Geld und dauerhaft Schaden',
+            'guardian' => 'Nach einem Treffer kurz unverwundbar',
+            'retaliate' => 'Treffer lösen eine Druckwelle aus',
+            'banker' => 'Dein Gold gibt jede Welle Schaden',
+            'roulette' => 'Jede Welle ein grosser Zufallsbonus',
+            'frostAura' => 'Gegner in der Nähe werden träge',
+            'flameAura' => 'Gegner in der Nähe fangen Feuer',
+            'spikes' => 'Dauerschaden im Nahbereich',
+            'timeWarp' => 'Regelmässig kurz doppeltes Angriffstempo',
+            'magnetize' => 'Alles auf der Karte fliegt dir zu',
+            'pierceAll' => 'Projektile durchschlagen viel mehr Gegner',
+            'echo' => 'Jeder vierte Schuss wiederholt sich',
+            'bigShot' => 'Grössere Projektile mit mehr Schaden',
         ];
     }
 
@@ -468,6 +500,10 @@ final class Validate
             ],
             'enemySpawnAreas' => $areas,
             'portals' => $portals,
+            // Stimmung: feine Teilchen ueber dem ganzen Bild, je Karte
+            // eine eigene Farbe und Dichte.
+            'particleColor' => self::color($in['particleColor'] ?? '', '#ffd9a0'),
+            'particleAmount' => self::int($in['particleAmount'] ?? 45, 0, 200, 45),
             'collision' => ['cols' => $cols, 'rows' => $rows, 'data' => $data],
             'createdAt' => self::int($in['createdAt'] ?? time(), 0, PHP_INT_MAX, time()),
         ];

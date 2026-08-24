@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/Auth.php';
+
 /**
  * Spielerkonten ohne Datenbank.
  *
@@ -18,19 +20,13 @@ final class Accounts
     private const LOCK_SECONDS = 300;
     private const LEADERBOARD_SIZE = 50;
 
+    /**
+     * Spieler und Admin teilen sich eine Sitzung - siehe Auth::start().
+     * Zwei getrennte Sitzungen haben sich gegenseitig hinausgeworfen.
+     */
     public static function start(): void
     {
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            return;
-        }
-        session_set_cookie_params([
-            'lifetime' => 60 * 60 * 24 * 30,
-            'httponly' => true,
-            'samesite' => 'Lax',
-            'secure' => (($_SERVER['HTTPS'] ?? '') !== '' && $_SERVER['HTTPS'] !== 'off'),
-        ]);
-        session_name('arena_player');
-        session_start();
+        Auth::start();
     }
 
     /* ------------------------------------------------------------- Anlegen */

@@ -12,27 +12,73 @@ require_once __DIR__ . '/Store.php';
 final class Auth
 {
     private const DEFAULT_CODE = '6713';
+    /** Konto, das ohne Code in den Adminbereich darf. */
+    private const DEFAULT_ADMIN_USER = 'spielatze';
     private const MAX_TRIES = 6;
     private const LOCK_SECONDS = 300;
 
+    /**
+     * Eine einzige Sitzung fuer Spieler und Admin.
+     *
+     * Frueher lief der Admin unter 'arena_admin' und das Spielerkonto unter
+     * 'arena_player'. PHP kann pro Anfrage aber nur eine Sitzung oeffnen:
+     * Wer sich zuerst meldete, gewann - und jedes session_regenerate_id des
+     * einen warf den anderen hinaus. Wer im Spiel angemeldet war, kam
+     * deshalb nicht mehr in den Adminbereich. Beide Rollen teilen sich jetzt
+     * eine Sitzung und liegen darin unter eigenen Schluesseln.
+     */
     public static function start(): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
             return;
         }
         session_set_cookie_params([
+            'lifetime' => 60 * 60 * 24 * 30,
             'httponly' => true,
             'samesite' => 'Lax',
             'secure' => (($_SERVER['HTTPS'] ?? '') !== '' && $_SERVER['HTTPS'] !== 'off'),
         ]);
-        session_name('arena_admin');
+        session_name('arena');
         session_start();
     }
 
+    /**
+     * Name des Kontos, das ohne Code hineindarf.
+     * Ueber die Umgebung einstellbar: ADMIN_USER=spielatze
+     */
+    public static function adminUser(): string
+    {
+        $name = getenv('ADMIN_USER');
+        if (!is_string($name) || trim($name) === '') {
+            $name = self::DEFAULT_ADMIN_USER;
+        }
+        return strtolower(trim($name));
+    }
+
+    /**
+     * Ist die aktuelle Sitzung Admin?
+     *
+     * Zwei Wege fuehren hinein: der Code - oder ein angemeldetes Spielerkonto
+     * mit dem im Server hinterlegten Adminnamen. Der Name wird dabei gegen
+     * die Sitzung geprueft, nicht gegen die Anfrage; wer sich als dieses
+     * Konto ausgeben will, muss dessen Passwort kennen.
+     */
     public static function isAdmin(): bool
     {
         self::start();
-        return !empty($_SESSION['arena_admin']);
+        if (!empty($_SESSION['arena_admin'])) {
+            return true;
+        }
+        $spieler = $_SESSION['arena_player'] ?? null;
+        return is_string($spieler) && strtolower($spieler) === self::adminUser();
+    }
+
+    /** True, wenn der Zugang ueber das Spielerkonto kommt (kein Code noetig). */
+    public static function isAdminByAccount(): bool
+    {
+        self::start();
+        $spieler = $_SESSION['arena_player'] ?? null;
+        return is_string($spieler) && strtolower($spieler) === self::adminUser();
     }
 
     /** @return array{ok: bool, error?: string} */
@@ -65,9 +111,19 @@ final class Auth
         return ['ok' => true];
     }
 
+    /**
+     * Abmelden im Adminbereich.
+     *
+     * Kam der Zugang ueber das Adminkonto, wird auch dessen Anmeldung
+     * geloest - sonst waere man mit einem Klick auf "Abmelden" sofort
+     * wieder drin und der Knopf haette keine Wirkung.
+     */
     public static function logout(): void
     {
         self::start();
+        if (self::isAdminByAccount()) {
+            unset($_SESSION['arena_player']);
+        }
         unset($_SESSION['arena_admin'], $_SESSION['arena_admin_since']);
         session_regenerate_id(true);
     }

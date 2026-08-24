@@ -47,6 +47,10 @@ export class RunState {
     this.killStreak = 0;
     this.killStreakTime = 0;
     this.untouchedTime = 0;
+    // Werte, die Sondereffekte je Takt aus dem Spiel brauchen.
+    this.aliveEnemies = 0;   // wie viele Gegner gerade stehen
+    this.moving = false;     // laeuft der Spieler oder steht er
+    this.snowballBonus = 0;  // waechst mit jedem Kill (Schneeball)
   }
 
   get difficulty() {

@@ -572,14 +572,19 @@ function newMapFlow() {
 function editMap(map) {
   const body = el('div', 'form');
   const name = textInput(map.name);
-  const active = checkInput('Map ist im Spiel auswählbar', map.active);
+  const active = checkInput('Map kommt im Spiel vor', map.active);
   const spawnX = textInput(Math.round(map.spawn.x), { type: 'number' });
   const spawnY = textInput(Math.round(map.spawn.y), { type: 'number' });
+  // Stimmungsteilchen ueber dem ganzen Bild - je Karte eigene Farbe.
+  const partFarbe = textInput(map.particleColor || '#ffd9a0', { type: 'color' });
+  const partMenge = textInput(map.particleAmount ?? 45, { type: 'number', min: 0, max: 200, step: 5 });
 
   body.appendChild(field('Name', name));
   const grid = el('div', 'grid2');
   grid.appendChild(field('Spawn X', spawnX));
   grid.appendChild(field('Spawn Y', spawnY));
+  grid.appendChild(field('Farbe der Teilchen', partFarbe, 'feiner Staub über dem ganzen Bild'));
+  grid.appendChild(field('Menge der Teilchen', partMenge, '0 = aus, 45 ist ruhig, 120 dicht'));
   body.appendChild(grid);
   body.appendChild(active);
   body.appendChild(el('p', 'muted', `Bild: ${map.image} (${map.width} × ${map.height})`));
@@ -594,6 +599,7 @@ function editMap(map) {
           await api('put', {
             section: 'maps',
             item: { ...map, name: name.value, active: active.input.checked,
+                    particleColor: partFarbe.value, particleAmount: +partMenge.value,
                     spawn: { x: +spawnX.value, y: +spawnY.value } },
           });
           close();
@@ -1389,6 +1395,10 @@ function editWeapon(weapon) {
   const holdDistance = textInput(data.holdDistance ?? 20, { type: 'number', min: -60, max: 200, step: 1 });
   const muzzleOffsetY = textInput(data.muzzleOffsetY ?? (data.holdOffsetY ?? -6), { type: 'number', min: -160, max: 160, step: 1 });
   const muzzleDistance = textInput(data.muzzleDistance ?? 0, { type: 'number', min: 0, max: 300, step: 1 });
+  // Ansatzpunkt von Schlag und Stich - wichtig fuer Speer, Schwert, Axt, Dolch.
+  const attackOffsetY = textInput(data.attackOffsetY ?? (data.holdOffsetY ?? -10), { type: 'number', min: -160, max: 160, step: 1 });
+  const attackOffsetX = textInput(data.attackOffsetX ?? 0, { type: 'number', min: -160, max: 300, step: 1 });
+  const trailColor = textInput(data.trailColor || '#ffe6ae', { type: 'color' });
 
   grid.appendChild(field('Typ', type));
   grid.appendChild(field('Projektil', projectile));
@@ -1410,6 +1420,11 @@ function editWeapon(weapon) {
   grid.appendChild(field('Abstand zum Körper (px)', holdDistance));
   grid.appendChild(field('Projektil-Starthöhe (px)', muzzleOffsetY, 'negativ = höher, positiv = tiefer'));
   grid.appendChild(field('Projektil-Startabstand (px)', muzzleDistance, '0 = automatisch aus der Waffengröße'));
+  grid.appendChild(field('Schlag-Starthöhe (px)', attackOffsetY,
+    'Nahkampf: negativ = höher. Gleicher Wert wie die Waffenhöhe lässt den Stich auf der Höhe ansetzen, auf der die Waffe liegt.'));
+  grid.appendChild(field('Schlag-Startabstand (px)', attackOffsetX,
+    'Nahkampf: schiebt den Ansatzpunkt nach vorne'));
+  grid.appendChild(field('Farbe der Schwungspur', trailColor));
   body.appendChild(grid);
 
   // Live-Vorschau: zeigt Waffe und Projektil in echter Spielgröße.
@@ -1502,6 +1517,12 @@ function editWeapon(weapon) {
       muzzleOffsetY: +muzzleOffsetY.value,
       muzzleDistance: +muzzleDistance.value,
       projectile: projectile.value,
+      type: type.value,
+      arc: +arc.value || 90,
+      range: +range.value || 140,
+      attackOffsetY: +attackOffsetY.value,
+      attackOffsetX: +attackOffsetX.value,
+      trailColor: trailColor.value,
     },
   })));
 
@@ -1538,6 +1559,8 @@ function editWeapon(weapon) {
               projectileSize: +projectileSize.value, holdOffsetY: +holdOffsetY.value,
               holdDistance: +holdDistance.value, muzzleOffsetY: +muzzleOffsetY.value,
               muzzleDistance: +muzzleDistance.value, description: desc.value,
+              attackOffsetY: +attackOffsetY.value, attackOffsetX: +attackOffsetX.value,
+              trailColor: trailColor.value,
               active: active.input.checked, starter: starter.input.checked,
             },
           });
@@ -1673,7 +1696,7 @@ function editUpgrade(up) {
  */
 function schussVorschau(lies) {
   const box = el('div', 'field');
-  box.appendChild(el('label', null, 'Vorschau: Schuss in alle Richtungen'));
+  box.appendChild(el('label', null, 'Vorschau: Angriff in alle Richtungen'));
 
   const canvas = el('canvas');
   canvas.width = 460;
@@ -1684,7 +1707,7 @@ function schussVorschau(lies) {
   box.appendChild(canvas);
 
   const hinweis = el('p', 'muted');
-  hinweis.textContent = 'Der Punkt zeigt, wo das Projektil startet.';
+  hinweis.textContent = 'Der Punkt zeigt, wo das Projektil startet - bei Nahkampfwaffen, wo der Schlag ansetzt.';
   box.appendChild(hinweis);
 
   const ctx = canvas.getContext('2d');
@@ -1784,6 +1807,64 @@ function schussVorschau(lies) {
       if (Math.abs(winkel) > Math.PI / 2 && Math.abs(winkel) < Math.PI * 1.5) ctx.scale(1, -1);
       ctx.drawImage(wbild, -laenge * 0.3, -h / 2, laenge, h);
       ctx.restore();
+    }
+
+    // Nahkampf: statt eines Projektils den Schlag zeigen. Der Ansatzpunkt
+    // ist derselbe wie im Spiel, damit sich der Speer hier einstellen laesst.
+    const nahkampf = ['MELEE_ARC', 'MELEE_360', 'THRUST'].includes(waffe && waffe.type);
+    if (nahkampf) {
+      const aY = (typeof waffe.attackOffsetY === 'number') ? waffe.attackOffsetY : haltenY;
+      const aX = waffe.attackOffsetX || 0;
+      const ax = MITTE_X + Math.cos(winkel) * aX;
+      const ay = MITTE_Y + fuss * 0.1 + aY + Math.sin(winkel) * aX * 0.6;
+      // Reichweite auf die Vorschau eindampfen, sonst laeuft sie aus dem Bild.
+      const reich = Math.min(96, (waffe.range || 140) * 0.62);
+      const farbe = waffe.trailColor || '#ffe6ae';
+      const phase = Math.min(1, (imTakt % 0.55) / 0.4);
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      if (waffe.type === 'THRUST') {
+        const weit = phase < 0.45 ? (phase / 0.45) * reich : (1 - (phase - 0.45) / 0.55) * reich;
+        ctx.globalAlpha = 0.5;
+        ctx.strokeStyle = farbe;
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(ax + Math.cos(winkel) * weit, ay + Math.sin(winkel) * weit);
+        ctx.stroke();
+      } else {
+        const span = ((waffe.type === 'MELEE_360' ? 360 : waffe.arc || 90) * Math.PI) / 180;
+        const von = winkel - span / 2;
+        const jetztW = von + span * phase;
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = farbe;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.arc(ax, ay, reich, Math.max(von, jetztW - span * 0.5), jetztW);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // Ansatzpunkt markieren
+      ctx.save();
+      ctx.strokeStyle = '#43d39e';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(ax, ay, 5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(67,211,158,.35)';
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      ctx.fillStyle = '#8b95ad';
+      ctx.font = '12px system-ui, sans-serif';
+      ctx.fillText('Richtung ' + (schritt + 1) + ' von ' + RICHTUNGEN, 12, 20);
+      ctx.fillText('Schlag-Starthöhe ' + Math.round(aY) + ' px · Abstand ' + Math.round(aX) + ' px', 12, 38);
+      ctx.restore();
+      return;
     }
 
     // Mündung: exakt die Formel aus dem Spiel
