@@ -16,7 +16,9 @@ export class GameMap {
   }
 
   async load() {
-    this.sprite = await Assets.load(this.def.image);
+    // maxSide 0: Die Karte behält ihre volle Auflösung. Sie wird über die
+    // ganze Welt gezogen, jede Verkleinerung wäre sofort sichtbar.
+    this.sprite = await Assets.load(this.def.image, 0);
     return this;
   }
 

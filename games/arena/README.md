@@ -177,8 +177,29 @@ Jetzt gilt:
 Beides läuft über PHP und braucht keine `.htaccess`, die viele FTP-Programme
 ohnehin überspringen.
 
-### Performance
+### Warum es flüssig läuft
 
+Die Spiellogik selbst ist nicht das Problem — sie braucht bei 60 Gegnern und
+vierfach gedrosselter CPU keine 3 ms pro Bild. Teuer war alles rundherum:
+
+* **Kein Weichzeichner über der laufenden Leinwand.** Die Overlays liegen mit
+  `backdrop-filter` über dem Spielfeld. Zeichnete die Leinwand darunter weiter,
+  musste der Browser den Weichzeichner in *jedem* Bild neu über den ganzen
+  Bildschirm legen. Jetzt steht das Zeichnen still, solange ein Fenster offen
+  ist — das letzte Bild bleibt einfach stehen. Auch die HUD-Pillen haben ihren
+  `backdrop-filter` verloren; sie sind stattdessen etwas dunkler.
+  Das allein war der Unterschied zwischen 35 und 60 FPS.
+* **Automatische Qualitätsstufe.** Fällt die Bildrate unter 45, zeichnet das
+  Spiel schrittweise gröber (bis 55 % der Auflösung) und wieder feiner, sobald
+  Luft da ist. Pixel-Art verträgt das gut — sichtbar ist vor allem, dass es
+  flüssig bleibt.
+* **Kleinere Sprites.** Figuren werden 60–200 px hoch gezeichnet; Sprites
+  werden deshalb auf höchstens **192 px** Kantenlänge verkleinert (vorher 384).
+  Das drückt den Sprite-Speicher von 38,5 MB auf 18,5 MB — davon 9 MB die
+  Karte, die als einzige ihre volle Auflösung behält.
+* **Nachschlagetabelle statt Schleife** für das aktuelle Einzelbild einer
+  Animation. Bei 60 Gegnern wurde die Schleife 60× pro Bild durchlaufen.
+* **Schatten als fertiges Bild** statt einer gezeichneten Ellipse je Gegner.
 * Fester Simulationstakt (1/60 s) mit Delta-Time — 60-Hz- und 120-Hz-Geräte
   spielen exakt gleich schnell.
 * Object Pools für Projektile, Partikel, Schadenszahlen, Nahkampfangriffe und Gegner.
@@ -186,7 +207,12 @@ ohnehin überspringen.
 * Offscreen-Culling beim Zeichnen, harte Obergrenzen für Partikel (220) und
   Schadenszahlen (60).
 * HUD ist normales DOM und wird nur ~12×/s aktualisiert, nie pro Frame.
-* Getestet mit 45+ gleichzeitigen Gegnern bei stabilen 60 FPS.
+* `maxEnemies` steht auf 60 statt 80 — jeder Gegner kostet Zeichenzeit, und
+  60 füllen den Bildschirm bereits gut. Im Admin änderbar.
+
+Gemessen über drei Minuten Dauerspiel bei vierfach gedrosselter CPU:
+**durchgehend 60 FPS**, Speicherverbrauch konstant bei 9,5 MB (vorher fiel die
+Bildrate auf 35 und blieb dort).
 
 ---
 
@@ -476,14 +502,28 @@ früheren Version wird beim ersten Start automatisch übernommen.
   hatte, bekam dauerhaft überhaupt keinen Ton mehr. Das ist behoben; der
   Speicherschlüssel wurde gewechselt, damit alte, festhängende Einstellungen
   nicht mitwandern.
-* **Mobilgeräte:** Ein Ton, der erst mitten im Spiel zum ersten Mal geladen
-  wird, bleibt dort stumm. Deshalb werden bei der ersten Berührung alle
-  hinterlegten Dateien einmal lautlos angespielt und sofort wieder angehalten.
-  Danach klingen sie zuverlässig. Je Datei stehen drei fertige Abspieler bereit,
-  damit sich schnelle Wiederholungen nicht gegenseitig abschneiden.
+* Im Spiel läuft die Musik **immer**. Bei jedem Wellenstart, nach jeder Pause
+  und zusätzlich alle vier Sekunden prüft das Spiel nach und wirft sie wieder
+  an, falls der Browser die Wiedergabe einmal abgelehnt hat. Vorher ging sie
+  irgendwann von selbst an – oder eben nicht.
 * Im Admin unter **Audio**: eigenen Titel hochladen (MP3, OGG, WAV, M4A, max.
   20 MB), Grundlautstärke setzen, Autostart an- oder abschalten. Die
   Dateiprüfung läuft über die Signatur, nicht über die Endung.
+
+### Warum die Effekte über Web Audio laufen
+
+Ein Zwischenschritt hat für jede Tonvariante mehrere `<audio>`-Elemente
+angelegt und sie beim Freischalten alle einmal lautlos angespielt. Das waren
+**132 Elemente**, die gleichzeitig zu laden begannen – hörbar als Spielgeräusche
+schon in der Charakterauswahl, und spürbar als Ruckeln bis hin zum Einfrieren.
+
+Jetzt laufen die Effekte über die **Web Audio API**: Jede der 18 Dateien wird
+genau einmal geladen und entschlüsselt, danach ist ein Ton nur noch ein
+Puffer-Abspieler. Beim Freischalten wird nichts abgespielt, es entsteht kein
+einziges zusätzliches Element, und die Dateien laden erst **nach** den
+Spielgrafiken, damit sie auf langsamer Leitung nicht um Bandbreite streiten.
+Nur die Musik bleibt ein `<audio>`-Element – sie ist minutenlang und soll
+gestreamt und nicht komplett in den Speicher entschlüsselt werden.
 
 ### Soundeffekte
 
@@ -620,3 +660,15 @@ Automatisiert im echten Browser geprüft (Chromium, Desktop und Mobil-Viewport):
 * Waffen- und Projektilgröße im Admin auf 132 / 54 px gesetzt: nach dem
   Neuladen genau diese Werte im Spiel und am fliegenden Projektil
 * Alle 27 Module werden mit eigener Versionsnummer geladen (vorher nur eine)
+* In der Charakterauswahl entsteht **ein** Audio-Element (die Musik) statt 132,
+  und es wird **kein** Spielgeräusch abgespielt
+* Fünfzehn Charakterkarten zeigen Standbilder statt fünfzehn laufender GIFs
+* Drei Minuten Dauerspiel bei vierfach gedrosselter CPU: durchgehend 60 FPS,
+  Speicher konstant 9,5 MB, DOM-Knoten konstant, Musik durchgehend an
+  (vorher: Einbruch auf 35 FPS ab der zweiten Minute)
+* Sprite-Speicher 38,5 MB → 18,5 MB; die Karte behält 1536×1536
+* Ton: 13 Effekte im Spiel, stumm 0, wieder an 11; mit abgeschalteter Musik
+  laufen 16 Effekte weiter; Musik springt beim Wiedereinschalten sofort an
+* Bei zehnfach gedrosselter CPU regelt die Qualitätsstufe selbsttätig auf
+  0,55 herunter — das Bild bleibt lesbar (Screenshot geprüft)
+* Startzeit auf 400 kbit/s unverändert bei 12,9 s

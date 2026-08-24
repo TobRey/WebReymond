@@ -6,6 +6,24 @@ const silhouettes = new WeakMap();
 /** Flammen auf brennenden Gegnern - identisch zu arena.js. */
 const BURN_SPRITE = 'assets/sprites/feuer.gif';
 
+/** Einmal gezeichneter Schattenkreis, danach nur noch skaliert kopiert. */
+let shadowCanvas = null;
+function shadowSprite() {
+  if (shadowCanvas) return shadowCanvas;
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.globalAlpha = 0.28;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.ellipse(size / 2, size / 2, size / 2, size / 2, 0, 0, TAU);
+  ctx.fill();
+  shadowCanvas = canvas;
+  return shadowCanvas;
+}
+
 /** Weisse Silhouette eines Frames - für das Aufblitzen bei Treffern. */
 function silhouette(frame) {
   let cached = silhouettes.get(frame);
@@ -38,6 +56,34 @@ export class Renderer {
     this.dpr = 1;
     this.zoom = 1;
     this.renderList = [];
+
+    // Qualitätsstufe: 1 = volle Auflösung. Faellt die Bildrate, wird
+    // weniger gerechnet - siehe adapt().
+    this.quality = 1;
+    this._qualityTimer = 0;
+  }
+
+  /**
+   * Passt die Renderauflösung an die tatsächliche Leistung an.
+   *
+   * Der Flaschenhals ist nicht die Spiellogik (unter 3 ms pro Bild), sondern
+   * die Menge an Pixeln. Auf einem schwachen Gerät wird deshalb etwas
+   * gröber gezeichnet, sobald die Bildrate einbricht - und wieder feiner,
+   * sobald Luft da ist. Pixel-Art verträgt das gut.
+   *
+   * @param fps    gemessene Bildrate
+   * @param dt     Zeit seit dem letzten Bild
+   */
+  adapt(fps, dt) {
+    if (!fps) return;
+    this._qualityTimer += dt;
+    if (this._qualityTimer < 2) return;
+    this._qualityTimer = 0;
+
+    const vorher = this.quality;
+    if (fps < 45) this.quality = Math.max(0.55, this.quality - 0.15);
+    else if (fps > 56 && this.quality < 1) this.quality = Math.min(1, this.quality + 0.1);
+    if (this.quality !== vorher) this.resize();
   }
 
   resize() {
@@ -47,7 +93,7 @@ export class Renderer {
     const cssH = Math.max(240, rect.height || window.innerHeight);
 
     // Auf sehr hochaufloesenden Handys kostet DPR 3 spürbar Leistung.
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2) * this.quality;
     canvas.width = Math.round(cssW * this.dpr);
     canvas.height = Math.round(cssH * this.dpr);
 
@@ -211,6 +257,14 @@ export class Renderer {
     const frame = sprite.frameAt(time * 1000 + enemy.animOffset);
     const drawY = enemy.y + enemy.radius * 0.45 - height;
 
+    // Der häufigste Fall - nach rechts blickend, kein Treffer - kommt ohne
+    // save/restore und ohne Zustandswechsel aus. Das ist bei achtzig
+    // Gegnern pro Bild ein spürbarer Unterschied.
+    if (!enemy.flip && enemy.hitFlash <= 0) {
+      ctx.drawImage(frame, enemy.x - width / 2, drawY, width, height);
+      return;
+    }
+
     ctx.save();
     if (enemy.flip) {
       ctx.translate(enemy.x, 0);
@@ -225,12 +279,10 @@ export class Renderer {
       }
     } else {
       ctx.drawImage(frame, enemy.x - width / 2, drawY, width, height);
-      if (enemy.hitFlash > 0) {
-        const sil = silhouette(frame);
-        if (sil) {
-          ctx.globalAlpha = enemy.hitFlash * 0.85;
-          ctx.drawImage(sil, enemy.x - width / 2, drawY, width, height);
-        }
+      const sil = silhouette(frame);
+      if (sil) {
+        ctx.globalAlpha = enemy.hitFlash * 0.85;
+        ctx.drawImage(sil, enemy.x - width / 2, drawY, width, height);
       }
     }
     ctx.restore();
@@ -264,15 +316,17 @@ export class Renderer {
     ctx.restore();
   }
 
+  /**
+   * Schatten als fertiges Bild statt gezeichneter Ellipse.
+   *
+   * Bei achtzig Gegnern kostete die Variante mit save/beginPath/ellipse/
+   * fill/restore spürbar Bildrate. Ein einmal erzeugter Kreis, skaliert
+   * gezeichnet, sieht identisch aus und ist ein einziger drawImage-Aufruf.
+   */
   shadow(x, y, rx, ry) {
-    const ctx = this.ctx;
-    ctx.save();
-    ctx.globalAlpha = 0.28;
-    ctx.fillStyle = '#000';
-    ctx.beginPath();
-    ctx.ellipse(x, y, rx, ry, 0, 0, TAU);
-    ctx.fill();
-    ctx.restore();
+    const sprite = shadowSprite();
+    if (!sprite) return;
+    this.ctx.drawImage(sprite, x - rx, y - ry, rx * 2, ry * 2);
   }
 
   /** Lebensleisten sitzen über dem Gegner und bleiben immer gleich groß. */

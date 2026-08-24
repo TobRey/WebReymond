@@ -4,6 +4,9 @@ import { decodeGif } from './gif.js';
  * Ein Sprite ist eine Liste fertiger Frames plus Zeitangaben.
  * PNGs haben genau einen Frame, GIFs ihre dekodierten Einzelbilder.
  */
+/** Auflösung der Bild-Nachschlagetabelle in Millisekunden. */
+const FRAME_STEP = 16;
+
 export class Sprite {
   constructor(frames, delays, width, height, src) {
     this.frames = frames;
@@ -13,17 +16,33 @@ export class Sprite {
     this.src = src;
     this.duration = delays.reduce((a, b) => a + b, 0) || 100;
     this.animated = frames.length > 1;
+
+    // Nachschlagetabelle statt Schleife: Bei 80 Gegnern wird frameAt
+    // achtzigmal pro Bild aufgerufen, jedes Mal mit einer Schleife über
+    // alle Einzelbilder. Einmal vorberechnet ist daraus ein Array-Zugriff.
+    if (this.animated) {
+      const steps = Math.max(1, Math.ceil(this.duration / FRAME_STEP));
+      this.lookup = new Uint8Array(steps);
+      for (let step = 0; step < steps; step++) {
+        let t = step * FRAME_STEP;
+        let index = frames.length - 1;
+        for (let i = 0; i < frames.length; i++) {
+          t -= delays[i];
+          if (t < 0) {
+            index = i;
+            break;
+          }
+        }
+        this.lookup[step] = index;
+      }
+    }
   }
 
   /** Endlos laufende Animation. */
   frameAt(timeMs) {
     if (!this.animated) return this.frames[0];
-    let t = timeMs % this.duration;
-    for (let i = 0; i < this.frames.length; i++) {
-      t -= this.delays[i];
-      if (t < 0) return this.frames[i];
-    }
-    return this.frames[this.frames.length - 1];
+    const t = timeMs % this.duration;
+    return this.frames[this.lookup[(t / FRAME_STEP) | 0]];
   }
 
   /** Einmalige Animation - liefert null, wenn sie durchgelaufen ist. */
@@ -109,12 +128,22 @@ function trimFrames(frames, width, height) {
  * Spiel mit 60 bis 200 Pixeln Höhe. Ohne diesen Schritt kosten Dekodierung
  * und Speicher auf dem Handy ein Vielfaches, ohne dass man etwas sieht.
  */
-const MAX_SPRITE_SIDE = 384;
+/**
+ * Obergrenze für die Kantenlänge eines Sprites.
+ *
+ * Im Spiel werden Figuren 60-200 px hoch gezeichnet. Alles darüber kostet
+ * nur Speicher und Zeichenzeit: Ein 384er Sprite mit zehn Bildern belegt
+ * knapp sechs Megabyte, ein 192er nur noch anderthalb. Auf dem Handy ist
+ * das der Unterschied zwischen flüssig und irgendwann eingefroren.
+ *
+ * Die Karte lädt mit maxSide 0 und bleibt deshalb in voller Auflösung.
+ */
+const MAX_SPRITE_SIDE = 192;
 
-function shrinkFrames(frames, width, height) {
+function shrinkFrames(frames, width, height, maxSide = MAX_SPRITE_SIDE) {
   const longest = Math.max(width, height);
-  if (longest <= MAX_SPRITE_SIDE) return null;
-  const factor = MAX_SPRITE_SIDE / longest;
+  if (!maxSide || longest <= maxSide) return null;
+  const factor = maxSide / longest;
   const w = Math.max(1, Math.round(width * factor));
   const h = Math.max(1, Math.round(height * factor));
   const scaled = frames.map((frame) => {
@@ -172,7 +201,7 @@ function withTimeout(promise, src, ms = LOAD_TIMEOUT) {
   });
 }
 
-async function loadOne(src) {
+async function loadOne(src, maxSide = MAX_SPRITE_SIDE) {
   const isGif = /\.gif(\?|$)/i.test(src);
   if (isGif) {
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
@@ -190,7 +219,7 @@ async function loadOne(src) {
       width = trimmed.width;
       height = trimmed.height;
     }
-    const shrunk = shrinkFrames(frames, width, height);
+    const shrunk = shrinkFrames(frames, width, height, maxSide);
     if (shrunk) {
       frames = shrunk.frames;
       width = shrunk.width;
@@ -205,6 +234,12 @@ async function loadOne(src) {
     img.onerror = () => reject(new Error('Bild fehlt: ' + src));
     img.src = src;
   });
+
+  // Auch Einzelbilder werden verkleinert - eine 360er Waffengrafik, die
+  // 46 px breit gezeichnet wird, muss nicht in voller Größe im Speicher
+  // liegen. Nur die Karte kommt mit maxSide 0 hier durch.
+  const shrunk = shrinkFrames([img], img.naturalWidth, img.naturalHeight, maxSide);
+  if (shrunk) return new Sprite(shrunk.frames, [100], shrunk.width, shrunk.height, src);
   return new Sprite([img], [100], img.naturalWidth, img.naturalHeight, src);
 }
 
@@ -296,25 +331,43 @@ export const Assets = {
   missing: [],
 
   /** Lädt ein Asset genau einmal; Fehler enden in einem sichtbaren Platzhalter. */
-  async load(src) {
+  /**
+   * @param src   Pfad zur Bilddatei
+   * @param maxSide  Kantenlänge, auf die verkleinert wird.
+   *                 0 heißt: volle Auflösung behalten (Karte).
+   */
+  async load(src, maxSide = MAX_SPRITE_SIDE) {
     if (!src) return fallbackSprite('', '?');
-    if (cache.has(src)) return cache.get(src);
-    if (pending.has(src)) return pending.get(src);
+    // Volle Auflösung bekommt einen eigenen Platz im Zwischenspeicher,
+    // sonst überschreibt die Karte das verkleinerte Sprite oder umgekehrt.
+    const key = maxSide === MAX_SPRITE_SIDE ? src : src + '#max' + maxSide;
+    if (cache.has(key)) return cache.get(key);
+    if (pending.has(key)) return pending.get(key);
 
-    const task = withTimeout(loadOne(src), src)
+    const task = withTimeout(loadOne(src, maxSide), src)
       .catch((err) => {
         console.warn('[assets]', err.message);
         if (!Assets.missing.includes(src)) Assets.missing.push(src);
         return fallbackSprite(src, '!');
       })
       .then((sprite) => {
-        cache.set(src, sprite);
-        pending.delete(src);
+        cache.set(key, sprite);
+        pending.delete(key);
         return sprite;
       });
 
-    pending.set(src, task);
+    pending.set(key, task);
     return task;
+  },
+
+  /** Kantenlänge, auf die Sprites verkleinert werden. */
+  get maxSide() {
+    return MAX_SPRITE_SIDE;
+  },
+
+  /** Nur für Diagnose: alles, was gerade im Zwischenspeicher liegt. */
+  cacheEntries() {
+    return [...cache.entries()];
   },
 
   /**

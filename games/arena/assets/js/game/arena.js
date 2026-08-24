@@ -566,7 +566,8 @@ export class Arena {
 
   /* ------------------------------------------------------------- Render */
 
-  render(dt, time) {
+  render(dt, time, fps) {
+    this.renderer.adapt(fps, dt);
     this.renderer.draw(time);
   }
 

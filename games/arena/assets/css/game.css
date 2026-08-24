@@ -192,7 +192,10 @@ button, input, select { font: inherit; color: inherit; }
   padding: 5px 12px;
   font-size: 12px;
   color: var(--muted);
-  backdrop-filter: blur(8px);
+  /* Kein backdrop-filter: Die Pillen liegen über der Spielflaeche, und ein
+     Weichzeichner müsste dort in jedem einzelnen Bild neu berechnet werden.
+     Der undurchsichtigere Hintergrund sieht praktisch gleich aus. */
+  background: rgba(10, 13, 20, .82);
 }
 .pill b { color: var(--text); font-size: 14px; }
 .pill--timer b { font-variant-numeric: tabular-nums; }

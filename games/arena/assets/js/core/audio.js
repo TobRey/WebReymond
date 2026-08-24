@@ -1,49 +1,45 @@
 /**
- * Audio: Hintergrundmusik plus vorbereitete Soundeffekte.
+ * Ton des Spiels.
  *
- * Browser blockieren Wiedergabe ohne Nutzergeste. Deshalb merkt sich das
- * Modul einen Startwunsch und löst ihn bei der ersten Berührung oder
- * Taste ein. Lautstärke und An/Aus liegen im localStorage.
+ * Effekte laufen über die Web Audio API: Jede Datei wird genau einmal
+ * geladen und entschlüsselt, danach kostet ein Abspielen praktisch nichts.
+ * Die frühere Fassung hat für jede Variante mehrere <audio>-Elemente
+ * angelegt und beim Freischalten alle einmal angespielt - das waren über
+ * hundert gleichzeitige Ladevorgänge, hörbare Geräusche schon in der
+ * Charakterauswahl und ein spürbares Ruckeln auf dem Handy.
+ *
+ * Die Musik bleibt ein <audio>-Element: Sie ist mehrere Minuten lang und
+ * soll gestreamt und nicht komplett in den Speicher entschlüsselt werden.
  */
 const EVENTS = [
   'shoot', 'melee', 'hit', 'crit', 'enemyDeath', 'explosion',
-  'upgrade', 'bossSpawn', 'bossWarning', 'playerHit', 'coin', 'gameOver', 'uiClick',
+  'upgrade', 'bossSpawn', 'bossWarning', 'playerHit', 'coin', 'potion',
+  'gameOver', 'uiClick', 'waveClear', 'gameStart', 'run',
 ];
 
-// Neuer Schluessel: Die alte Fassung hat mit dem Musikknopf auch die
-// Effekte abgeschaltet und das gespeichert. Wer davon betroffen war, hatte
-// dauerhaft keinen Ton mehr. Mit einem neuen Schluessel starten alle wieder
-// mit Ton, und Musik und Effekte sind ab jetzt getrennt.
 const STORAGE_KEY = 'arena.audio.v2';
-const clips = new Map();
+const clips = new Map();        // Ereignis -> {enabled, chance, volume, variants}
+const buffers = new Map();      // Dateipfad -> AudioBuffer
+const failed = new Set();       // Dateien, die nicht geladen werden konnten
+const pending = new Map();      // laufende Ladevorgänge
 const throttled = new Map();
-/** Wie viele fertige Abspieler je Tondatei bereitstehen. */
-const NODES_PER_VARIANT = 3;
 
-/** Nimmt einen freien Abspieler, sonst den aeltesten im Ringpuffer. */
-function pickNode(variant) {
-  for (const node of variant.nodes) {
-    if (node.paused || node.ended) return node;
-  }
-  const node = variant.nodes[variant.next % variant.nodes.length];
-  variant.next++;
-  return node;
-}
-
+let ctx = null;
+let master = null;
 let music = null;
 let musicSrc = '';
 let musicTargetVolume = 0.45;
 let fadeTimer = 0;
-let wantsPlay = false;
+let wantsMusic = false;
 let unlocked = false;
+let warmTimer = 0;
 
 const settings = loadSettings();
 
 function loadSettings() {
-  // musicVolume ist der Regler des Spielers (0-1) und multipliziert die
-  // im Admin gesetzte Grundlautstärke.
+  // musicVolume und sfxVolume sind die Regler des Spielers (0-1) und
+  // multiplizieren die im Admin gesetzten Grundlautstärken.
   const fallback = { musicOn: true, sfxOn: true, musicVolume: 1, sfxVolume: 1, sfxMaster: 0.8 };
-  // musicOn und sfxOn sind zwei unabhaengige Schalter.
   try {
     return { ...fallback, ...(JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}) };
   } catch {
@@ -57,47 +53,96 @@ function saveSettings() {
   } catch { /* privater Modus */ }
 }
 
+/* ------------------------------------------------------------ Freischalten */
+
 /**
- * Erste Nutzergeste schaltet die Wiedergabe frei.
- *
- * Auf Mobilgeraeten reicht das allein nicht: Ein Ton, der spaeter ausserhalb
- * einer Geste zum ersten Mal geladen wird, bleibt dort stumm. Deshalb werden
- * hier alle hinterlegten Dateien einmal lautlos angespielt und sofort wieder
- * angehalten - danach duerfen sie jederzeit klingen.
+ * Browser lassen Ton erst nach einer Nutzergeste zu. Die Geste erzeugt
+ * hier den AudioContext und weckt ihn - lautlos, es wird nichts abgespielt.
  */
 function unlock() {
-  if (unlocked) return;
-  unlocked = true;
-  primeAll();
-  if (wantsPlay) Audio.startMusic();
-}
-
-function prime(clip) {
-  for (const variant of clip.variants) {
-    for (const audio of variant.nodes) primeNode(audio);
+  if (!ctx) {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return;
+    try {
+      ctx = new Ctor();
+      master = ctx.createGain();
+      master.gain.value = 1;
+      master.connect(ctx.destination);
+    } catch {
+      ctx = null;
+      return;
+    }
+  }
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  unlocked = ctx.state === 'running';
+  if (unlocked) {
+    // Erst die Spielgrafiken, dann die Töne: Auf einer langsamen Leitung
+    // sollen die Tondateien nicht mit der Karte um Bandbreite streiten.
+    // Fehlt ein Ton beim ersten Mal, wird er dann eben nachgeladen.
+    if (!warmTimer) warmTimer = setTimeout(warmup, 2500);
+    if (wantsMusic) Audio.startMusic();
   }
 }
 
-function primeNode(audio) {
-  if (audio.__primed) return;
-  audio.__primed = true;
-  audio.preload = 'auto';
-  audio.muted = true;
-  const done = () => {
-    audio.pause();
-    audio.currentTime = 0;
-    audio.muted = false;
-  };
-  const p = audio.play();
-  if (p && typeof p.then === 'function') p.then(done).catch(() => { audio.muted = false; });
-  else done();
+// Nicht "once": Auf Mobilgeräten kann der Context später wieder einschlafen,
+// dann weckt ihn die nächste Berührung erneut.
+['pointerdown', 'keydown', 'touchstart'].forEach((type) =>
+  window.addEventListener(type, unlock, { passive: true }));
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) unlock();
+});
+
+/* ---------------------------------------------------------------- Laden */
+
+/** Höchstens zwei Dateien gleichzeitig - der Rest wartet in der Schlange. */
+let inFlight = 0;
+const queue = [];
+
+function pump() {
+  while (inFlight < 2 && queue.length) {
+    const src = queue.shift();
+    inFlight++;
+    fetchBuffer(src).finally(() => {
+      inFlight--;
+      pump();
+    });
+  }
 }
 
-function primeAll() {
-  for (const clip of clips.values()) prime(clip);
+async function fetchBuffer(src) {
+  try {
+    const res = await fetch(src, { cache: 'force-cache' });
+    if (!res.ok) throw new Error(String(res.status));
+    const raw = await res.arrayBuffer();
+    const buffer = await new Promise((resolve, reject) => {
+      // Safari kennt decodeAudioData nur mit Callbacks.
+      const p = ctx.decodeAudioData(raw, resolve, reject);
+      if (p && typeof p.then === 'function') p.then(resolve, reject);
+    });
+    buffers.set(src, buffer);
+  } catch {
+    failed.add(src);
+  } finally {
+    pending.delete(src);
+  }
 }
-['pointerdown', 'keydown', 'touchstart'].forEach((type) =>
-  window.addEventListener(type, unlock, { once: true, passive: true }));
+
+function request(src) {
+  if (!ctx || buffers.has(src) || pending.has(src) || failed.has(src)) return;
+  pending.set(src, true);
+  queue.push(src);
+  pump();
+}
+
+/** Lädt alle hinterlegten Dateien im Hintergrund - ohne sie abzuspielen. */
+function warmup() {
+  warmTimer = 0;
+  for (const clip of clips.values()) {
+    for (const variant of clip.variants) request(variant.src);
+  }
+}
+
+/* ---------------------------------------------------------------- Musik */
 
 function fadeTo(target, seconds = 1.2) {
   if (!music) return;
@@ -121,8 +166,6 @@ function fadeTo(target, seconds = 1.2) {
 export const Audio = {
   events: EVENTS,
 
-  /* --------------------------------------------------------------- Musik */
-
   /** Legt den Titel fest. Geladen wird erst beim ersten Abspielen. */
   setMusic(src, volume) {
     if (typeof volume === 'number') musicTargetVolume = Math.max(0, Math.min(1, volume));
@@ -137,24 +180,42 @@ export const Audio = {
 
   startMusic() {
     if (!settings.musicOn || !musicSrc) return;
-    if (!unlocked) {
-      wantsPlay = true;              // wird bei der ersten Geste nachgeholt
-      return;
-    }
-    wantsPlay = false;
+    wantsMusic = true;
     if (!music) {
       music = new window.Audio(musicSrc);
       music.loop = true;
       music.preload = 'auto';
       music.volume = 0;
+      // Läuft der Titel doch einmal aus, sofort wieder anwerfen.
+      music.addEventListener('ended', () => {
+        if (settings.musicOn) music.play().catch(() => {});
+      });
     }
-    const target = Audio.volume;
+    if (!music.paused) return;
     music.play()
-      .then(() => fadeTo(Math.min(1, target), 1.4))
-      .catch(() => { wantsPlay = true; });
+      .then(() => fadeTo(Math.min(1, Audio.volume), 1.2))
+      .catch(() => { /* wartet auf die nächste Geste */ });
+  },
+
+  /**
+   * Sorgt dafür, dass die Musik im Spiel wirklich läuft.
+   *
+   * Wird bei jedem Wellenstart und beim Fortsetzen aufgerufen. Ohne das
+   * blieb die Musik nach einer abgewiesenen Wiedergabe stumm und ging erst
+   * irgendwann später von selbst wieder an.
+   */
+  ensureMusic() {
+    if (!settings.musicOn || !musicSrc) return;
+    if (!music || music.paused) {
+      Audio.startMusic();
+      return;
+    }
+    // Nach dem Abblenden auf 30 % wieder auf volle Lautstärke.
+    if (music.volume < Audio.volume * 0.9) fadeTo(Audio.volume, 0.5);
   },
 
   stopMusic({ fade = true } = {}) {
+    wantsMusic = false;
     if (!music) return;
     if (fade) fadeTo(0, 0.8);
     else {
@@ -164,17 +225,15 @@ export const Audio = {
   },
 
   duckMusic(on) {
-    // Während Pause und Upgrade-Auswahl leiser, damit die UI im Vordergrund steht.
+    // Während Pause und Upgrade-Auswahl leiser, damit die UI vorne steht.
     if (!music || !settings.musicOn) return;
-    fadeTo(on ? Audio.volume * 0.3 : Audio.volume, 0.4);
+    if (on) fadeTo(Audio.volume * 0.3, 0.4);
+    else Audio.ensureMusic();
   },
 
   /* --------------------------------------------------------- Soundeffekte */
 
-  /**
-   * Registriert einen Ton mit bis zu vier Varianten.
-   * Beim Abspielen wird zufällig eine davon gewählt.
-   */
+  /** Registriert ein Ereignis mit bis zu vier Varianten. */
   registerSet(key, set) {
     if (!set || !Array.isArray(set.variants) || !set.variants.length) {
       clips.delete(key);
@@ -184,33 +243,28 @@ export const Audio = {
       enabled: set.enabled !== false,
       chance: typeof set.chance === 'number' ? set.chance : 100,
       volume: typeof set.volume === 'number' ? set.volume : 0.8,
-      // Je Variante mehrere fertige Abspieler. Auf Mobilgeraeten darf ein
-      // frisch erzeugtes Element ausserhalb einer Nutzergeste nicht tönen -
-      // vorbereitete duerfen es. Drei reichen, damit sich schnelle
-      // Wiederholungen nicht gegenseitig abschneiden.
-      variants: set.variants.map((variant) => {
-        const nodes = [];
-        for (let i = 0; i < NODES_PER_VARIANT; i++) {
-          const audio = new window.Audio(variant.src);
-          audio.preload = 'auto';
-          nodes.push(audio);
-        }
-        return { nodes, src: variant.src, volume: typeof variant.volume === 'number' ? variant.volume : 1, next: 0 };
-      }),
+      variants: set.variants.map((variant) => ({
+        src: variant.src,
+        volume: typeof variant.volume === 'number' ? variant.volume : 1,
+      })),
     };
     clips.set(key, clip);
-    if (unlocked) prime(clip);
+    // Nach dem Aufwärmen registrierte Ereignisse holen ihre Dateien sofort.
+    if (ctx && !warmTimer && unlocked) for (const variant of clip.variants) request(variant.src);
   },
 
-  /** Einzelne Datei registrieren - kurze Form für eigene Erweiterungen. */
+  /** Holt die Tondateien jetzt - nach dem Laden der Spielgrafiken. */
+  warm() {
+    if (!ctx || ctx.state !== 'running') return;
+    clearTimeout(warmTimer);
+    warmup();
+  },
+
   register(event, src, volume = 1) {
     Audio.registerSet(event, { enabled: true, chance: 100, volume, variants: [{ src, volume: 1 }] });
   },
 
-  /**
-   * Übernimmt die komplette Tonkonfiguration: Musik, Ereignisse,
-   * Waffen- und Gegnertöne.
-   */
+  /** Übernimmt Musik, Ereignisse, Waffen- und Gegnertöne aus den Spieldaten. */
   configure(content = {}) {
     const audio = content.audio || {};
     if (audio.musicTrack) Audio.setMusic(audio.musicTrack, audio.musicVolume);
@@ -227,29 +281,35 @@ export const Audio = {
   },
 
   play(event, { volume = 1, rate = 1 } = {}) {
-    if (!settings.sfxOn || !unlocked) return;
+    if (!settings.sfxOn || !ctx || ctx.state !== 'running') return;
     const clip = clips.get(event);
-    if (!clip || !clip.enabled) return;      // Kein Ton hinterlegt oder abgeschaltet.
+    if (!clip || !clip.enabled) return;
     if (clip.chance < 100 && Math.random() * 100 >= clip.chance) return;
 
     // Zufällige Variante, damit sich Wiederholungen nicht abnutzen.
     const variant = clip.variants[(Math.random() * clip.variants.length) | 0];
-    const node = pickNode(variant);
-    node.volume = Math.max(0, Math.min(1,
+    const buffer = buffers.get(variant.src);
+    if (!buffer) {
+      request(variant.src);        // beim nächsten Mal ist sie da
+      return;
+    }
+
+    const gain = ctx.createGain();
+    gain.gain.value = Math.max(0, Math.min(1,
       volume * variant.volume * clip.volume * (settings.sfxVolume ?? 1) * (settings.sfxMaster ?? 0.8)));
-    node.playbackRate = rate;
-    try {
-      node.currentTime = 0;
-    } catch { /* noch nicht geladen - dann spielt er ab Anfang */ }
-    const p = node.play();
-    if (p && typeof p.catch === 'function') p.catch(() => {});
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.playbackRate.value = rate;
+    source.connect(gain);
+    gain.connect(master);
+    source.start(0);
+    source.onended = () => {
+      source.disconnect();
+      gain.disconnect();
+    };
   },
 
-  /**
-   * Spielt den ersten vorhandenen Ton aus einer Liste von Schlüsseln.
-   * So kann eine Waffe einen eigenen Ton haben und sonst auf den
-   * allgemeinen Schuss- oder Schlagton zurückfallen.
-   */
+  /** Spielt den ersten hinterlegten Ton aus einer Liste von Schlüsseln. */
   playFirst(keys, options) {
     for (const key of keys) {
       if (key && clips.has(key)) {
@@ -324,12 +384,15 @@ export const Audio = {
     return !!music && !music.paused;
   },
 
-  /** Nur für Diagnose und Tests. */
+  get ready() {
+    return !!ctx && ctx.state === 'running';
+  },
+
   get element() {
     return music;
   },
 
-  /** Zeigt, was für einen Schlüssel hinterlegt ist. */
+  /** Nur für Diagnose und Tests. */
   describe(key) {
     const clip = clips.get(key);
     if (!clip) return null;
@@ -338,6 +401,11 @@ export const Audio = {
       chance: clip.chance,
       volume: clip.volume,
       variants: clip.variants.map((v) => v.src.split('/').pop()),
+      geladen: clip.variants.filter((v) => buffers.has(v.src)).length,
     };
+  },
+
+  get stats() {
+    return { ereignisse: clips.size, geladen: buffers.size, fehlend: failed.size, wartend: queue.length };
   },
 };

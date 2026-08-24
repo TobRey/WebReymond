@@ -26,6 +26,7 @@ let selectedCharacter = null;
 let account = null;
 let pendingSwap = null;
 let hudTimer = 0;
+let musicWatch = 0;
 let best = loadBest();
 
 /* ----------------------------------------------------------------- Konto */
@@ -158,9 +159,11 @@ function renderCharacters() {
 
     const art = el('div', 'char__art');
     const img = el('img');
-    img.src = (character.sprites && character.sprites.front && (character.sprites.front.frames?.[0] || character.sprites.front.gif)) || '';
     img.alt = '';
     if (character.tint) img.style.filter = `hue-rotate(${character.tint}deg) saturate(1.15)`;
+    const quelle = (character.sprites && character.sprites.front
+      && (character.sprites.front.frames?.[0] || character.sprites.front.gif)) || '';
+    stillbild(quelle).then((src) => { img.src = src; });
     art.appendChild(img);
     card.appendChild(art);
 
@@ -199,6 +202,42 @@ function renderCharacters() {
     });
     host.appendChild(card);
   }
+}
+
+/**
+ * Erstes Bild einer Datei als Standbild.
+ *
+ * Auf dem Charakterbildschirm stehen fünfzehn Karten. Als animierte GIFs
+ * dekodiert der Browser sie alle dauerhaft weiter - das allein macht das
+ * Menü auf dem Handy zäh. Ein einmal gezeichnetes Standbild kostet nichts,
+ * und weil sich die Figuren dieselbe Datei teilen, fällt die Arbeit nur
+ * einmal an. Die Auflösung bleibt dabei unangetastet.
+ */
+const stillbilder = new Map();
+function stillbild(src) {
+  if (!src) return Promise.resolve('');
+  if (stillbilder.has(src)) return stillbilder.get(src);
+
+  const task = new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch {
+        resolve(src);           // z. B. wenn der Canvas blockiert ist
+      }
+    };
+    img.onerror = () => resolve('');
+    img.src = src;
+  });
+
+  stillbilder.set(src, task);
+  return task;
 }
 
 /** Kurze, lesbare Zusammenfassung der Fähigkeiten. */
@@ -473,6 +512,7 @@ async function startRun(weapon) {
     $('loading-bar').firstElementChild.style.width = Math.round((done / total) * 100) + '%';
   });
   clearTimeout(startRun._slowHint);
+  Audio.warm();          // Grafiken sind da - jetzt dürfen die Töne laden
 
   $('loading').hidden = true;
   showScreen(null);
@@ -481,7 +521,15 @@ async function startRun(weapon) {
   loop = new GameLoop({
     update: (dt, time) => arena.update(dt, time),
     render: (dt, time) => {
-      arena.render(dt, time);
+      // Steht ein Fenster offen, wird nicht weitergezeichnet.
+      //
+      // Die Overlays liegen mit backdrop-filter über der Leinwand. Zeichnet
+      // die Leinwand darunter weiter, muss der Browser den Weichzeichner in
+      // jedem Bild neu über den ganzen Bildschirm legen - das hat Pause,
+      // Statistik und Upgrade-Auswahl auf dem Handy zäh gemacht. Das letzte
+      // Bild bleibt einfach stehen.
+      if (loop.paused) return;
+      arena.render(dt, time, loop.fps);
       hudTimer += dt;
       if (hudTimer > 0.08) {
         hudTimer = 0;
@@ -492,9 +540,16 @@ async function startRun(weapon) {
   loop.start();
   arena.start();
   Audio.play('gameStart');
-  Audio.duckMusic(false);
-  if (Audio.settings.musicOn) Audio.startMusic();
+  Audio.ensureMusic();
   banner('Welle 1', false);
+
+  // Sicherheitsnetz: Weist der Browser die Wiedergabe einmal ab, versucht
+  // es das Spiel während des Runs regelmäßig erneut.
+  clearInterval(musicWatch);
+  musicWatch = setInterval(() => {
+    if (!arena || arena.gameOver) return;
+    if (loop && !loop.paused) Audio.ensureMusic();
+  }, 4000);
 }
 
 function wireArena(instance) {
@@ -505,6 +560,8 @@ function wireArena(instance) {
   instance.on('waveStart', (info) => {
     banner(info.boss ? 'Boss!' : `Welle ${info.wave}`, info.boss);
     $('hud-boss').hidden = !info.boss;
+    // Im Kampf soll die Musik immer laufen - nicht irgendwann von allein.
+    Audio.ensureMusic();
   });
   instance.on('bossSpawn', () => {
     $('hud-boss').hidden = false;
@@ -752,6 +809,7 @@ function showDeath(summary) {
 }
 
 function quitToMenu() {
+  clearInterval(musicWatch);
   if (loop) loop.stop();
   if (arena) arena.destroy();
   arena = null;
@@ -799,6 +857,7 @@ function resumeGame() {
   if (!blockiert) {
     input.reset();
     loop.setPaused(false);
+    Audio.ensureMusic();
   }
 }
 
@@ -864,7 +923,13 @@ $('swap-no').addEventListener('click', () => {
 });
 
 window.addEventListener('resize', () => {
-  if (arena) arena.resize();
+  if (arena) {
+    arena.resize();
+    // Beim Ändern der Größe wird die Leinwand geleert. Steht das Spiel
+    // gerade still, muss einmal von Hand nachgezeichnet werden - sonst
+    // bliebe hinter dem Fenster nur Schwarz.
+    if (loop && loop.paused) arena.render(0, loop.time, 0);
+  }
   checkOrientation();
 });
 window.addEventListener('orientationchange', () => setTimeout(() => {

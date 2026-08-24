@@ -131,7 +131,9 @@ final class Defaults
             'waveDuration' => 60,
             'bossDuration' => 120,
             'enemySpawnRate' => 1.5,
-            'maxEnemies' => 80,
+            // 80 waren fuer Mobilgeraete zu viel - jeder Gegner kostet
+            // Zeichenzeit. 60 fuellt den Bildschirm bereits gut.
+            'maxEnemies' => 60,
             'healthScaling' => 1.45,
             'damageScaling' => 1.28,
             'speedScaling' => 1.035,
