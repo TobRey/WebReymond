@@ -161,6 +161,60 @@ final class Validate
     }
 
     /**
+     * Ein Gegenstand, der auf der Karte erscheint.
+     *
+     * @param array<string, mixed> $in
+     * @return array<string, mixed>
+     */
+    public static function item(array $in): array
+    {
+        $effects = ['heal', 'money', 'shield', 'speed', 'magnet'];
+        $effect = is_string($in['effect'] ?? null) && in_array($in['effect'], $effects, true)
+            ? $in['effect'] : 'heal';
+        $mode = ($in['mode'] ?? 'pickup') === 'chest' ? 'chest' : 'pickup';
+        $sounds = array_keys(Defaults::soundSlots());
+        $sound = is_string($in['sound'] ?? null) && in_array($in['sound'], $sounds, true)
+            ? $in['sound'] : '';
+
+        $min = self::num($in['minDistance'] ?? 200, 0, 4000, 200);
+        $max = self::num($in['maxDistance'] ?? 620, 0, 4000, 620);
+        if ($max < $min) {
+            $max = $min;
+        }
+
+        return [
+            'id' => self::id($in['id'] ?? '', 'item'),
+            'name' => self::text($in['name'] ?? '', 40, 'Neuer Gegenstand'),
+            'description' => self::text($in['description'] ?? '', 200),
+            'sprite' => self::assetPath($in['sprite'] ?? '', Defaults::SPRITE_BASE . 'heiltrank.png'),
+            'openSprite' => self::assetPath($in['openSprite'] ?? '', ''),
+            'scale' => self::num($in['scale'] ?? 34, 6, 400, 34),
+            'mode' => $mode,
+            'openTime' => self::num($in['openTime'] ?? 2, 0, 30, 2),
+            'effect' => $effect,
+            'value' => self::num($in['value'] ?? 10, 0, 100000, 10),
+            'value2' => self::num($in['value2'] ?? 0, 0, 100000, 0),
+            'onlyWhenNeeded' => self::bool($in['onlyWhenNeeded'] ?? false),
+            'interval' => self::num($in['interval'] ?? 14, 0.5, 3600, 14),
+            'chance' => self::num($in['chance'] ?? 0.35, 0, 1, 0.35),
+            'maxOnMap' => self::int($in['maxOnMap'] ?? 3, 0, 50, 3),
+            'lifetime' => self::num($in['lifetime'] ?? 26, 2, 3600, 26),
+            'minDistance' => $min,
+            'maxDistance' => $max,
+            'particle' => self::color($in['particle'] ?? '', '#ffd166'),
+            'sound' => $sound,
+            'active' => self::bool($in['active'] ?? true),
+        ];
+    }
+
+    /** Farbe als #rgb oder #rrggbb. */
+    public static function color(mixed $v, string $fallback): string
+    {
+        $v = is_string($v) ? trim($v) : '';
+        return preg_match('/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/', $v) ? $v : $fallback;
+    }
+
+    /**
      * Grenzen für alle Charakter-Abweichungen.
      * Faktoren liegen um 1.0, Zuschläge starten bei 0.
      */
@@ -289,6 +343,24 @@ final class Validate
             }
         }
 
+        // Portale: rot und blau, paarweise verbunden. Das erste rote führt
+        // zum ersten blauen und zurück.
+        $portals = [];
+        if (is_array($in['portals'] ?? null)) {
+            foreach (array_slice($in['portals'], 0, 16) as $p) {
+                if (!is_array($p)) {
+                    continue;
+                }
+                $portals[] = [
+                    'id' => self::id($p['id'] ?? '', 'portal'),
+                    'kind' => ($p['kind'] ?? 'red') === 'blue' ? 'blue' : 'red',
+                    'x' => self::num($p['x'] ?? 0, 0, $w, 0),
+                    'y' => self::num($p['y'] ?? 0, 0, $h, 0),
+                    'scale' => self::num($p['scale'] ?? 130, 20, 600, 130),
+                ];
+            }
+        }
+
         return [
             'id' => self::id($in['id'] ?? '', 'map'),
             'name' => self::text($in['name'] ?? '', 40, 'Neue Welt'),
@@ -301,6 +373,7 @@ final class Validate
                 'y' => self::num($spawn['y'] ?? $h / 2, 0, $h, $h / 2),
             ],
             'enemySpawnAreas' => $areas,
+            'portals' => $portals,
             'collision' => ['cols' => $cols, 'rows' => $rows, 'data' => $data],
             'createdAt' => self::int($in['createdAt'] ?? time(), 0, PHP_INT_MAX, time()),
         ];

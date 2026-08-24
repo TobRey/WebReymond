@@ -467,7 +467,7 @@ views.maps = (host) => {
 
     const actions = el('td', 'actions keep');
     actions.appendChild(actionBtn('Vorschau', () => window.open('../' + map.image, '_blank', 'noopener')));
-    actions.appendChild(actionBtn('Collision', () => openCollisionEditor(map)));
+    actions.appendChild(actionBtn('Hindernisse & Portale', () => openCollisionEditor(map)));
     actions.appendChild(actionBtn('Bearbeiten', () => editMap(map)));
     actions.appendChild(actionBtn('Löschen', () => confirmDialog(
       `Map "${map.name}" wirklich löschen?`,
@@ -627,6 +627,7 @@ function openCollisionEditor(map) {
   let panY = 0;
   let spawn = { ...map.spawn };
   let zones = (map.enemySpawnAreas || []).map((z) => ({ ...z }));
+  let portals = (map.portals || []).map((p) => ({ ...p }));
   const undo = [];
   const redo = [];
 
@@ -640,6 +641,9 @@ function openCollisionEditor(map) {
   const spawnBtn = el('button', 'btn btn--sm', 'Startpunkt');
   const zoneBtn = el('button', 'btn btn--sm', 'Gegnerzone');
   const zoneClearBtn = el('button', 'btn btn--sm', 'Zonen leeren');
+  const redBtn = el('button', 'btn btn--sm', 'Portal rot');
+  const blueBtn = el('button', 'btn btn--sm', 'Portal blau');
+  const portalClearBtn = el('button', 'btn btn--sm', 'Portale leeren');
   const undoBtn = el('button', 'btn btn--sm', 'Rückgängig');
   const redoBtn = el('button', 'btn btn--sm', 'Wiederholen');
   const clearBtn = el('button', 'btn btn--sm btn--danger', 'Alles löschen');
@@ -664,7 +668,8 @@ function openCollisionEditor(map) {
   zoomWrap.appendChild(el('span', null, 'Zoom'));
   zoomWrap.appendChild(zoomInput);
 
-  for (const b of [brushBtn, eraseBtn, panBtn, spawnBtn, zoneBtn, undoBtn, redoBtn, clearBtn, zoneClearBtn, fitBtn]) {
+  for (const b of [brushBtn, eraseBtn, panBtn, spawnBtn, zoneBtn, redBtn, blueBtn,
+                   undoBtn, redoBtn, clearBtn, zoneClearBtn, portalClearBtn, fitBtn]) {
     tools.appendChild(b);
   }
   tools.appendChild(sizeWrap);
@@ -702,15 +707,21 @@ function openCollisionEditor(map) {
     + 'border:3px solid #43d39e;box-shadow:0 0 0 3px rgba(0,0,0,.5);pointer-events:none;';
   const zoneLayer = el('div');
   zoneLayer.style.cssText = 'position:absolute;left:0;top:0;pointer-events:none;';
+  const portalLayer = el('div');
+  portalLayer.style.cssText = 'position:absolute;left:0;top:0;pointer-events:none;';
   wrap.appendChild(img);
   wrap.appendChild(maskCanvas);
   wrap.appendChild(zoneLayer);
+  wrap.appendChild(portalLayer);
   wrap.appendChild(marker);
   stage.appendChild(wrap);
   root.appendChild(stage);
   root.appendChild(el('p', 'editor__hint',
     'Ein Finger malt, zwei Finger verschieben und zoomen. Rote Flächen sind im Spiel blockiert und dort unsichtbar. '
-    + 'Der gruene Kreis ist der Startpunkt, blaue Kreise sind optionale Gegner-Spawnzonen (ohne Zonen spawnen Gegner rund um den Bildausschnitt).'));
+    + 'Der grüne Kreis ist der Startpunkt, blaue Kreise sind optionale Gegner-Spawnzonen '
+    + '(ohne Zonen spawnen Gegner rund um den Bildausschnitt). Portale setzt du mit "Portal rot" '
+    + 'und "Portal blau"; sie werden paarweise verbunden - das erste rote führt zum ersten blauen '
+    + 'und zurück. Ein Tippen auf ein gesetztes Portal entfernt es wieder.'));
 
   /* Zeichnen */
   function redrawMask() {
@@ -735,6 +746,27 @@ function openCollisionEditor(map) {
         + `width:${zone.r * 2}px;height:${zone.r * 2}px;border-radius:50%;`
         + 'border:2px dashed rgba(108,140,255,.9);background:rgba(108,140,255,.14);';
       zoneLayer.appendChild(dot);
+    }
+  }
+
+  function drawPortals() {
+    portalLayer.textContent = '';
+    const rot = portals.filter((p) => p.kind === 'red');
+    const blau = portals.filter((p) => p.kind === 'blue');
+    for (const portal of portals) {
+      const farbe = portal.kind === 'red' ? '#ff5a4d' : '#4db4ff';
+      // Nummer zeigt, welches Portal mit welchem verbunden ist.
+      const liste = portal.kind === 'red' ? rot : blau;
+      const nummer = liste.indexOf(portal) + 1;
+      const groesse = 46;
+      const dot = el('div');
+      dot.style.cssText = `position:absolute;left:${portal.x - groesse / 2}px;top:${portal.y - groesse / 2}px;`
+        + `width:${groesse}px;height:${groesse}px;border-radius:50%;`
+        + `border:3px solid ${farbe};background:${farbe}33;`
+        + 'display:grid;place-items:center;font:700 18px sans-serif;color:#fff;'
+        + 'text-shadow:0 1px 3px rgba(0,0,0,.9);';
+      dot.textContent = String(nummer);
+      portalLayer.appendChild(dot);
     }
   }
 
@@ -828,6 +860,25 @@ function openCollisionEditor(map) {
       drawZones();
       return;
     }
+    if (tool === 'portal-red' || tool === 'portal-blue') {
+      const rect = stage.getBoundingClientRect();
+      const x = (e.clientX - rect.left - panX) / scale;
+      const y = (e.clientY - rect.top - panY) / scale;
+      // Auf ein vorhandenes Portal getippt: entfernen.
+      const treffer = portals.findIndex((p) => Math.hypot(p.x - x, p.y - y) < 30);
+      if (treffer >= 0) portals.splice(treffer, 1);
+      else if (portals.length < 16) {
+        portals.push({
+          id: 'portal_' + Math.random().toString(36).slice(2, 8),
+          kind: tool === 'portal-red' ? 'red' : 'blue',
+          x, y, scale: 130,
+        });
+      } else {
+        toast('Höchstens 16 Portale je Karte.', 'error');
+      }
+      drawPortals();
+      return;
+    }
     if (tool === 'pan') {
       pinchStart = { pan: true, x: e.clientX, y: e.clientY, panX, panY };
       return;
@@ -891,13 +942,20 @@ function openCollisionEditor(map) {
   /* Werkzeuge verdrahten */
   function setTool(next, button) {
     tool = next;
-      [brushBtn, eraseBtn, panBtn, spawnBtn, zoneBtn].forEach((b) => b.classList.toggle('is-active', b === button));
+      [brushBtn, eraseBtn, panBtn, spawnBtn, zoneBtn, redBtn, blueBtn]
+        .forEach((b) => b.classList.toggle('is-active', b === button));
   }
   brushBtn.addEventListener('click', () => setTool('brush', brushBtn));
   eraseBtn.addEventListener('click', () => setTool('erase', eraseBtn));
   panBtn.addEventListener('click', () => setTool('pan', panBtn));
   spawnBtn.addEventListener('click', () => setTool('spawn', spawnBtn));
   zoneBtn.addEventListener('click', () => setTool('zone', zoneBtn));
+  redBtn.addEventListener('click', () => setTool('portal-red', redBtn));
+  blueBtn.addEventListener('click', () => setTool('portal-blue', blueBtn));
+  portalClearBtn.addEventListener('click', () => {
+    portals = [];
+    drawPortals();
+  });
   zoneClearBtn.addEventListener('click', () => {
     zones = [];
     drawZones();
@@ -936,7 +994,8 @@ function openCollisionEditor(map) {
 
   redrawMask();
   drawZones();
-  openModal('Hindernisse malen - ' + map.name, root, [
+  drawPortals();
+  openModal('Karte bearbeiten - ' + map.name, root, [
     { label: 'Abbrechen', class: 'btn--ghost', onClick: (close) => close() },
     {
       label: 'Speichern',
@@ -945,10 +1004,13 @@ function openCollisionEditor(map) {
         try {
           await api('put', {
             section: 'maps',
-            item: { ...map, spawn, enemySpawnAreas: zones, collision: { cols, rows, data: encodeMask(bits) } },
+            item: {
+              ...map, spawn, enemySpawnAreas: zones, portals,
+              collision: { cols, rows, data: encodeMask(bits) },
+            },
           });
           close();
-          toast('Collision gespeichert');
+          toast('Karte gespeichert');
           setView('maps');
         } catch (e) { toast(e.message, 'error'); }
       },
@@ -1557,6 +1619,209 @@ function editUpgrade(up) {
       },
     },
   ]);
+}
+
+/* ----------------------------------------------------- Gegenstände */
+const ITEM_EFFECTS = [
+  ['heal', 'Heilen (Prozent vom Maximalleben)'],
+  ['money', 'Geld (zufällig zwischen Wert und Wert 2)'],
+  ['shield', 'Schild auffüllen (Punkte)'],
+  ['speed', 'Temposchub (Prozent für Wert 2 Sekunden)'],
+  ['magnet', 'Magnet - zieht alles Herumliegende an'],
+];
+
+const ITEM_MODES = [
+  ['pickup', 'Aufsammeln - fliegt zu und verschwindet sofort'],
+  ['chest', 'Truhe - öffnet sich und löst sich danach auf'],
+];
+
+function itemEffectText(item) {
+  switch (item.effect) {
+    case 'heal': return '+' + item.value + ' % Leben';
+    case 'money': return item.value + '-' + (item.value2 || item.value) + ' $';
+    case 'shield': return '+' + item.value + ' Schild';
+    case 'speed': return '+' + item.value + ' % Tempo für ' + (item.value2 || 6) + ' s';
+    case 'magnet': return 'Zieht alles an';
+    default: return item.effect;
+  }
+}
+
+views.items = (host) => {
+  addAction('Neuer Gegenstand', () => editItem(null));
+
+  const info = el('div', 'card');
+  info.appendChild(el('h3', null, 'Was hier passiert'));
+  info.appendChild(el('p', 'muted',
+    'Alle paar Sekunden würfelt das Spiel je Gegenstand einmal. Fällt der Wurf, erscheint er '
+    + 'in Laufweite des Spielers - nie direkt vor den Füßen und nie in einer Wand. '
+    + 'Heilende Gegenstände profitieren zusätzlich vom Upgrade "Alchemie" und der Fähigkeit "Magnet".'));
+  host.appendChild(info);
+
+  const wrap = el('div', 'tablewrap');
+  const table = el('table', 'table');
+  table.innerHTML = `<thead><tr>
+    <th class="keep">Bild</th><th class="keep">Name</th><th class="keep">Wirkung</th><th>Art</th>
+    <th>Alle</th><th>Chance</th><th>Max.</th><th>Lebensdauer</th><th class="keep">Status</th><th class="keep"></th>
+  </tr></thead>`;
+  const body = el('tbody');
+
+  for (const item of state.content.items || []) {
+    const tr = el('tr');
+    const bild = el('td', 'keep');
+    if (item.sprite) {
+      const img = el('img');
+      img.src = '../' + item.sprite;
+      img.style.cssText = 'width:38px;height:38px;object-fit:contain;image-rendering:pixelated;';
+      bild.appendChild(img);
+    }
+    tr.appendChild(bild);
+    tr.appendChild(el('td', 'keep', item.name));
+    tr.appendChild(el('td', 'keep', itemEffectText(item)));
+    tr.appendChild(el('td', null, item.mode === 'chest' ? 'Truhe' : 'Aufsammeln'));
+    tr.appendChild(el('td', null, item.interval + ' s'));
+    tr.appendChild(el('td', null, Math.round(item.chance * 100) + ' %'));
+    tr.appendChild(el('td', null, String(item.maxOnMap)));
+    tr.appendChild(el('td', null, item.lifetime + ' s'));
+    const status = el('td', 'keep');
+    status.appendChild(el('span', 'badge badge--' + (item.active ? 'common' : 'rare'),
+      item.active ? 'aktiv' : 'aus'));
+    tr.appendChild(status);
+    const actions = el('td', 'actions keep');
+    actions.appendChild(actionBtn('Bearbeiten', () => editItem(item)));
+    actions.appendChild(actionBtn('Duplizieren', () => duplicate('items', item)));
+    actions.appendChild(actionBtn('Löschen', () => removeItem('items', item, item.name), 'btn--danger'));
+    tr.appendChild(actions);
+    body.appendChild(tr);
+  }
+  table.appendChild(body);
+  wrap.appendChild(table);
+  host.appendChild(wrap);
+
+  const hinweis = el('div', 'card');
+  hinweis.appendChild(el('h3', null, 'Wie oft erscheint etwas?'));
+  const zeilen = el('ul', 'muted');
+  for (const item of state.content.items || []) {
+    if (!item.active) continue;
+    const proMinute = (60 / Math.max(0.5, item.interval)) * item.chance;
+    const li = el('li', null,
+      `${item.name}: rund ${proMinute.toFixed(1)}x pro Minute, höchstens ${item.maxOnMap} gleichzeitig`);
+    zeilen.appendChild(li);
+  }
+  hinweis.appendChild(zeilen);
+  host.appendChild(hinweis);
+};
+
+function editItem(item) {
+  const isNew = !item;
+  const data = item ? { ...item } : {
+    id: '', name: 'Neuer Gegenstand', description: '',
+    sprite: 'assets/sprites/heiltrank.png', openSprite: '', scale: 34,
+    mode: 'pickup', openTime: 2, effect: 'heal', value: 10, value2: 0,
+    onlyWhenNeeded: false, interval: 20, chance: 0.3, maxOnMap: 2, lifetime: 26,
+    minDistance: 200, maxDistance: 620, particle: '#ffd166', sound: '', active: true,
+  };
+
+  const body = el('div', 'form');
+  const name = textInput(data.name);
+  const desc = el('textarea');
+  desc.className = 'input';
+  desc.value = data.description || '';
+  body.appendChild(field('Name', name));
+  body.appendChild(field('Beschreibung', desc));
+
+  let spritePath = data.sprite;
+  let openPath = data.openSprite;
+  body.appendChild(spriteField('Bild', data.sprite, (p) => { spritePath = p; }));
+  body.appendChild(spriteField('Bild geöffnet (nur für Truhen)', data.openSprite, (p) => { openPath = p; }));
+
+  body.appendChild(el('h3', null, 'Wirkung'));
+  const effect = selectInput(data.effect, ITEM_EFFECTS.map(([value, label]) => ({ value, label })));
+  const mode = selectInput(data.mode, ITEM_MODES.map(([value, label]) => ({ value, label })));
+  const value = textInput(data.value, { type: 'number', min: 0, step: 1 });
+  const value2 = textInput(data.value2, { type: 'number', min: 0, step: 1 });
+  const openTime = textInput(data.openTime ?? 2, { type: 'number', min: 0, step: 0.5 });
+  const onlyWhenNeeded = checkInput('Liegen lassen, wenn es gerade nichts bringt', data.onlyWhenNeeded);
+
+  const wirkung = el('div', 'grid2');
+  wirkung.appendChild(field('Effekt', effect));
+  wirkung.appendChild(field('Art', mode));
+  wirkung.appendChild(field('Wert', value));
+  wirkung.appendChild(field('Wert 2', value2, 'oberes Ende bei Geld, Dauer bei Tempo'));
+  wirkung.appendChild(field('Offen sichtbar (s)', openTime, 'nur für Truhen'));
+  body.appendChild(wirkung);
+  body.appendChild(onlyWhenNeeded);
+
+  body.appendChild(el('h3', null, 'Wie oft und wo'));
+  const interval = textInput(data.interval, { type: 'number', min: 0.5, step: 1 });
+  const chance = textInput(Math.round(data.chance * 100), { type: 'number', min: 0, max: 100, step: 5 });
+  const maxOnMap = textInput(data.maxOnMap, { type: 'number', min: 0, max: 50, step: 1 });
+  const lifetime = textInput(data.lifetime, { type: 'number', min: 2, step: 1 });
+  const minDistance = textInput(data.minDistance, { type: 'number', min: 0, step: 20 });
+  const maxDistance = textInput(data.maxDistance, { type: 'number', min: 0, step: 20 });
+  const scale = textInput(data.scale, { type: 'number', min: 6, max: 400, step: 2 });
+
+  const wann = el('div', 'grid2');
+  wann.appendChild(field('Versuch alle (s)', interval));
+  wann.appendChild(field('Chance je Versuch (%)', chance));
+  wann.appendChild(field('Höchstens gleichzeitig', maxOnMap, '0 schaltet ihn ab'));
+  wann.appendChild(field('Verschwindet nach (s)', lifetime));
+  wann.appendChild(field('Mindestabstand (px)', minDistance));
+  wann.appendChild(field('Höchstabstand (px)', maxDistance));
+  wann.appendChild(field('Größe im Spiel (px)', scale));
+  body.appendChild(wann);
+
+  const vorschau = el('p', 'muted');
+  const syncVorschau = () => {
+    const proMinute = (60 / Math.max(0.5, +interval.value || 1)) * ((+chance.value || 0) / 100);
+    vorschau.textContent = `Erscheint rund ${proMinute.toFixed(1)}x pro Minute.`;
+  };
+  interval.addEventListener('input', syncVorschau);
+  chance.addEventListener('input', syncVorschau);
+  syncVorschau();
+  body.appendChild(vorschau);
+
+  body.appendChild(el('h3', null, 'Aussehen und Ton'));
+  const particle = textInput(data.particle, { type: 'color' });
+  const sounds = [{ value: '', label: '- kein Ton -' }].concat(
+    Object.entries(state.content.audio.sounds || {}).map(([id, set]) => ({ value: id, label: set.label || id })),
+  );
+  const sound = selectInput(data.sound || '', sounds);
+  const optik = el('div', 'grid2');
+  optik.appendChild(field('Partikelfarbe', particle));
+  optik.appendChild(field('Ton beim Einsammeln', sound));
+  body.appendChild(optik);
+
+  const active = checkInput('Erscheint im Spiel', data.active);
+  body.appendChild(active);
+
+  openModal(isNew ? 'Gegenstand anlegen' : 'Gegenstand bearbeiten', body, [
+    { label: 'Abbrechen', class: 'btn--ghost', onClick: (close) => close() },
+    {
+      label: 'Speichern',
+      class: 'btn--primary',
+      onClick: async (close) => {
+        try {
+          await api('put', {
+            section: 'items',
+            item: {
+              ...data, id: data.id || slug(name.value), name: name.value,
+              description: desc.value, sprite: spritePath, openSprite: openPath,
+              scale: +scale.value, mode: mode.value, openTime: +openTime.value,
+              effect: effect.value, value: +value.value, value2: +value2.value,
+              onlyWhenNeeded: onlyWhenNeeded.input.checked,
+              interval: +interval.value, chance: (+chance.value || 0) / 100,
+              maxOnMap: +maxOnMap.value, lifetime: +lifetime.value,
+              minDistance: +minDistance.value, maxDistance: +maxDistance.value,
+              particle: particle.value, sound: sound.value, active: active.input.checked,
+            },
+          });
+          close();
+          toast('Gespeichert');
+          setView('items');
+        } catch (e) { toast(e.message, 'error'); }
+      },
+    },
+  ], true);
 }
 
 /* ------------------------------------------------------ Spieler und Balance */

@@ -122,6 +122,7 @@ export class Renderer {
 
     arena.map.draw(ctx, camera);
     arena.bossCtrl.drawGround(ctx);
+    arena.portals.draw(ctx, camera, time);
     arena.pickups.draw(ctx, time);
     this.drawEntities(time);
     this.drawBurning(time);
@@ -178,15 +179,19 @@ export class Renderer {
       ctx.globalAlpha = 1;
     }
 
-    const squash = 1 - player.squash * 0.12;
+    // Beim Portalsprung zieht sich die Figur kurz zusammen und dehnt sich
+    // am Ziel wieder aus - so sieht man den Wechsel, statt ihn nur zu merken.
+    const sprung = player.teleport;
+    const squash = (1 - player.squash * 0.12) * (1 - sprung * 0.55);
     const height = player.scale * squash;
-    const width = (sprite.width / sprite.height) * player.scale;
+    const width = (sprite.width / sprite.height) * player.scale * (1 - sprung * 0.35);
     const frame = sprite.frameAt(player.moving ? player.moveTime * 1000 : 0);
     const drawX = player.x - width / 2;
     const drawY = player.y + player.footOffset * 0.45 - height;
 
     ctx.save();
     if (player.invuln > 0 && Math.floor(player.invuln * 20) % 2 === 0) ctx.globalAlpha = 0.55;
+    if (sprung > 0) ctx.globalAlpha = Math.max(0.15, 1 - sprung * 0.8);
     if (player.flip) {
       ctx.translate(player.x, 0);
       ctx.scale(-1, 1);

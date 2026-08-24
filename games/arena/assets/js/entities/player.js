@@ -23,6 +23,11 @@ export class Player {
     this.recoil = 0;
     this.squash = 0;
     this.dead = false;
+    // Zeitlich begrenzter Temposchub (Gegenstand "Tempo").
+    this.boostFactor = 1;
+    this.boostTime = 0;
+    // 1 = mitten im Portalsprung, 0 = normal. Steuert nur die Darstellung.
+    this.teleport = 0;
 
     // Charakterwerte gehen vor den allgemeinen Spielerwerten.
     const character = run.character || {};
@@ -45,8 +50,19 @@ export class Player {
     return this.sprites.front;
   }
 
+  /** Temposchub für eine begrenzte Zeit. */
+  boost(factor, seconds) {
+    this.boostFactor = Math.max(this.boostFactor, factor);
+    this.boostTime = Math.max(this.boostTime, seconds);
+  }
+
   update(dt, move, map, effects) {
-    const speed = this.run.stats.moveSpeed;
+    if (this.boostTime > 0) {
+      this.boostTime -= dt;
+      if (this.boostTime <= 0) this.boostFactor = 1;
+    }
+    if (this.teleport > 0) this.teleport = Math.max(0, this.teleport - dt * 2.4);
+    const speed = this.run.stats.moveSpeed * this.boostFactor;
     this.moving = Math.hypot(move.x, move.y) > 0.01;
 
     if (this.moving) {

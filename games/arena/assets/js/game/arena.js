@@ -5,6 +5,7 @@ import { Audio } from '../core/audio.js';
 import { GameMap } from '../world/map.js';
 import { playerSpawn } from '../world/spawn.js';
 import { Pickups } from '../world/pickups.js';
+import { Portals, PORTAL_SPRITES } from '../world/portals.js';
 import { Player } from '../entities/player.js';
 import { EnemyManager } from '../entities/enemy.js';
 import { Projectiles } from '../combat/projectiles.js';
@@ -19,10 +20,10 @@ import { PERK_VALUES, perkDamageMultiplier } from './perks.js';
 
 /** Flammen auf brennenden Gegnern. */
 const BURN_SPRITE = 'assets/sprites/feuer.gif';
-/** Heilflasche, die auf der Karte liegt. */
-const POTION_SPRITE = 'assets/sprites/heiltrank.png';
 /** Feuerschaden wird in diesem Takt abgerechnet. */
 const BURN_TICK = 0.25;
+/** Halbe Dauer eines Portalsprungs in Sekunden. */
+const TELEPORT_HALF = 0.22;
 
 /**
  * Zentrale Spielinstanz: haelt Welt, Entitäten und Regeln zusammen und
@@ -42,6 +43,7 @@ export class Arena {
     this.projectiles = new Projectiles(this.map);
     this.melee = new MeleeAttacks();
     this.pickups = new Pickups(this.map);
+    this.portals = new Portals(mapDef.portals || []);
     this.character = character || (content.characters && content.characters[0]) || null;
     this.run = new RunState(content, weaponDef, this.character);
     this.weapon = new WeaponController(this);
@@ -56,9 +58,15 @@ export class Arena {
     this.gameOver = false;
     this.time = 0;
 
-    // Heilflaschen: erster Versuch nach dem halben Intervall, damit nicht
-    // gleich zu Beginn eine Flasche vor den Fuessen liegt.
-    this.potionTimer = (content.balance.potionInterval || 14) * 0.5;
+    // Je Gegenstand ein eigener Zeitgeber. Der erste Versuch kommt nach
+    // dem halben Intervall, damit nicht gleich zu Beginn etwas herumliegt.
+    this.itemDefs = (content.items || []).filter((i) => i.active !== false);
+    this.itemTimers = new Map();
+    for (const def of this.itemDefs) this.itemTimers.set(def.id, (def.interval || 14) * 0.5);
+
+    // Teleport: Ablauf in Sekunden und Sperre gegen sofortiges Zurückspringen.
+    this.teleport = null;
+    this.portalLock = 0;
 
     // Gegner, die ausserhalb der Trefferkette gestorben sind (Feuer, Explosion).
     this._pendingKills = [];
@@ -126,10 +134,19 @@ export class Arena {
     this.playerSprites = characterSprites;
 
     // Der Rest lädt im Hintergrund weiter und ist da, bevor er gebraucht wird.
+    // Portale gehören zur Karte und müssen von Anfang an da sein.
+    if (this.portals.count) {
+      const [rot, blau] = await Promise.all([
+        Assets.load(PORTAL_SPRITES.red),
+        Assets.load(PORTAL_SPRITES.blue),
+      ]);
+      this.portals.setSprites({ red: rot, blue: blau });
+    }
+
     this.backgroundLoad = Assets.loadAll([
       'assets/sprites/schuss.png',
       BURN_SPRITE,
-      POTION_SPRITE,
+      ...this.itemDefs.flatMap((i) => [i.sprite, i.openSprite]).filter(Boolean),
       'assets/sprites/explosion.gif',
       'assets/sprites/explosion1.gif',
       'assets/sprites/bombe1.gif',
@@ -179,7 +196,8 @@ export class Arena {
     this.bossCtrl.update(dt);
     this.contactDamage(dt);
     this.updateBurn(dt);
-    this.updatePotions(dt);
+    this.updateItems(dt);
+    this.updatePortals(dt);
     this.effects.update(dt);
     this.waves.update(dt);
     this.camera.follow(this.player.x, this.player.y + 10, dt);
@@ -450,52 +468,69 @@ export class Arena {
     }
   }
 
-  /* --------------------------------------------------- Heilflaschen */
+  /* ------------------------------------------------- Gegenstände */
 
   /**
-   * Lässt hin und wieder eine Heilflasche in der Nähe erscheinen.
+   * Lässt hin und wieder einen Gegenstand in der Nähe erscheinen.
    *
-   * "Zufällig auf der Karte" heisst hier: in Laufweite, aber nie direkt vor
-   * den Fuessen. Wäre es die ganze 2048er-Karte, fände man nie eine.
+   * "Zufällig auf der Karte" heisst in Laufweite, aber nie direkt vor den
+   * Füßen - wäre es die ganze 2048er-Karte, fände man nie etwas. Jeder
+   * Gegenstand bringt seine eigenen Werte mit (Dashboard: Gegenstände).
    */
-  updatePotions(dt) {
-    const balance = this.content.balance;
-    const max = balance.potionMax ?? 3;
+  updateItems(dt) {
     const reichweite = this.run.stats.pickupRange
       * (this.run.perk === 'magnet' ? PERK_VALUES.magnetRange : 1);
     this.pickups.update(dt, this.player, reichweite, (p) => this.collectPickup(p));
-    if (max <= 0 || this.player.dead) return;
+    if (this.player.dead) return;
 
-    this.potionTimer -= dt;
-    if (this.potionTimer > 0) return;
-    this.potionTimer = balance.potionInterval || 14;
+    for (const def of this.itemDefs) {
+      const rest = (this.itemTimers.get(def.id) || 0) - dt;
+      if (rest > 0) {
+        this.itemTimers.set(def.id, rest);
+        continue;
+      }
+      this.itemTimers.set(def.id, def.interval || 14);
 
-    if (this.pickups.count >= max) return;
-    const chance = (balance.potionChance ?? 0.35) * (this.run.stats.potionRateMult || 1)
-      * (this.run.perk === 'magnet' ? PERK_VALUES.magnetPotion : 1);
-    if (Math.random() > chance) return;
-    this.spawnPotion();
+      if ((def.maxOnMap ?? 3) <= 0) continue;
+      if (this.pickups.countOf(def.id) >= def.maxOnMap) continue;
+
+      // Alchemie und die Fähigkeit "Magnet" wirken auf alles, was
+      // heilt - Truhen bleiben davon unberührt.
+      let chance = def.chance ?? 0.35;
+      if (def.effect === 'heal') {
+        chance *= (this.run.stats.potionRateMult || 1)
+          * (this.run.perk === 'magnet' ? PERK_VALUES.magnetPotion : 1);
+      }
+      if (Math.random() > chance) continue;
+      this.spawnItem(def);
+    }
   }
 
-  spawnPotion() {
-    const sprite = Assets.get(POTION_SPRITE);
+  /** Lässt einen bestimmten Gegenstand erscheinen. @returns das Objekt oder null */
+  spawnItem(def) {
+    const sprite = Assets.get(def.sprite);
     if (!sprite) {
       // Lädt noch im Hintergrund - dann eben beim nächsten Versuch.
-      Assets.load(POTION_SPRITE);
+      Assets.load(def.sprite);
       return null;
     }
+    const openSprite = def.openSprite ? Assets.get(def.openSprite) : null;
+    if (def.openSprite && !openSprite) Assets.load(def.openSprite);
+
+    const min = def.minDistance ?? 200;
+    const max = Math.max(min + 40, def.maxDistance ?? 620);
     for (let i = 0; i < 24; i++) {
       const angle = Math.random() * TAU;
-      const distance = rand(200, 620);
+      const distance = rand(min, max);
       const x = Math.min(this.map.width - 30, Math.max(30, this.player.x + Math.cos(angle) * distance));
       const y = Math.min(this.map.height - 30, Math.max(30, this.player.y + Math.sin(angle) * distance));
-      if (this.map.mask.blockedEllipse(x, y, 14, 10)) continue;
-      const p = this.pickups.spawn(x, y, sprite, {
-        kind: 'heal',
-        life: this.content.balance.potionLifetime || 26,
+      if (this.map.mask.blockedEllipse(x, y, 16, 12)) continue;
+
+      const p = this.pickups.spawn(def, sprite, openSprite, x, y);
+      this.effects.burst(x, y, 10, {
+        color: def.particle || '#ffd166', speed: 70, size: 2.5, life: 0.6, glow: true,
       });
-      this.effects.burst(x, y, 8, { color: '#ff6b6b', speed: 60, size: 2, life: 0.5 });
-      this.emit('pickupSpawn', p);
+      this.emit('itemSpawn', p);
       return p;
     }
     return null;
@@ -503,22 +538,141 @@ export class Arena {
 
   /** @returns true, wenn der Gegenstand wirklich aufgenommen wurde. */
   collectPickup(p) {
-    if (p.kind !== 'heal') return false;
+    const def = p.def;
+    if (!def) return false;
     const stats = this.run.stats;
-    // Bei vollem Leben bleibt die Flasche liegen, statt sich zu verschwenden.
-    if (this.run.health >= stats.maxHealth) return false;
 
-    const percent = this.content.balance.potionHeal ?? 10;
-    const heal = Math.max(1, Math.round((stats.maxHealth * percent) / 100));
-    const before = this.run.health;
-    this.run.health = Math.min(stats.maxHealth, this.run.health + heal);
-    const gained = Math.round(this.run.health - before);
+    // Manche Gegenstände bleiben liegen, wenn sie gerade nichts brächten.
+    if (def.onlyWhenNeeded) {
+      if (def.effect === 'heal' && this.run.health >= stats.maxHealth) return false;
+      if (def.effect === 'shield' && this.run.shield >= stats.maxShield) return false;
+    }
 
-    this.effects.number(this.player.x, this.player.y - 46, '+' + gained, { color: '#5ee08a' });
-    this.effects.burst(this.player.x, this.player.y, 14, { color: '#5ee08a', speed: 150, size: 3, life: 0.45 });
-    Audio.play('potion');
-    this.emit('pickup', { kind: 'heal', amount: gained });
+    const farbe = def.particle || '#ffd166';
+    let text = '';
+
+    switch (def.effect) {
+      case 'heal': {
+        const heal = Math.max(1, Math.round((stats.maxHealth * (def.value || 10)) / 100));
+        const vorher = this.run.health;
+        this.run.health = Math.min(stats.maxHealth, this.run.health + heal);
+        text = '+' + Math.round(this.run.health - vorher);
+        break;
+      }
+      case 'money': {
+        const min = def.value || 0;
+        const max = Math.max(min, def.value2 || min);
+        const betrag = this.run.addMoney(Math.round(rand(min, max + 1)));
+        text = '+' + betrag + ' $';
+        break;
+      }
+      case 'shield': {
+        const vorher = this.run.shield;
+        this.run.shield = Math.min(stats.maxShield, this.run.shield + (def.value || 0));
+        const plus = Math.round(this.run.shield - vorher);
+        if (plus <= 0 && def.onlyWhenNeeded) return false;
+        text = '+' + plus + ' Schild';
+        break;
+      }
+      case 'speed': {
+        this.player.boost(1 + (def.value || 20) / 100, def.value2 || 6);
+        text = '+' + Math.round(def.value || 20) + '% Tempo';
+        break;
+      }
+      case 'magnet': {
+        // Zieht alles Herumliegende sofort zum Spieler.
+        for (const other of this.pickups.list) {
+          if (other === p || other.opened || other.def.mode === 'chest') continue;
+          other.x = this.player.x + rand(-20, 20);
+          other.y = this.player.y + rand(-20, 20);
+        }
+        text = 'Magnet!';
+        break;
+      }
+      default:
+        return false;
+    }
+
+    // Truhen bekommen einen kräftigen Ausbruch, alles andere einen kurzen.
+    const wucht = def.mode === 'chest';
+    this.effects.number(p.x, p.y - 30, text, { color: farbe });
+    this.effects.burst(p.x, p.y, wucht ? 26 : 14, {
+      color: farbe, speed: wucht ? 220 : 150, size: wucht ? 4 : 3,
+      life: wucht ? 0.7 : 0.45, glow: true,
+    });
+    if (wucht) {
+      this.effects.burst(p.x, p.y - 10, 12, {
+        color: '#fff3c4', speed: 120, size: 2.5, life: 0.9,
+        angle: -Math.PI / 2, spread: 1.4, glow: true,
+      });
+      this.camera.addShake(0.18);
+    }
+    if (def.sound) Audio.play(def.sound);
+    this.emit('pickup', { id: def.id, effect: def.effect, text });
     return true;
+  }
+
+  /* ------------------------------------------------------------ Portale */
+
+  /**
+   * Portale: rot führt zu blau und umgekehrt.
+   *
+   * Der Sprung läuft in zwei Hälften ab - erst zieht es den Spieler
+   * zusammen, dann erscheint er am Ziel wieder. Dazwischen wird versetzt,
+   * damit man den Wechsel sieht statt ihn nur zu bemerken.
+   */
+  updatePortals(dt) {
+    if (!this.portals.count) return;
+    this.portals.update(dt, this.effects, this.camera);
+    if (this.portalLock > 0) this.portalLock -= dt;
+
+    // Laufender Sprung.
+    if (this.teleport) {
+      this.teleport.time += dt;
+      const t = this.teleport;
+      if (!t.done && t.time >= TELEPORT_HALF) {
+        t.done = true;
+        this.finishTeleport(t);
+      }
+      if (t.time >= TELEPORT_HALF * 2) this.teleport = null;
+      return;
+    }
+
+    if (this.portalLock > 0 || this.player.dead) return;
+    const portal = this.portals.at(this.player.x, this.player.y + this.player.footOffset * 0.3, 40);
+    if (portal) this.startTeleport(portal);
+  }
+
+  startTeleport(portal) {
+    this.teleport = { from: portal, to: portal.partner, time: 0, done: false };
+    this.player.teleport = 1;                 // Anzeige: der Spieler zieht sich zusammen
+    this.camera.addShake(0.2);
+    Audio.playFirst(['portal', 'upgrade']);
+    this.effects.burst(portal.x, portal.y - 20, 22, {
+      color: portal.kind === 'red' ? '#ff5a4d' : '#4db4ff',
+      speed: 190, size: 3.5, life: 0.5, glow: true,
+    });
+    this.emit('teleportStart', portal);
+  }
+
+  finishTeleport(t) {
+    const ziel = t.to;
+    const frei = this.map.mask.nearestFree(
+      ziel.x, ziel.y + 26, this.player.rx, this.player.ry, 220,
+    );
+    this.player.x = frei.x;
+    this.player.y = frei.y;
+    this.player.vx = 0;
+    this.player.vy = 0;
+    this.camera.snapTo(this.player.x, this.player.y);
+    // Sperre, damit man nicht sofort wieder zurückgezogen wird.
+    this.portalLock = 1.6;
+    this.effects.burst(ziel.x, ziel.y - 20, 26, {
+      color: ziel.kind === 'red' ? '#ff5a4d' : '#4db4ff',
+      speed: 210, size: 3.5, life: 0.6, glow: true,
+    });
+    this.camera.addShake(0.25);
+    this.emit('teleportEnd', ziel);
   }
 
   /* --------------------------------------------------------------- Boss */

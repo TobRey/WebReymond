@@ -82,6 +82,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
       <button class="nav__item" data-view="enemies">Gegner</button>
       <button class="nav__item" data-view="weapons">Waffen</button>
       <button class="nav__item" data-view="upgrades">Upgrades</button>
+      <button class="nav__item" data-view="items">Gegenstände</button>
       <button class="nav__item" data-view="player">Spieler</button>
       <button class="nav__item" data-view="balance">Balancing</button>
       <button class="nav__item" data-view="audio">Audio</button>

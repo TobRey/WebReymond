@@ -80,7 +80,7 @@ arena/
 │   ├── js/
 │   │   ├── core/             loop, input, camera, spatial, pool, audio, util
 │   │   ├── gfx/              gif (Decoder), assets, renderer, effects
-│   │   ├── world/            map, collision, spawn, pickups (Heilflaschen)
+│   │   ├── world/            map, collision, spawn, pickups, portals, flowfield
 │   │   ├── entities/         player, enemy
 │   │   ├── combat/           weapon, projectiles, melee
 │   │   ├── game/             arena, run, stats, waves, boss, upgrades, perks
@@ -176,6 +176,30 @@ Jetzt gilt:
 
 Beides läuft über PHP und braucht keine `.htaccess`, die viele FTP-Programme
 ohnehin überspringen.
+
+### Gegner laufen um Wände herum
+
+Früher steuerten Gegner stur auf den Spieler zu und rutschten an Hindernissen
+entlang — vor einer langen Mauer blieben sie hängen. Jetzt liegt über der
+Karte ein **Strömungsfeld**: Einmal je Takt flutet eine Breitensuche vom
+Spieler aus über das Kollisionsraster, danach weiß jede Zelle, wie viele
+Schritte sie vom Spieler entfernt ist. Ein Gegner schaut nur noch nach,
+welcher Nachbar näher dran ist, und läuft dorthin.
+
+* Der Aufwand hängt an der **Kartengröße, nicht an der Zahl der Gegner** —
+  ein Feld genügt für alle. Gemessen: **0,96 ms** je Neuberechnung bei
+  16 384 Zellen und vierfach gedrosselter CPU.
+* Neu gerechnet wird nur, wenn der Spieler die Zelle wechselt, und höchstens
+  fünfmal pro Sekunde. Steht er still, kostet die Wegfindung gar nichts.
+* Diagonalen gelten nur, wenn beide angrenzenden geraden Nachbarn frei sind —
+  sonst würden Gegner durch Mauerecken schneiden.
+* Im Nahbereich (gut zwei Zellen) steuern Gegner wieder direkt, damit sie
+  dicht vor dem Spieler nicht am Zellenraster entlangzucken.
+
+Nachgemessen: Ein Gegner hinter einer 700 px langen Mauer läuft außen herum
+und kommt an. Auf der Standardkarte erreichen **23 von 24** Gegnern den
+Spieler in zwölf Sekunden (vorher 21) bei durchschnittlich 55 px Restabstand
+statt 116 px.
 
 ### Warum es flüssig läuft
 
@@ -413,27 +437,58 @@ Brände auf demselben Gegner. Abgerechnet wird alle 0,25 s, eine Schadenszahl
 erscheint nur etwa einmal pro Sekunde je Gegner – sonst würden die orangen
 Zahlen bei vielen Gegnern alles andere überdecken.
 
-### Heilflaschen
+### Gegenstände auf der Karte
 
-Alle `potionInterval` Sekunden (Standard 14) wird gewürfelt; mit
-`potionChance` (Standard 35 %) erscheint eine Flasche in Laufweite –
-höchstens `potionMax` (Standard 3) gleichzeitig, jede verschwindet nach
-`potionLifetime` (Standard 26 s) und blinkt vorher.
+Heiltrank und Schatztruhe laufen über dasselbe Modell. Im Dashboard unter
+**Gegenstände** legst du beliebig viele an und stellst je Stück ein:
 
-* Aufgesammelt heilt sie `potionHeal` Prozent (Standard 10) des Maximallebens.
-* In Aufsammelreichweite fliegt sie dir entgegen.
-* **Bei vollem Leben bleibt sie liegen**, statt sich zu verschwenden.
-* Die Karte **Alchemie** (Selten, +40 %, bis 6 Stufen) erhöht die Chance.
+| Feld | Bedeutung |
+|------|-----------|
+| Effekt | `heal` (Prozent Leben), `money` (zufällig zwischen Wert und Wert 2), `shield`, `speed` (Prozent für Wert 2 Sekunden), `magnet` |
+| Art | *Aufsammeln* fliegt zu und verschwindet · *Truhe* öffnet sich und löst sich danach auf |
+| Versuch alle (s) | Wie oft gewürfelt wird |
+| Chance je Versuch | Wahrscheinlichkeit, dass dabei etwas erscheint |
+| Höchstens gleichzeitig | 0 schaltet den Gegenstand ab |
+| Verschwindet nach | Lebensdauer, blinkt vorher |
+| Mindest-/Höchstabstand | Wo er auftaucht — in Laufweite, nie vor den Füßen |
+| Offen sichtbar | Nur für Truhen: wie lange die offene Truhe stehen bleibt |
+| Liegen lassen | Nicht aufnehmen, solange es nichts brächte (volles Leben) |
+| Partikelfarbe, Ton | Wie es aussieht und klingt |
 
-Gemessen ohne Alchemie: knapp **15 Flaschen in zehn Minuten**, also etwa eine
+Die Seite rechnet dir direkt aus, wie oft ein Gegenstand pro Minute erscheint.
+
+**Mitgeliefert:**
+
+* **Heiltrank** — heilt 10 %, alle 14 s mit 35 % Chance, höchstens 3 gleichzeitig.
+  Fliegt in Aufsammelreichweite zu und bleibt bei vollem Leben liegen.
+* **Schatztruhe** — 25–70 Geld, alle 26 s mit 30 % Chance, höchstens 2. Sie
+  fliegt *nicht* mit: man geht zu ihr hin. Beim Berühren öffnet sie sich mit
+  einem Schwall Goldpartikel, zeigt das offene Bild und löst sich nach zwei
+  Sekunden auf.
+
+Die Karte **Alchemie** und die Fähigkeit **Magnet** erhöhen die Chance auf
+alles, was heilt — Truhen bleiben davon unberührt.
+
+Gemessen ohne Alchemie: knapp **15 Tränke in zehn Minuten**, also etwa einer
 alle vierzig Sekunden. Mit zwei Stufen Alchemie sind es 27.
 
-Mit `weaponOfferChance` (Standard 28 %) kann statt eines Upgrades eine **neue
-Waffe** angeboten werden. Da es nur einen Waffenslot gibt, fragt das Spiel dann
-nach, ob die aktuelle Waffe ersetzt werden soll.
+### Portale
 
-Der Knopf **≡** im HUD zeigt jederzeit alle aktuellen Werte plus die Liste der
-gewählten Upgrades mit Stapelzahl (z. B. „Flinke Füße ×3").
+Im Karten-Editor (**Maps → Hindernisse & Portale**) setzt du mit *Portal rot*
+und *Portal blau* Portale auf die Karte. Ein Tippen auf ein gesetztes Portal
+entfernt es wieder, die Nummer im Kreis zeigt die Zuordnung.
+
+Verbunden wird **paarweise in der Reihenfolge**: das erste rote führt zum
+ersten blauen und zurück, das zweite zum zweiten und so weiter. Bleibt eine
+Farbe übrig, führt sie zum letzten Gegenstück — so entsteht nie ein Portal ins
+Nichts. Höchstens 16 Portale je Karte.
+
+Der Sprung läuft in zwei Hälften: Erst zieht sich die Figur zusammen und wird
+durchsichtig, dann erscheint sie am Ziel wieder und die Kamera springt mit.
+An beiden Enden stiebt ein Schwall Funken in der Portalfarbe. Danach ist das
+Portal 1,6 Sekunden gesperrt, damit man nicht sofort zurückgezogen wird.
+Portale sprühen auch im Ruhezustand ein paar aufsteigende Funken und pulsieren
+leicht.
 
 ---
 
@@ -442,16 +497,17 @@ gewählten Upgrades mit Stapelzahl (z. B. „Flinke Füße ×3").
 | Seite | Kann |
 |-------|------|
 | **Dashboard** | Überblick, alles auf Standard zurücksetzen |
-| **Maps** | Bild hochladen, Hindernisse malen, Startpunkt und Gegnerzonen setzen, aktivieren, löschen |
+| **Maps** | Bild hochladen, Hindernisse malen, Startpunkt, Gegnerzonen und **Portale** setzen, aktivieren, löschen |
 | **Gegner** | Anlegen, bearbeiten, duplizieren, löschen; Sprite, Werte, Welle, Hitbox |
 | **Waffen** | Anlegen, bearbeiten, duplizieren, löschen; alle Kampfwerte, Verhalten, Starterwaffe |
 | **Upgrades** | Anlegen, bearbeiten, duplizieren, löschen; Stat, Modifikator, Seltenheit, Gewicht, Stapel |
+| **Gegenstände** | Tränke, Truhen und eigene Fundstücke: Wirkung, Spawnrate, Anzahl, Lebensdauer, Fundort, Partikelfarbe, Ton |
 | **Spieler** | Basiswerte und alle vier Spieler-Sprites |
 | **Balancing** | Wellendauer, Spawnrate, Skalierung, Bombenwerte, Kartenchancen |
 | **Charaktere** | Anlegen, bearbeiten, duplizieren, löschen; Sprites (GIF oder 5 Einzelbilder je Richtung), Bildtempo, Farbdrehung, Fähigkeiten, Werte, Hitbox, Freischaltkosten |
 | **Audio** | Musiktitel und **je Ereignis eine eigene Sounddatei** mit eigener Lautstärke, Vorhören, Autostart |
 
-### Collision-Editor
+### Karten-Editor
 
 Eine neue Map ist nach dem Upload sofort ein spielbares Level. Im Editor:
 
@@ -461,6 +517,8 @@ Eine neue Map ist nach dem Upload sofort ein spielbares Level. Im Editor:
 * **Startpunkt** setzen (grüner Kreis)
 * **Gegnerzonen** setzen (blaue Kreise) — ohne Zonen spawnen Gegner automatisch
   rund um den Bildausschnitt
+* **Portale** setzen (*Portal rot* / *Portal blau*); erneutes Tippen entfernt
+  eines wieder, die Nummer zeigt die Zuordnung
 * **Touch:** ein Finger malt, zwei Finger verschieben und zoomen
 
 Rote Flächen sind blockiert — sichtbar **nur** im Editor, im Spiel unsichtbar.
@@ -672,3 +730,15 @@ Automatisiert im echten Browser geprüft (Chromium, Desktop und Mobil-Viewport):
 * Bei zehnfach gedrosselter CPU regelt die Qualitätsstufe selbsttätig auf
   0,55 herunter — das Bild bleibt lesbar (Screenshot geprüft)
 * Startzeit auf 400 kbit/s unverändert bei 12,9 s
+* Truhe: gibt Geld (71 von 25–70 nach Admin-Änderung auf 25–250), öffnet sich
+  beim Berühren, ist nach 1,2 s noch da und nach 2,4 s verschwunden
+* Portal rot → blau und zurück: Spieler landet 43 bzw. 31 px am Ziel,
+  Sperre von 1,6 s verhindert das sofortige Zurückspringen
+* Portale im Editor gesetzt, gespeichert und im Spiel wiedergefunden
+  (`red@137,731`, `blue@2005,1358`), Sprites geladen, Paarung korrekt
+* Gegenstand im Dashboard geändert (Geld 25–250, Chance 60 %) — Werte
+  überleben den Reload und greifen im Spiel
+* Wegfindung: Gegner hinter einer langen Mauer läuft außen herum und kommt an;
+  auf der Standardkarte 23/24 statt 21/24 Ankünfte
+* Drei Minuten Dauerspiel mit Wegfindung und Gegenständen: durchgehend 60 FPS,
+  Speicher konstant

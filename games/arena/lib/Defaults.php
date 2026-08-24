@@ -10,7 +10,7 @@ final class Defaults
     public const SPRITE_BASE = 'assets/sprites/';
 
     /** Inhaltsversion. Erhöhen, wenn neue Standardinhalte nachgetragen werden sollen. */
-    public const VERSION = 2;
+    public const VERSION = 3;
 
     /** @return array<string, mixed> */
     public static function content(): array
@@ -24,6 +24,7 @@ final class Defaults
             'weapons' => self::weapons(),
             'enemies' => self::enemies(),
             'upgrades' => self::upgrades(),
+            'items' => self::items(),
             'maps' => self::maps(),
         ];
     }
@@ -108,6 +109,8 @@ final class Defaults
             'playerHit' => ['Spieler wird getroffen', ['player-damage.mp3'], 0.8, 100],
             'coin' => ['Geld eingesammelt', [], 0.6, 100],
             'potion' => ['Heilflasche eingesammelt', ['selected-upgrade.mp3'], 0.55, 100],
+            'chest' => ['Truhe geöffnet', ['level-clear.mp3'], 0.6, 100],
+            'portal' => ['Portalsprung', ['short-swoosh.mp3', 'swoosh.mp3'], 0.7, 100],
             'upgrade' => ['Upgrade gewählt', ['selected-upgrade.mp3'], 0.8, 100],
             'waveClear' => ['Welle geschafft', ['level-clear.mp3'], 0.7, 100],
             'bossSpawn' => ['Boss erscheint', ['boss.mp3'], 0.8, 100],
@@ -148,13 +151,6 @@ final class Defaults
             'bossBombMinCooldown' => 1.8,
             // Verbrennung: wie lange ein getroffener Gegner brennt.
             'burnDuration' => 3.0,
-            // Heilflaschen: Versuch alle X Sekunden, mit dieser Chance,
-            // höchstens so viele gleichzeitig, jede heilt X Prozent.
-            'potionInterval' => 14.0,
-            'potionChance' => 0.35,
-            'potionMax' => 3,
-            'potionHeal' => 10,
-            'potionLifetime' => 26.0,
             'upgradeChoices' => 3,
             'rarityRareBase' => 26,
             'rarityEpicBase' => 9,
@@ -165,18 +161,7 @@ final class Defaults
     }
 
     /**
-     * Spielbare Charaktere.
-     *
-     * Sprites: Entweder ein animiertes GIF je Richtung oder bis zu fünf
-     * Einzelbilder, aus denen das Spiel die Animation selbst baut. Bis eigene
-     * Sprites hochgeladen sind, unterscheiden sich die Figuren über eine
-     * Farbtönung (tint = Farbdrehung in Grad).
-     *
-     * @return list<array<string, mixed>>
-     */
-
-    /**
-     * Spezialfaehigkeiten der Charaktere.
+     * Spezialfähigkeiten der Charaktere.
      *
      * Jede Fähigkeit ist im Spiel echt umgesetzt - sie steht nicht nur im
      * Text. Die Staerke der meisten liegt in den Balancing-Werten, damit sie
@@ -229,6 +214,16 @@ final class Defaults
         ];
     }
 
+    /**
+     * Spielbare Charaktere.
+     *
+     * Sprites: Entweder ein animiertes GIF je Richtung oder bis zu fünf
+     * Einzelbilder, aus denen das Spiel die Animation selbst baut. Bis eigene
+     * Sprites hochgeladen sind, unterscheiden sich die Figuren über eine
+     * Farbtönung (tint = Farbdrehung in Grad).
+     *
+     * @return list<array<string, mixed>>
+     */
     public static function characters(): array
     {
         $s = self::SPRITE_BASE;
@@ -475,6 +470,76 @@ final class Defaults
         return $out;
     }
 
+
+    /**
+     * Gegenstände, die auf der Karte erscheinen.
+     *
+     * Trank und Truhe laufen über dasselbe Modell: Wie oft gewürfelt wird,
+     * mit welcher Chance, wie viele gleichzeitig liegen dürfen und was beim
+     * Einsammeln passiert - alles im Dashboard einstellbar.
+     *
+     * effect: heal (Prozent des Maximallebens), money (zufällig zwischen
+     * value und value2), shield (Schildpunkte), speed (Temposchub in
+     * Prozent für value2 Sekunden), magnet (zieht alle Gegenstände an).
+     *
+     * mode: pickup verschwindet sofort, chest bleibt offen liegen und löst
+     * sich nach openTime Sekunden auf.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function items(): array
+    {
+        $s = self::SPRITE_BASE;
+        return [
+            [
+                'id' => 'heiltrank',
+                'name' => 'Heiltrank',
+                'description' => 'Heilt einen Teil deines Lebens.',
+                'sprite' => $s . 'heiltrank.png',
+                'openSprite' => '',
+                'scale' => 34,
+                'mode' => 'pickup',
+                'openTime' => 0.0,
+                'effect' => 'heal',
+                'value' => 10,
+                'value2' => 0,
+                'onlyWhenNeeded' => true,
+                'interval' => 14.0,
+                'chance' => 0.35,
+                'maxOnMap' => 3,
+                'lifetime' => 26.0,
+                'minDistance' => 200,
+                'maxDistance' => 620,
+                'particle' => '#ff6b6b',
+                'sound' => 'potion',
+                'active' => true,
+            ],
+            [
+                'id' => 'truhe',
+                'name' => 'Schatztruhe',
+                'description' => 'Voller Münzen. Öffnet sich beim Berühren.',
+                'sprite' => $s . 'truhe-zu.png',
+                'openSprite' => $s . 'truhe-offen.png',
+                'scale' => 46,
+                'mode' => 'chest',
+                'openTime' => 2.0,
+                'effect' => 'money',
+                'value' => 25,
+                'value2' => 70,
+                'onlyWhenNeeded' => false,
+                'interval' => 26.0,
+                'chance' => 0.30,
+                'maxOnMap' => 2,
+                'lifetime' => 40.0,
+                'minDistance' => 260,
+                'maxDistance' => 700,
+                'particle' => '#ffd166',
+                'sound' => 'chest',
+                'active' => true,
+            ],
+        ];
+    }
+
     /** @return list<array<string, mixed>> */
     public static function maps(): array
     {
@@ -488,6 +553,9 @@ final class Defaults
             'active' => true,
             'spawn' => ['x' => 1024, 'y' => 1024],
             'enemySpawnAreas' => [],
+            // Portale werden im Karten-Editor gesetzt. Rot und Blau bilden
+            // paarweise Verbindungen: das erste Rote fuehrt zum ersten Blauen.
+            'portals' => [],
             'collision' => [
                 'cols' => 128,
                 'rows' => 128,
@@ -565,9 +633,30 @@ final class Defaults
                 }
             }
         }
-        foreach (['weapons', 'enemies', 'upgrades', 'maps'] as $key) {
-            if (!isset($data[$key]) || !is_array($data[$key])) {
+        foreach (['weapons', 'enemies', 'upgrades', 'items', 'maps'] as $key) {
+            if (!isset($data[$key]) || !is_array($data[$key]) || !count($data[$key])) {
                 $data[$key] = self::$key();
+
+                // Alte Heilflaschen-Werte aus dem Balancing übernehmen,
+                // damit eigene Einstellungen nicht verloren gehen.
+                if ($key === 'items' && isset($data['balance']['potionInterval'])) {
+                    $b = $data['balance'];
+                    foreach ($data['items'] as $i => $item) {
+                        if ($item['id'] !== 'heiltrank') {
+                            continue;
+                        }
+                        $data['items'][$i]['interval'] = (float) ($b['potionInterval'] ?? 14);
+                        $data['items'][$i]['chance'] = (float) ($b['potionChance'] ?? 0.35);
+                        $data['items'][$i]['maxOnMap'] = (int) ($b['potionMax'] ?? 3);
+                        $data['items'][$i]['value'] = (float) ($b['potionHeal'] ?? 10);
+                        $data['items'][$i]['lifetime'] = (float) ($b['potionLifetime'] ?? 26);
+                    }
+                }
+            }
+        }
+        foreach ($data['maps'] as $i => $map) {
+            if (!isset($map['portals']) || !is_array($map['portals'])) {
+                $data['maps'][$i]['portals'] = [];
             }
         }
 

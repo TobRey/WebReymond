@@ -76,6 +76,11 @@ function assetUsage(array $data, string $path): array
             $used[] = 'Map: ' . $m['name'];
         }
     }
+    foreach ($data['items'] ?? [] as $i) {
+        if (($i['sprite'] ?? '') === $path || ($i['openSprite'] ?? '') === $path) {
+            $used[] = 'Gegenstand: ' . $i['name'];
+        }
+    }
     foreach (['spriteFront', 'spriteBack', 'spriteSide', 'spriteDust'] as $k) {
         if (($data['player'][$k] ?? '') === $path) {
             $used[] = 'Spieler-Sprite';
@@ -181,13 +186,14 @@ switch ($action) {
         requireAdmin();
         $section = (string) (input()['section'] ?? '');
         $item = input()['item'] ?? null;
-        if (!in_array($section, ['weapons', 'enemies', 'upgrades', 'maps', 'characters'], true) || !is_array($item)) {
+        if (!in_array($section, ['weapons', 'enemies', 'upgrades', 'items', 'maps', 'characters'], true) || !is_array($item)) {
             fail('Ungültiger Abschnitt.');
         }
         $clean = match ($section) {
             'weapons' => Validate::weapon($item),
             'enemies' => Validate::enemy($item),
             'upgrades' => Validate::upgrade($item),
+            'items' => Validate::item($item),
             'maps' => Validate::map($item),
             'characters' => Validate::character($item),
         };
@@ -219,7 +225,7 @@ switch ($action) {
         requireAdmin();
         $section = (string) (input()['section'] ?? '');
         $id = (string) (input()['id'] ?? '');
-        if (!in_array($section, ['weapons', 'enemies', 'upgrades', 'maps', 'characters'], true) || $id === '') {
+        if (!in_array($section, ['weapons', 'enemies', 'upgrades', 'items', 'maps', 'characters'], true) || $id === '') {
             fail('Ungültiger Abschnitt.');
         }
         $data = $store->mutate(function (array $data) use ($section, $id): array {

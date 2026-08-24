@@ -1,6 +1,7 @@
 import { Pool } from '../core/pool.js';
 import { SpatialHash } from '../core/spatial.js';
 import { rand, TAU } from '../core/util.js';
+import { FlowField } from '../world/flowfield.js';
 
 /**
  * Gegnerverwaltung inklusive KI.
@@ -13,6 +14,9 @@ export class EnemyManager {
   constructor(map) {
     this.map = map;
     this.hash = new SpatialHash(110);
+    // Gemeinsame Wegfindung für alle Gegner.
+    this.flow = new FlowField(map.mask);
+    this._dir = { x: 0, y: 0 };
     this.pool = new Pool(
       () => ({
         alive: false, def: null, x: 0, y: 0, vx: 0, vy: 0, health: 1, maxHealth: 1,
@@ -85,6 +89,12 @@ export class EnemyManager {
   update(dt, player, time) {
     this.hash.rebuild(this.pool.active);
     const map = this.map;
+    const flow = this.flow;
+    const dir = this._dir;
+
+    // Einmal pro Takt der kürzeste Weg zum Spieler - für alle zusammen.
+    flow.update(dt, player.x, player.y + player.footOffset * 0.35);
+    const nahDistanz = Math.max(map.mask.cellW, map.mask.cellH) * 2.5;
 
     for (const e of this.pool.active) {
       e.spawnTime += dt;
@@ -102,6 +112,14 @@ export class EnemyManager {
       const distance = Math.hypot(dx, dy) || 1;
       dx /= distance;
       dy /= distance;
+
+      // Aus der Nähe direkt auf den Spieler zu, sonst dem kürzesten Weg
+      // um die Wände folgen. Der Nahbereich verhindert, dass die Gegner
+      // dicht vor dem Spieler noch am Zellenraster entlangzucken.
+      if (distance > nahDistanz && flow.directionAt(e.x, e.y + e.hitboxOy, dir)) {
+        dx = dir.x;
+        dy = dir.y;
+      }
 
       // Seitlicher Anteil sorgt für Bögen statt Ameisenstrasse.
       const wobble = e.wander * (e.boss ? 0.25 : 0.75);
