@@ -64,6 +64,14 @@ export class WaveController {
     if (this.isBossWave) {
       this.arena.startBossIntro();
     }
+
+    // Nach der Upgrade-Auswahl ist das Feld meist leergeräumt. Ohne
+    // Starthilfe stünde man ein paar Sekunden allein herum, bis der erste
+    // Gegner hereingelaufen kommt - das fühlte sich an wie ein Neustart.
+    const start = this.balance.waveStartEnemies ?? 4;
+    const fehlend = Math.min(start - this.arena.enemies.count, this.balance.maxEnemies - this.arena.enemies.count);
+    for (let i = 0; i < fehlend; i++) this.spawnEnemy();
+
     this.arena.emit('waveStart', { wave: this.run.wave, cycle: this.run.cycle, boss: this.isBossWave });
   }
 
@@ -133,14 +141,36 @@ export class WaveController {
   }
 
   /** Welle 1-3 bevorzugt den zugeordneten Gegner, sonst gewichteter Zufall. */
+  /**
+   * Wer in dieser Welle erscheint.
+   *
+   * Früher kam ausschliesslich der Gegnertyp der jeweiligen Welle. Das hatte
+   * zwei unschöne Folgen: In Welle 2 starben die Gegner aus Welle 1 einfach
+   * aus, und nach dem Boss fing Zyklus 2 wieder nur mit dem schwächsten
+   * Gegner an - es wirkte, als würde das Spiel von vorne beginnen.
+   *
+   * Jetzt bleibt alles im Spiel, was schon aufgetreten ist. Der Typ der
+   * aktuellen Welle führt, die übrigen kommen mit einem Bruchteil ihres
+   * Gewichts dazu (Balancing: "Anteil älterer Gegner"). Ab Zyklus 2 sind
+   * ohnehin alle bekannt, dann mischt jede Welle das gesamte Feld.
+   */
   pickEnemy() {
     const pool = this.arena.content.enemies.filter((e) => !e.boss && e.spawnWeight > 0);
     if (!pool.length) return null;
-    const forWave = pool.filter((e) => e.wave === this.run.wave);
-    if (forWave.length) return weighted(forWave, (e) => e.spawnWeight);
-    // Bosswelle oder unbelegte Welle: alles bisher Freigeschaltete.
-    const unlocked = pool.filter((e) => !e.wave || e.wave <= Math.max(1, this.run.wave));
-    return weighted(unlocked.length ? unlocked : pool, (e) => e.spawnWeight);
+
+    const wave = this.run.wave;
+    const alleBekannt = this.run.cycle > 1 || this.isBossWave;
+    const bekannt = alleBekannt
+      ? pool
+      : pool.filter((e) => !e.wave || e.wave <= Math.max(1, wave));
+    const auswahl = bekannt.length ? bekannt : pool;
+
+    const anteil = this.balance.waveMixShare ?? 0.45;
+    return weighted(auswahl, (e) => {
+      // Der Gegner dieser Welle bestimmt das Bild, die anderen ergänzen.
+      const passt = !e.wave || e.wave === wave || (alleBekannt && e.wave === ((wave - 1) % 3) + 1);
+      return e.spawnWeight * (passt ? 1 : anteil);
+    });
   }
 
   endWave() {

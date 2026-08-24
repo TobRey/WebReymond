@@ -151,6 +151,12 @@ final class Defaults
             'bossBombMinCooldown' => 1.8,
             // Verbrennung: wie lange ein getroffener Gegner brennt.
             'burnDuration' => 3.0,
+            // Wellen bauen aufeinander auf: Der Gegner der aktuellen Welle
+            // fuehrt, die bereits bekannten kommen mit diesem Anteil dazu.
+            'waveMixShare' => 0.45,
+            // So viele Gegner stehen zum Wellenstart schon bereit, damit es
+            // nach der Upgrade-Auswahl sofort weitergeht.
+            'waveStartEnemies' => 4,
             'upgradeChoices' => 3,
             'rarityRareBase' => 26,
             'rarityEpicBase' => 9,

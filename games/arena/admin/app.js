@@ -1909,6 +1909,8 @@ const BALANCE_FIELDS = [
   ['potionMax', 'Heilflaschen gleichzeitig', 0, 1],
   ['potionHeal', 'Heilflasche heilt (%)', 1, 1],
   ['potionLifetime', 'Heilflasche verschwindet nach (s)', 3, 1],
+  ['waveMixShare', 'Anteil älterer Gegner (0-1)', 0, 0.05],
+  ['waveStartEnemies', 'Gegner zum Wellenstart', 0, 1],
   ['upgradeChoices', 'Upgrade-Karten pro Welle', 1, 1],
   ['rarityRareBase', 'Chance Rare (%)', 0, 1],
   ['rarityEpicBase', 'Chance Epic (%)', 0, 1],
@@ -1948,11 +1950,14 @@ views.balance = (host) => {
   help.appendChild(el('p', 'muted',
     'Gegnerleben = Basisleben × Lebensskalierung^(Zyklus-1). Bei 1.45 hat Zyklus 3 also das ' +
     (1.45 ** 2).toFixed(2) + '-fache. Schaden, Tempo, Spawnrate und Geld laufen nach derselben Formel.'));
-  const perAttempt = (b.potionChance ?? 0.35) * 100;
   help.appendChild(el('p', 'muted',
-    'Heilflaschen: Alle ' + (b.potionInterval ?? 14) + ' s wird gewürfelt, mit ' + perAttempt.toFixed(0) +
-    ' % erscheint eine Flasche in Laufweite – höchstens ' + (b.potionMax ?? 3) + ' gleichzeitig. ' +
-    'Das Upgrade "Alchemie" erhöht diese Chance. Aufgesammelt wird nur bei fehlendem Leben.'));
+    'Wellen bauen aufeinander auf: Der Gegner der aktuellen Welle führt, bereits bekannte Gegner ' +
+    'kommen mit ' + Math.round((b.waveMixShare ?? 0.45) * 100) + ' % ihres Gewichts dazu. Ab Zyklus 2 ' +
+    'mischt jede Welle alle Typen – sonst würde nach dem Boss wieder nur der schwächste Gegner kommen. ' +
+    'Zum Wellenstart stehen ' + (b.waveStartEnemies ?? 4) + ' Gegner bereit, damit es nach der ' +
+    'Upgrade-Auswahl ohne Leerlauf weitergeht.'));
+  help.appendChild(el('p', 'muted',
+    'Heilflaschen und Truhen stehen unter "Gegenstände".'));
   help.appendChild(el('p', 'muted',
     'Verbrennung: Getroffene Gegner brennen ' + (b.burnDuration ?? 3) + ' s lang. Der Feuerschaden kommt ' +
     'aus den Upgrades "Verbrennung" und "Inferno" und wird mit dem Schadensfaktor des Runs multipliziert.'));

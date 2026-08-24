@@ -558,7 +558,8 @@ function wireArena(instance) {
     showUpgrades(info);
   });
   instance.on('waveStart', (info) => {
-    banner(info.boss ? 'Boss!' : `Welle ${info.wave}`, info.boss);
+    // Der volle Text macht klar, dass es weitergeht und nicht neu anfängt.
+    banner(info.boss ? `Zyklus ${info.cycle} · Boss` : `Zyklus ${info.cycle} · Welle ${info.wave} von 4`, info.boss);
     $('hud-boss').hidden = !info.boss;
     // Im Kampf soll die Musik immer laufen - nicht irgendwann von allein.
     Audio.ensureMusic();

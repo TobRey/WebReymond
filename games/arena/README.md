@@ -350,6 +350,34 @@ Danach beginnt der nächste Zyklus mit höheren Werten — endlos.
 **wütend** (mehr Tempo, mehr Schaden, kürzerer Bomben-Cooldown). Der Kampf endet
 also immer mit einer Entscheidung.
 
+### Wellen bauen aufeinander auf
+
+Jeder Zyklus hat drei normale Wellen und einen Bosskampf. Früher spawnte in
+jeder Welle **ausschliesslich** der ihr zugeordnete Gegnertyp — mit zwei
+unschönen Folgen: In Welle 2 starben die Gegner aus Welle 1 einfach aus, und
+nach dem Boss fing Zyklus 2 wieder nur mit dem schwächsten Gegner an. Es
+wirkte, als würde das Spiel nach jedem Upgrade von vorne beginnen.
+
+Jetzt bleibt alles im Spiel, was schon aufgetreten ist. Der Typ der aktuellen
+Welle führt, die übrigen kommen mit ihrem Anteil (`waveMixShare`, Standard
+45 %) dazu. Ab Zyklus 2 mischt jede Welle alle Typen:
+
+| Welle | Verteilung (gemessen über 600 Ziehungen) |
+|-------|------------------------------------------|
+| 1-1 | enemy1 100 % — die ruhige Einführung bleibt |
+| 1-2 | enemy2 69 %, enemy1 31 % |
+| 1-3 | enemy3 55 %, enemy2 24 %, enemy1 22 % |
+| 2-1 | enemy1 54 %, enemy2 24 %, enemy3 23 % |
+| 3-1 | enemy1 53 %, enemy3 26 %, enemy2 22 % |
+
+Dazu stehen zum Wellenstart schon `waveStartEnemies` Gegner bereit (Standard
+4). Nach der Upgrade-Auswahl ist das Feld meist leergeräumt — ohne diese
+Starthilfe stand man ein paar Sekunden allein herum, bis der erste Gegner
+hereingelaufen kam. Beide Werte stehen im Balancing.
+
+Das Banner nennt jetzt den vollen Stand (*Zyklus 1 · Welle 2 von 4*), damit
+ein Wellenwechsel nicht wie ein Neustart aussieht.
+
 ### Schwierigkeitsskalierung
 
 ```
@@ -742,3 +770,8 @@ Automatisiert im echten Browser geprüft (Chromium, Desktop und Mobil-Viewport):
   auf der Standardkarte 23/24 statt 21/24 Ankünfte
 * Drei Minuten Dauerspiel mit Wegfindung und Gegenständen: durchgehend 60 FPS,
   Speicher konstant
+* Wellenwechsel verliert keine Gegner: 7 vor der Karte, 6 danach; 12 → 14;
+  25 → 25. Auch beim Sprung von der Bosswelle in Zyklus 2 bleiben sie stehen
+* Zyklus 2 Welle 1 mischt alle drei Gegnertypen statt nur den schwächsten
+* Nach der Upgrade-Auswahl stehen sofort 4 Gegner bereit statt eines leeren
+  Feldes

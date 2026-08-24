@@ -443,8 +443,8 @@ final class Validate
             'moneyMultiplier' => [0.1, 20], 'contactDamageCooldown' => [0.1, 10],
             'bossBombCooldown' => [0.5, 60], 'bossBombRadius' => [20, 900], 'bossBombDelay' => [0.1, 10],
             'bossBombFlightTime' => [0.1, 6], 'bossBombMinCooldown' => [0.3, 30],
-            'burnDuration' => [0.2, 60], 'potionInterval' => [1, 600], 'potionChance' => [0, 1],
-            'potionMax' => [0, 20], 'potionHeal' => [1, 100], 'potionLifetime' => [3, 600],
+            'burnDuration' => [0.2, 60],
+            'waveMixShare' => [0, 1], 'waveStartEnemies' => [0, 60],
             'upgradeChoices' => [1, 6], 'rarityRareBase' => [0, 100], 'rarityEpicBase' => [0, 100],
             'rarityLegendaryBase' => [0, 100], 'rarityCycleBonus' => [1, 4], 'weaponOfferChance' => [0, 1],
         ];
@@ -455,7 +455,7 @@ final class Validate
         }
         $out['maxEnemies'] = (int) $out['maxEnemies'];
         $out['upgradeChoices'] = (int) $out['upgradeChoices'];
-        $out['potionMax'] = (int) $out['potionMax'];
+        $out['waveStartEnemies'] = (int) $out['waveStartEnemies'];
         return $out;
     }
 }
