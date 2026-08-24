@@ -71,17 +71,21 @@ $importMap = Version::importMap(__DIR__);
 </div>
 
 <!-- ------------------------------------------------------------ Menü -->
-<section id="screen-menu" class="screen is-active">
+<section id="screen-menu" class="screen screen--titel is-active">
   <div class="menu">
     <h1 class="logo">Arena<span>Survivors</span></h1>
     <p class="logo__sub">Überlebe Welle für Welle. Wähle klug.</p>
     <div class="menu__buttons">
-      <button id="btn-play" class="btn btn--primary btn--xl">Spielen</button>
-      <button id="btn-worlds" class="btn">Welten</button>
-      <button id="btn-scores" class="btn">Bestenliste</button>
-      <button id="btn-account" class="btn btn--quiet">Anmelden</button>
-      <button id="btn-sound-menu" class="btn btn--quiet">Musik: an</button>
-      <a class="btn btn--quiet" href="admin/">Admin</a>
+      <button id="btn-play" class="btn btn--gold btn--xl">Spielen</button>
+      <div class="menu__row">
+        <button id="btn-worlds" class="btn btn--stein">Welten</button>
+        <button id="btn-scores" class="btn btn--stein">Bestenliste</button>
+      </div>
+      <div class="menu__row">
+        <button id="btn-account" class="btn btn--stein">Anmelden</button>
+        <button id="btn-sound-menu" class="btn btn--stein">Ton: an</button>
+      </div>
+      <a class="btn btn--stein btn--klein" href="admin/">Admin</a>
     </div>
     <div id="menu-best" class="menu__best"></div>
   </div>

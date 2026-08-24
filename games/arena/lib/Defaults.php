@@ -361,6 +361,10 @@ final class Defaults
                 'projectileSize' => $projectileSize,
                 'holdOffsetY' => $melee ? -10 : -6,
                 'holdDistance' => 20,
+                // Start des Projektils: Hoehe wie die Waffe, Abstand 0 heisst
+                // "aus der Waffengroesse ableiten".
+                'muzzleOffsetY' => $melee ? -10 : -6,
+                'muzzleDistance' => 0,
                 // Eigener Ton je Waffe; leer heißt: allgemeiner Schuss- bzw. Schlagton.
                 'sound' => self::weaponSound($id, $melee),
                 'description' => $desc,
@@ -632,6 +636,13 @@ final class Defaults
                 }
                 if (!isset($weapon['holdDistance'])) {
                     $data['weapons'][$i]['holdDistance'] = 20;
+                }
+                // 0 heisst: aus der gezeichneten Waffe ableiten.
+                if (!isset($weapon['muzzleOffsetY'])) {
+                    $data['weapons'][$i]['muzzleOffsetY'] = $data['weapons'][$i]['holdOffsetY'] ?? -6;
+                }
+                if (!isset($weapon['muzzleDistance'])) {
+                    $data['weapons'][$i]['muzzleDistance'] = 0;
                 }
                 if (!isset($weapon['sound'])) {
                     $melee = in_array($weapon['type'] ?? '', ['MELEE_ARC', 'MELEE_360', 'THRUST'], true);

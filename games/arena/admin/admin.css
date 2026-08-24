@@ -252,3 +252,9 @@ textarea { min-height: 78px; resize: vertical; }
 .soundslot input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .soundset__controls { display: flex; gap: 16px; flex-wrap: wrap; }
 .soundset__controls .slider input { width: 110px; }
+
+
+/* Karten-Editor: sichtbarer Unterschied zwischen Schauen und Malen. */
+.editor__stage { cursor: crosshair; }
+.editor__stage.is-touch { cursor: grab; }
+.editor__stage.is-touch:active { cursor: grabbing; }

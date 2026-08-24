@@ -620,7 +620,8 @@ function openCollisionEditor(map) {
   const cellW = map.width / cols;
   const cellH = map.height / rows;
 
-  let tool = 'brush';
+  // Zum Start "Touch": erst schauen, dann bewusst ein Werkzeug waehlen.
+  let tool = 'touch';
   let brush = 3;
   let scale = 1;
   let panX = 0;
@@ -635,9 +636,10 @@ function openCollisionEditor(map) {
 
   /* Werkzeugleiste */
   const tools = el('div', 'editor__tools');
-  const brushBtn = el('button', 'btn btn--sm is-active', 'Malen');
+  const brushBtn = el('button', 'btn btn--sm', 'Malen');
   const eraseBtn = el('button', 'btn btn--sm', 'Radieren');
   const panBtn = el('button', 'btn btn--sm', 'Verschieben');
+  const touchBtn = el('button', 'btn btn--sm is-active', 'Touch');
   const spawnBtn = el('button', 'btn btn--sm', 'Startpunkt');
   const zoneBtn = el('button', 'btn btn--sm', 'Gegnerzone');
   const zoneClearBtn = el('button', 'btn btn--sm', 'Zonen leeren');
@@ -668,7 +670,7 @@ function openCollisionEditor(map) {
   zoomWrap.appendChild(el('span', null, 'Zoom'));
   zoomWrap.appendChild(zoomInput);
 
-  for (const b of [brushBtn, eraseBtn, panBtn, spawnBtn, zoneBtn, redBtn, blueBtn,
+  for (const b of [touchBtn, brushBtn, eraseBtn, panBtn, spawnBtn, zoneBtn, redBtn, blueBtn,
                    undoBtn, redoBtn, clearBtn, zoneClearBtn, portalClearBtn, fitBtn]) {
     tools.appendChild(b);
   }
@@ -717,7 +719,9 @@ function openCollisionEditor(map) {
   stage.appendChild(wrap);
   root.appendChild(stage);
   root.appendChild(el('p', 'editor__hint',
-    'Ein Finger malt, zwei Finger verschieben und zoomen. Rote Flächen sind im Spiel blockiert und dort unsichtbar. '
+    'Der Editor startet im Modus "Touch": Da lässt sich gefahrlos schieben und zoomen, '
+    + 'ohne dass etwas gemalt wird. Erst mit "Malen" oder "Radieren" verändert ein Finger die Karte. '
+    + 'Ein Finger malt, zwei Finger verschieben und zoomen. Rote Flächen sind im Spiel blockiert und dort unsichtbar. '
     + 'Der grüne Kreis ist der Startpunkt, blaue Kreise sind optionale Gegner-Spawnzonen '
     + '(ohne Zonen spawnen Gegner rund um den Bildausschnitt). Portale setzt du mit "Portal rot" '
     + 'und "Portal blau"; sie werden paarweise verbunden - das erste rote führt zum ersten blauen '
@@ -860,6 +864,11 @@ function openCollisionEditor(map) {
       drawZones();
       return;
     }
+    // Im Touch-Modus wird nichts verändert - nur geschoben und gezoomt.
+    if (tool === 'touch') {
+      pinchStart = { pan: true, x: e.clientX, y: e.clientY, panX, panY };
+      return;
+    }
     if (tool === 'portal-red' || tool === 'portal-blue') {
       const rect = stage.getBoundingClientRect();
       const x = (e.clientX - rect.left - panX) / scale;
@@ -942,9 +951,12 @@ function openCollisionEditor(map) {
   /* Werkzeuge verdrahten */
   function setTool(next, button) {
     tool = next;
-      [brushBtn, eraseBtn, panBtn, spawnBtn, zoneBtn, redBtn, blueBtn]
+      [touchBtn, brushBtn, eraseBtn, panBtn, spawnBtn, zoneBtn, redBtn, blueBtn]
         .forEach((b) => b.classList.toggle('is-active', b === button));
+      // Sichtbar machen, dass gerade nichts gemalt wird.
+      stage.classList.toggle('is-touch', next === 'touch' || next === 'pan');
   }
+  touchBtn.addEventListener('click', () => setTool('touch', touchBtn));
   brushBtn.addEventListener('click', () => setTool('brush', brushBtn));
   eraseBtn.addEventListener('click', () => setTool('erase', eraseBtn));
   panBtn.addEventListener('click', () => setTool('pan', panBtn));
@@ -995,6 +1007,7 @@ function openCollisionEditor(map) {
   redrawMask();
   drawZones();
   drawPortals();
+  stage.classList.add('is-touch');
   openModal('Karte bearbeiten - ' + map.name, root, [
     { label: 'Abbrechen', class: 'btn--ghost', onClick: (close) => close() },
     {
@@ -1374,6 +1387,8 @@ function editWeapon(weapon) {
   const projectileSize = textInput(data.projectileSize ?? 16, { type: 'number', min: 3, max: 200, step: 1 });
   const holdOffsetY = textInput(data.holdOffsetY ?? -6, { type: 'number', min: -120, max: 120, step: 1 });
   const holdDistance = textInput(data.holdDistance ?? 20, { type: 'number', min: -60, max: 200, step: 1 });
+  const muzzleOffsetY = textInput(data.muzzleOffsetY ?? (data.holdOffsetY ?? -6), { type: 'number', min: -160, max: 160, step: 1 });
+  const muzzleDistance = textInput(data.muzzleDistance ?? 0, { type: 'number', min: 0, max: 300, step: 1 });
 
   grid.appendChild(field('Typ', type));
   grid.appendChild(field('Projektil', projectile));
@@ -1393,6 +1408,8 @@ function editWeapon(weapon) {
   grid.appendChild(field('Projektil-Größe (px)', projectileSize, 'Höhe des Schusses / Pfeils'));
   grid.appendChild(field('Waffenhöhe (px)', holdOffsetY, 'negativ = höher, positiv = tiefer'));
   grid.appendChild(field('Abstand zum Körper (px)', holdDistance));
+  grid.appendChild(field('Projektil-Starthöhe (px)', muzzleOffsetY, 'negativ = höher, positiv = tiefer'));
+  grid.appendChild(field('Projektil-Startabstand (px)', muzzleDistance, '0 = automatisch aus der Waffengröße'));
   body.appendChild(grid);
 
   // Live-Vorschau: zeigt Waffe und Projektil in echter Spielgröße.
@@ -1467,6 +1484,27 @@ function editWeapon(weapon) {
   [spriteScale, projectileSize, holdOffsetY, holdDistance, type, projectile]
     .forEach((i) => i.addEventListener('input', drawPreview));
   drawPreview();
+  // Zweite Vorschau: derselbe Schuss aus Spielersicht in alle Richtungen.
+  const charaktere = state.content.characters || [];
+  const charWahl = selectInput(
+    (charaktere.find((c) => c.starter) || charaktere[0] || {}).id || '',
+    charaktere.map((c) => ({ value: c.id, label: c.name })),
+  );
+  body.appendChild(field('Charakter für die Vorschau', charWahl));
+  body.appendChild(schussVorschau(() => ({
+    charakter: charaktere.find((c) => c.id === charWahl.value) || charaktere[0] || null,
+    waffe: {
+      sprite: spritePath,
+      spriteScale: +spriteScale.value || 46,
+      projectileSize: +projectileSize.value || 16,
+      holdOffsetY: +holdOffsetY.value || 0,
+      holdDistance: +holdDistance.value || 0,
+      muzzleOffsetY: +muzzleOffsetY.value,
+      muzzleDistance: +muzzleDistance.value,
+      projectile: projectile.value,
+    },
+  })));
+
   body.appendChild(field('Beschreibung', desc));
 
   body.appendChild(el('h3', null, 'Angriffston'));
@@ -1498,7 +1536,8 @@ function editWeapon(weapon) {
               aoeRadius: +aoe.value, arc: +arc.value, pierce: +pierce.value, spread: +spread.value,
               recoil: +recoil.value, sound: soundEditor.read(), spriteScale: +spriteScale.value,
               projectileSize: +projectileSize.value, holdOffsetY: +holdOffsetY.value,
-              holdDistance: +holdDistance.value, description: desc.value,
+              holdDistance: +holdDistance.value, muzzleOffsetY: +muzzleOffsetY.value,
+              muzzleDistance: +muzzleDistance.value, description: desc.value,
               active: active.input.checked, starter: starter.input.checked,
             },
           });
@@ -1619,6 +1658,195 @@ function editUpgrade(up) {
       },
     },
   ]);
+}
+
+/* ------------------------------------------------- Schuss-Vorschau */
+/**
+ * Zeigt eine Figur, die mit einer Waffe in alle Richtungen schiesst.
+ *
+ * Damit laesst sich die Starthoehe des Projektils beurteilen, ohne das
+ * Spiel zu starten: Die Vorschau rechnet genau wie das Spiel und
+ * durchlaeuft acht Blickrichtungen.
+ *
+ * @param lies  () => ({ charakter, waffe }) - liefert die aktuellen Werte
+ * @returns {HTMLElement} mit .stop() zum Anhalten
+ */
+function schussVorschau(lies) {
+  const box = el('div', 'field');
+  box.appendChild(el('label', null, 'Vorschau: Schuss in alle Richtungen'));
+
+  const canvas = el('canvas');
+  canvas.width = 460;
+  canvas.height = 260;
+  canvas.style.cssText = 'width:100%;max-width:460px;background:'
+    + 'radial-gradient(120% 90% at 50% 30%, #16202c 0%, #0d1119 70%);'
+    + 'border-radius:12px;image-rendering:pixelated;';
+  box.appendChild(canvas);
+
+  const hinweis = el('p', 'muted');
+  hinweis.textContent = 'Der Punkt zeigt, wo das Projektil startet.';
+  box.appendChild(hinweis);
+
+  const ctx = canvas.getContext('2d');
+  const bilder = new Map();
+  const hole = (pfad) => {
+    if (!pfad) return null;
+    if (!bilder.has(pfad)) {
+      const img = new Image();
+      img.src = '../' + pfad;
+      bilder.set(pfad, img);
+    }
+    const img = bilder.get(pfad);
+    return img.complete && img.naturalWidth ? img : null;
+  };
+
+  const MITTE_X = 230;
+  const MITTE_Y = 168;
+  const RICHTUNGEN = 8;
+  let laeuft = true;
+  let start = performance.now();
+  let schuss = [];
+
+  function figurBild(charakter, winkel) {
+    const sprites = (charakter && charakter.sprites) || {};
+    const grad = ((winkel * 180) / Math.PI + 360) % 360;
+    // Nach der dominanten Achse - genau wie im Spiel.
+    let richtung = 'side';
+    let spiegeln = false;
+    if (grad > 45 && grad < 135) richtung = 'front';
+    else if (grad > 225 && grad < 315) richtung = 'back';
+    else if (grad >= 135 && grad <= 225) { richtung = 'side'; spiegeln = true; }
+    const eintrag = sprites[richtung] || {};
+    const pfad = (eintrag.frames && eintrag.frames[0]) || eintrag.gif || '';
+    return { bild: hole(pfad), spiegeln, richtung };
+  }
+
+  function zeichne(jetzt) {
+    if (!laeuft) return;
+    requestAnimationFrame(zeichne);
+    const { charakter, waffe } = lies();
+    const t = (jetzt - start) / 1000;
+
+    // Alle 1,1 s eine Richtung weiter, dazwischen ein Schuss.
+    const schritt = Math.floor(t / 1.1) % RICHTUNGEN;
+    const winkel = (schritt / RICHTUNGEN) * Math.PI * 2;
+    const imTakt = (t % 1.1) / 1.1;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = false;
+
+    // Boden und Richtungsring
+    ctx.save();
+    ctx.strokeStyle = 'rgba(108,140,255,.16)';
+    ctx.beginPath();
+    ctx.arc(MITTE_X, MITTE_Y - 20, 96, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    ctx.beginPath();
+    ctx.ellipse(MITTE_X, MITTE_Y + 8, 26, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    const hoehe = (charakter && charakter.scale) || 78;
+    const fuss = ((charakter && charakter.hitbox) || {}).oy ?? 24;
+
+    // Figur
+    const figur = figurBild(charakter, winkel);
+    if (figur.bild) {
+      const b = (figur.bild.naturalWidth / figur.bild.naturalHeight) * hoehe;
+      const x = MITTE_X - b / 2;
+      const y = MITTE_Y + fuss * 0.45 - hoehe;
+      ctx.save();
+      if (charakter && charakter.tint) ctx.filter = `hue-rotate(${charakter.tint}deg) saturate(1.15)`;
+      if (figur.spiegeln) {
+        ctx.translate(MITTE_X, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(figur.bild, -b / 2, y, b, hoehe);
+      } else {
+        ctx.drawImage(figur.bild, x, y, b, hoehe);
+      }
+      ctx.restore();
+    }
+
+    // Waffe - dieselbe Rechnung wie im Spiel
+    const laenge = (waffe && waffe.spriteScale) || 46;
+    const halten = (waffe && waffe.holdDistance) ?? 20;
+    const haltenY = (waffe && waffe.holdOffsetY) ?? -6;
+    const wbild = hole(waffe && waffe.sprite);
+    if (wbild) {
+      const h = (wbild.naturalHeight / wbild.naturalWidth) * laenge;
+      ctx.save();
+      ctx.translate(
+        MITTE_X + Math.cos(winkel) * halten,
+        MITTE_Y + fuss * 0.1 + haltenY + Math.sin(winkel) * halten * 0.6,
+      );
+      ctx.rotate(winkel);
+      if (Math.abs(winkel) > Math.PI / 2 && Math.abs(winkel) < Math.PI * 1.5) ctx.scale(1, -1);
+      ctx.drawImage(wbild, -laenge * 0.3, -h / 2, laenge, h);
+      ctx.restore();
+    }
+
+    // Mündung: exakt die Formel aus dem Spiel
+    const mOffsetY = (waffe && typeof waffe.muzzleOffsetY === 'number') ? waffe.muzzleOffsetY : haltenY;
+    const mAbstand = (waffe && waffe.muzzleDistance > 0) ? waffe.muzzleDistance : halten + laenge * 0.5;
+    const mx = MITTE_X + Math.cos(winkel) * mAbstand;
+    const my = MITTE_Y + fuss * 0.1 + mOffsetY + Math.sin(winkel) * mAbstand * 0.6;
+
+    // Schuss alle 1,1 s neu starten
+    if (imTakt < 0.06 && (!schuss.length || schuss[schuss.length - 1].schritt !== schritt)) {
+      schuss.push({ schritt, x: mx, y: my, winkel, t: 0 });
+      if (schuss.length > 3) schuss.shift();
+    }
+
+    // Projektile
+    const groesse = (waffe && waffe.projectileSize) || 16;
+    const pbild = hole(waffe && waffe.projectile && waffe.projectile !== 'pfeil'
+      && waffe.projectile !== 'magic' ? 'assets/sprites/' + waffe.projectile + '.png' : '');
+    for (const p of schuss) {
+      p.t += 1 / 60;
+      const weg = p.t * 210;
+      const px = p.x + Math.cos(p.winkel) * weg;
+      const py = p.y + Math.sin(p.winkel) * weg * 0.6;
+      if (weg > 210) continue;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 1 - weg / 210);
+      if (pbild) {
+        const w = (pbild.naturalWidth / pbild.naturalHeight) * groesse;
+        ctx.translate(px, py);
+        ctx.rotate(p.winkel);
+        ctx.drawImage(pbild, -w / 2, -groesse / 2, w, groesse);
+      } else {
+        ctx.fillStyle = '#ffe6a3';
+        ctx.beginPath();
+        ctx.arc(px, py, groesse / 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // Startpunkt hervorheben
+    ctx.save();
+    ctx.strokeStyle = '#43d39e';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(mx, my, 5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(67,211,158,.35)';
+    ctx.fill();
+    ctx.restore();
+
+    // Beschriftung
+    ctx.save();
+    ctx.fillStyle = '#8b95ad';
+    ctx.font = '12px Inter, system-ui, sans-serif';
+    ctx.fillText('Richtung ' + (schritt + 1) + ' von ' + RICHTUNGEN, 12, 20);
+    ctx.fillText('Starthöhe ' + Math.round(mOffsetY) + ' px · Abstand ' + Math.round(mAbstand) + ' px', 12, 38);
+    ctx.restore();
+  }
+
+  requestAnimationFrame(zeichne);
+  box.stop = () => { laeuft = false; };
+  return box;
 }
 
 /* ----------------------------------------------------- Gegenstände */
@@ -2099,6 +2327,7 @@ function editCharacter(character) {
   let dustPath = data.dustSprite;
   body.appendChild(spriteField('Staub beim Laufen', data.dustSprite, (p) => { dustPath = p; }));
 
+
   /* --- Fähigkeiten ----------------------------------------------------- */
   body.appendChild(el('h3', null, 'Spezialfähigkeit'));
   const perk = selectInput(data.perk || '', PERKS.map(([value, label]) => ({ value, label })));
@@ -2133,6 +2362,23 @@ function editCharacter(character) {
   hb.appendChild(field('Hitbox Radius Y', ry));
   hb.appendChild(field('Hitbox Versatz Y', oy));
   body.appendChild(hb);
+
+  /* --- Vorschau: die Figur schiesst in alle Richtungen ----------------- */
+  const waffen = (state.content.weapons || []).filter((w) => w.active);
+  const waffenWahl = selectInput(
+    (waffen.find((w) => w.starter) || waffen[0] || {}).id || '',
+    waffen.map((w) => ({ value: w.id, label: w.name })),
+  );
+  body.appendChild(field('Waffe für die Vorschau', waffenWahl));
+  body.appendChild(schussVorschau(() => ({
+    charakter: {
+      sprites: spriteState,
+      scale: +scale.value || 78,
+      tint: +tint.value || 0,
+      hitbox: { oy: +oy.value || 24 },
+    },
+    waffe: waffen.find((w) => w.id === waffenWahl.value) || waffen[0] || null,
+  })));
 
   const starter = checkInput('Von Anfang an spielbar', data.starter);
   const active = checkInput('Charakter ist auswählbar', data.active);

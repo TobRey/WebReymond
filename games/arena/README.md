@@ -240,6 +240,26 @@ Bildrate auf 35 und blieb dort).
 
 ---
 
+## Menü
+
+Das Hauptmenü liegt auf dem Titelbild (`assets/sprites/menu-hintergrund.jpg`,
+900 × 900, 159 KB). Weil das Artwork quadratisch ist und den Schriftzug selbst
+trägt, passt sich die Darstellung dem Format an:
+
+* **Hochkant** — das Bild belegt oben ein Quadrat und bleibt vollständig
+  sichtbar, die Knöpfe sitzen mittig darunter.
+* **Quadratisch und breiter** — das Bild füllt den Hintergrund, oben
+  ausgerichtet, damit der Schriftzug nie angeschnitten wird.
+* **Handy quer** — die Knöpfe rücken auf eine dunkle Säule links, rechts
+  bleibt das Artwork frei.
+
+Die Knöpfe greifen die Farben des Bildes auf: *Spielen* in demselben Gold wie
+der Schriftzug, die übrigen als gehauener Stein mit Goldkante. Der Text-Titel
+bleibt im HTML für Vorleseprogramme erhalten, ist aber ausgeblendet — den
+Namen trägt das Bild.
+
+---
+
 ## Konto, Erfahrung und Bestenliste
 
 * **Konto anlegen** im Hauptmenü unter *Anmelden*: Benutzername (3–16 Zeichen)
@@ -435,6 +455,39 @@ Klinge über ihm steht.
 
 ---
 
+### Wo der Schuss die Waffe verlässt
+
+Zwei Werte je Waffe, beide im Admin:
+
+| Feld | Bedeutung |
+|------|-----------|
+| **Projektil-Starthöhe** (`muzzleOffsetY`) | Höhe des Startpunkts, negativ = höher |
+| **Projektil-Startabstand** (`muzzleDistance`) | Abstand vom Körper; **0 = automatisch** aus Haltepunkt und Waffengröße |
+
+Ab Werk sitzt die Mündung auf derselben Höhe wie das gezeichnete Sprite und
+knapp hinter dessen Spitze — bei der Pistole also 43 px vor dem Körper. Wer
+ein Sprite mit ungewöhnlichem Griff hochlädt, zieht den Startpunkt nach.
+Nahkampfwaffen bleiben davon unberührt: Ihr Schwung geht weiter aus der
+Körpermitte aus.
+
+### Vorschau: Schuss in alle Richtungen
+
+Sowohl im **Charakter-** als auch im **Waffen-Editor** läuft eine Animation,
+die genau mit derselben Formel rechnet wie das Spiel: Die Figur dreht sich
+durch acht Blickrichtungen, hält die Waffe und feuert, ein grüner Ring
+markiert den Startpunkt des Projektils. Darüber stehen Starthöhe und Abstand
+in Zahlen.
+
+* Im **Charakter-Editor** wählst du die Waffe für die Vorschau — so prüfst du
+  eigene Sprites gegen jede Waffe.
+* Im **Waffen-Editor** wählst du den Charakter — so prüfst du eine Waffe gegen
+  jede Figur.
+
+Beide Vorschauen reagieren sofort auf jede Änderung an Größe, Haltepunkt,
+Starthöhe und Startabstand, ohne dass das Spiel gestartet werden muss.
+
+---
+
 ## Upgrades
 
 23 Upgrades in vier Seltenheiten (Common, Rare, Epic, Legendary). Nach jeder
@@ -539,6 +592,10 @@ leicht.
 
 Eine neue Map ist nach dem Upload sofort ein spielbares Level. Im Editor:
 
+* **Touch** — der Editor startet in diesem Modus. Schieben und zoomen, ohne
+  dass ein Finger etwas malt. Erst mit *Malen* oder *Radieren* verändert eine
+  Bewegung die Karte. Vorher konnte man beim Zurechtrücken versehentlich
+  Hindernisse einzeichnen.
 * **Malen / Radieren** mit einstellbarer Pinselgröße
 * **Rückgängig / Wiederholen** (40 Schritte)
 * **Alles löschen**, **Einpassen**, Zoom-Regler
@@ -775,3 +832,11 @@ Automatisiert im echten Browser geprüft (Chromium, Desktop und Mobil-Viewport):
 * Zyklus 2 Welle 1 mischt alle drei Gegnertypen statt nur den schwächsten
 * Nach der Upgrade-Auswahl stehen sofort 4 Gegner bereit statt eines leeren
   Feldes
+* Projektil-Starthöhe greift im Spiel exakt: −6 → Start bei −4 px, −40 → −38 px;
+  Startabstand automatisch 43 px, von Hand gesetzt 90 bzw. 30 px
+* Beide Schuss-Vorschauen laufen im Charakter- und im Waffen-Editor und
+  übernehmen Änderungen sofort
+* Karten-Editor im Touch-Modus: Ziehen ändert die Maske nicht (4959 Zellen
+  vorher wie nachher); mit *Malen* 5121, mit *Radieren* 4922
+* Menü in Hochkant, Querformat und auf dem Desktop geprüft — der Schriftzug
+  wird in keinem Format angeschnitten

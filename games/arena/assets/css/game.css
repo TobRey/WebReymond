@@ -105,12 +105,140 @@ button, input, select { font: inherit; color: inherit; }
   to { opacity: 1; transform: none; }
 }
 
-.menu { display: grid; gap: 18px; justify-items: center; text-align: center; max-width: 460px; }
+/* ------------------------------------------------------------ Titelbild */
+/*
+ * Das Artwork traegt den Titel bereits im Bild. Es sitzt oben ausgerichtet,
+ * damit die Schrift bei jedem Seitenverhaeltnis sichtbar bleibt; nach unten
+ * legt sich ein Verlauf, auf dem die Knoepfe lesbar stehen.
+ */
+.screen--titel {
+  /*
+   * Das Artwork ist quadratisch. Hochkant wird es komplett gezeigt und die
+   * Knoepfe stehen darunter; auf breiten Bildschirmen fuellt es die Flaeche.
+   * So bleibt der Schriftzug in jedem Format ganz sichtbar.
+   */
+  background:
+    linear-gradient(180deg, rgba(8, 6, 14, 0) 0%, rgba(8, 6, 14, 0) 40%,
+      rgba(8, 6, 14, .72) 64%, #08060e 78%),
+    url('../sprites/menu-hintergrund.jpg') top center / contain no-repeat,
+    #08060e;
+  align-content: end;
+  padding-bottom: calc(26px + var(--safe-b));
+}
+
+/*
+ * Hochkant: Das Bild belegt oben ein Quadrat, die Knoepfe sitzen mittig im
+ * Rest. Ohne diese Aufteilung klaffte zwischen Bild und Knoepfen eine Luecke.
+ */
+@media (max-aspect-ratio: 1/1) {
+  .screen--titel {
+    grid-template-rows: min(100vw, 62vh) 1fr;
+    align-content: stretch;
+    padding-top: 0;
+  }
+  .screen--titel .menu {
+    grid-row: 2;
+    align-self: center;
+  }
+}
+
+/* Quadratisch oder breiter: Das Bild fuellt den Hintergrund. */
+@media (min-aspect-ratio: 1/1) {
+  .screen--titel {
+    background:
+      linear-gradient(180deg, rgba(8, 6, 14, .32) 0%, rgba(8, 6, 14, .06) 20%,
+        rgba(8, 6, 14, .58) 56%, rgba(8, 6, 14, .94) 86%, #08060e 100%),
+      url('../sprites/menu-hintergrund.jpg') top center / cover no-repeat,
+      #08060e;
+  }
+}
+
+.menu {
+  display: grid; gap: 14px; justify-items: center; text-align: center;
+  max-width: 460px; width: 100%;
+}
+
+/* Der Titel steht im Bild - der Text bleibt nur fuer Vorleseprogramme. */
+.screen--titel .logo,
+.screen--titel .logo__sub {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+
 .logo { margin: 0; font-size: clamp(34px, 9vw, 54px); letter-spacing: -.03em; line-height: 1; }
 .logo span { display: block; color: var(--accent); }
 .logo__sub { margin: 0; color: var(--muted); font-size: 14px; }
-.menu__buttons { display: grid; gap: 10px; width: min(320px, 86vw); }
-.menu__best { color: var(--muted); font-size: 13px; }
+
+.menu__buttons { display: grid; gap: 9px; width: min(340px, 88vw); }
+.menu__row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.menu__best {
+  color: #d8c9a8; font-size: 13px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .95);
+}
+
+/*
+ * Knoepfe im Stil des Bildes: gehauener Stein mit Goldkante, der
+ * Hauptknopf in demselben Gold wie der Schriftzug.
+ */
+.btn--gold,
+.btn--stein {
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-weight: 800;
+  border-width: 2px;
+  border-style: solid;
+}
+
+.btn--gold {
+  color: #2a1c05;
+  background: linear-gradient(180deg, #f5d97c 0%, #e0b23c 46%, #b8862a 100%);
+  border-color: #7a5616;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 245, 210, .75),
+    inset 0 -3px 0 rgba(90, 60, 10, .45),
+    0 4px 0 #6b4a13,
+    0 10px 26px rgba(224, 178, 60, .32);
+  text-shadow: 0 1px 0 rgba(255, 246, 214, .55);
+}
+.btn--gold:hover { filter: brightness(1.07); }
+.btn--gold:active { transform: translateY(3px); box-shadow: inset 0 2px 0 rgba(255,245,210,.6), 0 1px 0 #6b4a13; }
+
+.btn--stein {
+  color: #ecdfc4;
+  background: linear-gradient(180deg, #3b3348 0%, #2a2334 55%, #201a29 100%);
+  border-color: #6b5a3a;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 195, .18),
+    inset 0 -2px 0 rgba(0, 0, 0, .5),
+    0 3px 0 #14101c;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .8);
+}
+.btn--stein:hover { border-color: #a4854f; color: #fff4dc; }
+.btn--stein:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,236,195,.14), 0 1px 0 #14101c; }
+.btn--klein { font-size: 12px; padding: 9px 14px; letter-spacing: .12em; opacity: .85; }
+
+/*
+ * Sehr flache Bildschirme (Handy quer): Das Bild wird stark beschnitten,
+ * deshalb ruecken die Knoepfe auf eine dunkle Saeule am Rand - so bleibt
+ * vom Artwork so viel wie moeglich frei sichtbar.
+ */
+@media (max-height: 520px) and (orientation: landscape) {
+  .screen--titel {
+    background:
+      linear-gradient(90deg, rgba(8, 6, 14, .96) 0%, rgba(8, 6, 14, .88) 34%,
+        rgba(8, 6, 14, .35) 58%, rgba(8, 6, 14, .15) 100%),
+      url('../sprites/menu-hintergrund.jpg') center right / cover no-repeat,
+      #08060e;
+    align-content: center;
+    justify-content: start;
+    padding-left: calc(28px + var(--safe-l));
+  }
+  .menu { max-width: 380px; }
+  .menu__buttons { width: min(360px, 46vw); }
+  .btn--xl { padding: 13px 20px; font-size: 16px; }
+}
 
 .panel {
   width: min(920px, 100%);

@@ -121,6 +121,9 @@ final class Validate
             'projectileSize' => self::num($in['projectileSize'] ?? 16, 3, 200, 16),
             'holdOffsetY' => self::num($in['holdOffsetY'] ?? -6, -120, 120, -6),
             'holdDistance' => self::num($in['holdDistance'] ?? 20, -60, 200, 20),
+            // Start des Projektils. Abstand 0 = aus der Waffengroesse ableiten.
+            'muzzleOffsetY' => self::num($in['muzzleOffsetY'] ?? -6, -160, 160, -6),
+            'muzzleDistance' => self::num($in['muzzleDistance'] ?? 0, 0, 300, 0),
             'sound' => self::soundSet($in['sound'] ?? null, 0.6),
             'description' => self::text($in['description'] ?? '', 200),
             'active' => self::bool($in['active'] ?? true),

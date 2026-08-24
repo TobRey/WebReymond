@@ -1,5 +1,22 @@
 import { Assets } from '../gfx/assets.js';
 import { rand } from '../core/util.js';
+
+/**
+ * Mündungsposition einer Waffe.
+ *
+ * Ohne eigene Angabe wird sie aus der gezeichneten Waffe abgeleitet: Sie
+ * sitzt auf derselben Höhe wie das Sprite und knapp hinter dessen Spitze.
+ * Damit stimmt der Start ab Werk, lässt sich aber je Waffe nachjustieren.
+ */
+export function muzzleOffsets(weapon) {
+  const offsetY = typeof weapon.muzzleOffsetY === 'number'
+    ? weapon.muzzleOffsetY
+    : (weapon.holdOffsetY ?? -6);
+  const distance = typeof weapon.muzzleDistance === 'number' && weapon.muzzleDistance > 0
+    ? weapon.muzzleDistance
+    : (weapon.holdDistance ?? 20) + (weapon.spriteScale || 46) * 0.5;
+  return { offsetY, distance };
+}
 import { Audio } from '../core/audio.js';
 
 /**
@@ -44,8 +61,21 @@ export class WeaponController {
 
   fire(weapon, target) {
     const { player, effects, camera, run } = this.arena;
-    const originX = player.x;
-    const originY = player.y + player.footOffset * 0.15;
+
+    // Wo der Schuss die Waffe verlässt.
+    //
+    // Nahkampf schlägt weiter aus der Körpermitte heraus, Geschosse
+    // starten an der Mündung: "Starthöhe" (muzzleOffsetY) und
+    // "Startabstand" (muzzleDistance) sind im Admin einstellbar und ab
+    // Werk auf die gezeichnete Waffe abgestimmt.
+    const nahkampf = weapon.type === 'MELEE_ARC' || weapon.type === 'MELEE_360' || weapon.type === 'THRUST';
+    const muendung = muzzleOffsets(weapon);
+    const originX = nahkampf
+      ? player.x
+      : player.x + Math.cos(this.aim) * muendung.distance;
+    const originY = nahkampf
+      ? player.y + player.footOffset * 0.15
+      : player.y + player.footOffset * 0.1 + muendung.offsetY + Math.sin(this.aim) * muendung.distance * 0.6;
 
     switch (weapon.type) {
       case 'MELEE_ARC':
@@ -156,8 +186,8 @@ export class WeaponController {
     const sprite = spriteName ? Assets.get('assets/sprites/' + spriteName + '.png') : null;
     this.arena.projectiles.spawn({
       kind,
-      x: x + Math.cos(angle) * 18,
-      y: y + Math.sin(angle) * 18,
+      x,
+      y,
       angle,
       vx: Math.cos(angle) * weapon.projectileSpeed,
       vy: Math.sin(angle) * weapon.projectileSpeed,
