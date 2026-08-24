@@ -3,7 +3,7 @@ import { SpatialHash } from '../core/spatial.js';
 import { rand, TAU } from '../core/util.js';
 
 /** Wie lange ein gefallener Gegner liegen bleibt, bevor er verschwindet. */
-export const DEATH_DURATION = 1.0;
+export const DEATH_DURATION = 0.72;
 import { FlowField } from '../world/flowfield.js';
 
 /**
@@ -120,7 +120,7 @@ export class EnemyManager {
       // Gefallene Gegner kippen um und loesen sich danach auf.
       if (e.dying) {
         e.deathTime += dt;
-        e.deathTilt = Math.min(1, e.deathTime / 0.32);
+        e.deathTilt = Math.min(1, e.deathTime / 0.26);
         // Der Schwung aus dem Todesstoss traegt sie noch ein Stueck.
         if (e.knockX || e.knockY) {
           const decay = Math.pow(0.0006, dt);

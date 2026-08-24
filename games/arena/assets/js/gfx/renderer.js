@@ -189,7 +189,12 @@ export class Renderer {
     const squash = (1 - player.squash * 0.12) * (1 - sprung * 0.55);
     const height = player.scale * eigen * squash;
     const width = (sprite.width / sprite.height) * player.scale * eigen * (1 - sprung * 0.35);
-    const frame = sprite.frameAt(player.moving ? player.moveTime * 1000 : 0);
+    // Im Lauf zaehlt die Laufuhr, im Stand die Ruheuhr. Ohne Ruhebild
+    // bleibt es wie bisher beim ersten Bild.
+    const frame = sprite.frameAt(
+      player.moving ? player.moveTime * 1000
+        : (player.idling ? player.idleTime * 1000 : 0),
+    );
     const drawX = player.x - width / 2;
     const drawY = player.y + player.footOffset * 0.45 - height;
 
@@ -263,25 +268,30 @@ export class Renderer {
     const spawnPop = enemy.spawnTime < 0.25 ? 0.65 + (enemy.spawnTime / 0.25) * 0.35 : 1;
     const height = enemy.scale * spawnPop;
     const width = (sprite.width / sprite.height) * height;
-    const frame = sprite.frameAt(time * 1000 + enemy.animOffset);
+    // Beim Sterben friert die Laufanimation im Moment des Todes ein. Sonst
+    // zappelt die Leiche weiter und sieht aus, als stünde sie noch einmal auf.
+    const animZeit = enemy.dying ? time - enemy.deathTime : time;
+    const frame = sprite.frameAt(animZeit * 1000 + enemy.animOffset);
     const drawY = enemy.y + enemy.radius * 0.45 - height;
 
     // Der häufigste Fall - nach rechts blickend, kein Treffer - kommt ohne
     // save/restore und ohne Zustandswechsel aus. Das ist bei achtzig
     // Gegnern pro Bild ein spürbarer Unterschied.
-    if (!enemy.flip && enemy.hitFlash <= 0) {
+    if (!enemy.flip && enemy.hitFlash <= 0 && !enemy.dying) {
       ctx.drawImage(frame, enemy.x - width / 2, drawY, width, height);
       return;
     }
 
     ctx.save();
 
-    // Gefallene Gegner kippen zur Seite, sacken ab und blenden aus.
+    // Gefallene Gegner kippen zur Seite, sacken ab und blenden dabei aus.
+    // Das Ausblenden läuft mit dem Umfallen zusammen, damit sie liegend
+    // verschwinden statt danach noch eine Weile am Boden zu warten.
     if (enemy.dying) {
       const t = Math.min(1, enemy.deathTime / DEATH_DURATION);
       const kippen = enemy.deathTilt * (Math.PI / 2) * (enemy.flip ? -1 : 1);
       const boden = enemy.y + enemy.radius * 0.45;
-      ctx.globalAlpha = t > 0.62 ? Math.max(0, 1 - (t - 0.62) / 0.38) : 1;
+      ctx.globalAlpha = t < 0.34 ? 1 : Math.max(0, 1 - (t - 0.34) / 0.66);
       ctx.translate(enemy.x, boden);
       ctx.rotate(kippen * 0.85);
       ctx.translate(-enemy.x, -boden + enemy.radius * 0.18 * enemy.deathTilt);

@@ -25,10 +25,7 @@ $importMap = Version::importMap(__DIR__);
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="description" content="Arena Survivors - mobiles Top-Down-Roguelite mit Wellen, Bossen und Upgrades.">
 <title>Arena Survivors</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" media="print" onload="this.media='all';this.onload=null">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap"></noscript>
+<link rel="preload" href="assets/fonts/pixelify-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/game.css?v=<?= htmlspecialchars($version, ENT_QUOTES) ?>">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%237c6cff'/><path d='M28 66l22-38 22 38z' fill='%23fff'/></svg>">
 </head>
@@ -39,9 +36,16 @@ $importMap = Version::importMap(__DIR__);
 <!-- ------------------------------------------------------------- HUD -->
 <div id="hud" class="hud" hidden>
   <div class="hud__top">
-    <div class="pill pill--wave"><b id="hud-wave">1-1</b><span id="hud-cycle">Zyklus 1</span></div>
-    <div class="pill pill--timer"><b id="hud-timer">1:00</b></div>
-    <div class="pill pill--money"><span class="coin"></span><b id="hud-money">0</b></div>
+    <div class="hud__pillen">
+      <div class="pill pill--wave"><b id="hud-wave">1-1</b><span id="hud-cycle">Zyklus 1</span></div>
+      <div class="pill pill--timer"><b id="hud-timer">1:00</b></div>
+      <div class="pill pill--money"><span class="coin"></span><b id="hud-money">0</b></div>
+    </div>
+    <div class="hud__buttons">
+      <button id="btn-sound" class="iconbtn" data-ui title="Musik an/aus">♪</button>
+      <button id="btn-stats" class="iconbtn" data-ui title="Statistiken">≡</button>
+      <button id="btn-pause" class="iconbtn" data-ui title="Pause">II</button>
+    </div>
   </div>
 
   <div class="hud__boss" id="hud-boss" hidden>
@@ -65,12 +69,6 @@ $importMap = Version::importMap(__DIR__);
     <span class="ultbtn__icon">◎</span>
     <span class="ultbtn__zeit" id="ult-zeit"></span>
   </button>
-
-  <div class="hud__buttons">
-    <button id="btn-sound" class="iconbtn" data-ui title="Musik an/aus">♪</button>
-    <button id="btn-stats" class="iconbtn" data-ui title="Statistiken">≡</button>
-    <button id="btn-pause" class="iconbtn" data-ui title="Pause">II</button>
-  </div>
 
   <div id="debug-panel" class="debug" hidden></div>
   <div id="wave-banner" class="banner" hidden></div>
@@ -117,14 +115,28 @@ $importMap = Version::importMap(__DIR__);
 </section>
 
 <!-- -------------------------------------------------------- Charakter -->
-<section id="screen-character" class="screen">
-  <div class="panel">
-    <header class="panel__head">
+<section id="screen-character" class="screen screen--charwahl">
+  <div class="charwahl">
+    <header class="charwahl__kopf">
+      <button class="btn btn--stein btn--klein" data-back>Zurück</button>
       <h2>Charakter wählen</h2>
-      <div class="panel__meta"><span id="xp-badge" class="chip"></span>
-        <button class="btn btn--quiet" data-back>Zurück</button></div>
+      <span id="xp-badge" class="chip"></span>
     </header>
-    <div id="character-list" class="charlist"></div>
+
+    <div class="charwahl__buehne">
+      <button id="char-prev" class="charpfeil charpfeil--links" type="button" aria-label="Vorheriger Charakter">‹</button>
+      <div class="charwahl__figur">
+        <img id="char-bild" alt="">
+        <div id="char-schloss" class="charwahl__schloss" hidden></div>
+      </div>
+      <button id="char-next" class="charpfeil charpfeil--rechts" type="button" aria-label="Nächster Charakter">›</button>
+      <div id="char-info" class="charwahl__info"></div>
+    </div>
+
+    <div class="charwahl__fuss">
+      <div id="char-punkte" class="charpunkte"></div>
+      <button id="char-waehlen" class="btn btn--gold btn--xl">Auswählen</button>
+    </div>
   </div>
 </section>
 
@@ -178,6 +190,35 @@ $importMap = Version::importMap(__DIR__);
     <div class="dialog__actions">
       <button id="swap-yes" class="btn btn--primary">Ersetzen</button>
       <button id="swap-no" class="btn btn--quiet">Behalten</button>
+    </div>
+  </div>
+</div>
+
+<!-- Der Laden zwischen den Wellen -->
+<div id="overlay-shop" class="overlay overlay--shop" hidden>
+  <div class="shop" id="shop-buehne">
+    <div class="shop__haendler" id="shop-haendler" aria-hidden="true"></div>
+    <img class="shop__tresen" id="shop-tresen" alt="" aria-hidden="true">
+
+    <div class="shop__inhalt">
+      <header class="shop__kopf">
+        <h2 class="shop__titel" id="shop-titel">Laden</h2>
+        <div class="shop__geld"><span class="coin"></span><b id="shop-geld">0</b></div>
+      </header>
+      <div class="shop__auslage" id="shop-auslage"></div>
+      <div class="shop__leiste">
+        <button id="shop-reroll" class="btn btn--stein" type="button">Tauschen</button>
+        <button id="shop-liste-btn" class="btn btn--stein" type="button">Gekauft</button>
+        <button id="shop-weiter" class="btn btn--gold" type="button">Weiter</button>
+      </div>
+    </div>
+
+    <div class="shop__besitz" id="shop-besitz" hidden>
+      <header class="shop__besitzkopf">
+        <h3>Dein Aufbau</h3>
+        <button id="shop-liste-zu" class="btn btn--stein btn--klein" type="button">Schließen</button>
+      </header>
+      <div id="shop-besitz-liste" class="upgradelist"></div>
     </div>
   </div>
 </div>

@@ -1,3 +1,29 @@
+/*
+ * Die Spielschrift liegt beim Spiel selbst - kein Nachladen von aussen.
+ * So sieht die Seite auch offline und ohne Verbindung zu Google gleich aus,
+ * und im ZIP ist alles dabei, was das Spiel braucht.
+ */
+@font-face {
+  font-family: 'Pixelify Sans';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../fonts/pixelify-sans-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Pixelify Sans';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../fonts/pixelify-sans-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 /* ==========================================================================
    Arena Survivors - Spieloberflaeche
    Pixel-Art bleibt scharf, HUD bleibt Screen-Space, Touch bleibt sauber.
@@ -17,6 +43,9 @@
   --danger: #ff5f7e;
   --hp: #5ee08a;
   --shield: #62c8ff;
+  --schrift: "Pixelify Sans", "Trebuchet MS", Verdana, system-ui, sans-serif;
+  --menu-bg: url('../sprites/menu-hintergrund.jpg');
+  --char-bg: url('../sprites/charakter-hintergrund.jpg');
   --radius: 16px;
   --ease: cubic-bezier(.22, .8, .3, 1);
   --safe-t: env(safe-area-inset-top, 0px);
@@ -34,7 +63,8 @@ html, body {
   overflow: hidden;
   background: var(--bg);
   color: var(--text);
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Eine einzige Schrift im Spielstil - Ueberschriften wie Fliesstext. */
+  font-family: var(--schrift);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
   touch-action: none;              /* kein Doppeltipp-Zoom, kein Pull-to-refresh */
@@ -43,8 +73,9 @@ html, body {
   -webkit-user-select: none;
 }
 
-h1, h2, h3, .logo, .pill b, .statgrid b, .card__value {
-  font-family: "Space Grotesk", Inter, system-ui, sans-serif;
+h1, h2, h3, h4, p, span, b, i, em, strong, small, label, li, td, th,
+button, input, select, textarea, .logo, .pill b, .statgrid b, .card__value {
+  font-family: var(--schrift);
 }
 
 #stage {
@@ -120,7 +151,7 @@ button, input, select { font: inherit; color: inherit; }
   background:
     linear-gradient(180deg, rgba(8, 6, 14, 0) 0%, rgba(8, 6, 14, 0) 40%,
       rgba(8, 6, 14, .72) 64%, #08060e 78%),
-    url('../sprites/menu-hintergrund.jpg') top center / contain no-repeat,
+    var(--menu-bg) top center / contain no-repeat,
     #08060e;
   align-content: end;
   padding-bottom: calc(26px + var(--safe-b));
@@ -148,7 +179,7 @@ button, input, select { font: inherit; color: inherit; }
     background:
       linear-gradient(180deg, rgba(8, 6, 14, .32) 0%, rgba(8, 6, 14, .06) 20%,
         rgba(8, 6, 14, .58) 56%, rgba(8, 6, 14, .94) 86%, #08060e 100%),
-      url('../sprites/menu-hintergrund.jpg') top center / cover no-repeat,
+      var(--menu-bg) top center / cover no-repeat,
       #08060e;
   }
 }
@@ -229,7 +260,7 @@ button, input, select { font: inherit; color: inherit; }
     background:
       linear-gradient(90deg, rgba(8, 6, 14, .96) 0%, rgba(8, 6, 14, .88) 34%,
         rgba(8, 6, 14, .35) 58%, rgba(8, 6, 14, .15) 100%),
-      url('../sprites/menu-hintergrund.jpg') center right / cover no-repeat,
+      var(--menu-bg) center right / cover no-repeat,
       #08060e;
     align-content: center;
     justify-content: start;
@@ -311,7 +342,21 @@ button, input, select { font: inherit; color: inherit; }
   flex-direction: column;
   gap: 8px;
 }
-.hud__top { display: flex; gap: 8px; align-items: center; justify-content: center; }
+/*
+ * Kopfzeile des HUD.
+ *
+ * Die Knoepfe lagen frueher absolut in der rechten Ecke - auf schmalen
+ * Handys deckten sie damit Welle, Zeit und Geld zu. Jetzt stehen sie im
+ * normalen Fluss und rutschen bei Platzmangel in eine zweite Reihe.
+ */
+.hud__top {
+  display: flex; gap: 8px; align-items: flex-start;
+  justify-content: space-between; flex-wrap: wrap;
+}
+.hud__pillen {
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+  flex: 1 1 auto; min-width: 0;
+}
 .pill {
   display: inline-flex; align-items: center; gap: 6px;
   background: rgba(10, 13, 20, .72);
@@ -330,7 +375,7 @@ button, input, select { font: inherit; color: inherit; }
 .pill--money b { color: var(--gold); }
 .coin { width: 9px; height: 9px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 8px rgba(255, 207, 92, .7); }
 
-.hud__boss { width: min(560px, 88%); margin: 2px auto 0; }
+.hud__boss { width: min(560px, 92%); margin: 4px auto 0; }
 .bossbar__label { display: flex; justify-content: space-between; font-size: 11px; color: var(--danger); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 3px; }
 .bossbar {
   height: 12px; border-radius: 999px; overflow: hidden;
@@ -362,12 +407,10 @@ button, input, select { font: inherit; color: inherit; }
 .hud__weapon img { width: 34px; height: 22px; object-fit: contain; image-rendering: pixelated; }
 
 .hud__buttons {
-  position: absolute;
-  top: calc(10px + var(--safe-t)); right: calc(12px + var(--safe-r));
-  display: flex; gap: 8px; pointer-events: auto;
+  display: flex; gap: 6px; pointer-events: auto; flex: 0 0 auto;
 }
 .iconbtn {
-  width: 44px; height: 44px; border-radius: 12px;
+  width: 42px; height: 42px; border-radius: 12px;
   background: rgba(10, 13, 20, .72); border: 1px solid var(--line);
   color: var(--text); font-size: 16px; cursor: pointer;
   display: grid; place-items: center;
@@ -377,7 +420,7 @@ button, input, select { font: inherit; color: inherit; }
 .banner {
   position: absolute; left: 50%; top: 26%;
   transform: translate(-50%, -50%);
-  font-family: "Space Grotesk", sans-serif; font-weight: 700;
+  font-family: var(--schrift); font-weight: 700;
   font-size: clamp(22px, 6vw, 40px);
   letter-spacing: .04em; text-align: center;
   text-shadow: 0 4px 24px rgba(0, 0, 0, .8);
@@ -600,7 +643,7 @@ button, input, select { font: inherit; color: inherit; }
 .scorerow__rank { color: var(--muted); font-weight: 700; }
 .scorerow__name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .scorerow__meta { color: var(--muted); font-size: 12px; }
-.scorerow__score { font-family: "Space Grotesk", sans-serif; font-weight: 700; color: var(--gold); }
+.scorerow__score { font-family: var(--schrift); font-weight: 700; color: var(--gold); }
 
 .form { display: grid; gap: 12px; }
 .form-error { color: var(--danger); font-size: 13px; margin: 0; min-height: 18px; }
@@ -700,7 +743,7 @@ button, input, select { font: inherit; color: inherit; }
   text-shadow: 0 2px 10px rgba(0, 0, 0, .9);
 }
 .countdown__zahl {
-  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-family: var(--schrift);
   font-weight: 800;
   font-size: clamp(96px, 30vw, 190px);
   line-height: 1;
@@ -819,3 +862,717 @@ button, input, select { font: inherit; color: inherit; }
   box-shadow: 0 18px 60px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 236, 195, .08);
 }
 .panel__head h2, .overlay__title, .dialog h3 { color: #f6efe0; }
+
+
+/* ==========================================================================
+   Spielstil fuer alle Bildschirme
+   --------------------------------------------------------------------------
+   Bisher war alles ausserhalb des Titelbildes ein schlichtes dunkles
+   Formular. Hier bekommen Panels, Overlays, Formulare und Listen dieselbe
+   Sprache wie das Menue: gehauener Stein, Goldkanten, warmes Pergament.
+   Es sind reine Farb- und Rahmenregeln - Groessen und Abstaende bleiben.
+   ========================================================================== */
+
+:root {
+  --stein-hell: #3b3348;
+  --stein: #2a2334;
+  --stein-tief: #1b1622;
+  --gold-hell: #f5d97c;
+  --gold-tief: #7a5616;
+  --pergament: #ecdfc4;
+  --schrift-warm: #f6efe0;
+}
+
+body { color: var(--pergament); }
+
+/* Jeder Bildschirm bekommt denselben steinernen Grund wie das Menue. */
+.screen {
+  background:
+    radial-gradient(900px 620px at 50% -8%, rgba(224, 178, 60, .12), transparent 62%),
+    linear-gradient(180deg, #17121e 0%, #100c16 55%, #0a0710 100%);
+}
+
+/* --------------------------------------------------------- Steinplatten */
+.panel,
+.overlay__inner--scroll,
+.dialog {
+  background:
+    linear-gradient(180deg, rgba(59, 51, 72, .96) 0%, rgba(36, 30, 46, .97) 42%,
+      rgba(25, 20, 33, .98) 100%);
+  border: 2px solid rgba(224, 178, 60, .34);
+  border-radius: 14px;
+  backdrop-filter: none;              /* spart Rechenzeit auf dem Handy */
+  box-shadow:
+    inset 0 2px 0 rgba(255, 236, 195, .14),
+    inset 0 -3px 0 rgba(0, 0, 0, .5),
+    0 16px 46px rgba(0, 0, 0, .66);
+}
+
+.panel__head { border-bottom: 2px solid rgba(224, 178, 60, .18); padding-bottom: 12px; }
+.panel__head h2,
+.overlay__title,
+.dialog h3,
+.subhead {
+  color: var(--schrift-warm);
+  letter-spacing: .04em;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, .55);
+}
+.overlay__kicker { color: var(--gold-hell); letter-spacing: .2em; }
+
+/* Listen, Zeilen und Kacheln in derselben Steinfarbe. */
+.world, .weapon, .scorerow, .upgradelist > *, .statgrid > *, .char {
+  background: linear-gradient(180deg, rgba(58, 49, 70, .8), rgba(31, 26, 41, .86));
+  border-color: rgba(224, 178, 60, .2);
+}
+.world:hover, .weapon:hover, .char:hover { border-color: rgba(224, 178, 60, .55); }
+.world.is-selected, .weapon.is-selected, .char.is-selected {
+  border-color: var(--gold-hell);
+  box-shadow: 0 0 0 2px rgba(245, 217, 124, .22);
+}
+.statgrid b { color: var(--gold-hell); }
+.chip {
+  background: linear-gradient(180deg, rgba(58, 49, 70, .9), rgba(31, 26, 41, .95));
+  border: 1px solid rgba(224, 178, 60, .35);
+  color: var(--pergament);
+}
+
+/* ---------------------------------------------------- Formulare / Login */
+.form label { color: var(--pergament); letter-spacing: .03em; }
+.form input,
+input[type="text"], input[type="password"], input[type="number"], select, textarea {
+  background: linear-gradient(180deg, rgba(18, 14, 24, .95), rgba(28, 22, 36, .95));
+  border: 2px solid rgba(224, 178, 60, .3);
+  border-radius: 10px;
+  color: var(--schrift-warm);
+  padding: 12px 14px;
+  min-height: 46px;
+  outline: none;
+  transition: border-color .16s var(--ease), box-shadow .16s var(--ease);
+}
+.form input:focus,
+input:focus, select:focus, textarea:focus {
+  border-color: var(--gold-hell);
+  box-shadow: 0 0 0 3px rgba(245, 217, 124, .18);
+}
+.form input::placeholder { color: rgba(236, 223, 196, .38); }
+.form-error { color: #ff9b86; text-shadow: 0 1px 0 rgba(0, 0, 0, .6); }
+
+/*
+ * Die alten Standardknoepfe erben jetzt den Steinstil, damit auf keinem
+ * Bildschirm mehr ein flacher Darkmode-Knopf uebrig bleibt.
+ */
+.btn {
+  border-radius: 10px;
+  border: 2px solid rgba(224, 178, 60, .3);
+  background: linear-gradient(180deg, #3b3348 0%, #2a2334 55%, #201a29 100%);
+  color: var(--pergament);
+  letter-spacing: .06em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .75);
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .16), 0 3px 0 #14101c;
+}
+.btn:hover { border-color: #a4854f; color: #fff4dc; }
+.btn:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255, 236, 195, .12), 0 1px 0 #14101c; }
+.btn--primary {
+  color: #2a1c05;
+  background: linear-gradient(180deg, #f5d97c 0%, #e0b23c 46%, #b8862a 100%);
+  border-color: #7a5616;
+  text-shadow: 0 1px 0 rgba(255, 246, 214, .55);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 245, 210, .7),
+    inset 0 -3px 0 rgba(90, 60, 10, .42),
+    0 4px 0 #6b4a13;
+}
+.btn--quiet {
+  background: none;
+  border-color: rgba(224, 178, 60, .22);
+  color: rgba(236, 223, 196, .72);
+  box-shadow: none;
+}
+.btn--quiet:hover { color: #fff4dc; border-color: rgba(224, 178, 60, .5); }
+
+/* Upgrade-Karten: Pergament mit farbiger Seltenheitskante. */
+.card {
+  background: linear-gradient(180deg, rgba(60, 51, 73, .95), rgba(28, 23, 37, .97));
+  border-width: 2px;
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .12), 0 8px 24px rgba(0, 0, 0, .5);
+}
+.card__title { color: var(--schrift-warm); }
+.card__desc { color: rgba(236, 223, 196, .62); }
+
+/* Stufe eines schon vorhandenen Upgrades. */
+.card__stufe,
+.angebot__stufe {
+  display: inline-flex; align-items: center; gap: 4px;
+  align-self: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  color: #2a1c05;
+  background: linear-gradient(180deg, #f5d97c, #d8a93a);
+  border: 1px solid #7a5616;
+}
+.card__gesamt,
+.angebot__gesamt {
+  font-size: 11.5px;
+  color: rgba(236, 223, 196, .6);
+}
+
+.toast {
+  background: linear-gradient(180deg, rgba(59, 51, 72, .96), rgba(28, 23, 37, .97));
+  border: 2px solid rgba(224, 178, 60, .35);
+  color: var(--pergament);
+}
+
+.loading, .rotate { background: linear-gradient(180deg, #17121e, #0a0710); color: var(--pergament); }
+
+
+/* ==========================================================================
+   Charakterauswahl
+   --------------------------------------------------------------------------
+   Ein Raum mit Podest statt einer Kartenliste: die Figur steht in der
+   Mitte und macht ihr Ruhebild, links und rechts blaettert man durch,
+   daneben stehen die Werte. Position und Groesse kommen aus dem Admin.
+   ========================================================================== */
+.screen--charwahl {
+  background:
+    linear-gradient(180deg, rgba(8, 6, 14, .58) 0%, rgba(8, 6, 14, .12) 26%,
+      rgba(8, 6, 14, .5) 62%, rgba(8, 6, 14, .93) 100%),
+    var(--char-bg) center center / cover no-repeat,
+    #0a0710;
+  align-content: stretch;
+  padding: calc(10px + var(--safe-t)) calc(12px + var(--safe-r)) calc(12px + var(--safe-b)) calc(12px + var(--safe-l));
+}
+
+.charwahl {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  width: 100%; height: 100%;
+  gap: 8px;
+}
+.charwahl__kopf {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.charwahl__kopf h2 {
+  margin: 0; font-size: clamp(16px, 3.6vw, 22px);
+  color: var(--schrift-warm);
+  text-shadow: 0 2px 0 #000, 0 0 18px rgba(224, 178, 60, .4);
+}
+
+.charwahl__buehne {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+}
+
+/*
+ * Die Figur haengt an frei einstellbaren Prozentwerten. Sie sitzt absolut,
+ * damit das Podest im Hintergrundbild getroffen wird, egal wie gross der
+ * Bildschirm ist.
+ */
+.charwahl__figur {
+  position: absolute;
+  left: var(--char-x, 50%);
+  top: var(--char-y, 72%);
+  z-index: 1;
+  transform: translate(-50%, -100%) scale(var(--char-scale, 1));
+  transform-origin: 50% 100%;
+  display: grid; place-items: end center;
+  pointer-events: none;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, .7));
+}
+.charwahl__figur img {
+  height: clamp(150px, 34vh, 300px);
+  width: auto;
+  image-rendering: pixelated;
+  display: block;
+  animation: charEin .28s var(--ease) both;
+}
+@keyframes charEin {
+  from { opacity: 0; transform: translateY(10px) scale(.94); }
+  to { opacity: 1; transform: none; }
+}
+.charwahl__schloss {
+  position: absolute; inset: auto 0 -6px 0;
+  text-align: center; font-size: 13px; font-weight: 700;
+  color: #ffd9a0; text-shadow: 0 2px 0 #000;
+}
+
+.charpfeil {
+  position: absolute;
+  top: 50%; transform: translateY(-50%);
+  width: 54px; height: 74px;
+  display: grid; place-items: center;
+  font-size: 40px; line-height: 1;
+  color: var(--gold-hell);
+  background: linear-gradient(180deg, rgba(59, 51, 72, .86), rgba(24, 20, 32, .9));
+  border: 2px solid rgba(224, 178, 60, .42);
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .16), 0 4px 0 #14101c;
+  z-index: 3;
+}
+.charpfeil:active { transform: translateY(calc(-50% + 2px)); }
+.charpfeil--links { left: 4px; }
+.charpfeil--rechts { right: 4px; }
+
+.charwahl__info {
+  position: relative;
+  z-index: 2;
+  justify-self: start;
+  align-self: start;
+  width: min(292px, 34vw);
+  margin: 4px 0 0 62px;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, rgba(30, 25, 40, .92), rgba(18, 14, 24, .95));
+  border: 2px solid rgba(224, 178, 60, .34);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .12), 0 10px 30px rgba(0, 0, 0, .6);
+  display: grid; gap: 6px;
+  max-height: 100%;
+  overflow: auto;
+}
+.charwahl__info h3 { margin: 0; font-size: 19px; color: var(--gold-hell); }
+.charwahl__info .charwahl__titel { color: rgba(236, 223, 196, .7); font-size: 12.5px; }
+.charwahl__info p { margin: 0; font-size: 12.5px; line-height: 1.5; color: rgba(236, 223, 196, .78); }
+.charwahl__tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.charwahl__tags .tag {
+  background: rgba(224, 178, 60, .13);
+  border: 1px solid rgba(224, 178, 60, .3);
+  color: #f0dfb4;
+  border-radius: 999px; padding: 2px 8px; font-size: 11px;
+}
+.charwahl__perk {
+  border-top: 1px solid rgba(224, 178, 60, .2);
+  padding-top: 6px; display: grid; gap: 2px;
+}
+.charwahl__perk b { color: var(--gold-hell); font-size: 13px; }
+.charwahl__perk span { font-size: 11.5px; color: rgba(236, 223, 196, .7); line-height: 1.45; }
+
+.charwahl__fuss {
+  display: grid; gap: 8px; justify-items: center;
+}
+.charpunkte { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+.charpunkte i {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: rgba(236, 223, 196, .28);
+  border: 1px solid rgba(224, 178, 60, .3);
+  transition: background .16s var(--ease);
+}
+.charpunkte i.is-aktiv { background: var(--gold-hell); box-shadow: 0 0 8px rgba(245, 217, 124, .8); }
+.charpunkte i.is-gesperrt { background: rgba(255, 120, 100, .35); }
+
+/* Hochkant: die Werte ruecken unter die Figur. */
+@media (max-width: 720px), (max-aspect-ratio: 1/1) {
+  .charwahl__info {
+    justify-self: center;
+    align-self: end;
+    width: min(440px, 94%);
+    margin: 0 0 2px;
+  }
+  .charwahl__figur img { height: clamp(120px, 26vh, 220px); }
+  .charpfeil { width: 46px; height: 64px; font-size: 34px; }
+}
+
+
+/* ==========================================================================
+   Laden
+   --------------------------------------------------------------------------
+   Buehne mit drei Ebenen: Hintergrundbild, Haendler, Tresen davor. Die
+   Auslagen liegen links, der Haendler steht rechts. Alle Bilder und ihre
+   Positionen kommen aus dem Admin.
+   ========================================================================== */
+.overlay--shop { padding: 0; align-items: stretch; }
+.overlay--shop .shop { width: 100%; }
+
+.shop {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  background: var(--shop-bg, none) center center / cover no-repeat, #100c16;
+  padding: calc(12px + var(--safe-t)) calc(14px + var(--safe-r)) calc(12px + var(--safe-b)) calc(14px + var(--safe-l));
+}
+.shop::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(8, 6, 14, .93) 0%, rgba(8, 6, 14, .74) 44%, rgba(8, 6, 14, .12) 66%, rgba(8, 6, 14, .06) 100%);
+  pointer-events: none;
+}
+
+/* Haendler: eine Ebene aus gestapelten Einzelbildern, von denen immer nur
+   eines sichtbar ist. Kein Nachladen waehrend der Animation, kein Ruckeln. */
+.shop__haendler {
+  position: absolute;
+  left: var(--shop-mx, 76%);
+  top: var(--shop-my, 62%);
+  transform: translate(-50%, -50%) scale(var(--shop-ms, 1));
+  transform-origin: 50% 50%;
+  width: clamp(170px, 30vw, 360px);
+  z-index: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, .65));
+  animation: haendlerAtmen 3.4s ease-in-out infinite;
+}
+.shop__haendler img {
+  position: absolute; inset: 0;
+  width: 100%; height: auto;
+  image-rendering: pixelated;
+  opacity: 0;
+}
+.shop__haendler img:first-child { position: relative; }
+.shop__haendler img.is-an { opacity: 1; }
+@keyframes haendlerAtmen {
+  0%, 100% { transform: translate(-50%, -50%) scale(var(--shop-ms, 1)); }
+  50% { transform: translate(-50%, calc(-50% - 6px)) scale(calc(var(--shop-ms, 1) * 1.012)); }
+}
+
+/*
+ * Der Tresen ist eine 3:1-Grafik. Ueber die volle Breite gezogen waere er
+ * auf einem Handy im Querformat fast bildschirmhoch und wuerde den
+ * Haendler komplett verdecken. Deshalb bekommt er eine feste Hoehe und
+ * wird von oben beschnitten - die Tischplatte bleibt, die Beine fallen
+ * unter den Bildrand.
+ */
+.shop__tresen {
+  position: absolute;
+  left: 50%;
+  top: var(--shop-cy, 100%);
+  transform: translate(-50%, -100%) scale(var(--shop-cs, 1));
+  transform-origin: 50% 100%;
+  width: 118%;
+  height: clamp(104px, 26vh, 260px);
+  object-fit: cover;
+  /* Ausschnitt so, dass Tischplatte und ein Stueck Front zu sehen sind -
+     die Beine liegen ohnehin unter dem Bildrand. */
+  object-position: center 42%;
+  max-width: none;
+  z-index: 2;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+
+.shop__inhalt {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 10px;
+  width: min(660px, 62%);
+  min-height: 0;
+}
+.shop__kopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.shop__titel {
+  margin: 0;
+  font-size: clamp(20px, 4.4vw, 32px);
+  color: var(--gold-hell);
+  letter-spacing: .04em;
+  text-shadow: 0 3px 0 #000, 0 0 22px rgba(224, 178, 60, .45);
+}
+.shop__geld {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(59, 51, 72, .92), rgba(24, 20, 32, .95));
+  border: 2px solid rgba(224, 178, 60, .4);
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .14);
+}
+.shop__geld b { color: var(--gold-hell); font-size: 18px; font-variant-numeric: tabular-nums; }
+.shop__geld.is-aenderung { animation: geldPuls .42s var(--ease); }
+@keyframes geldPuls {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.12); border-color: var(--gold-hell); }
+  100% { transform: scale(1); }
+}
+
+.shop__auslage {
+  display: grid;
+  gap: 9px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  align-content: start;
+  overflow: auto;
+  min-height: 0;
+  padding-right: 2px;
+}
+
+/*
+ * Eine Auslage. Alle Bewegungen laufen ueber transform und opacity - das
+ * sind die beiden Eigenschaften, die der Browser ohne neues Layout
+ * animiert. Deshalb bleibt der Laden auch auf dem Handy fluessig.
+ */
+.angebot {
+  position: relative;
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  grid-template-rows: auto auto auto;
+  gap: 3px 10px;
+  align-items: center;
+  padding: 10px 11px;
+  text-align: left;
+  border: 2px solid color-mix(in srgb, var(--rarity, #9aa6c2) 46%, transparent);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(60, 51, 73, .94), rgba(26, 21, 35, .96));
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .12), 0 6px 18px rgba(0, 0, 0, .5);
+  cursor: pointer;
+  color: inherit;
+  will-change: transform, opacity;
+  animation: angebotEin .26s var(--ease) both;
+  transition: transform .13s var(--ease), border-color .18s var(--ease), opacity .2s var(--ease);
+}
+.angebot--common { --rarity: #9aa6c2; }
+.angebot--rare { --rarity: #58b6ff; }
+.angebot--epic { --rarity: #c07bff; }
+.angebot--legendary { --rarity: #ffb020; }
+.angebot:nth-child(2) { animation-delay: .05s; }
+.angebot:nth-child(3) { animation-delay: .1s; }
+.angebot:nth-child(4) { animation-delay: .15s; }
+@keyframes angebotEin {
+  from { opacity: 0; transform: translate3d(0, 14px, 0) scale(.97); }
+  to { opacity: 1; transform: none; }
+}
+.angebot:active { transform: scale(.975); }
+.angebot.is-zuteuer { opacity: .5; cursor: not-allowed; }
+.angebot.is-zuteuer .angebot__preis { color: #ff9b86; }
+.angebot.is-verkauft { opacity: .42; cursor: default; filter: grayscale(.7); }
+
+.angebot__bild {
+  grid-row: 1 / span 3;
+  width: 46px; height: 46px;
+  display: grid; place-items: center;
+  font-size: 24px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, .32);
+  border: 1px solid rgba(224, 178, 60, .2);
+}
+.angebot__bild img { width: 40px; height: 34px; object-fit: contain; image-rendering: pixelated; }
+.angebot__kopf { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-right: 32px; }
+.angebot__name { font-weight: 700; font-size: 15px; color: var(--schrift-warm); }
+.angebot__art { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--rarity); }
+.angebot__wert { font-size: 12.5px; font-weight: 600; color: var(--rarity); }
+.angebot__text { font-size: 11.5px; color: rgba(236, 223, 196, .6); line-height: 1.4; }
+.angebot__fuss { display: flex; align-items: center; justify-content: space-between; gap: 8px; grid-column: 2; }
+.angebot__preis {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-weight: 700; font-size: 14px; color: var(--gold-hell);
+}
+
+.angebot__schloss {
+  position: absolute; top: 6px; right: 6px;
+  width: 30px; height: 30px;
+  display: grid; place-items: center;
+  border-radius: 8px;
+  font-size: 14px;
+  background: rgba(10, 8, 16, .7);
+  border: 1px solid rgba(224, 178, 60, .28);
+  color: rgba(236, 223, 196, .5);
+  cursor: pointer;
+  z-index: 2;
+}
+.angebot__schloss.is-an {
+  color: #2a1c05;
+  background: linear-gradient(180deg, #f5d97c, #d8a93a);
+  border-color: #7a5616;
+}
+.angebot.is-gemerkt { border-color: var(--gold-hell); box-shadow: 0 0 0 2px rgba(245, 217, 124, .2), 0 6px 18px rgba(0, 0, 0, .5); }
+
+/* Kaufbestaetigung: kurzer goldener Blitz, dann faellt die Karte zurueck. */
+.angebot.is-gekauft { animation: kaufBlitz .5s var(--ease); }
+@keyframes kaufBlitz {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(245, 217, 124, .8); }
+  28% { transform: scale(1.045); box-shadow: 0 0 0 8px rgba(245, 217, 124, 0); }
+  100% { transform: scale(1); }
+}
+.angebot__stempel {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  font-size: 17px; font-weight: 700; letter-spacing: .2em;
+  color: #f5d97c;
+  text-shadow: 0 2px 0 #000;
+  background: rgba(10, 8, 16, .5);
+  border-radius: 10px;
+  pointer-events: none;
+  animation: stempelEin .3s var(--ease) both;
+}
+@keyframes stempelEin {
+  from { opacity: 0; transform: scale(1.5) rotate(-10deg); }
+  to { opacity: 1; transform: scale(1) rotate(-7deg); }
+}
+
+/* Fliegende Münzen als Rueckmeldung beim Kauf. */
+.muenze {
+  position: fixed;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #fff2c0, #e0b23c 60%, #8a5f14);
+  box-shadow: 0 0 10px rgba(245, 217, 124, .8);
+  pointer-events: none;
+  z-index: 60;
+  will-change: transform, opacity;
+}
+
+.shop__leiste { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.shop__leiste .btn { flex: 0 0 auto; }
+.shop__leiste .btn--gold { margin-left: auto; }
+
+.shop__besitz {
+  position: absolute;
+  inset: calc(12px + var(--safe-t)) calc(14px + var(--safe-r)) calc(12px + var(--safe-b)) calc(14px + var(--safe-l));
+  z-index: 5;
+  padding: 14px;
+  border-radius: 14px;
+  border: 2px solid rgba(224, 178, 60, .34);
+  background: linear-gradient(180deg, rgba(30, 25, 40, .97), rgba(15, 12, 21, .98));
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 10px;
+  overflow: hidden;
+  animation: angebotEin .2s var(--ease) both;
+}
+.shop__besitzkopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.shop__besitzkopf h3 { margin: 0; color: var(--gold-hell); font-size: 18px; }
+.shop__besitz .upgradelist { overflow: auto; min-height: 0; }
+
+/* Schmale Bildschirme: der Haendler rueckt hinter die Auslagen. */
+@media (max-width: 700px) {
+  .shop__inhalt { width: 100%; }
+  /*
+   * Hochkant ist links kein Platz mehr - der Haendler rueckt in die
+   * Luecke zwischen Auslagen und Tresen, statt hinter den Karten zu
+   * verschwinden. Die Prozentwerte aus dem Admin gelten fuer die breite
+   * Ansicht, hier setzt das Layout eigene.
+   */
+  .shop__haendler {
+    width: clamp(150px, 54vw, 280px);
+    opacity: .85;
+    left: 64%;
+    top: auto;
+    bottom: 4%;
+    transform: translate(-50%, 0) scale(var(--shop-ms, 1));
+    transform-origin: 50% 100%;
+    animation: none;
+  }
+  .shop::before {
+    background: linear-gradient(180deg, rgba(8, 6, 14, .78) 0%, rgba(8, 6, 14, .86) 100%);
+  }
+  .angebot { grid-template-columns: 40px 1fr; }
+  .shop__leiste .btn { flex: 1 1 auto; }
+}
+
+/* Regler und Schalter im selben Gold wie der Rest. */
+.soundpanel {
+  background: linear-gradient(180deg, rgba(18, 14, 24, .8), rgba(28, 22, 36, .8));
+  border: 2px solid rgba(224, 178, 60, .22);
+}
+.soundrow > span { color: var(--pergament); }
+.switch {
+  background: rgba(20, 16, 26, .9);
+  border: 2px solid rgba(224, 178, 60, .3);
+}
+.switch::after { background: var(--pergament); }
+.switch:checked {
+  background: linear-gradient(180deg, #f5d97c, #d8a93a);
+  border-color: #7a5616;
+}
+.switch:checked::after { background: #2a1c05; }
+.soundrow input[type="range"]::-webkit-slider-runnable-track {
+  background: rgba(20, 16, 26, .9);
+  box-shadow: inset 0 0 0 1px rgba(224, 178, 60, .28);
+}
+.soundrow input[type="range"]::-moz-range-track {
+  background: rgba(20, 16, 26, .9);
+  box-shadow: inset 0 0 0 1px rgba(224, 178, 60, .28);
+}
+.soundrow input[type="range"]::-webkit-slider-thumb {
+  background: linear-gradient(180deg, #f5d97c, #d8a93a);
+  border: 2px solid #7a5616;
+}
+.soundrow input[type="range"]::-moz-range-thumb {
+  background: linear-gradient(180deg, #f5d97c, #d8a93a);
+  border: 2px solid #7a5616;
+}
+.dialog__hint { color: rgba(236, 223, 196, .55); }
+
+/* Ultimate-Knopf in denselben Farben. */
+.ultbtn {
+  border-color: rgba(224, 178, 60, .42);
+  background: radial-gradient(circle at 50% 32%, #3b3348 0%, #1b1622 72%);
+  color: #f0dfb4;
+}
+.ultbtn__fuell { background: conic-gradient(rgba(224, 178, 60, .5) var(--fuell, 0%), transparent 0); }
+.ultbtn__zeit { color: rgba(236, 223, 196, .65); }
+.ultbtn.is-ready {
+  border-color: var(--gold-hell);
+  color: #fff6de;
+  box-shadow: 0 0 0 3px rgba(224, 178, 60, .2), 0 0 26px rgba(245, 217, 124, .5);
+}
+.ultbtn.is-ready .ultbtn__zeit { color: var(--gold-hell); }
+@keyframes ultPuls {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(224, 178, 60, .16), 0 0 20px rgba(245, 217, 124, .35); }
+  50% { box-shadow: 0 0 0 5px rgba(224, 178, 60, .28), 0 0 34px rgba(245, 217, 124, .7); }
+}
+
+/* Lebens- und Schildbalken. */
+.bar {
+  border: 2px solid rgba(224, 178, 60, .3);
+  background: rgba(16, 12, 22, .85);
+}
+.bar--hp i { background: linear-gradient(90deg, #4fbf6f, #8ee89f); }
+.bar--shield i { background: linear-gradient(90deg, #5aa8d8, #a9e5ff); }
+
+/* Countdown und Bestenliste. */
+.countdown__zahl { color: var(--gold-hell); }
+.scorerow__score { color: var(--gold-hell); }
+
+/* Upgrade-Zeilen zeigen Stufe und Gesamtwirkung. */
+.upgradechip {
+  display: grid;
+  gap: 1px;
+  background: linear-gradient(180deg, rgba(58, 49, 70, .82), rgba(28, 23, 37, .88));
+  border: 1px solid rgba(224, 178, 60, .22);
+}
+.upgradechip small { color: rgba(236, 223, 196, .55); font-size: 11px; }
+
+/*
+ * Gold- und Steinknopf noch einmal, nachdem die allgemeine .btn-Regel
+ * oben neu gesetzt wurde - sonst gewinnt bei gleicher Spezifitaet die
+ * spaetere Regel und der Hauptknopf verloere seine Goldfarbe.
+ */
+.btn--gold {
+  color: #2a1c05;
+  background: linear-gradient(180deg, #f5d97c 0%, #e0b23c 46%, #b8862a 100%);
+  border-color: #7a5616;
+  text-shadow: 0 1px 0 rgba(255, 246, 214, .55);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 245, 210, .7),
+    inset 0 -3px 0 rgba(90, 60, 10, .42),
+    0 4px 0 #6b4a13;
+}
+.btn--gold:hover { filter: brightness(1.07); color: #2a1c05; }
+.btn--stein {
+  color: var(--pergament);
+  background: linear-gradient(180deg, #3b3348 0%, #2a2334 55%, #201a29 100%);
+  border-color: #6b5a3a;
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .18), 0 3px 0 #14101c;
+}
+.btn--stein:hover { border-color: #a4854f; color: #fff4dc; }
+.btn--klein { font-size: 12px; padding: 9px 14px; letter-spacing: .12em; min-height: 38px; }
+
+/* Lange Beschreibungen im Laden auf zwei Zeilen begrenzen. */
+.angebot__text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Flache Bildschirme (Handy quer): Der Laden wird kompakter. */
+@media (max-height: 520px) {
+  .shop { padding-top: calc(8px + var(--safe-t)); padding-bottom: calc(8px + var(--safe-b)); }
+  .shop__inhalt { gap: 7px; }
+  .shop__titel { font-size: clamp(17px, 3.4vw, 24px); }
+  .angebot { padding: 7px 9px; gap: 2px 8px; }
+  .angebot__name { font-size: 13.5px; }
+  .angebot__wert { font-size: 11.5px; }
+  .angebot__text, .angebot__gesamt { font-size: 10.5px; }
+  .angebot__bild { width: 38px; height: 38px; font-size: 20px; }
+  .angebot__bild img { width: 34px; height: 28px; }
+  .shop__leiste .btn { min-height: 40px; padding: 9px 16px; font-size: 13px; }
+}

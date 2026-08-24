@@ -2,7 +2,8 @@ import { Arena } from './game/arena.js';
 import { GameLoop } from './core/loop.js';
 import { Input } from './core/input.js';
 import { Assets } from './gfx/assets.js';
-import { rollChoices, RARITY_LABEL } from './game/upgrades.js';
+import { rollChoices, RARITY_LABEL, formatModifiers } from './game/upgrades.js';
+import { Shop } from './game/shop.js';
 import { formatTime, pick } from './core/util.js';
 import { Audio } from './core/audio.js';
 
@@ -14,6 +15,16 @@ const el = (tag, cls, text) => {
   if (text != null) node.textContent = text;
   return node;
 };
+
+/**
+ * Bildpfad als CSS-url() mit vollem Adressteil.
+ *
+ * Ein relativer Pfad in einer selbst gesetzten CSS-Variablen wird nicht
+ * gegen die Seite aufgeloest, sondern gegen die Datei, in der die Variable
+ * benutzt wird - also gegen assets/css/. Das ergaebe assets/css/assets/...
+ * und damit ein fehlendes Bild. Deshalb hier immer die volle Adresse.
+ */
+const bildUrl = (pfad) => `url('${new URL(pfad, document.baseURI).href}')`;
 
 const canvas = $('stage');
 const input = new Input(canvas);
@@ -146,98 +157,133 @@ function renderAccountScreen() {
 }
 
 /* ------------------------------------------------------------ Charaktere */
-function renderCharacters() {
-  const host = $('character-list');
-  host.textContent = '';
-  const list = (content.characters || []).filter((c) => c.active !== false)
-    .sort((a, b) => (a.order || 0) - (b.order || 0));
+/* --------------------------------------------------- Charakterauswahl */
+/*
+ * Ein Charakter steht in der Mitte des Raums und macht sein Ruhebild,
+ * mit den Pfeilen blaettert man durch. Hintergrund, Standort und Groesse
+ * der Figur kommen aus dem Admin, damit die Figur auf jedem eigenen
+ * Hintergrundbild wieder auf dem Podest steht.
+ */
+let charIndex = 0;
+let charListe = [];
+let charTakt = 0;     // Flipbook fuer Ruhebilder aus Einzelbildern
 
-  for (const character of list) {
-    const unlocked = isUnlocked(character);
-    const card = el('button', 'char' + (unlocked ? '' : ' is-locked')
-      + (selectedCharacter && selectedCharacter.id === character.id ? ' is-selected' : ''));
-
-    const art = el('div', 'char__art');
-    const img = el('img');
-    img.alt = '';
-    if (character.tint) img.style.filter = `hue-rotate(${character.tint}deg) saturate(1.15)`;
-    const quelle = (character.sprites && character.sprites.front
-      && (character.sprites.front.frames?.[0] || character.sprites.front.gif)) || '';
-    stillbild(quelle).then((src) => { img.src = src; });
-    art.appendChild(img);
-    card.appendChild(art);
-
-    const body = el('div', 'char__body');
-    body.appendChild(el('div', 'char__name', character.name));
-    body.appendChild(el('div', 'char__title', character.title || ''));
-    body.appendChild(el('div', 'char__desc', character.description || ''));
-
-    const perk = perkInfo(character);
-    if (perk) {
-      const skill = el('div', 'char__perk');
-      skill.appendChild(el('b', null, perk.label));
-      skill.appendChild(el('span', null, perk.description));
-      body.appendChild(skill);
-    }
-
-    const tags = el('div', 'char__tags');
-    for (const text of characterHighlights(character)) tags.appendChild(el('span', 'tag', text));
-    body.appendChild(tags);
-    card.appendChild(body);
-
-    if (!unlocked) {
-      const lock = el('div', 'char__lock');
-      lock.appendChild(el('span', null, '🔒 ' + character.unlockCost + ' Punkte'));
-      card.appendChild(lock);
-    }
-
-    card.addEventListener('click', () => {
-      if (unlocked) {
-        selectedCharacter = character;
-        renderCharacters();
-        showScreen('screen-weapon');
-        return;
-      }
-      unlockCharacter(character);
-    });
-    host.appendChild(card);
+/** Bildquelle und Spiegelung des Ruhebildes eines Charakters. */
+function idleQuelle(character) {
+  const s = character.sprites || {};
+  const idle = s.idle || {};
+  const front = s.front || {};
+  if (Array.isArray(idle.frames) && idle.frames.length) {
+    return { frames: idle.frames, flip: !!idle.flip, scale: idle.scale || 1 };
   }
+  if (idle.gif) return { frames: [idle.gif], flip: !!idle.flip, scale: idle.scale || 1 };
+  if (front.gif) return { frames: [front.gif], flip: !!front.flip, scale: front.scale || 1 };
+  if (Array.isArray(front.frames) && front.frames.length) {
+    return { frames: front.frames, flip: !!front.flip, scale: front.scale || 1 };
+  }
+  return { frames: [''], flip: false, scale: 1 };
 }
 
-/**
- * Erstes Bild einer Datei als Standbild.
- *
- * Auf dem Charakterbildschirm stehen fünfzehn Karten. Als animierte GIFs
- * dekodiert der Browser sie alle dauerhaft weiter - das allein macht das
- * Menü auf dem Handy zäh. Ein einmal gezeichnetes Standbild kostet nichts,
- * und weil sich die Figuren dieselbe Datei teilen, fällt die Arbeit nur
- * einmal an. Die Auflösung bleibt dabei unangetastet.
- */
-const stillbilder = new Map();
-function stillbild(src) {
-  if (!src) return Promise.resolve('');
-  if (stillbilder.has(src)) return stillbilder.get(src);
+function renderCharacters() {
+  charListe = (content.characters || []).filter((c) => c.active !== false)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+  if (!charListe.length) return;
 
-  const task = new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      } catch {
-        resolve(src);           // z. B. wenn der Canvas blockiert ist
-      }
-    };
-    img.onerror = () => resolve('');
-    img.src = src;
+  if (selectedCharacter) {
+    const i = charListe.findIndex((c) => c.id === selectedCharacter.id);
+    if (i >= 0) charIndex = i;
+  }
+  charIndex = ((charIndex % charListe.length) + charListe.length) % charListe.length;
+  zeigeCharakter();
+}
+
+function charWechseln(schritt) {
+  if (!charListe.length) return;
+  charIndex = (charIndex + schritt + charListe.length) % charListe.length;
+  Audio.play('uiClick');
+  zeigeCharakter();
+}
+
+function zeigeCharakter() {
+  const character = charListe[charIndex];
+  if (!character) return;
+  const frei = isUnlocked(character);
+
+  // Figur: entweder eine bewegte Datei oder eine Folge aus Einzelbildern.
+  clearInterval(charTakt);
+  const bild = $('char-bild');
+  const quelle = idleQuelle(character);
+  bild.style.filter = character.tint
+    ? `hue-rotate(${character.tint}deg) saturate(1.15)` : '';
+  bild.style.transform = quelle.flip ? 'scaleX(-1)' : '';
+  bild.src = quelle.frames[0] || '';
+  if (quelle.frames.length > 1) {
+    // Alle Bilder vorher in den Cache holen, damit der Wechsel nicht flackert.
+    for (const src of quelle.frames) {
+      const vor = new Image();
+      vor.src = src;
+    }
+    let i = 0;
+    charTakt = setInterval(() => {
+      i = (i + 1) % quelle.frames.length;
+      bild.src = quelle.frames[i];
+    }, Math.max(60, character.frameDuration || 130));
+  }
+  // Der Neustart der Einblendung macht den Wechsel sichtbar.
+  bild.style.animation = 'none';
+  void bild.offsetWidth;
+  bild.style.animation = '';
+
+  $('char-schloss').hidden = frei;
+  $('char-schloss').textContent = frei ? '' : '🔒 ' + character.unlockCost + ' Punkte';
+
+  // Werte daneben.
+  const info = $('char-info');
+  info.textContent = '';
+  info.appendChild(el('h3', null, character.name));
+  if (character.title) info.appendChild(el('div', 'charwahl__titel', character.title));
+  if (character.description) info.appendChild(el('p', null, character.description));
+
+  const tags = el('div', 'charwahl__tags');
+  for (const text of characterHighlights(character)) tags.appendChild(el('span', 'tag', text));
+  info.appendChild(tags);
+
+  const perk = perkInfo(character);
+  if (perk) {
+    const skill = el('div', 'charwahl__perk');
+    skill.appendChild(el('b', null, perk.label));
+    skill.appendChild(el('span', null, perk.description));
+    info.appendChild(skill);
+  }
+
+  // Punktreihe zeigt, wo man in der Liste steht.
+  const punkte = $('char-punkte');
+  punkte.textContent = '';
+  charListe.forEach((c, i) => {
+    const punkt = el('i', (i === charIndex ? 'is-aktiv' : '') + (isUnlocked(c) ? '' : ' is-gesperrt'));
+    punkt.addEventListener('click', () => {
+      charIndex = i;
+      zeigeCharakter();
+    });
+    punkte.appendChild(punkt);
   });
 
-  stillbilder.set(src, task);
-  return task;
+  const knopf = $('char-waehlen');
+  knopf.textContent = frei ? 'Auswählen' : 'Freischalten (' + character.unlockCost + ')';
+  knopf.className = 'btn btn--xl ' + (frei ? 'btn--gold' : 'btn--stein');
+}
+
+function charBestaetigen() {
+  const character = charListe[charIndex];
+  if (!character) return;
+  if (!isUnlocked(character)) {
+    unlockCharacter(character);
+    return;
+  }
+  selectedCharacter = character;
+  Audio.play('uiClick');
+  clearInterval(charTakt);
+  showScreen('screen-weapon');
 }
 
 /** Kurze, lesbare Zusammenfassung der Fähigkeiten. */
@@ -284,7 +330,7 @@ async function unlockCharacter(character) {
     const data = await api('account.unlock', { id: character.id });
     account = data.account;
     syncAccountUi();
-    renderCharacters();
+    zeigeCharakter();
     toast(character.name + ' freigeschaltet!');
     Audio.play('upgrade');
   } catch (err) {
@@ -366,6 +412,8 @@ function toggleSound() {
 /* --------------------------------------------------------------- Screens */
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('is-active', s.id === id));
+  // Die Bildfolge der Charakterauswahl laeuft nur auf ihrem Bildschirm.
+  if (id !== 'screen-character') clearInterval(charTakt);
   const inGame = !id;
   $('hud').hidden = !inGame;
   $('btn-ult').hidden = !inGame;
@@ -761,7 +809,12 @@ function showUpgrades(info) {
     }
 
     node.appendChild(el('div', 'card__title', card.title));
+    // Schon vorhanden? Dann zeigt die Karte die naechste Stufe.
+    if (card.owned) node.appendChild(el('div', 'card__stufe', 'Stufe ' + card.level));
     node.appendChild(el('div', 'card__value', card.valueText));
+    if (card.totalText) {
+      node.appendChild(el('div', 'card__gesamt', 'Gesamt danach: ' + card.totalText));
+    }
     node.appendChild(el('div', 'card__desc', card.description || ''));
     node.addEventListener('click', () => chooseCard(card));
     host.appendChild(node);
@@ -803,6 +856,283 @@ function chooseCard(card) {
   }
   arena.run.addUpgrade(card.upgrade);
   Audio.play('upgrade');
+  $('overlay-upgrade').hidden = true;
+  ladenOeffnen();
+}
+
+/* ------------------------------------------------------------------ Laden */
+/*
+ * Nach der Upgrade-Karte kommt der Haendler. Geld will ausgegeben werden:
+ * vier Auslagen, so viele Kaeufe wie das Geld hergibt, ein Tausch gegen
+ * Aufpreis und ein Schloss fuer alles, was man sich merken moechte.
+ *
+ * Zum Ruckeln: Jede Bewegung im Laden laeuft ueber transform und opacity.
+ * Beim Kauf wird nicht die ganze Auslage neu gebaut, sondern nur die eine
+ * Karte umgeschrieben - so bleibt kein Layout-Durchlauf uebrig, der auf
+ * dem Handy sichtbar haengen wuerde.
+ */
+let shop = null;
+let haendlerTakt = 0;
+
+function ladenOeffnen() {
+  const conf = content.shop || {};
+  if (conf.enabled === false) {
+    finishUpgrade();
+    return;
+  }
+  shop = new Shop(content, arena.run);
+  ladenBuehne();
+  ladenZeichnen();
+  $('shop-besitz').hidden = true;
+  $('overlay-shop').hidden = false;
+  Audio.duckMusic(true);
+}
+
+/** Hintergrund, Haendler und Tresen einmal je Besuch aufbauen. */
+function ladenBuehne() {
+  const conf = content.shop || {};
+  const buehne = $('shop-buehne');
+  buehne.style.setProperty('--shop-bg', conf.background ? bildUrl(conf.background) : 'none');
+  buehne.style.setProperty('--shop-mx', (conf.merchantX ?? 76) + '%');
+  buehne.style.setProperty('--shop-my', (conf.merchantY ?? 62) + '%');
+  buehne.style.setProperty('--shop-ms', String((conf.merchantScale ?? 100) / 100));
+  buehne.style.setProperty('--shop-cy', (conf.counterY ?? 100) + '%');
+  buehne.style.setProperty('--shop-cs', String((conf.counterScale ?? 100) / 100));
+
+  const tresen = $('shop-tresen');
+  tresen.hidden = !conf.counter;
+  if (conf.counter) tresen.src = conf.counter;
+
+  $('shop-titel').textContent = conf.title || 'Laden';
+
+  // Ruhebild des Haendlers: alle Bilder liegen uebereinander, sichtbar ist
+  // immer genau eines. Kein Nachladen mitten in der Animation.
+  const host = $('shop-haendler');
+  const frames = (conf.merchantFrames || []).filter(Boolean);
+  const gleich = host.dataset.frames === frames.join('|');
+  if (!gleich) {
+    host.dataset.frames = frames.join('|');
+    host.textContent = '';
+    for (const src of frames) {
+      const img = new Image();
+      img.src = src;
+      img.alt = '';
+      host.appendChild(img);
+    }
+  }
+  clearInterval(haendlerTakt);
+  const bilder = [...host.children];
+  bilder.forEach((b, i) => b.classList.toggle('is-an', i === 0));
+  if (bilder.length > 1) {
+    let i = 0;
+    haendlerTakt = setInterval(() => {
+      bilder[i].classList.remove('is-an');
+      i = (i + 1) % bilder.length;
+      bilder[i].classList.add('is-an');
+    }, Math.max(60, conf.merchantFrameDuration || 220));
+  }
+}
+
+/** Baut die Auslagen neu auf - beim Oeffnen und nach jedem Tausch. */
+function ladenZeichnen() {
+  const host = $('shop-auslage');
+  host.textContent = '';
+  for (const offer of shop.offers) host.appendChild(angebotKarte(offer));
+  ladenLeiste();
+}
+
+function angebotKarte(offer) {
+  const node = el('div', 'angebot angebot--' + offer.rarity);
+  node.dataset.id = offer.id;
+
+  const bild = el('div', 'angebot__bild');
+  if (offer.kind === 'weapon' || offer.icon) {
+    const img = el('img');
+    img.src = offer.kind === 'weapon' ? offer.sprite : offer.icon;
+    img.alt = '';
+    bild.appendChild(img);
+  } else {
+    bild.textContent = offer.effect ? effectIcon(offer.effect) : statIcon(offer.stat);
+  }
+  node.appendChild(bild);
+
+  const kopf = el('div', 'angebot__kopf');
+  kopf.appendChild(el('span', 'angebot__name', offer.title));
+  kopf.appendChild(el('span', 'angebot__art', offer.rarityLabel || ''));
+  if (offer.owned) kopf.appendChild(el('span', 'angebot__stufe', 'Stufe ' + offer.level));
+  node.appendChild(kopf);
+
+  const wert = el('div', 'angebot__wert', offer.valueText || '');
+  node.appendChild(wert);
+  if (offer.totalText) {
+    node.appendChild(el('div', 'angebot__gesamt', 'Gesamt danach: ' + offer.totalText));
+  } else if (offer.note) {
+    node.appendChild(el('div', 'angebot__gesamt', offer.note));
+  } else if (offer.description) {
+    node.appendChild(el('div', 'angebot__text', offer.description));
+  }
+
+  const fuss = el('div', 'angebot__fuss');
+  const preis = el('div', 'angebot__preis');
+  preis.appendChild(el('span', 'coin'));
+  preis.appendChild(el('b', null, String(offer.price)));
+  fuss.appendChild(preis);
+  node.appendChild(fuss);
+
+  // Schloss: merkt eine Auslage vor, damit sie den Tausch ueberlebt.
+  const schloss = el('button', 'angebot__schloss' + (offer.locked ? ' is-an' : ''), offer.locked ? '🔒' : '🔓');
+  schloss.type = 'button';
+  schloss.title = 'Für später merken';
+  schloss.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!shop.toggleLock(offer)) {
+      toast('Du kannst höchstens ' + shop.lockLimit + ' merken.', 'error');
+      return;
+    }
+    Audio.play('uiClick');
+    schloss.classList.toggle('is-an', offer.locked);
+    schloss.textContent = offer.locked ? '🔒' : '🔓';
+    node.classList.toggle('is-gemerkt', offer.locked);
+    ladenLeiste();
+  });
+  node.appendChild(schloss);
+  node.classList.toggle('is-gemerkt', offer.locked);
+
+  if (offer.sold) {
+    node.classList.add('is-verkauft');
+    node.appendChild(el('div', 'angebot__stempel', 'GEKAUFT'));
+    schloss.hidden = true;
+  } else {
+    node.classList.toggle('is-zuteuer', arena.run.money < offer.price);
+    node.addEventListener('click', () => kaufen(offer, node));
+  }
+  return node;
+}
+
+function kaufen(offer, node) {
+  if (offer.sold) return;
+  if (arena.run.money < offer.price) {
+    toast('Zu teuer - merke es dir mit dem Schloss.', 'error');
+    node.animate(
+      [{ transform: 'translateX(0)' }, { transform: 'translateX(-6px)' },
+       { transform: 'translateX(6px)' }, { transform: 'translateX(0)' }],
+      { duration: 240, easing: 'ease-out' },
+    );
+    return;
+  }
+
+  const ergebnis = shop.buy(offer);
+  if (!ergebnis) return;
+  Audio.play('upgrade');
+  muenzenFliegen(node, $('shop-geld'));
+
+  // Nur diese eine Karte umschreiben - der Rest bleibt unberuehrt stehen.
+  node.classList.add('is-gekauft', 'is-verkauft');
+  const schloss = node.querySelector('.angebot__schloss');
+  if (schloss) schloss.hidden = true;
+  if (!node.querySelector('.angebot__stempel')) {
+    node.appendChild(el('div', 'angebot__stempel', 'GEKAUFT'));
+  }
+  node.replaceWith(node.cloneNode(true));   // nimmt den Klick-Handler mit
+
+  if (ergebnis.kind === 'weapon') {
+    arena.weapon.reset();
+    updateHud(true);
+    toast(ergebnis.weapon.name + ' gekauft - ersetzt ' + ergebnis.previous.name);
+  } else if (ergebnis.level > 1) {
+    toast(ergebnis.upgrade.name + ' auf Stufe ' + ergebnis.level);
+  }
+
+  ladenPreiseAuffrischen();
+  ladenLeiste();
+}
+
+/** Preise koennen sich nach einem Kauf verschieben (naechste Stufe). */
+function ladenPreiseAuffrischen() {
+  for (const offer of shop.offers) {
+    if (offer.sold) continue;
+    const alt = offer.price;
+    offer.price = shop.price(offer);
+    const node = $('shop-auslage').querySelector(`[data-id="${CSS.escape(offer.id)}"]`);
+    if (!node) continue;
+    if (alt !== offer.price) {
+      const b = node.querySelector('.angebot__preis b');
+      if (b) b.textContent = String(offer.price);
+    }
+    node.classList.toggle('is-zuteuer', arena.run.money < offer.price);
+  }
+}
+
+function ladenLeiste() {
+  const geld = $('shop-geld');
+  if (geld.textContent !== String(arena.run.money)) {
+    geld.textContent = String(arena.run.money);
+    const box = geld.parentElement;
+    box.classList.remove('is-aenderung');
+    void box.offsetWidth;
+    box.classList.add('is-aenderung');
+  }
+  const reroll = $('shop-reroll');
+  reroll.textContent = 'Tauschen (' + shop.rerollPrice + ')';
+  reroll.disabled = !shop.canReroll;
+  reroll.style.opacity = shop.canReroll ? '' : '.5';
+  $('shop-liste-btn').textContent = 'Gekauft (' + shop.bought.length + ')';
+}
+
+/**
+ * Muenzen fliegen von der Karte zum Geldzaehler.
+ *
+ * Bewusst ueber die Web-Animations-API statt ueber CSS-Klassen: Der Browser
+ * rechnet die Bahn im Compositor, es entsteht kein Layout-Durchlauf, und
+ * die Elemente raeumen sich selbst wieder ab.
+ */
+function muenzenFliegen(von, zu) {
+  if (!von || !zu || typeof von.animate !== 'function') return;
+  const a = von.getBoundingClientRect();
+  const b = zu.getBoundingClientRect();
+  const ziel = { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+  for (let i = 0; i < 6; i++) {
+    const muenze = el('div', 'muenze');
+    const startX = a.left + a.width * (0.25 + Math.random() * 0.5);
+    const startY = a.top + a.height * (0.3 + Math.random() * 0.5);
+    muenze.style.left = startX + 'px';
+    muenze.style.top = startY + 'px';
+    document.body.appendChild(muenze);
+    const anim = muenze.animate([
+      { transform: 'translate3d(0,0,0) scale(1)', opacity: 1 },
+      { transform: `translate3d(${(ziel.x - startX) * 0.45}px, ${(ziel.y - startY) * 0.45 - 30}px, 0) scale(1.25)`, opacity: 1, offset: 0.55 },
+      { transform: `translate3d(${ziel.x - startX}px, ${ziel.y - startY}px, 0) scale(.4)`, opacity: 0 },
+    ], { duration: 460 + i * 45, easing: 'cubic-bezier(.3,.7,.4,1)', fill: 'forwards' });
+    anim.onfinish = () => muenze.remove();
+    anim.oncancel = () => muenze.remove();
+  }
+}
+
+/** Uebersicht ueber alles, was der Run bisher zusammengetragen hat. */
+function besitzZeigen() {
+  const host = $('shop-besitz-liste');
+  host.textContent = '';
+
+  const waffe = el('div');
+  waffe.appendChild(el('span', null, 'Waffe'));
+  waffe.appendChild(el('b', null, arena.run.weapon.name));
+  host.appendChild(waffe);
+
+  const sortiert = [...arena.run.upgrades].sort((a, b) => b.count - a.count);
+  for (const eintrag of sortiert) {
+    const zeile = el('div');
+    zeile.appendChild(el('span', null, eintrag.upgrade.name));
+    zeile.appendChild(el('b', null, eintrag.count > 1 ? 'Stufe ' + eintrag.count : '✓'));
+    host.appendChild(zeile);
+  }
+  if (!sortiert.length) host.appendChild(el('div', null, 'Noch nichts gekauft.'));
+  $('shop-besitz').hidden = false;
+}
+
+function ladenSchliessen() {
+  clearInterval(haendlerTakt);
+  $('overlay-shop').hidden = true;
+  shop = null;
   finishUpgrade();
 }
 
@@ -840,7 +1170,12 @@ function showStats() {
     const chip = el('div', 'upgradechip');
     chip.style.setProperty('--rarity', rarityColor(entry.upgrade.rarity));
     chip.appendChild(el('b', null, entry.upgrade.name));
-    chip.appendChild(document.createTextNode(' ×' + entry.count));
+    // Mehrfach gekauft heisst hoehere Stufe - inklusive Gesamtwirkung.
+    chip.appendChild(document.createTextNode(
+      entry.count > 1 ? ' · Stufe ' + entry.count : '',
+    ));
+    const wirkung = formatModifiers(entry.upgrade, entry.count);
+    if (wirkung) chip.appendChild(el('small', null, wirkung));
     list.appendChild(chip);
   }
   $('overlay-stats').hidden = false;
@@ -912,7 +1247,7 @@ function showDeath(summary) {
     const chip = el('div', 'upgradechip');
     chip.style.setProperty('--rarity', rarityColor(u.rarity));
     chip.appendChild(el('b', null, u.name));
-    chip.appendChild(document.createTextNode(' ×' + u.count));
+    if (u.count > 1) chip.appendChild(document.createTextNode(' · Stufe ' + u.count));
     list.appendChild(chip);
   }
   $('overlay-death').hidden = false;
@@ -926,8 +1261,10 @@ function quitToMenu() {
   arena = null;
   loop = null;
   input.reset();
-  ['overlay-death', 'overlay-pause', 'overlay-stats', 'overlay-upgrade', 'overlay-swap']
+  ['overlay-death', 'overlay-pause', 'overlay-stats', 'overlay-upgrade', 'overlay-swap', 'overlay-shop']
     .forEach((id) => { $(id).hidden = true; });
+  clearInterval(haendlerTakt);
+  shop = null;
   showScreen('screen-menu');
 }
 
@@ -963,7 +1300,7 @@ function resumeGame() {
   if (!arena || !loop) return;
   // Waehrend Upgrade-Auswahl, Waffentausch oder nach dem Tod bleibt es pausiert.
   const blockiert = !$('overlay-upgrade').hidden || !$('overlay-swap').hidden
-    || arena.gameOver || arena.isIntermission;
+    || !$('overlay-shop').hidden || arena.gameOver || arena.isIntermission;
   Audio.duckMusic(blockiert);
   if (!blockiert) {
     // Nach der Pause erst drei Sekunden Vorlauf.
@@ -989,6 +1326,25 @@ $('btn-ult').addEventListener('click', () => {
   }
   updateHud(true);
 });
+
+// ------------------------------------------------------------------- Laden
+$('shop-weiter').addEventListener('click', ladenSchliessen);
+$('shop-reroll').addEventListener('click', () => {
+  if (!shop) return;
+  if (!shop.reroll()) {
+    toast('Dafür reicht das Geld nicht.', 'error');
+    return;
+  }
+  Audio.play('uiClick');
+  ladenZeichnen();
+});
+$('shop-liste-btn').addEventListener('click', besitzZeigen);
+$('shop-liste-zu').addEventListener('click', () => { $('shop-besitz').hidden = true; });
+
+// ------------------------------------------------------- Charakterauswahl
+$('char-prev').addEventListener('click', () => charWechseln(-1));
+$('char-next').addEventListener('click', () => charWechseln(1));
+$('char-waehlen').addEventListener('click', charBestaetigen);
 
 $('btn-stats').addEventListener('click', showStats);
 $('btn-sound').addEventListener('click', toggleSound);
@@ -1078,6 +1434,11 @@ window.addEventListener('keydown', (e) => {
     arena.useUlt();
     updateHud(true);
   }
+  if (!arena && $('screen-character').classList.contains('is-active')) {
+    if (e.code === 'ArrowLeft') charWechseln(-1);
+    if (e.code === 'ArrowRight') charWechseln(1);
+    if (e.code === 'Enter') charBestaetigen();
+  }
   if (e.code === 'F2' && arena) {
     arena.debug = !arena.debug;
     updateHud(true);
@@ -1089,6 +1450,21 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+/**
+ * Hintergrundbilder und die Position der Figur kommen aus dem Admin.
+ * Sie landen als CSS-Variablen an der Wurzel, damit das Stylesheet sie
+ * ohne weiteren Umweg verwenden kann.
+ */
+function aussehenAnwenden() {
+  const ui = content.ui || {};
+  const wurzel = document.documentElement.style;
+  if (ui.menuBackground) wurzel.setProperty('--menu-bg', bildUrl(ui.menuBackground));
+  if (ui.charBackground) wurzel.setProperty('--char-bg', bildUrl(ui.charBackground));
+  wurzel.setProperty('--char-x', (ui.charX ?? 50) + '%');
+  wurzel.setProperty('--char-y', (ui.charY ?? 63) + '%');
+  wurzel.setProperty('--char-scale', String((ui.charScale ?? 100) / 100));
+}
+
 function checkOrientation() {
   const portrait = window.innerHeight > window.innerWidth;
   const small = Math.min(window.innerWidth, window.innerHeight) < 560;
@@ -1099,6 +1475,7 @@ function checkOrientation() {
 (async function boot() {
   // Das Menü zeigt Waffenbilder als normale <img>-Elemente - die lädt der
   // Browser selbst und nach und nach. Vorab-Laden würde den Start nur bremsen.
+  aussehenAnwenden();
   renderBest();
   renderWeapons();
   initAudio();

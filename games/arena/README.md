@@ -83,9 +83,10 @@ arena/
 │   │   ├── world/            map, collision, spawn, pickups, portals, flowfield
 │   │   ├── entities/         player, enemy
 │   │   ├── combat/           weapon, projectiles, melee
-│   │   ├── game/             arena, run, stats, waves, boss, upgrades, perks, effects
-│   │   └── main.js           Menü, HUD, Overlays, Spielstart
+│   │   ├── game/             arena, run, stats, waves, boss, upgrades, shop, perks, effects
+│   │   └── main.js           Menü, HUD, Overlays, Laden, Spielstart
 │   ├── css/game.css
+│   ├── fonts/                Pixelify Sans (woff2, mitgeliefert)
 │   ├── sprites/              deine Sprites
 │   └── uploads/              im Admin hochgeladene Bilder
 └── data/                     content.php + admin.php + accounts/ (schützen sich selbst)
@@ -269,6 +270,34 @@ der Schriftzug, die übrigen als gehauener Stein mit Goldkante. Der Text-Titel
 bleibt im HTML für Vorleseprogramme erhalten, ist aber ausgeblendet — den
 Namen trägt das Bild.
 
+Das Hintergrundbild lässt sich im Admin unter *Laden & Aussehen* austauschen.
+
+### Eine Schrift für alles
+
+Die gesamte Oberfläche benutzt **eine einzige Schrift** — Pixelify Sans, in
+Überschriften wie im Fliesstext, im Menü wie im HUD, in der Anmeldung wie im
+Laden. Sie liegt als `assets/fonts/*.woff2` (20 KB) **beim Spiel selbst**, es
+wird nichts von Google nachgeladen: Das Spiel sieht damit auch ohne Verbindung
+nach aussen gleich aus, und im ZIP ist alles dabei.
+
+Alle Flächen, die vorher schlichtes Darkmode-Grau waren — Panels, Overlays,
+Formulare, die Anmeldung, Regler, Schalter, Lebensbalken, der Ultimate-Knopf —
+tragen jetzt dieselbe Sprache wie das Titelbild: gehauener Stein, Goldkanten,
+warmes Pergament als Textfarbe.
+
+### Charakterauswahl
+
+Statt einer Liste aus fünfzehn Karten steht **eine Figur in der Mitte eines
+Raums** (`assets/sprites/charakter-hintergrund.jpg`, 1200 × 800, 172 KB) und
+zeigt ihr Ruhebild. Links und rechts blättert man durch, daneben stehen Name,
+Kurzbezeichnung, Beschreibung, Werte und die Spezialfähigkeit. Eine Punktreihe
+zeigt, wo man in der Liste steht; gesperrte Figuren sind darin rot markiert.
+Auf dem Rechner blättern zusätzlich die Pfeiltasten, Enter wählt aus.
+
+Hintergrundbild, Standort und Grösse der Figur kommen aus dem Admin — der
+angegebene Punkt ist die **Standfläche**, nicht die Mitte, damit die Figur auf
+jedem eigenen Hintergrund wieder auf dem Podest landet.
+
 ---
 
 ## Konto, Erfahrung und Bestenliste
@@ -342,11 +371,18 @@ direkt darunter.
 
 ### Eigene Sprites: GIF oder fünf Einzelbilder
 
-Im Admin unter **Charaktere** hat jede Richtung (vorne, hinten, seitlich) zwei
-Möglichkeiten:
+Im Admin unter **Charaktere** hat jede Richtung (vorne, hinten, seitlich und
+**Ruhebild**) zwei Möglichkeiten:
 
 * ein **animiertes GIF** – wird wie bisher automatisch zerlegt, oder
 * bis zu **fünf Einzelbilder** – das Spiel baut daraus selbst die Animation.
+
+Das **Ruhebild** ist neu und freiwillig: Solange nichts hinterlegt ist, steht
+die Figur im Stand weiter mit dem Bild von vorne da, genau wie bisher. Sobald
+dort ein GIF oder Einzelbilder liegen, läuft im Stillstand diese Animation —
+im Spiel wie auf der Charakterauswahl, wo die Figur mitten im Raum steht. Das
+Ruhebild hat eine eigene Grösse und eigene Spiegelungen wie jede andere
+Richtung.
 
 Je Richtung lassen sich zusätzlich einstellen:
 
@@ -359,7 +395,8 @@ Je Richtung lassen sich zusätzlich einstellen:
 
 Darunter läuft eine **Laufvorschau**: Die Figur dreht sich durch acht
 Richtungen, ein Pfeil zeigt die Laufrichtung, und Größe, Spiegelung und das
-aktuelle Einzelbild stehen als Text daneben. Änderungen wirken sofort.
+aktuelle Einzelbild stehen als Text daneben. Nach der achten Richtung bleibt
+sie einmal stehen und zeigt ihr Ruhebild. Änderungen wirken sofort.
 
 Liegen Einzelbilder vor, haben sie Vorrang. Das Tempo steuert **Bildwechsel
 (ms)** – 80 ms sind schnelle Schritte, 200 ms ein ruhiger Gang. Bilder
@@ -392,8 +429,13 @@ Solange keine eigenen Sprites hochgeladen sind, unterscheiden sich die Figuren
 | 3 | enemy3 (Brecher) | 60 s |
 | 4 | boss1 (Bombenwerfer) | bis zu 120 s |
 
-Nach **jeder** Welle pausiert das Spiel und bietet drei zufällige Upgrades an.
-Danach beginnt der nächste Zyklus mit höheren Werten — endlos.
+Nach **jeder** Welle pausiert das Spiel und bietet drei zufällige Upgrades an;
+direkt danach geht der **Laden** auf, in dem das gesammelte Geld ausgegeben
+wird. Danach beginnt der nächste Zyklus mit höheren Werten — endlos.
+
+Das HUD hält oben links Welle, Zeit und Geld, oben rechts Ton, Statistik und
+Pause. Beides steht in derselben Reihe im normalen Fluss: Vorher lagen die
+Knöpfe fest in der Ecke und deckten auf schmalen Handys die Geldanzeige zu.
 
 Überlebt der Boss die 120 Sekunden, verschwindet er nicht, sondern wird
 **wütend** (mehr Tempo, mehr Schaden, kürzerer Bomben-Cooldown). Der Kampf endet
@@ -457,16 +499,49 @@ Admin brauchen deshalb keinen neuen Code, nur Werte.
 
 | Waffe | Verhalten | Schaden | Cooldown | Sprite | Projektil | Besonderheit |
 |-------|-----------|--------:|---------:|-------:|----------:|--------------|
-| Pistole | PROJECTILE | 22 | 0,40 s | 46 px | 16 px | solider Allrounder |
-| Sturmgewehr | PROJECTILE | 8 | 0,11 s | 54 px | 14 px | hohe Feuerrate, Streuung |
-| Bogen | PROJECTILE | 46 | 0,78 s | 50 px | 20 px | durchbohrt 1 Gegner |
-| Armbrust | PROJECTILE | 85 | 1,35 s | 56 px | 26 px | durchbohrt 2 Gegner |
-| Zauberstab | MAGIC | 28 | 0,55 s | 50 px | 18 px | Zielsuche, trifft fast immer |
-| Speer | THRUST | 48 | 0,62 s | 120 px | – | Stoß nach vorne, schmal |
-| Dolch | MELEE_ARC 46° | 15 | 0,20 s | 58 px | – | blitzschnell, kurze Reichweite |
-| Schwert | MELEE_ARC 85° | 22 | 0,50 s | 95 px | – | trifft mehrere Gegner |
-| Axt | MELEE_360 | 18 | 0,95 s | 88 px | – | volle Drehung, trifft alles |
-| Granate | GRENADE | 55 | 1,90 s | 46 px | 34 px | AoE 130, verzögerte Explosion |
+| Pistole | PROJECTILE | 25 | 0,36 s | 46 px | 16 px | solider Allrounder |
+| Sturmgewehr | PROJECTILE | 9 | 0,11 s | 54 px | 14 px | hohe Feuerrate, Streuung |
+| Bogen | PROJECTILE | 46 | 0,72 s | 50 px | 20 px | durchbohrt 1 Gegner |
+| Armbrust | PROJECTILE | 82 | 1,40 s | 56 px | 26 px | durchbohrt 2 Gegner |
+| Zauberstab | MAGIC | 38 | 0,55 s | 50 px | 18 px | Zielsuche, trifft fast immer |
+| Speer | THRUST | 42 | 0,62 s | 120 px | – | Stoß nach vorne, schmal |
+| Dolch | MELEE_ARC 46° | 17 | 0,19 s | 58 px | – | blitzschnell, kurze Reichweite |
+| Schwert | MELEE_ARC 85° | 25 | 0,48 s | 95 px | – | trifft mehrere Gegner |
+| Axt | MELEE_360 | 28 | 0,76 s | 88 px | – | volle Drehung, trifft alles |
+| Granate | GRENADE | 50 | 1,55 s | 46 px | 34 px | AoE 130, verzögerte Explosion |
+
+### Balancing: alle Waffen sind ungefähr gleich stark
+
+Reiner Schaden pro Sekunde vergleicht Waffen falsch — eine Axt trifft im
+Getümmel vier Gegner gleichzeitig, eine Armbrust einen. Deshalb liegt dem
+Balancing der **wirksame Schaden** zugrunde:
+
+```
+wirksam = Schaden / Nachladezeit × erwartete Ziele je Angriff × Trefferquote
+```
+
+| Waffe | DPS | Ziele | Trefferquote | wirksam |
+|-------|----:|------:|-------------:|--------:|
+| Pistole | 69 | 1,00 | 0,90 | 62 |
+| Sturmgewehr | 82 | 1,00 | 0,80 | 65 |
+| Bogen | 64 | 1,35 | 0,80 | 69 |
+| Armbrust | 59 | 1,60 | 0,75 | 70 |
+| Zauberstab | 69 | 1,00 | 1,00 | 69 |
+| Speer | 68 | 1,30 | 0,85 | 75 |
+| Dolch | 89 | 1,00 | 0,85 | 76 |
+| Schwert | 52 | 1,80 | 0,80 | 75 |
+| Axt | 37 | 2,60 | 0,80 | 77 |
+| Granate | 32 | 2,80 | 0,85 | 77 |
+
+Alles liegt damit zwischen 62 und 77. Nahkampf sitzt bewusst am oberen Rand:
+Wer so nah heran muss, kassiert Berührungsschaden. Die Trefferquote schätzt,
+wie viel davon im Kampf tatsächlich ankommt — Zielsuche trifft immer, ein
+langsamer Pfeil oder eine geworfene Granate nicht.
+
+Beim Aktualisieren einer bestehenden Installation zieht die Migration das
+Balancing **einmalig** nach: Nur Schaden und Nachladezeit der mitgelieferten
+Waffen werden angepasst, eigene Waffen und alle anderen Felder bleiben
+unangetastet.
 
 **Größe und Sitz sind einstellbar.** Im Waffen-Editor legen vier Felder fest,
 wie die Waffe getragen wird: *Waffensprite-Größe* und *Projektil-Größe* in
@@ -553,10 +628,86 @@ Kampf beendet man selbst.
 
 ### Gegner fallen um
 
-Getötete Gegner verschwinden nicht mehr sofort: Sie kippen zur Seite, sacken
-ab und lösen sich nach **einer Sekunde** auf. Der Schwung aus dem Todesstoss
+Getötete Gegner verschwinden nicht sofort: Sie kippen in 0,26 s zur Seite,
+sacken ab und sind nach **0,72 s** ganz weg. Der Schwung aus dem Todesstoss
 trägt sie dabei noch ein Stück. Für Treffer, Ziele und die Gegnerzählung sind
 sie sofort raus — nur zu sehen sind sie noch.
+
+Zwei Dinge sorgen dafür, dass das Umfallen auch wie ein Umfallen aussieht:
+
+* **Die Laufanimation friert im Moment des Todes ein.** Vorher lief sie
+  weiter, und die Leiche zappelte am Boden, als stünde sie gleich wieder auf.
+* **Das Ausblenden läuft mit dem Umfallen zusammen** statt danach. Ab einem
+  Drittel der Zeit wird die Figur durchsichtig und ist beim Aufkommen fast
+  verschwunden — sie bleibt nicht mehr sichtbar liegen und blinkt dann weg.
+
+---
+
+## Der Laden
+
+Geld war bisher nur eine Zahl im HUD. Jetzt geht **nach jeder Upgrade-Karte
+der Laden auf**, und dort wird es ausgegeben.
+
+* **Vier Auslagen** (im Admin einstellbar) — Upgrades, gelegentlich auch eine
+  Waffe. Höchstens eine Waffe je Auslage: Man kann ohnehin nur eine tragen.
+* **Kaufen, so lange Geld da ist.** Man muss nicht. Wer spart, hat beim
+  nächsten Besuch mehr — die Preise steigen aber mit dem Zyklus.
+* **Besser heisst teurer.** Der Preis entsteht aus dem Grundpreis mal dem
+  Faktor der Seltenheit, mal einem Aufschlag je Zyklus, mal einem Aufschlag je
+  Stufe, die man von diesem Upgrade schon hat:
+
+  ```
+  Preis = Grundpreis × Seltenheit × (1 + Zyklusaufschlag × (Zyklus−1))
+                                  × (1 + Stufenaufschlag × vorhandene Stufen)
+  ```
+
+  Mit den Standardwerten kostet ein gewöhnliches Upgrade 26, ein legendäres
+  140, eine Waffe 104 — und die zweite Stufe desselben Upgrades 45 % mehr.
+* **Tauschen** wirft alle nicht gemerkten Auslagen weg und legt neue hin. Der
+  erste Tausch kostet 18, jeder weitere das 1,6-fache. Verkaufte Plätze zählen
+  dabei wie freie: Wer alles gekauft hat, darf gegen Aufpreis neue Ware holen.
+* **Merken** (Schloss oben rechts an der Karte) hält eine Auslage fest. Etwas
+  Legendäres, für das das Geld noch nicht reicht, bleibt so über den Tausch
+  hinweg liegen. Standardmässig lassen sich drei gleichzeitig merken.
+* **Gekauft** zeigt eine Übersicht: die aktuelle Waffe und jedes Upgrade des
+  Runs mit seiner Stufe.
+
+### Aufbau des Ladens
+
+Drei Ebenen liegen übereinander, alle drei im Admin austauschbar:
+
+| Ebene | Datei | Grösse |
+|-------|-------|--------|
+| Hintergrund | `assets/sprites/shop-hintergrund.jpg` | 1200 × 800, 159 KB |
+| Händler | `assets/sprites/haendler-schwein.png` | 394 × 700, 220 KB |
+| Tresen (davor) | `assets/sprites/shop-tresen.png` | 1200 × 400, 399 KB |
+
+Der Händler nimmt bis zu **fünf Einzelbilder** als Ruhebild — genau wie die
+Charaktere. Liegt nur eines vor, atmet er über eine leichte Bewegung. Position
+und Grösse von Händler und Tresen stehen im Admin unter *Laden & Aussehen*, mit
+einer Vorschau, die die Anordnung live zeigt.
+
+Auf breiten Bildschirmen liegen die Auslagen links und der Händler steht
+rechts hinter dem Tresen. Hochkant rückt er in die Lücke zwischen Auslagen und
+Tresen, statt hinter den Karten zu verschwinden.
+
+### Warum der Laden nicht ruckelt
+
+Läden mit fliegenden Karten ruckeln oft, weil jede Bewegung ein neues Layout
+auslöst. Hier bewegt sich nichts, was den Browser zum Nachrechnen zwingt:
+
+* **Nur `transform` und `opacity`** in allen Animationen — beide rechnet der
+  Browser im Compositor, ohne Layout und ohne Neuzeichnen.
+* **Beim Kauf wird nicht die ganze Auslage neu gebaut**, sondern genau die
+  eine Karte umgeschrieben. Der Rest steht still.
+* **Die Münzen** fliegen über die Web-Animations-API und räumen sich selbst
+  wieder ab; es gibt keine Endlosschleife im Hintergrund.
+* **Die Bilder des Händlers liegen alle gleichzeitig übereinander**, sichtbar
+  ist immer genau eines. So wird mitten in der Animation nichts nachgeladen.
+
+Gemessen auf einem vierfach gedrosselten Handy (390 × 844): 90 Bilder im
+geöffneten Laden, **kein einziges länger als 50 ms**; fünf Käufe und Täusche
+hintereinander in 195–439 ms.
 
 ---
 
@@ -569,6 +720,20 @@ jeder Welle werden drei Karten gezogen; mit steigendem Zyklus — und mit
 Eine Karte kann **mehrere Werte gleichzeitig** verschieben (Proteinshake gibt
 Leben *und* Schaden, Glaskanone gibt Schaden *und* nimmt Rüstung) und
 zusätzlich einen **Sondereffekt** mitbringen, der eigene Logik im Spiel hat.
+
+Waffen erscheinen **nicht mehr als Karte** — die gibt es nur noch beim Händler.
+
+### Stufen: was man schon hat, sieht man
+
+Hat man ein Upgrade bereits, zeigt die Karte (und die Auslage im Laden) das an:
+
+* eine goldene Marke **Stufe 2**, **Stufe 3** … mit der Stufe nach dem Kauf,
+* darunter **Gesamt danach:** mit der Summe aller Stufen zusammen — bei einem
+  Upgrade mit +18 % Schaden also *+36 % Schaden* beim zweiten Kauf,
+* und einen höheren Preis, weil jede weitere Stufe teurer wird.
+
+Auch die Statistik im Spiel und der Todesbildschirm listen jedes Upgrade mit
+seiner Stufe statt nur mit einem „×2".
 
 Beeinflussbare Werte: Schaden, Angriffstempo, Bewegungstempo, Max. Leben,
 Rüstung, Schild, Krit-Chance, Krit-Schaden, Projektiltempo, Reichweite,
@@ -698,8 +863,9 @@ leicht.
 | **Gegenstände** | Tränke, Truhen und eigene Fundstücke: Wirkung, Spawnrate, Anzahl, Lebensdauer, Fundort, Partikelfarbe, Ton |
 | **Spieler** | Basiswerte und alle vier Spieler-Sprites |
 | **Balancing** | Wellendauer, Spawnrate, Skalierung, Bombenwerte, Kartenchancen, Ultimate |
-| **Charaktere** | Anlegen, bearbeiten, duplizieren, löschen; Sprites (GIF oder 5 Einzelbilder je Richtung), Bildtempo, Farbdrehung, Fähigkeiten, Werte, Hitbox, Freischaltkosten |
+| **Charaktere** | Anlegen, bearbeiten, duplizieren, löschen; Sprites (GIF oder 5 Einzelbilder je Richtung, **inklusive Ruhebild**), Bildtempo, Farbdrehung, Fähigkeiten, Werte, Hitbox, Freischaltkosten |
 | **Audio** | **Zwei Musiktitel** (Menü und Kampf) und **je Ereignis eine eigene Sounddatei** mit eigener Lautstärke, Vorhören, Autostart |
+| **Laden & Aussehen** | Bilder und Anordnung des Ladens (Hintergrund, Händler mit 5 Ruhebildern, Tresen), alle Preise, Tauschkosten, Merk-Grenze; dazu die Hintergründe von Menü und Charakterauswahl und der Standort der Figur — beides mit Live-Vorschau |
 
 ### Karten-Editor
 
@@ -752,8 +918,11 @@ früheren Version wird beim ersten Start automatisch übernommen.
   auf 30 % heruntergeblendet und danach wieder hochgezogen.
 * **Zwei Titel:** `music-menu.mp3` läuft im Menü und auf allen Bildschirmen
   ausserhalb des Kampfes, `music-arena.mp3` nur während einer laufenden Runde.
-  Beim Wechsel blendet der eine aus und der andere ein — im Menü ist die
-  Kampfmusik wirklich aus, nicht nur leise. Beide sind im Admin austauschbar.
+  Beide sind im Admin austauschbar.
+* **Beim Wechsel stoppt der alte Titel sofort**, der neue blendet ein. Vorher
+  blendete der alte über eine halbe Sekunde aus — in dieser Zeit hörte man
+  beide gleichzeitig. Ein sauberer Übergang ist hier weniger wert als die
+  Gewissheit, dass nie zwei Lieder übereinanderliegen.
 * Der **🔊-Knopf** im HUD und im Hauptmenü schaltet alles stumm und wieder an.
   Feiner geht es in der **Pause**: dort sitzen getrennte Schalter und Regler für
   Musik und Effekte. Beides wird pro Gerät im `localStorage` gemerkt.
@@ -972,3 +1141,25 @@ Automatisiert im echten Browser geprüft (Chromium, Desktop und Mobil-Viewport):
 * Staub wird gedreht geladen (`staub.gif#faded-gedreht`)
 * Wegfindung: 23 von 24 Ankünften bei 45 px statt 20 von 24 bei 132 px;
   Gegner hinter einer Mauer kommt nach 9,7 s an
+* Sterben: Kippen nach 0,26 s abgeschlossen, Leiche nach 0,72 s weg; die
+  Laufanimation steht dabei still, das Ausblenden läuft mit dem Umfallen
+* Musikwechsel über den ganzen Ablauf verfolgt (Menü → Auswahl → Runde →
+  Pause → Menü → zweite Runde): **an keiner Stelle liefen zwei Titel**
+* HUD auf 844 × 420: Knöpfe (694–832 px) und Werte (12–686 px) überschneiden
+  sich nicht mehr
+* Laden: 4 Auslagen, Kauf zieht Geld ab und trägt das Upgrade ein, Merken hält
+  eine Auslage über den Tausch, Tausch legt neue Ware hin, Übersicht listet
+  Waffe und Upgrades, *Weiter* führt in Welle 2 bei 60 FPS
+* Laden auf vierfach gedrosseltem Handy: 90 Bilder ohne ein einziges über
+  50 ms, fünf Käufe/Täusche in 195–439 ms
+* Kein Nachschub mehr, wenn alles gemerkt ist; verkaufte Plätze lassen sich
+  gegen Aufpreis neu bestücken
+* Charakterauswahl: Pfeile blättern vor und zurück (Nova → Bruno → Nova),
+  Auswahl kommt im Run an
+* Ruhebild: im Stand nutzt die Figur das Ruhesprite mit eigener Grösse, beim
+  Laufen wieder die Richtungssprites — und ohne hinterlegtes Ruhebild bleibt
+  alles wie vorher
+* Admin *Laden & Aussehen*: fünf Karten, Speichern bestätigt, Werte überleben
+  den Reload; Charakter-Editor zeigt alle vier Richtungen inklusive Ruhebild
+* Alle Bildschirme in Hochkant (390 × 844), Querformat (844 × 420) und auf dem
+  Desktop (1280 × 800) angesehen — keine JavaScript-Fehler, keine 404

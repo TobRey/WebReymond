@@ -434,7 +434,7 @@ export const Assets = {
   async loadCharacter(character) {
     // Der Schluessel enthaelt alles, was das Aussehen veraendert - sonst
     // bliebe nach einer Aenderung im Admin das alte Bild im Zwischenspeicher.
-    const teile = ['front', 'back', 'side'].map((dir) => {
+    const teile = ['front', 'back', 'side', 'idle'].map((dir) => {
       const e = (character.sprites && character.sprites[dir]) || {};
       return dir + (e.flip ? 'F' : '') + (e.scale ?? 1) + (e.flips || []).map((f) => (f ? 1 : 0)).join('');
     });
@@ -454,15 +454,27 @@ export const Assets = {
       return tintSprite(sprite, character.tint || 0);
     };
 
-    const [front, back, side, dustRaw] = await Promise.all([
+    // Das Ruhebild ist freiwillig: Ist nichts hinterlegt, steht die Figur
+    // weiter mit dem Bild von vorne da wie bisher.
+    const idleEintrag = (character.sprites && character.sprites.idle) || {};
+    const hatIdle = !!idleEintrag.gif
+      || (Array.isArray(idleEintrag.frames) && idleEintrag.frames.length > 0);
+
+    const [front, back, side, idle, dustRaw] = await Promise.all([
       build('front'), build('back'), build('side'),
+      hatIdle ? build('idle') : Promise.resolve(null),
       Assets.load(character.dustSprite || 'assets/sprites/staub.gif'),
     ]);
     const skalen = {};
-    for (const dir of ['front', 'back', 'side']) {
+    for (const dir of ['front', 'back', 'side', 'idle']) {
       skalen[dir] = ((character.sprites && character.sprites[dir]) || {}).scale || 1;
     }
-    const set = { front, back, side, dust: fadeEdges(dustRaw, 0.42, true), scales: skalen };
+    if (!hatIdle) skalen.idle = skalen.front;
+    const set = {
+      front, back, side, idle,
+      dust: fadeEdges(dustRaw, 0.42, true),
+      scales: skalen,
+    };
     cache.set(key, set);
     return set;
   },

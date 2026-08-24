@@ -86,6 +86,21 @@ function assetUsage(array $data, string $path): array
             $used[] = 'Spieler-Sprite';
         }
     }
+    foreach (['background' => 'Laden: Hintergrund', 'counter' => 'Laden: Tresen'] as $k => $label) {
+        if (($data['shop'][$k] ?? '') === $path) {
+            $used[] = $label;
+        }
+    }
+    foreach ($data['shop']['merchantFrames'] ?? [] as $frame) {
+        if ($frame === $path) {
+            $used[] = 'Laden: Händler';
+        }
+    }
+    foreach (['menuBackground' => 'Menü-Hintergrund', 'charBackground' => 'Charakterauswahl'] as $k => $label) {
+        if (($data['ui'][$k] ?? '') === $path) {
+            $used[] = $label;
+        }
+    }
     return $used;
 }
 
@@ -243,7 +258,9 @@ switch ($action) {
         $player = input()['player'] ?? null;
         $balance = input()['balance'] ?? null;
         $audio = input()['audio'] ?? null;
-        $data = $store->mutate(function (array $data) use ($player, $balance, $audio): array {
+        $shop = input()['shop'] ?? null;
+        $ui = input()['ui'] ?? null;
+        $data = $store->mutate(function (array $data) use ($player, $balance, $audio, $shop, $ui): array {
             if (is_array($player)) {
                 $data['player'] = Validate::player($player);
             }
@@ -252,6 +269,12 @@ switch ($action) {
             }
             if (is_array($audio)) {
                 $data['audio'] = Validate::audio($audio);
+            }
+            if (is_array($shop)) {
+                $data['shop'] = Validate::shop($shop);
+            }
+            if (is_array($ui)) {
+                $data['ui'] = Validate::ui($ui);
             }
             return $data;
         });

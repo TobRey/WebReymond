@@ -347,7 +347,7 @@ final class Validate
 
         $sprites = [];
         $given = is_array($in['sprites'] ?? null) ? $in['sprites'] : [];
-        foreach (['front', 'back', 'side'] as $dir) {
+        foreach (['front', 'back', 'side', 'idle'] as $dir) {
             $entry = is_array($given[$dir] ?? null) ? $given[$dir] : [];
             $frames = [];
             $flips = [];
@@ -548,7 +548,7 @@ final class Validate
             'ultCooldown' => [1, 600], 'ultRadius' => [20, 2000],
             'ultKnockback' => [0, 20000], 'ultDamage' => [0, 100000],
             'upgradeChoices' => [1, 6], 'rarityRareBase' => [0, 100], 'rarityEpicBase' => [0, 100],
-            'rarityLegendaryBase' => [0, 100], 'rarityCycleBonus' => [1, 4], 'weaponOfferChance' => [0, 1],
+            'rarityLegendaryBase' => [0, 100], 'rarityCycleBonus' => [1, 4],
         ];
         $out = [];
         foreach ($d as $key => $fallback) {
@@ -559,5 +559,76 @@ final class Validate
         $out['upgradeChoices'] = (int) $out['upgradeChoices'];
         $out['waveStartEnemies'] = (int) $out['waveStartEnemies'];
         return $out;
+    }
+
+    /**
+     * Einstellungen des Ladens.
+     *
+     * @param array<string, mixed> $in
+     * @return array<string, mixed>
+     */
+    public static function shop(array $in): array
+    {
+        $d = Defaults::shop();
+        $frames = [];
+        if (is_array($in['merchantFrames'] ?? null)) {
+            foreach (array_values($in['merchantFrames']) as $frame) {
+                if (count($frames) >= 5) {
+                    break;
+                }
+                $path = self::assetPath($frame, '');
+                if ($path !== '') {
+                    $frames[] = $path;
+                }
+            }
+        }
+        if (!count($frames)) {
+            $frames = $d['merchantFrames'];
+        }
+
+        return [
+            'enabled' => self::bool($in['enabled'] ?? true),
+            'title' => self::text($in['title'] ?? '', 40, $d['title']),
+            'background' => self::assetPath($in['background'] ?? '', $d['background']),
+            'counter' => self::assetPath($in['counter'] ?? '', $d['counter']),
+            'merchantFrames' => $frames,
+            'merchantFrameDuration' => self::num($in['merchantFrameDuration'] ?? $d['merchantFrameDuration'], 40, 3000, (float) $d['merchantFrameDuration']),
+            'merchantX' => self::num($in['merchantX'] ?? $d['merchantX'], 0, 100, (float) $d['merchantX']),
+            'merchantY' => self::num($in['merchantY'] ?? $d['merchantY'], 0, 140, (float) $d['merchantY']),
+            'merchantScale' => self::num($in['merchantScale'] ?? $d['merchantScale'], 20, 300, (float) $d['merchantScale']),
+            'counterY' => self::num($in['counterY'] ?? $d['counterY'], 0, 160, (float) $d['counterY']),
+            'counterScale' => self::num($in['counterScale'] ?? $d['counterScale'], 20, 300, (float) $d['counterScale']),
+            'offerCount' => self::int($in['offerCount'] ?? $d['offerCount'], 1, 8, (int) $d['offerCount']),
+            'priceBase' => self::num($in['priceBase'] ?? $d['priceBase'], 1, 5000, (float) $d['priceBase']),
+            'priceCommon' => self::num($in['priceCommon'] ?? $d['priceCommon'], 0.1, 20, (float) $d['priceCommon']),
+            'priceRare' => self::num($in['priceRare'] ?? $d['priceRare'], 0.1, 20, (float) $d['priceRare']),
+            'priceEpic' => self::num($in['priceEpic'] ?? $d['priceEpic'], 0.1, 20, (float) $d['priceEpic']),
+            'priceLegendary' => self::num($in['priceLegendary'] ?? $d['priceLegendary'], 0.1, 20, (float) $d['priceLegendary']),
+            'priceWeapon' => self::num($in['priceWeapon'] ?? $d['priceWeapon'], 0.1, 20, (float) $d['priceWeapon']),
+            'priceCycleBonus' => self::num($in['priceCycleBonus'] ?? $d['priceCycleBonus'], 0, 4, (float) $d['priceCycleBonus']),
+            'priceStackBonus' => self::num($in['priceStackBonus'] ?? $d['priceStackBonus'], 0, 4, (float) $d['priceStackBonus']),
+            'rerollCost' => self::num($in['rerollCost'] ?? $d['rerollCost'], 0, 5000, (float) $d['rerollCost']),
+            'rerollGrowth' => self::num($in['rerollGrowth'] ?? $d['rerollGrowth'], 1, 5, (float) $d['rerollGrowth']),
+            'weaponChance' => self::num($in['weaponChance'] ?? $d['weaponChance'], 0, 1, (float) $d['weaponChance']),
+            'lockLimit' => self::int($in['lockLimit'] ?? $d['lockLimit'], 0, 8, (int) $d['lockLimit']),
+        ];
+    }
+
+    /**
+     * Aussehen der Menuebildschirme.
+     *
+     * @param array<string, mixed> $in
+     * @return array<string, mixed>
+     */
+    public static function ui(array $in): array
+    {
+        $d = Defaults::ui();
+        return [
+            'menuBackground' => self::assetPath($in['menuBackground'] ?? '', $d['menuBackground']),
+            'charBackground' => self::assetPath($in['charBackground'] ?? '', $d['charBackground']),
+            'charX' => self::num($in['charX'] ?? $d['charX'], 0, 100, (float) $d['charX']),
+            'charY' => self::num($in['charY'] ?? $d['charY'], 0, 140, (float) $d['charY']),
+            'charScale' => self::num($in['charScale'] ?? $d['charScale'], 20, 300, (float) $d['charScale']),
+        ];
     }
 }

@@ -17,6 +17,8 @@ export class Player {
     this.flip = false;
     this.moving = false;
     this.moveTime = 0;
+    // Eigene Uhr fuer das Ruhebild - sie laeuft nur im Stand.
+    this.idleTime = 0;
     this.hitFlash = 0;
     this.invuln = 0;
     this.aim = 0;
@@ -44,10 +46,22 @@ export class Player {
     return (sprite.width / sprite.height) * this.scale;
   }
 
+  /**
+   * Welches Sprite gerade gilt.
+   *
+   * Im Stand laeuft das Ruhebild, sofern der Charakter eines hat. Ohne
+   * hinterlegtes Ruhebild bleibt alles wie vorher: die Blickrichtung.
+   */
   currentSprite() {
+    if (!this.moving && this.sprites.idle) return this.sprites.idle;
     if (this.facing === 'back') return this.sprites.back;
     if (this.facing === 'side') return this.sprites.side;
     return this.sprites.front;
+  }
+
+  /** True, wenn gerade das Ruhebild gezeigt wird. */
+  get idling() {
+    return !this.moving && !!this.sprites.idle;
   }
 
   /**
@@ -58,6 +72,7 @@ export class Player {
    */
   get spriteScale() {
     const skalen = this.sprites.scales || {};
+    if (this.idling) return skalen.idle || skalen.front || 1;
     return skalen[this.facing] || 1;
   }
 
@@ -75,6 +90,9 @@ export class Player {
     if (this.teleport > 0) this.teleport = Math.max(0, this.teleport - dt * 2.4);
     const speed = this.run.stats.moveSpeed * this.boostFactor;
     this.moving = Math.hypot(move.x, move.y) > 0.01;
+
+    if (!this.moving) this.idleTime += dt;
+    else this.idleTime = 0;
 
     if (this.moving) {
       this.moveTime += dt;

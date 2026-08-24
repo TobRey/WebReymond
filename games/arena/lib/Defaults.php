@@ -10,7 +10,7 @@ final class Defaults
     public const SPRITE_BASE = 'assets/sprites/';
 
     /** Inhaltsversion. Erhöhen, wenn neue Standardinhalte nachgetragen werden sollen. */
-    public const VERSION = 3;
+    public const VERSION = 4;
 
     /** @return array<string, mixed> */
     public static function content(): array
@@ -19,6 +19,8 @@ final class Defaults
             'version' => self::VERSION,
             'player' => self::player(),
             'balance' => self::balance(),
+            'shop' => self::shop(),
+            'ui' => self::ui(),
             'audio' => self::audio(),
             'characters' => self::characters(),
             'weapons' => self::weapons(),
@@ -169,7 +171,68 @@ final class Defaults
             'rarityEpicBase' => 9,
             'rarityLegendaryBase' => 2,
             'rarityCycleBonus' => 1.35,
-            'weaponOfferChance' => 0.28,
+        ];
+    }
+
+    /**
+     * Der Laden zwischen den Wellen.
+     *
+     * Bilder, Anordnung und Preise sind vollstaendig einstellbar - das
+     * Spiel liest nur diese Werte. "offerCount" ist die Zahl der Auslagen,
+     * die Preise entstehen aus Grundpreis x Seltenheitsfaktor x Zyklus.
+     *
+     * @return array<string, mixed>
+     */
+    public static function shop(): array
+    {
+        $s = self::SPRITE_BASE;
+        return [
+            'enabled' => true,
+            'title' => "Porky's Shop",
+            'background' => $s . 'shop-hintergrund.jpg',
+            'counter' => $s . 'shop-tresen.png',
+            // Bis zu fuenf Einzelbilder ergeben das Ruhebild des Haendlers.
+            'merchantFrames' => [$s . 'haendler-schwein.png'],
+            'merchantFrameDuration' => 220,
+            // Anordnung in Prozent der Buehne - im Admin verschiebbar.
+            'merchantX' => 75.0,
+            'merchantY' => 36.0,
+            'merchantScale' => 115.0,
+            'counterY' => 100.0,
+            'counterScale' => 100.0,
+            'offerCount' => 4,
+            // Preis = priceBase x Faktor der Seltenheit x (1 + Zyklus-Zuschlag).
+            'priceBase' => 26,
+            'priceCommon' => 1.0,
+            'priceRare' => 1.9,
+            'priceEpic' => 3.2,
+            'priceLegendary' => 5.4,
+            'priceWeapon' => 4.0,
+            'priceCycleBonus' => 0.35,
+            // Jede weitere Stufe desselben Upgrades kostet mehr.
+            'priceStackBonus' => 0.45,
+            'rerollCost' => 18,
+            'rerollGrowth' => 1.6,
+            'weaponChance' => 0.3,
+            'lockLimit' => 3,
+        ];
+    }
+
+    /**
+     * Aussehen der Menuebildschirme.
+     *
+     * @return array<string, mixed>
+     */
+    public static function ui(): array
+    {
+        $s = self::SPRITE_BASE;
+        return [
+            'menuBackground' => $s . 'menu-hintergrund.jpg',
+            'charBackground' => $s . 'charakter-hintergrund.jpg',
+            // Standort der Figur auf der Charakterauswahl, in Prozent.
+            'charX' => 50.0,
+            'charY' => 72.0,
+            'charScale' => 100.0,
         ];
     }
 
@@ -249,6 +312,9 @@ final class Defaults
             'front' => $richtung($s . 'playerfront.gif'),
             'back' => $richtung($s . 'playerback.gif'),
             'side' => $richtung($s . 'playerside.gif'),
+            // Ruhebild: leer heisst "nimm das Bild von vorne". Sobald hier
+            // Einzelbilder hinterlegt sind, laeuft im Stand diese Animation.
+            'idle' => $richtung(''),
         ];
 
         // id, Name, Tönung, Titel, Text, Fähigkeit, Werte, von Anfang an frei
@@ -319,27 +385,42 @@ final class Defaults
         // Flächenwaffen treffen viele Ziele und machen pro Ziel weniger.
         // Die letzten beiden Zahlen sind die Darstellungsgrößen in Pixeln:
         // Waffensprite (in der Hand bzw. beim Schwung) und Projektil.
+        //
+        // Balancing: Grundlage ist der wirksame Schaden pro Sekunde, also
+        // Schaden / Nachladezeit x erwartete Treffer je Angriff x Trefferquote.
+        // Alle Waffen landen so bei rund 65-77 - Nahkampf etwas hoeher, weil
+        // man dafuer nah heran muss und Beruehrungsschaden riskiert:
+        //   Pistole      69 x 1.00 Ziele x 0.90 =  62
+        //   Sturmgewehr  82 x 1.00        x 0.80 =  65
+        //   Bogen        64 x 1.35        x 0.80 =  69
+        //   Armbrust     59 x 1.60        x 0.75 =  70
+        //   Zauberstab   69 x 1.00        x 1.00 =  69   (Zielsuche trifft immer)
+        //   Speer        68 x 1.30        x 0.85 =  75
+        //   Dolch        89 x 1.00        x 0.85 =  76
+        //   Schwert      52 x 1.80        x 0.80 =  75
+        //   Axt          37 x 2.60        x 0.80 =  77
+        //   Granate      32 x 2.80        x 0.85 =  77
         $w = [
             ['pistole', 'Pistole', 'pistole.png', 'PROJECTILE', 'schuss',
-             22, 0.40, 430, 640, 90, 8, 60, 0, 'Schneller Einzelschuss mit solidem Schaden.', 46, 16],
+             25, 0.36, 430, 640, 90, 8, 60, 0, 'Schneller Einzelschuss mit solidem Schaden.', 46, 16],
             ['sturmgewehr', 'Sturmgewehr', 'sturmgewehr.png', 'PROJECTILE', 'schuss',
-             8, 0.11, 390, 760, 35, 6, 55, 0, 'Sehr hohe Feuerrate, dafür wenig Schaden pro Schuss.', 54, 14],
+             9, 0.11, 390, 760, 35, 6, 55, 0, 'Sehr hohe Feuerrate, dafür wenig Schaden pro Schuss.', 54, 14],
             ['bogen', 'Bogen', 'bogen.png', 'PROJECTILE', 'pfeil',
-             46, 0.78, 540, 800, 110, 12, 70, 0, 'Langsamer Schuss, hoher Einzelschaden, durchbohrt 1 Gegner.', 50, 20],
+             46, 0.72, 540, 800, 110, 12, 70, 0, 'Langsamer Schuss, hoher Einzelschaden, durchbohrt 1 Gegner.', 50, 20],
             ['armbrust', 'Armbrust', 'armbrust.png', 'PROJECTILE', 'pfeil',
-             85, 1.35, 640, 980, 150, 14, 80, 0, 'Lange Nachladezeit, dafür massiver Schaden, durchbohrt 2 Gegner.', 56, 26],
+             82, 1.40, 640, 980, 150, 14, 80, 0, 'Lange Nachladezeit, dafür massiver Schaden, durchbohrt 2 Gegner.', 56, 26],
             ['zauberstab', 'Zauberstab', 'zauberstab.png', 'MAGIC', 'magic',
-             28, 0.55, 500, 430, 60, 10, 65, 0, 'Magisches Geschoss mit leichter Zielsuche - trifft fast immer.', 50, 18],
+             38, 0.55, 500, 430, 60, 10, 65, 0, 'Magisches Geschoss mit leichter Zielsuche - trifft fast immer.', 50, 18],
             ['speer', 'Speer', 'speer.png', 'THRUST', '',
-             48, 0.62, 165, 0, 130, 10, 65, 0, 'Stoß nach vorne mit schmalem Trefferbereich und hohem Schaden.', 120, 16],
+             42, 0.62, 165, 0, 130, 10, 65, 0, 'Stoß nach vorne mit schmalem Trefferbereich und hohem Schaden.', 120, 16],
             ['dolch', 'Dolch', 'dolch.png', 'MELEE_ARC', '',
-             15, 0.20, 100, 0, 45, 15, 70, 0, 'Blitzschnelle Stiche auf kurze Distanz.', 58, 16],
+             17, 0.19, 100, 0, 45, 15, 70, 0, 'Blitzschnelle Stiche auf kurze Distanz.', 58, 16],
             ['schwert', 'Schwert', 'schwert.png', 'MELEE_ARC', '',
-             22, 0.50, 140, 0, 110, 8, 60, 0, 'Weiter Schwung vor dem Spieler, trifft mehrere Gegner.', 95, 16],
+             25, 0.48, 140, 0, 110, 8, 60, 0, 'Weiter Schwung vor dem Spieler, trifft mehrere Gegner.', 95, 16],
             ['axt', 'Axt', 'axt.png', 'MELEE_360', '',
-             18, 0.95, 155, 0, 140, 8, 60, 0, 'Volle 360-Grad-Drehung, trifft alles rundherum.', 88, 16],
+             28, 0.76, 155, 0, 140, 8, 60, 0, 'Volle 360-Grad-Drehung, trifft alles rundherum.', 88, 16],
             ['granate', 'Granate', 'granate.png', 'GRENADE', 'granate',
-             55, 1.90, 400, 420, 190, 8, 60, 130, 'Wurfgeschoss mit verzögerter Explosion und großem Radius.', 46, 34],
+             50, 1.55, 400, 420, 190, 8, 60, 130, 'Wurfgeschoss mit verzögerter Explosion und großem Radius.', 46, 34],
         ];
 
         $out = [];
@@ -752,8 +833,16 @@ final class Defaults
                 $mods = is_array($char['mods'] ?? null) ? $char['mods'] : [];
                 $data['characters'][$i]['mods'] = array_merge(self::characterMods(), $mods);
                 // Neue Sprite-Felder nachtragen.
-                foreach (['front', 'back', 'side'] as $dir) {
+                foreach (['front', 'back', 'side', 'idle'] as $dir) {
                     if (!isset($data['characters'][$i]['sprites'][$dir])) {
+                        // Das Ruhebild kam spaeter dazu: leer heisst
+                        // "nimm weiter das Bild von vorne".
+                        if ($dir === 'idle') {
+                            $data['characters'][$i]['sprites']['idle'] = [
+                                'gif' => '', 'frames' => [], 'flips' => [],
+                                'flip' => false, 'scale' => 1.0,
+                            ];
+                        }
                         continue;
                     }
                     $eintrag = $data['characters'][$i]['sprites'][$dir];
@@ -821,6 +910,13 @@ final class Defaults
             }
         }
 
+        // Laden und Menue-Aussehen: fehlende Felder ergaenzen, eigene behalten.
+        $data['shop'] = array_merge(self::shop(), is_array($data['shop'] ?? null) ? $data['shop'] : []);
+        if (!is_array($data['shop']['merchantFrames'] ?? null) || !count($data['shop']['merchantFrames'])) {
+            $data['shop']['merchantFrames'] = self::shop()['merchantFrames'];
+        }
+        $data['ui'] = array_merge(self::ui(), is_array($data['ui'] ?? null) ? $data['ui'] : []);
+
         // Einmalig: Upgrades nachtragen, die es beim letzten Speichern noch
         // nicht gab (Verbrennung, Inferno, Alchemie). Über die Version, damit
         // später gelöschte Upgrades nicht bei jedem Start zurückkommen.
@@ -835,6 +931,24 @@ final class Defaults
             foreach (self::upgrades() as $up) {
                 if (!isset($known[$up['id']])) {
                     $data['upgrades'][] = $up;
+                }
+            }
+
+            // Einmalig das Waffen-Balancing nachziehen. Betroffen sind nur
+            // die mitgelieferten Waffen und nur Schaden und Nachladezeit -
+            // eigene Waffen und alle anderen Felder bleiben unangetastet.
+            if ($version < 4 && is_array($data['weapons'] ?? null)) {
+                $neu = [];
+                foreach (self::weapons() as $w) {
+                    $neu[$w['id']] = $w;
+                }
+                foreach ($data['weapons'] as $i => $weapon) {
+                    $id = (string) ($weapon['id'] ?? '');
+                    if (!isset($neu[$id])) {
+                        continue;
+                    }
+                    $data['weapons'][$i]['damage'] = $neu[$id]['damage'];
+                    $data['weapons'][$i]['cooldown'] = $neu[$id]['cooldown'];
                 }
             }
 

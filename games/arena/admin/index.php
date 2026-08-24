@@ -32,10 +32,6 @@ $version = (string) max(
 <meta name="theme-color" content="#0b0e15">
 <meta name="robots" content="noindex, nofollow">
 <title>Arena Admin</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all';this.onload=null">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"></noscript>
 <link rel="stylesheet" href="admin.css?v=<?= htmlspecialchars($version, ENT_QUOTES) ?>">
 </head>
 <body class="<?= $isAdmin ? 'is-admin' : 'is-login' ?>">
@@ -86,6 +82,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
       <button class="nav__item" data-view="player">Spieler</button>
       <button class="nav__item" data-view="balance">Balancing</button>
       <button class="nav__item" data-view="audio">Audio</button>
+      <button class="nav__item" data-view="shop">Laden &amp; Aussehen</button>
     </nav>
     <div class="sidebar__foot">
       <a class="btn btn--ghost" href="../">Zum Spiel</a>

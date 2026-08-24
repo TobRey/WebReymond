@@ -192,6 +192,20 @@ function element(track) {
 export const Audio = {
   events: EVENTS,
 
+  /** Zustand der beiden Musiktitel - fuer Diagnose und Tests. */
+  get musicState() {
+    return {
+      wants: wantsTrack,
+      current: currentTrack,
+      tracks: Object.entries(tracks).map(([name, t]) => ({
+        name,
+        src: t.src,
+        laeuft: !!(t.el && !t.el.paused),
+        volume: t.el ? +t.el.volume.toFixed(2) : 0,
+      })),
+    };
+  },
+
   /**
    * Legt die beiden Titel fest.
    *
@@ -229,9 +243,14 @@ export const Audio = {
     }
     const laeuftSchon = currentTrack === key;
 
-    // Alle anderen ausblenden.
+    // Alle anderen sofort stoppen. Ein Ausblenden waere huebscher, aber beim
+    // Wechsel zwischen Menue und Runde liefen dann kurz beide Titel.
     for (const [name, track] of Object.entries(tracks)) {
-      if (name !== key && track.el && !track.el.paused) fadeTrack(track, 0, 0.5);
+      if (name === key || !track.el) continue;
+      clearInterval(track.fade);
+      track.el.pause();
+      track.el.currentTime = 0;
+      track.el.volume = 0;
     }
     currentTrack = key || '';
     if (!key || !tracks[key]) return;

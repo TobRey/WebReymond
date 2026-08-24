@@ -349,7 +349,7 @@ function setView(name) {
   $('view-title').textContent = {
     dashboard: 'Dashboard', maps: 'Maps', enemies: 'Gegner', weapons: 'Waffen',
     upgrades: 'Upgrades', player: 'Spieler', balance: 'Balancing', audio: 'Audio',
-    characters: 'Charaktere',
+    characters: 'Charaktere', shop: 'Laden & Aussehen', items: 'Gegenstände',
   }[name];
   $('view-actions').textContent = '';
   const host = $('view');
@@ -1857,7 +1857,7 @@ function schussVorschau(lies) {
  */
 function laufVorschau(lies) {
   const box = el('div', 'field');
-  box.appendChild(el('label', null, 'Vorschau: Laufen in alle Richtungen'));
+  box.appendChild(el('label', null, 'Vorschau: Laufen in alle Richtungen und Stehen'));
 
   const canvas = el('canvas');
   canvas.width = 460;
@@ -1867,7 +1867,8 @@ function laufVorschau(lies) {
     + 'border-radius:12px;image-rendering:pixelated;';
   box.appendChild(canvas);
   box.appendChild(el('p', 'muted',
-    'Die Figur läuft im Kreis. Grösse und Spiegelung je Richtung wirken sofort.'));
+    'Die Figur läuft im Kreis und bleibt danach stehen - dann läuft das Ruhebild. '
+    + 'Grösse und Spiegelung je Richtung wirken sofort.'));
 
   const ctx = canvas.getContext('2d');
   const bilder = new Map();
@@ -1895,8 +1896,10 @@ function laufVorschau(lies) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.imageSmoothingEnabled = false;
 
-    // Acht Richtungen, alle 1,1 s eine weiter.
-    const schritt = Math.floor(t / 1.1) % 8;
+    // Acht Richtungen, alle 1,1 s eine weiter - danach ein neuntes Feld,
+    // in dem die Figur steht und ihr Ruhebild zeigt.
+    const schritt = Math.floor(t / 1.1) % 9;
+    const steht = schritt === 8;
     const winkel = (schritt / 8) * Math.PI * 2;
     const grad = ((winkel * 180) / Math.PI + 360) % 360;
     let richtung = 'side';
@@ -1904,6 +1907,13 @@ function laufVorschau(lies) {
     if (grad > 45 && grad < 135) richtung = 'front';
     else if (grad > 225 && grad < 315) richtung = 'back';
     else if (grad >= 135 && grad <= 225) spiegeln = true;
+    if (steht) {
+      // Ohne eigenes Ruhebild steht die Figur wie bisher nach vorne.
+      const idle = sprites.idle || {};
+      const hatIdle = !!idle.gif || (idle.frames || []).filter(Boolean).length > 0;
+      richtung = hatIdle ? 'idle' : 'front';
+      spiegeln = false;
+    }
 
     const eintrag = sprites[richtung] || {};
     const rahmen = (eintrag.frames || []).filter(Boolean);
@@ -1945,17 +1955,24 @@ function laufVorschau(lies) {
       ctx.restore();
     }
 
-    // Richtungspfeil
+    // Richtungspfeil - im Stand steht stattdessen nur ein Hinweis da.
     ctx.save();
-    ctx.translate(mx, my - 22);
-    ctx.rotate(winkel);
-    ctx.fillStyle = '#43d39e';
-    ctx.beginPath();
-    ctx.moveTo(96, 0);
-    ctx.lineTo(80, -7);
-    ctx.lineTo(80, 7);
-    ctx.closePath();
-    ctx.fill();
+    if (steht) {
+      ctx.fillStyle = '#8b96ad';
+      ctx.font = '13px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('steht still (Ruhebild)', mx, my + 44);
+    } else {
+      ctx.translate(mx, my - 22);
+      ctx.rotate(winkel);
+      ctx.fillStyle = '#43d39e';
+      ctx.beginPath();
+      ctx.moveTo(96, 0);
+      ctx.lineTo(80, -7);
+      ctx.lineTo(80, 7);
+      ctx.closePath();
+      ctx.fill();
+    }
     ctx.restore();
 
     ctx.save();
@@ -2275,7 +2292,6 @@ const BALANCE_FIELDS = [
   ['rarityEpicBase', 'Chance Epic (%)', 0, 1],
   ['rarityLegendaryBase', 'Chance Legendary (%)', 0, 1],
   ['rarityCycleBonus', 'Seltenheitsbonus je Zyklus', 1, 0.05],
-  ['weaponOfferChance', 'Chance auf Waffenkarte (0-1)', 0, 0.05],
 ];
 
 views.balance = (host) => {
@@ -2321,6 +2337,241 @@ views.balance = (host) => {
     'Verbrennung: Getroffene Gegner brennen ' + (b.burnDuration ?? 3) + ' s lang. Der Feuerschaden kommt ' +
     'aus den Upgrades "Verbrennung" und "Inferno" und wird mit dem Schadensfaktor des Runs multipliziert.'));
   host.appendChild(help);
+};
+
+/* ------------------------------------------------------- Laden & Aussehen */
+const SHOP_FIELDS = [
+  ['offerCount', 'Auslagen im Laden', 1, 1],
+  ['priceBase', 'Grundpreis', 1, 1],
+  ['priceCommon', 'Faktor Gewöhnlich', 0.1, 0.1],
+  ['priceRare', 'Faktor Selten', 0.1, 0.1],
+  ['priceEpic', 'Faktor Episch', 0.1, 0.1],
+  ['priceLegendary', 'Faktor Legendär', 0.1, 0.1],
+  ['priceWeapon', 'Faktor Waffe', 0.1, 0.1],
+  ['priceCycleBonus', 'Aufschlag je Zyklus', 0, 0.05],
+  ['priceStackBonus', 'Aufschlag je vorhandener Stufe', 0, 0.05],
+  ['rerollCost', 'Tausch kostet', 0, 1],
+  ['rerollGrowth', 'Tausch wird teurer (Faktor)', 1, 0.1],
+  ['weaponChance', 'Chance auf Waffe (0-1)', 0, 0.05],
+  ['lockLimit', 'Wie viele man merken darf', 0, 1],
+];
+
+const SHOP_LAYOUT = [
+  ['merchantX', 'Händler: Position von links (%)', 0, 1],
+  ['merchantY', 'Händler: Position von oben (%)', 0, 1],
+  ['merchantScale', 'Händler: Größe (%)', 20, 5],
+  ['merchantFrameDuration', 'Händler: Bildwechsel (ms)', 40, 10],
+  ['counterY', 'Tresen: Unterkante (%)', 0, 1],
+  ['counterScale', 'Tresen: Größe (%)', 20, 5],
+];
+
+const UI_LAYOUT = [
+  ['charX', 'Figur: Position von links (%)', 0, 1],
+  ['charY', 'Figur: Standfläche von oben (%)', 0, 1],
+  ['charScale', 'Figur: Größe (%)', 20, 5],
+];
+
+views.shop = (host) => {
+  const shop = JSON.parse(JSON.stringify(state.content.shop || {}));
+  const ui = JSON.parse(JSON.stringify(state.content.ui || {}));
+
+  /* --- Bilder des Ladens --------------------------------------------- */
+  const bilder = el('div', 'card');
+  bilder.appendChild(el('h3', null, 'Laden: Bilder'));
+  bilder.appendChild(el('p', 'muted',
+    'Drei Ebenen: Hintergrund ganz hinten, der Händler davor, der Tresen als '
+    + 'oberste Ebene vor dem Händler.'));
+
+  const an = checkInput('Laden nach der Upgrade-Auswahl öffnen', shop.enabled !== false);
+  an.input.addEventListener('change', () => { shop.enabled = an.input.checked; });
+  bilder.appendChild(an);
+
+  const titel = textInput(shop.title || '');
+  titel.addEventListener('input', () => { shop.title = titel.value; });
+  bilder.appendChild(field('Überschrift', titel));
+
+  bilder.appendChild(spriteField('Hintergrund', shop.background, (p) => { shop.background = p; }));
+  bilder.appendChild(spriteField('Tresen (vor dem Händler)', shop.counter, (p) => { shop.counter = p; }));
+
+  // Fuenf Bilder fuer das Ruhebild des Haendlers - derselbe Aufbau wie bei
+  // den Charakteren, damit man es nicht neu lernen muss.
+  shop.merchantFrames = Array.isArray(shop.merchantFrames) ? shop.merchantFrames : [];
+  const frames = el('div', 'framerow');
+  const zeichneFrames = () => {
+    frames.textContent = '';
+    for (let i = 0; i < 5; i++) {
+      const slot = el('div', 'frameslot');
+      const pfad = shop.merchantFrames[i];
+      if (pfad) {
+        const img = el('img');
+        img.src = '../' + pfad;
+        img.alt = '';
+        slot.appendChild(img);
+        const weg = el('button', 'frameslot__x', '✕');
+        weg.title = 'Bild entfernen';
+        weg.addEventListener('click', () => {
+          shop.merchantFrames.splice(i, 1);
+          zeichneFrames();
+          zeichneVorschau();
+        });
+        slot.appendChild(weg);
+      } else {
+        slot.classList.add('is-empty');
+        slot.appendChild(el('span', null, 'Bild ' + (i + 1)));
+      }
+      const upload = el('input');
+      upload.type = 'file';
+      upload.accept = 'image/png,image/gif,image/jpeg,image/webp';
+      upload.addEventListener('change', async () => {
+        if (!upload.files.length) return;
+        try {
+          const data = await uploadFile(upload.files[0]);
+          shop.merchantFrames[i] = data.path;
+          shop.merchantFrames = shop.merchantFrames.filter(Boolean);
+          zeichneFrames();
+          zeichneVorschau();
+          toast('Bild ' + (i + 1) + ' gesetzt');
+        } catch (err) { toast(err.message, 'error'); }
+      });
+      slot.appendChild(upload);
+      frames.appendChild(slot);
+    }
+  };
+  bilder.appendChild(el('div', 'muted', 'Händler: bis zu fünf Bilder für das Ruhebild.'));
+  bilder.appendChild(frames);
+  host.appendChild(bilder);
+
+  /* --- Anordnung mit Live-Vorschau ------------------------------------ */
+  const anordnung = el('div', 'card');
+  anordnung.appendChild(el('h3', null, 'Laden: Anordnung'));
+  const vorschau = el('div');
+  vorschau.style.cssText = 'position:relative;width:100%;max-width:520px;aspect-ratio:3/2;'
+    + 'overflow:hidden;border-radius:12px;background:#0d1119;';
+  const vHintergrund = el('img');
+  vHintergrund.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';
+  const vHaendler = el('img');
+  vHaendler.style.cssText = 'position:absolute;width:26%;image-rendering:pixelated;';
+  const vTresen = el('img');
+  vTresen.style.cssText = 'position:absolute;left:50%;width:118%;image-rendering:pixelated;';
+  const vAuslage = el('div');
+  vAuslage.style.cssText = 'position:absolute;left:4%;top:12%;width:56%;height:70%;'
+    + 'border:2px dashed rgba(108,140,255,.55);border-radius:8px;'
+    + 'display:grid;place-items:center;color:#9fb0d4;font-size:12px;';
+  vAuslage.textContent = 'Auslagen';
+  vorschau.append(vHintergrund, vHaendler, vTresen, vAuslage);
+  anordnung.appendChild(vorschau);
+  anordnung.appendChild(el('p', 'muted',
+    'Die gestrichelte Fläche zeigt, wo die Angebote liegen. Der Händler gehört nach rechts.'));
+
+  const shopInputs = {};
+  const gitter = el('div', 'grid2');
+  for (const [key, label, min, step] of SHOP_LAYOUT) {
+    shopInputs[key] = textInput(shop[key], { type: 'number', min, step });
+    shopInputs[key].addEventListener('input', () => {
+      shop[key] = +shopInputs[key].value;
+      zeichneVorschau();
+    });
+    gitter.appendChild(field(label, shopInputs[key]));
+  }
+  anordnung.appendChild(gitter);
+  host.appendChild(anordnung);
+
+  function zeichneVorschau() {
+    vHintergrund.src = shop.background ? '../' + shop.background : '';
+    const erstes = (shop.merchantFrames || []).filter(Boolean)[0] || '';
+    vHaendler.src = erstes ? '../' + erstes : '';
+    vHaendler.style.left = (shop.merchantX ?? 76) + '%';
+    vHaendler.style.top = (shop.merchantY ?? 62) + '%';
+    vHaendler.style.transform =
+      `translate(-50%, -50%) scale(${(shop.merchantScale ?? 100) / 100})`;
+    vTresen.src = shop.counter ? '../' + shop.counter : '';
+    vTresen.style.top = (shop.counterY ?? 100) + '%';
+    vTresen.style.transform =
+      `translate(-50%, -100%) scale(${(shop.counterScale ?? 100) / 100})`;
+  }
+  zeichneFrames();
+  zeichneVorschau();
+
+  /* --- Preise ---------------------------------------------------------- */
+  const preise = el('div', 'card');
+  preise.appendChild(el('h3', null, 'Laden: Preise'));
+  preise.appendChild(el('p', 'muted',
+    'Preis = Grundpreis × Faktor der Seltenheit × (1 + Aufschlag je Zyklus × (Zyklus−1)) '
+    + '× (1 + Aufschlag je vorhandener Stufe × bereits gekaufte Stufen). Besser ist so '
+    + 'automatisch teurer.'));
+  const preisGitter = el('div', 'grid2');
+  const preisInputs = {};
+  for (const [key, label, min, step] of SHOP_FIELDS) {
+    preisInputs[key] = textInput(shop[key], { type: 'number', min, step });
+    preisGitter.appendChild(field(label, preisInputs[key]));
+  }
+  preise.appendChild(preisGitter);
+  host.appendChild(preise);
+
+  /* --- Menue und Charakterauswahl -------------------------------------- */
+  const aussehen = el('div', 'card');
+  aussehen.appendChild(el('h3', null, 'Menü & Charakterauswahl'));
+  aussehen.appendChild(spriteField('Hintergrund Hauptmenü', ui.menuBackground,
+    (p) => { ui.menuBackground = p; }));
+  aussehen.appendChild(spriteField('Hintergrund Charakterauswahl', ui.charBackground,
+    (p) => { ui.charBackground = p; zeichneCharVorschau(); }));
+
+  const charVorschau = el('div');
+  charVorschau.style.cssText = 'position:relative;width:100%;max-width:520px;aspect-ratio:3/2;'
+    + 'overflow:hidden;border-radius:12px;background:#0d1119;';
+  const cHintergrund = el('img');
+  cHintergrund.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';
+  const cFigur = el('img');
+  cFigur.style.cssText = 'position:absolute;height:32%;image-rendering:pixelated;';
+  charVorschau.append(cHintergrund, cFigur);
+  aussehen.appendChild(charVorschau);
+  aussehen.appendChild(el('p', 'muted',
+    'Die Figur steht auf dem angegebenen Punkt - der Punkt ist ihre Standfläche, '
+    + 'nicht ihre Mitte.'));
+
+  const uiInputs = {};
+  const uiGitter = el('div', 'grid2');
+  for (const [key, label, min, step] of UI_LAYOUT) {
+    uiInputs[key] = textInput(ui[key], { type: 'number', min, step });
+    uiInputs[key].addEventListener('input', () => {
+      ui[key] = +uiInputs[key].value;
+      zeichneCharVorschau();
+    });
+    uiGitter.appendChild(field(label, uiInputs[key]));
+  }
+  aussehen.appendChild(uiGitter);
+
+  function zeichneCharVorschau() {
+    cHintergrund.src = ui.charBackground ? '../' + ui.charBackground : '';
+    const erster = (state.content.characters || []).find((c) => c.active !== false);
+    const sp = (erster && erster.sprites) || {};
+    const idle = sp.idle || {};
+    const front = sp.front || {};
+    const pfad = (idle.frames || [])[0] || idle.gif || (front.frames || [])[0] || front.gif || '';
+    cFigur.src = pfad ? '../' + pfad : '';
+    cFigur.style.left = (ui.charX ?? 50) + '%';
+    cFigur.style.top = (ui.charY ?? 63) + '%';
+    cFigur.style.transform = `translate(-50%, -100%) scale(${(ui.charScale ?? 100) / 100})`;
+  }
+  zeichneCharVorschau();
+  host.appendChild(aussehen);
+
+  /* --- Speichern -------------------------------------------------------- */
+  const speichern = el('button', 'btn btn--primary', 'Laden & Aussehen speichern');
+  speichern.addEventListener('click', async () => {
+    for (const [key] of SHOP_FIELDS) shop[key] = +preisInputs[key].value;
+    for (const [key] of SHOP_LAYOUT) shop[key] = +shopInputs[key].value;
+    for (const [key] of UI_LAYOUT) ui[key] = +uiInputs[key].value;
+    shop.merchantFrames = (shop.merchantFrames || []).filter(Boolean);
+    try {
+      await api('settings', { shop, ui });
+      toast('Gespeichert');
+      setView('shop');
+    } catch (e) { toast(e.message, 'error'); }
+  });
+  const fuss = el('div', 'card');
+  fuss.appendChild(speichern);
+  host.appendChild(fuss);
 };
 
 /* ------------------------------------------------------------- Charaktere */
@@ -2442,7 +2693,10 @@ function editCharacter(character) {
     + 'Liegen Einzelbilder vor, baut das Spiel daraus die Animation.'));
 
   const spriteState = JSON.parse(JSON.stringify(data.sprites));
-  for (const [dir, label] of [['front', 'Nach vorne (unten)'], ['back', 'Nach hinten (oben)'], ['side', 'Seitlich']]) {
+  for (const [dir, label] of [
+    ['front', 'Nach vorne (unten)'], ['back', 'Nach hinten (oben)'], ['side', 'Seitlich'],
+    ['idle', 'Ruhebild (Stehen)'],
+  ]) {
     body.appendChild(directionEditor(dir, label, spriteState));
   }
 
