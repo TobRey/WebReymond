@@ -1,0 +1,28 @@
+Beim Hochladen per FTP oder Datei-Manager
+=========================================
+
+Manche Programme überspringen Dateien, die mit einem Punkt beginnen
+(.htaccess, .user.ini, .gitignore). Die Meldung sieht dann so aus:
+
+  Übersprungen (nicht erlaubte Dateitypen): .htaccess, data/.htaccess, ...
+
+Das Spiel läuft trotzdem vollständig. Diese Punkt-Dateien sind nur Zugaben:
+
+1. .htaccess und .user.ini heben die Uploadgrenze auf 24 MB an.
+   Fehlen sie, gilt die Grenze deines Hosters (oft 2 MB). Der genaue Wert
+   steht im Admin-Dashboard unter "Server" und auf der Audio-Seite.
+   Erhöhen kannst du ihn im Hosting-Panel (PHP-Einstellungen:
+   upload_max_filesize und post_max_size).
+
+   Alternativ: Lade die beiliegenden Dateien
+       htaccess-vorlage.txt   -> auf dem Server umbenennen in  .htaccess
+       user-ini-vorlage.txt   -> auf dem Server umbenennen in  .user.ini
+   Die meisten Datei-Manager erlauben das Umbenennen nach dem Hochladen.
+
+2. data/.htaccess schützte früher die Spieldaten. Das ist nicht mehr nötig:
+   Alle Daten liegen jetzt in .php-Dateien, die mit einem Abbruchbefehl
+   beginnen. Ruft jemand sie direkt im Browser auf, kommt nichts zurück.
+
+Sonst nichts zu tun. Wichtig bleibt nur: die Ordner
+    data/            und     assets/uploads/
+müssen für PHP beschreibbar sein (chmod 775).

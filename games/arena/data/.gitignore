@@ -1,0 +1,9 @@
+# Laufzeitdaten werden nicht versioniert.
+content.php
+content.php.lock
+admin.php
+content.json
+content.json.lock
+admin.json
+accounts/
+*.tmp

@@ -1,0 +1,1776 @@
+/*
+ * Zwei Schriften, beide beim Spiel selbst - kein Nachladen von aussen.
+ *
+ * Cinzel traegt Titel, Knoepfe und alles Grosse: eine klare, kraeftige
+ * Schrift mit Fantasy-Anmutung, die auch bei 13 px eindeutig bleibt.
+ * Rubik traegt Fliesstext und alle Zahlen.
+ *
+ * Vorher stand hier eine Pixelschrift. Die passte zum Bild, war aber bei
+ * kleinen Groessen unbrauchbar - eine 2 sah aus wie eine 8. Zusammen mit
+ * durchgehend groesseren Schriftgraden ist davon jetzt nichts mehr uebrig.
+ */
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('../fonts/cinzel-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('../fonts/cinzel-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Rubik';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../fonts/rubik-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Rubik';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../fonts/rubik-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ==========================================================================
+   Arena Survivors - Spieloberflaeche
+   Pixel-Art bleibt scharf, HUD bleibt Screen-Space, Touch bleibt sauber.
+   ========================================================================== */
+
+:root {
+  --bg: #07090e;
+  --panel: rgba(16, 20, 30, 0.92);
+  --panel-solid: #121724;
+  --line: rgba(255, 255, 255, 0.09);
+  --line-strong: rgba(255, 255, 255, 0.18);
+  --text: #eef2fb;
+  --muted: #8f99b2;
+  --accent: #7c6cff;
+  --accent-2: #43e0c0;
+  --gold: #ffcf5c;
+  --danger: #ff5f7e;
+  --hp: #5ee08a;
+  --shield: #62c8ff;
+  /* Anzeige-Schrift (Titel, Knoepfe) und Lese-Schrift (Text, Zahlen). */
+  --schrift-titel: Cinzel, "Times New Roman", Georgia, serif;
+  --schrift: Rubik, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --menu-bg: url('../sprites/menu-hintergrund.jpg');
+  --char-bg: url('../sprites/charakter-hintergrund.jpg');
+  --radius: 16px;
+  --ease: cubic-bezier(.22, .8, .3, 1);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  /* Eine einzige Schrift im Spielstil - Ueberschriften wie Fliesstext. */
+  font-family: var(--schrift);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;              /* kein Doppeltipp-Zoom, kein Pull-to-refresh */
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Alles Kleine und alle Zahlen in der Lese-Schrift. */
+p, span, b, i, em, strong, small, label, li, td, th,
+input, select, textarea {
+  font-family: var(--schrift);
+}
+
+/*
+ * Alles Grosse in der Spielschrift: Titel, Knoepfe, Banner, Countdown,
+ * die Werte im HUD. Hier ist sie gross genug, um eindeutig zu bleiben.
+ */
+h1, h2, h3, h4,
+.logo, .btn, .iconbtn, .overlay__title, .overlay__kicker, .subhead,
+.banner, .countdown__zahl, .countdown__kicker, .shop__titel,
+.angebot__name, .card__title, .charwahl__kopf h2, .charwahl__info h3,
+.panel__head h2, .dialog h3, .charpfeil {
+  font-family: var(--schrift-titel);
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #05070b;
+  touch-action: none;
+}
+
+/* --------------------------------------------------------------- Buttons */
+button, input, select { font: inherit; color: inherit; }
+.btn {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  border-radius: 13px;
+  padding: 13px 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .13s var(--ease), background .18s var(--ease), border-color .18s var(--ease);
+  will-change: transform;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+}
+.btn:active { transform: scale(.96); }
+.btn--primary {
+  background: linear-gradient(135deg, var(--accent), #9a8bff);
+  border-color: transparent;
+  box-shadow: 0 12px 30px rgba(124, 108, 255, .35);
+}
+.btn--xl { font-size: 17px; padding: 16px 30px; }
+.btn--quiet { background: none; border-color: transparent; color: var(--muted); }
+.btn--quiet:hover { color: var(--text); }
+
+/* --------------------------------------------------------------- Screens */
+.screen {
+  position: fixed;
+  inset: 0;
+  display: none;
+  place-items: center;
+  padding: calc(16px + var(--safe-t)) calc(16px + var(--safe-r)) calc(16px + var(--safe-b)) calc(16px + var(--safe-l));
+  background: radial-gradient(1000px 700px at 50% -10%, rgba(124, 108, 255, .18), transparent 65%), var(--bg);
+  z-index: 20;
+  overflow: auto;
+}
+.screen.is-active { display: grid; }
+.screen.is-active > * { animation: rise .3s var(--ease) both; }
+@keyframes rise {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ------------------------------------------------------------ Titelbild */
+/*
+ * Das Artwork traegt den Titel bereits im Bild. Es sitzt oben ausgerichtet,
+ * damit die Schrift bei jedem Seitenverhaeltnis sichtbar bleibt; nach unten
+ * legt sich ein Verlauf, auf dem die Knoepfe lesbar stehen.
+ */
+.screen--titel {
+  /*
+   * Das Artwork ist quadratisch. Hochkant wird es komplett gezeigt und die
+   * Knoepfe stehen darunter; auf breiten Bildschirmen fuellt es die Flaeche.
+   * So bleibt der Schriftzug in jedem Format ganz sichtbar.
+   */
+  background:
+    linear-gradient(180deg, rgba(8, 6, 14, 0) 0%, rgba(8, 6, 14, 0) 40%,
+      rgba(8, 6, 14, .72) 64%, #08060e 78%),
+    var(--menu-bg) top center / contain no-repeat,
+    #08060e;
+  align-content: end;
+  padding-bottom: calc(26px + var(--safe-b));
+}
+
+/*
+ * Hochkant: Das Bild belegt oben ein Quadrat, die Knoepfe sitzen mittig im
+ * Rest. Ohne diese Aufteilung klaffte zwischen Bild und Knoepfen eine Luecke.
+ */
+@media (max-aspect-ratio: 1/1) {
+  .screen--titel {
+    grid-template-rows: min(100vw, 62vh) 1fr;
+    align-content: stretch;
+    padding-top: 0;
+  }
+  .screen--titel .menu {
+    grid-row: 2;
+    align-self: center;
+  }
+}
+
+/* Quadratisch oder breiter: Das Bild fuellt den Hintergrund. */
+@media (min-aspect-ratio: 1/1) {
+  .screen--titel {
+    background:
+      linear-gradient(180deg, rgba(8, 6, 14, .32) 0%, rgba(8, 6, 14, .06) 20%,
+        rgba(8, 6, 14, .58) 56%, rgba(8, 6, 14, .94) 86%, #08060e 100%),
+      var(--menu-bg) top center / cover no-repeat,
+      #08060e;
+  }
+}
+
+.menu {
+  display: grid; gap: 14px; justify-items: center; text-align: center;
+  max-width: 460px; width: 100%;
+}
+
+/* Der Titel steht im Bild - der Text bleibt nur fuer Vorleseprogramme. */
+.screen--titel .logo,
+.screen--titel .logo__sub {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+
+.logo { margin: 0; font-size: clamp(34px, 9vw, 54px); letter-spacing: -.03em; line-height: 1; }
+.logo span { display: block; color: var(--accent); }
+.logo__sub { margin: 0; color: var(--muted); font-size: 14px; }
+
+.menu__buttons { display: grid; gap: 9px; width: min(340px, 88vw); }
+.menu__row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.menu__best {
+  color: #d8c9a8; font-size: 13px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .95);
+}
+
+/*
+ * Knoepfe im Stil des Bildes: gehauener Stein mit Goldkante, der
+ * Hauptknopf in demselben Gold wie der Schriftzug.
+ */
+.btn--gold,
+.btn--stein {
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-weight: 800;
+  border-width: 2px;
+  border-style: solid;
+}
+
+.btn--gold {
+  color: #2a1c05;
+  background: linear-gradient(180deg, #f5d97c 0%, #e0b23c 46%, #b8862a 100%);
+  border-color: #7a5616;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 245, 210, .75),
+    inset 0 -3px 0 rgba(90, 60, 10, .45),
+    0 4px 0 #6b4a13,
+    0 10px 26px rgba(224, 178, 60, .32);
+  text-shadow: 0 1px 0 rgba(255, 246, 214, .55);
+}
+.btn--gold:hover { filter: brightness(1.07); }
+.btn--gold:active { transform: translateY(3px); box-shadow: inset 0 2px 0 rgba(255,245,210,.6), 0 1px 0 #6b4a13; }
+
+.btn--stein {
+  color: #ecdfc4;
+  background: linear-gradient(180deg, #3b3348 0%, #2a2334 55%, #201a29 100%);
+  border-color: #6b5a3a;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 195, .18),
+    inset 0 -2px 0 rgba(0, 0, 0, .5),
+    0 3px 0 #14101c;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .8);
+}
+.btn--stein:hover { border-color: #a4854f; color: #fff4dc; }
+.btn--stein:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,236,195,.14), 0 1px 0 #14101c; }
+.btn--klein { font-size: 12px; padding: 9px 14px; letter-spacing: .12em; opacity: .85; }
+
+/*
+ * Sehr flache Bildschirme (Handy quer): Das Bild wird stark beschnitten,
+ * deshalb ruecken die Knoepfe auf eine dunkle Saeule am Rand - so bleibt
+ * vom Artwork so viel wie moeglich frei sichtbar.
+ */
+@media (max-height: 520px) and (orientation: landscape) {
+  .screen--titel {
+    background:
+      linear-gradient(90deg, rgba(8, 6, 14, .96) 0%, rgba(8, 6, 14, .88) 34%,
+        rgba(8, 6, 14, .35) 58%, rgba(8, 6, 14, .15) 100%),
+      var(--menu-bg) center right / cover no-repeat,
+      #08060e;
+    align-content: center;
+    justify-content: start;
+    padding-left: calc(28px + var(--safe-l));
+  }
+  .menu { max-width: 380px; }
+  .menu__buttons { width: min(360px, 46vw); }
+  .btn--xl { padding: 13px 20px; font-size: 16px; }
+}
+
+.panel {
+  width: min(920px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: clamp(16px, 3vw, 26px);
+  backdrop-filter: blur(12px);
+  max-height: 100%;
+  overflow: auto;
+}
+.panel__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.panel__head h2 { margin: 0; font-size: clamp(19px, 4vw, 24px); }
+
+/* ---------------------------------------------------------------- Listen */
+.worldlist { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.world {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: rgba(255, 255, 255, .03);
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  transition: transform .16s var(--ease), border-color .18s var(--ease);
+}
+.world:active { transform: scale(.98); }
+.world.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.world__img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; display: block; background: #0d1119; image-rendering: pixelated; }
+.world__body { padding: 10px 12px 12px; display: grid; gap: 3px; }
+.world__name { font-weight: 600; font-size: 14px; }
+.world__meta { color: var(--muted); font-size: 12px; }
+
+.weaponlist { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.weapon {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, .03);
+  padding: 14px;
+  display: grid;
+  gap: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: transform .16s var(--ease), border-color .18s var(--ease), background .18s var(--ease);
+}
+.weapon:active { transform: scale(.98); }
+.weapon:hover { border-color: var(--line-strong); }
+.weapon__top { display: flex; align-items: center; gap: 10px; }
+.weapon__icon {
+  width: 62px; height: 44px; object-fit: contain; image-rendering: pixelated;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .5));
+}
+.weapon__name { font-weight: 700; font-size: 15px; }
+.weapon__type { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-2); }
+.weapon__desc { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+.weapon__stats { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag {
+  font-size: 11px; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 7px; padding: 3px 7px;
+}
+
+/* ------------------------------------------------------------------- HUD */
+.hud {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  padding: calc(10px + var(--safe-t)) calc(12px + var(--safe-r)) calc(10px + var(--safe-b)) calc(12px + var(--safe-l));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/*
+ * Kopfzeile des HUD.
+ *
+ * Die Knoepfe lagen frueher absolut in der rechten Ecke - auf schmalen
+ * Handys deckten sie damit Welle, Zeit und Geld zu. Jetzt stehen sie im
+ * normalen Fluss und rutschen bei Platzmangel in eine zweite Reihe.
+ */
+.hud__top {
+  display: flex; gap: 8px; align-items: flex-start;
+  justify-content: space-between; flex-wrap: wrap;
+}
+.hud__pillen {
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+  flex: 1 1 auto; min-width: 0;
+}
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(10, 13, 20, .72);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  /* Kein backdrop-filter: Die Pillen liegen über der Spielflaeche, und ein
+     Weichzeichner müsste dort in jedem einzelnen Bild neu berechnet werden.
+     Der undurchsichtigere Hintergrund sieht praktisch gleich aus. */
+  background: rgba(10, 13, 20, .82);
+}
+.pill b { color: var(--text); font-size: 14px; }
+.pill--timer b { font-variant-numeric: tabular-nums; }
+.pill--money b { color: var(--gold); }
+.coin { width: 9px; height: 9px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 8px rgba(255, 207, 92, .7); }
+
+.hud__boss { width: min(560px, 92%); margin: 4px auto 0; }
+.bossbar__label { display: flex; justify-content: space-between; font-size: 11px; color: var(--danger); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 3px; }
+.bossbar {
+  height: 12px; border-radius: 999px; overflow: hidden;
+  background: rgba(10, 13, 20, .8); border: 1px solid rgba(255, 95, 126, .4);
+}
+.bossbar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #ff5f7e, #ff9c5f); transition: width .18s linear; }
+
+.hud__bottom { margin-top: auto; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.vitals { display: grid; gap: 5px; width: min(260px, 52%); }
+.bar {
+  position: relative; height: 16px; border-radius: 999px; overflow: hidden;
+  background: rgba(10, 13, 20, .78); border: 1px solid var(--line);
+}
+.bar i { display: block; height: 100%; width: 100%; transition: width .16s linear; }
+.bar--hp i { background: linear-gradient(90deg, var(--hp), #9ff2b8); }
+.bar--shield { height: 8px; }
+.bar--shield i { background: linear-gradient(90deg, var(--shield), #a9e5ff); }
+.bar span {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-size: 10.5px; font-weight: 700; color: #06240f; letter-spacing: .02em;
+}
+
+.hud__weapon {
+  pointer-events: auto;
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(10, 13, 20, .72); border: 1px solid var(--line);
+  border-radius: 12px; padding: 6px 10px; font-size: 12px;
+}
+.hud__weapon img { width: 34px; height: 22px; object-fit: contain; image-rendering: pixelated; }
+
+.hud__buttons {
+  display: flex; gap: 6px; pointer-events: auto; flex: 0 0 auto;
+}
+.iconbtn {
+  width: 42px; height: 42px; border-radius: 12px;
+  background: rgba(10, 13, 20, .72); border: 1px solid var(--line);
+  color: var(--text); font-size: 16px; cursor: pointer;
+  display: grid; place-items: center;
+}
+.iconbtn:active { transform: scale(.94); }
+
+.banner {
+  position: absolute; left: 50%; top: 26%;
+  transform: translate(-50%, -50%);
+  font-family: var(--schrift-titel); font-weight: 700;
+  font-size: clamp(22px, 6vw, 40px);
+  letter-spacing: .04em; text-align: center;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, .8);
+  animation: bannerIn 2.2s var(--ease) forwards;
+}
+.banner--boss { color: var(--danger); }
+@keyframes bannerIn {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.7); }
+  18% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -60%) scale(1.02); }
+}
+
+.debug {
+  position: absolute; left: calc(12px + var(--safe-l)); top: calc(58px + var(--safe-t));
+  font-family: ui-monospace, monospace; font-size: 11px; color: #9ff2b8;
+  background: rgba(6, 9, 14, .7); border-radius: 8px; padding: 6px 9px; line-height: 1.5;
+  white-space: pre;
+}
+
+/* -------------------------------------------------------------- Overlays */
+.overlay {
+  position: fixed; inset: 0; z-index: 30;
+  display: grid; place-items: center;
+  padding: calc(14px + var(--safe-t)) calc(14px + var(--safe-r)) calc(14px + var(--safe-b)) calc(14px + var(--safe-l));
+  background: rgba(4, 6, 10, .72);
+  backdrop-filter: blur(7px);
+  animation: fade .18s var(--ease) both;
+}
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+.overlay__inner {
+  width: min(980px, 100%);
+  max-height: 100%;
+  display: grid; gap: 12px; justify-items: center;
+  animation: rise .26s var(--ease) both;
+}
+.overlay__inner--scroll {
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: clamp(16px, 3vw, 24px);
+  justify-items: stretch;
+}
+.overlay__kicker { margin: 0; color: var(--accent-2); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; }
+.overlay__title { margin: 0 0 4px; font-size: clamp(20px, 5vw, 30px); text-align: center; }
+
+.cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); width: 100%; }
+.card {
+  position: relative;
+  border-radius: 18px; padding: 16px;
+  background: linear-gradient(180deg, rgba(28, 34, 50, .95), rgba(16, 20, 30, .95));
+  border: 1px solid var(--line);
+  display: grid; gap: 8px; justify-items: center; text-align: center;
+  cursor: pointer; overflow: hidden;
+  transition: transform .16s var(--ease), border-color .2s var(--ease);
+  animation: cardIn .32s var(--ease) both;
+}
+.card:nth-child(2) { animation-delay: .06s; }
+.card:nth-child(3) { animation-delay: .12s; }
+@keyframes cardIn {
+  from { opacity: 0; transform: translate3d(0, 18px, 0) scale(.96); }
+  to { opacity: 1; transform: none; }
+}
+.card:active { transform: scale(.97); }
+.card::before {
+  content: ""; position: absolute; inset: 0; opacity: .16; pointer-events: none;
+  background: radial-gradient(70% 55% at 50% 0%, var(--rarity, #7c6cff), transparent 70%);
+}
+.card--common { --rarity: #9aa6c2; }
+.card--rare { --rarity: #58b6ff; }
+.card--epic { --rarity: #c07bff; }
+.card--legendary { --rarity: #ffb020; }
+.card { border-color: color-mix(in srgb, var(--rarity) 45%, transparent); }
+.card__rarity {
+  font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--rarity); font-weight: 700;
+}
+.card__icon { width: 74px; height: 48px; object-fit: contain; image-rendering: pixelated; }
+.card__icon--stat {
+  width: 46px; height: 46px; border-radius: 14px;
+  display: grid; place-items: center; font-size: 20px;
+  background: color-mix(in srgb, var(--rarity) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--rarity) 45%, transparent);
+}
+.card__title { font-weight: 700; font-size: 16px; }
+.card__value { color: var(--rarity); font-weight: 700; font-size: 14px; }
+.card__desc { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+
+.dialog {
+  width: min(420px, 100%);
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 22px;
+  display: grid; gap: 14px;
+  animation: rise .22s var(--ease) both;
+}
+.dialog h3 { margin: 0; font-size: 20px; }
+.dialog p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+.dialog__actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.dialog__actions--column { flex-direction: column; }
+
+.statgrid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.statgrid > div {
+  border: 1px solid var(--line); border-radius: 12px; padding: 9px 11px;
+  display: grid; gap: 2px; background: rgba(255, 255, 255, .02);
+}
+.statgrid span { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.statgrid b { font-size: 16px; }
+
+.subhead { margin: 14px 0 8px; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.upgradelist { display: flex; flex-wrap: wrap; gap: 7px; }
+.upgradechip {
+  border: 1px solid color-mix(in srgb, var(--rarity, #9aa6c2) 45%, transparent);
+  border-radius: 9px; padding: 5px 10px; font-size: 12px;
+  background: color-mix(in srgb, var(--rarity, #9aa6c2) 12%, transparent);
+}
+.upgradechip b { color: var(--rarity, #9aa6c2); }
+
+/* --------------------------------------------------------------- Kleines */
+.loading {
+  position: fixed; inset: 0; z-index: 60;
+  display: grid; place-items: center; gap: 14px; align-content: center;
+  background: var(--bg); color: var(--muted); font-size: 13px;
+}
+.loading__spinner {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, .12); border-top-color: var(--accent);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.rotate {
+  position: fixed; z-index: 50; left: 50%; bottom: calc(18px + var(--safe-b));
+  transform: translateX(-50%);
+  background: rgba(10, 13, 20, .9); border: 1px solid var(--line);
+  border-radius: 999px; padding: 9px 16px; font-size: 12.5px; color: var(--muted);
+  animation: rise .3s var(--ease) both;
+}
+
+.toasts {
+  position: fixed; z-index: 70; left: 50%; top: calc(56px + var(--safe-t));
+  transform: translateX(-50%); display: grid; gap: 7px; pointer-events: none;
+}
+.toast {
+  background: rgba(18, 23, 36, .96); border: 1px solid var(--line-strong);
+  border-radius: 11px; padding: 9px 14px; font-size: 13px;
+  animation: rise .2s var(--ease) both;
+}
+.toast.is-error { border-color: rgba(255, 95, 126, .5); color: #ffc2ce; }
+
+@media (max-width: 560px) {
+  .cards { grid-template-columns: 1fr; }
+  .card { padding: 12px; }
+  .card__icon, .card__icon--stat { width: 56px; height: 38px; }
+  .vitals { width: 55%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+
+/* ------------------------------------------------------------ Charaktere */
+.panel--narrow { width: min(430px, 100%); }
+.panel__meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.chip {
+  font-size: 12px; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px;
+}
+
+.charlist { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.char {
+  position: relative; overflow: hidden;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: rgba(255, 255, 255, .03);
+  padding: 14px; display: grid; grid-template-columns: 64px 1fr; gap: 12px;
+  cursor: pointer; text-align: left;
+  transition: transform .16s var(--ease), border-color .18s var(--ease);
+}
+.char:active { transform: scale(.98); }
+.char:hover { border-color: var(--line-strong); }
+.char.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.char.is-locked { opacity: .78; padding-bottom: 42px; }
+.char.is-locked .char__art { filter: grayscale(1) brightness(.7); }
+.char__art {
+  width: 64px; height: 74px; display: grid; place-items: end center;
+  background: linear-gradient(180deg, rgba(124,108,255,.12), transparent);
+  border-radius: 12px; overflow: hidden;
+}
+.char__art img { max-width: 100%; max-height: 100%; object-fit: contain; image-rendering: pixelated; }
+.char__body { display: grid; gap: 4px; min-width: 0; }
+.char__name { font-weight: 700; font-size: 16px; }
+.char__title { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-2); }
+.char__desc { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.char__tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 3px; }
+.char__perk {
+  display: grid; gap: 2px; margin-top: 5px;
+  padding: 7px 9px; border-radius: 10px;
+  background: rgba(124, 108, 255, .12);
+  border: 1px solid rgba(124, 108, 255, .3);
+}
+.char__perk b { font-size: 12.5px; color: #bdb2ff; }
+.char__perk span { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.char__lock {
+  position: absolute; inset: auto 0 0 0; padding: 7px 12px;
+  background: rgba(10, 13, 20, .88); font-size: 12px; font-weight: 600; color: var(--gold);
+  border-top: 1px solid var(--line);
+}
+
+/* ----------------------------------------------------------- Bestenliste */
+.scoreown { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+.scorelist { display: grid; gap: 6px; }
+.scorerow {
+  display: grid; grid-template-columns: 46px 1fr auto auto; gap: 10px; align-items: center;
+  border: 1px solid var(--line); border-radius: 11px; padding: 9px 12px;
+  background: rgba(255, 255, 255, .02); font-size: 13.5px;
+}
+.scorerow.is-me { border-color: var(--accent); background: rgba(124, 108, 255, .12); }
+.scorerow__rank { color: var(--muted); font-weight: 700; }
+.scorerow__name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scorerow__meta { color: var(--muted); font-size: 12px; }
+.scorerow__score { font-family: var(--schrift); font-weight: 700; color: var(--gold); }
+
+.form { display: grid; gap: 12px; }
+.form-error { color: var(--danger); font-size: 13px; margin: 0; min-height: 18px; }
+.death-xp {
+  margin: 0; color: var(--accent-2); font-weight: 600; font-size: 14px;
+}
+
+@media (max-width: 560px) {
+  .charlist { grid-template-columns: 1fr; }
+  .scorerow { grid-template-columns: 36px 1fr auto; }
+  .scorerow__meta { display: none; }
+}
+
+/* ------------------------------------------------------------- Ladebalken */
+.loading__bar {
+  width: min(240px, 70vw); height: 5px; border-radius: 999px;
+  background: rgba(255, 255, 255, .1); overflow: hidden;
+}
+.loading__bar i {
+  display: block; height: 100%; width: 0;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width .25s var(--ease);
+}
+.loading__hint {
+  margin: 0; max-width: min(420px, 86vw); text-align: center;
+  font-size: 12.5px; color: var(--muted); line-height: 1.5;
+}
+
+
+/* ------------------------------------------------ Ton-Einstellungen (Pause) */
+.soundpanel {
+  display: grid; gap: 10px; width: 100%;
+  padding: 12px; margin: 4px 0 2px;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.soundrow {
+  display: grid; grid-template-columns: 74px auto 1fr; align-items: center; gap: 12px;
+  font-size: 14px;
+}
+.soundrow > span { color: var(--muted); }
+.switch {
+  appearance: none; -webkit-appearance: none;
+  width: 44px; height: 26px; flex: 0 0 auto;
+  border-radius: 999px; background: rgba(255, 255, 255, .16);
+  border: 1px solid var(--line); position: relative; cursor: pointer;
+  transition: background .16s var(--ease);
+}
+.switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 20px; height: 20px; border-radius: 50%; background: #e8eef7;
+  transition: transform .16s var(--ease);
+}
+.switch:checked { background: var(--accent); }
+.switch:checked::after { transform: translateX(18px); }
+.soundrow input[type="range"] {
+  appearance: none; -webkit-appearance: none;
+  width: 100%; height: 22px; background: transparent; cursor: pointer;
+}
+.soundrow input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px; border-radius: 999px; background: rgba(255, 255, 255, .16);
+}
+.soundrow input[type="range"]::-moz-range-track {
+  height: 6px; border-radius: 999px; background: rgba(255, 255, 255, .16);
+}
+.soundrow input[type="range"]::-webkit-slider-thumb {
+  appearance: none; -webkit-appearance: none;
+  width: 18px; height: 18px; margin-top: -6px; border-radius: 50%;
+  background: var(--accent); border: 2px solid #0d1119;
+}
+.soundrow input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--accent); border: 2px solid #0d1119;
+}
+.soundrow input:disabled { opacity: .4; }
+.dialog__hint { font-size: 12px; margin: 2px 0 0; text-align: center; }
+
+
+/* ---------------------------------------------------------- Countdown */
+/*
+ * Drei Sekunden vor jeder Welle und nach jeder Pause. Der Countdown liegt
+ * ueber dem Spielfeld, nimmt aber keine Eingaben an - der Kampf steht
+ * ohnehin still.
+ */
+.countdown {
+  position: fixed; inset: 0; z-index: 34;
+  display: grid; place-items: center;
+  pointer-events: none;
+  background: radial-gradient(60% 50% at 50% 50%, rgba(6, 8, 14, .55), rgba(6, 8, 14, .82));
+}
+.countdown__inner { display: grid; justify-items: center; gap: 2px; }
+.countdown__kicker {
+  font-size: clamp(13px, 3.4vw, 17px);
+  letter-spacing: .28em; text-transform: uppercase;
+  color: #e0b23c;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, .9);
+}
+.countdown__zahl {
+  font-family: var(--schrift-titel);
+  font-weight: 800;
+  font-size: clamp(96px, 30vw, 190px);
+  line-height: 1;
+  color: #f6efe0;
+  text-shadow:
+    0 0 26px rgba(224, 178, 60, .5),
+    0 6px 0 #4a3a1a,
+    0 10px 34px rgba(0, 0, 0, .85);
+}
+.countdown__zahl.is-tick { animation: countdownPuls .58s var(--ease) both; }
+@keyframes countdownPuls {
+  0% { transform: scale(1.6); opacity: 0; }
+  22% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(.9); opacity: .75; }
+}
+.countdown__zahl.is-los {
+  font-size: clamp(56px, 17vw, 116px);
+  letter-spacing: .1em;
+  color: #7fe6a6;
+  text-shadow: 0 0 30px rgba(94, 224, 138, .6), 0 6px 0 #16442a;
+}
+
+
+/* ----------------------------------------------------------- Ultimate */
+/*
+ * Der Knopf sitzt ueber der Waffenanzeige und fuellt sich waehrend der
+ * Abklingzeit. Bereit leuchtet er, sonst bleibt er gedaempft.
+ */
+.ultbtn {
+  position: fixed;
+  /* Der Knopf liegt im HUD, das Eingaben durchlaesst - er selbst nicht. */
+  pointer-events: auto;
+  right: calc(14px + var(--safe-r));
+  bottom: calc(84px + var(--safe-b));
+  width: 66px; height: 66px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: 2px solid rgba(191, 224, 255, .35);
+  background: radial-gradient(circle at 50% 35%, #2b3550 0%, #151b2a 70%);
+  color: #cfe3ff;
+  overflow: hidden;
+  z-index: 12;
+  transition: transform .12s var(--ease), border-color .2s var(--ease), box-shadow .2s var(--ease);
+}
+.ultbtn__fuell {
+  position: absolute; inset: 0;
+  background: conic-gradient(rgba(124, 108, 255, .55) var(--fuell, 0%), transparent 0);
+  pointer-events: none;
+}
+.ultbtn__icon { position: relative; font-size: 26px; line-height: 1; }
+.ultbtn__zeit {
+  position: absolute; bottom: 7px;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  color: #9fb0d4;
+}
+.ultbtn.is-ready {
+  border-color: #bfe0ff;
+  color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(124, 108, 255, .22), 0 0 26px rgba(159, 208, 255, .55);
+  animation: ultPuls 1.8s ease-in-out infinite;
+}
+.ultbtn.is-ready .ultbtn__zeit { color: #bfe0ff; }
+.ultbtn:active { transform: scale(.92); }
+@keyframes ultPuls {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(124, 108, 255, .18), 0 0 20px rgba(159, 208, 255, .4); }
+  50% { box-shadow: 0 0 0 5px rgba(124, 108, 255, .3), 0 0 34px rgba(159, 208, 255, .75); }
+}
+
+@media (max-width: 520px) {
+  .ultbtn { width: 58px; height: 58px; bottom: calc(76px + var(--safe-b)); }
+  .ultbtn__icon { font-size: 22px; }
+}
+
+
+/* --------------------------------------------- Spielerischer Anstrich */
+/*
+ * Das HUD nimmt die Farben des Titelbildes auf: Gold fuer Werte, Stein
+ * fuer Flaechen. Nur Optik - an den Groessen aendert sich nichts.
+ */
+.pill {
+  border-color: rgba(224, 178, 60, .28);
+  background: linear-gradient(180deg, rgba(43, 36, 55, .88), rgba(24, 20, 32, .9));
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .12), 0 2px 8px rgba(0, 0, 0, .45);
+}
+.pill b { color: #f2d47a; }
+
+.iconbtn {
+  border-color: rgba(224, 178, 60, .3);
+  background: linear-gradient(180deg, rgba(48, 40, 60, .9), rgba(26, 21, 34, .92));
+  color: #ecdfc4;
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .14), 0 2px 8px rgba(0, 0, 0, .5);
+}
+.iconbtn:hover { border-color: #a4854f; color: #fff4dc; }
+
+.hud__weapon {
+  border-color: rgba(224, 178, 60, .3);
+  background: linear-gradient(180deg, rgba(43, 36, 55, .9), rgba(24, 20, 32, .92));
+}
+
+.banner {
+  color: #f6efe0;
+  text-shadow: 0 0 20px rgba(224, 178, 60, .45), 0 4px 0 #4a3a1a, 0 8px 24px rgba(0, 0, 0, .8);
+  letter-spacing: .06em;
+}
+.banner--boss { color: #ffb4a2; text-shadow: 0 0 22px rgba(255, 90, 77, .5), 0 4px 0 #4a1a16; }
+
+/* Lebensbalken im selben Stil. */
+.hpbar {
+  border-color: rgba(224, 178, 60, .28);
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .1), 0 2px 10px rgba(0, 0, 0, .5);
+}
+
+/* Panels der Bildschirme bekommen eine Goldkante. */
+.panel, .overlay__inner--scroll, .dialog {
+  border-color: rgba(224, 178, 60, .22);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 236, 195, .08);
+}
+.panel__head h2, .overlay__title, .dialog h3 { color: #f6efe0; }
+
+
+/* ==========================================================================
+   Spielstil fuer alle Bildschirme
+   --------------------------------------------------------------------------
+   Bisher war alles ausserhalb des Titelbildes ein schlichtes dunkles
+   Formular. Hier bekommen Panels, Overlays, Formulare und Listen dieselbe
+   Sprache wie das Menue: gehauener Stein, Goldkanten, warmes Pergament.
+   Es sind reine Farb- und Rahmenregeln - Groessen und Abstaende bleiben.
+   ========================================================================== */
+
+:root {
+  --stein-hell: #3b3348;
+  --stein: #2a2334;
+  --stein-tief: #1b1622;
+  --gold-hell: #f5d97c;
+  --gold-tief: #7a5616;
+  --pergament: #ecdfc4;
+  --schrift-warm: #f6efe0;
+}
+
+body { color: var(--pergament); }
+
+/*
+ * Jeder Bildschirm bekommt denselben steinernen Grund wie das Menue -
+ * ausser denen, die ein eigenes Bild tragen. Diese Regel steht spaeter in
+ * der Datei als das Titelbild; ohne die Ausnahme haette sie es bei
+ * gleicher Spezifitaet ueberschrieben, und das Startbild waere weg.
+ */
+.screen:not(.screen--titel):not(.screen--charwahl) {
+  background:
+    radial-gradient(900px 620px at 50% -8%, rgba(224, 178, 60, .12), transparent 62%),
+    linear-gradient(180deg, #17121e 0%, #100c16 55%, #0a0710 100%);
+}
+
+/* --------------------------------------------------------- Steinplatten */
+.panel,
+.overlay__inner--scroll,
+.dialog {
+  background:
+    linear-gradient(180deg, rgba(59, 51, 72, .96) 0%, rgba(36, 30, 46, .97) 42%,
+      rgba(25, 20, 33, .98) 100%);
+  border: 2px solid rgba(224, 178, 60, .34);
+  border-radius: 14px;
+  backdrop-filter: none;              /* spart Rechenzeit auf dem Handy */
+  box-shadow:
+    inset 0 2px 0 rgba(255, 236, 195, .14),
+    inset 0 -3px 0 rgba(0, 0, 0, .5),
+    0 16px 46px rgba(0, 0, 0, .66);
+}
+
+.panel__head { border-bottom: 2px solid rgba(224, 178, 60, .18); padding-bottom: 12px; }
+.panel__head h2,
+.overlay__title,
+.dialog h3,
+.subhead {
+  color: var(--schrift-warm);
+  letter-spacing: .04em;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, .55);
+}
+.overlay__kicker { color: var(--gold-hell); letter-spacing: .2em; }
+
+/* Listen, Zeilen und Kacheln in derselben Steinfarbe. */
+.world, .weapon, .scorerow, .upgradelist > *, .statgrid > *, .char {
+  background: linear-gradient(180deg, rgba(58, 49, 70, .8), rgba(31, 26, 41, .86));
+  border-color: rgba(224, 178, 60, .2);
+}
+.world:hover, .weapon:hover, .char:hover { border-color: rgba(224, 178, 60, .55); }
+.world.is-selected, .weapon.is-selected, .char.is-selected {
+  border-color: var(--gold-hell);
+  box-shadow: 0 0 0 2px rgba(245, 217, 124, .22);
+}
+.statgrid b { color: var(--gold-hell); }
+.chip {
+  background: linear-gradient(180deg, rgba(58, 49, 70, .9), rgba(31, 26, 41, .95));
+  border: 1px solid rgba(224, 178, 60, .35);
+  color: var(--pergament);
+}
+
+/* ---------------------------------------------------- Formulare / Login */
+.form label { color: var(--pergament); letter-spacing: .03em; }
+.form input,
+input[type="text"], input[type="password"], input[type="number"], select, textarea {
+  background: linear-gradient(180deg, rgba(18, 14, 24, .95), rgba(28, 22, 36, .95));
+  border: 2px solid rgba(224, 178, 60, .3);
+  border-radius: 10px;
+  color: var(--schrift-warm);
+  padding: 12px 14px;
+  min-height: 46px;
+  outline: none;
+  transition: border-color .16s var(--ease), box-shadow .16s var(--ease);
+}
+.form input:focus,
+input:focus, select:focus, textarea:focus {
+  border-color: var(--gold-hell);
+  box-shadow: 0 0 0 3px rgba(245, 217, 124, .18);
+}
+.form input::placeholder { color: rgba(236, 223, 196, .38); }
+.form-error { color: #ff9b86; text-shadow: 0 1px 0 rgba(0, 0, 0, .6); }
+
+/*
+ * Die alten Standardknoepfe erben jetzt den Steinstil, damit auf keinem
+ * Bildschirm mehr ein flacher Darkmode-Knopf uebrig bleibt.
+ */
+.btn {
+  border-radius: 10px;
+  border: 2px solid rgba(224, 178, 60, .3);
+  background: linear-gradient(180deg, #3b3348 0%, #2a2334 55%, #201a29 100%);
+  color: var(--pergament);
+  letter-spacing: .06em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .75);
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .16), 0 3px 0 #14101c;
+}
+.btn:hover { border-color: #a4854f; color: #fff4dc; }
+.btn:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255, 236, 195, .12), 0 1px 0 #14101c; }
+.btn--primary {
+  color: #2a1c05;
+  background: linear-gradient(180deg, #f5d97c 0%, #e0b23c 46%, #b8862a 100%);
+  border-color: #7a5616;
+  text-shadow: 0 1px 0 rgba(255, 246, 214, .55);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 245, 210, .7),
+    inset 0 -3px 0 rgba(90, 60, 10, .42),
+    0 4px 0 #6b4a13;
+}
+.btn--quiet {
+  background: none;
+  border-color: rgba(224, 178, 60, .22);
+  color: rgba(236, 223, 196, .72);
+  box-shadow: none;
+}
+.btn--quiet:hover { color: #fff4dc; border-color: rgba(224, 178, 60, .5); }
+
+/* Upgrade-Karten: Pergament mit farbiger Seltenheitskante. */
+.card {
+  background: linear-gradient(180deg, rgba(60, 51, 73, .95), rgba(28, 23, 37, .97));
+  border-width: 2px;
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .12), 0 8px 24px rgba(0, 0, 0, .5);
+}
+.card__title { color: var(--schrift-warm); }
+.card__desc { color: rgba(236, 223, 196, .62); }
+
+/* Stufe eines schon vorhandenen Upgrades. */
+.card__stufe,
+.angebot__stufe {
+  display: inline-flex; align-items: center; gap: 4px;
+  align-self: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  color: #2a1c05;
+  background: linear-gradient(180deg, #f5d97c, #d8a93a);
+  border: 1px solid #7a5616;
+}
+.card__gesamt,
+.angebot__gesamt {
+  font-size: 11.5px;
+  color: rgba(236, 223, 196, .6);
+}
+
+.toast {
+  background: linear-gradient(180deg, rgba(59, 51, 72, .96), rgba(28, 23, 37, .97));
+  border: 2px solid rgba(224, 178, 60, .35);
+  color: var(--pergament);
+}
+
+.loading, .rotate { background: linear-gradient(180deg, #17121e, #0a0710); color: var(--pergament); }
+
+
+/* ==========================================================================
+   Charakterauswahl
+   --------------------------------------------------------------------------
+   Ein Raum mit Podest statt einer Kartenliste: die Figur steht in der
+   Mitte und macht ihr Ruhebild, links und rechts blaettert man durch,
+   daneben stehen die Werte. Position und Groesse kommen aus dem Admin.
+   ========================================================================== */
+.screen--charwahl {
+  background:
+    linear-gradient(180deg, rgba(8, 6, 14, .58) 0%, rgba(8, 6, 14, .12) 26%,
+      rgba(8, 6, 14, .5) 62%, rgba(8, 6, 14, .93) 100%),
+    var(--char-bg) center center / cover no-repeat,
+    #0a0710;
+  align-content: stretch;
+  padding: calc(10px + var(--safe-t)) calc(12px + var(--safe-r)) calc(12px + var(--safe-b)) calc(12px + var(--safe-l));
+}
+
+.charwahl {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  width: 100%; height: 100%;
+  gap: 8px;
+}
+.charwahl__kopf {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.charwahl__kopf h2 {
+  margin: 0; font-size: clamp(16px, 3.6vw, 22px);
+  color: var(--schrift-warm);
+  text-shadow: 0 2px 0 #000, 0 0 18px rgba(224, 178, 60, .4);
+}
+
+.charwahl__buehne {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+}
+
+/*
+ * Die Figur haengt an frei einstellbaren Prozentwerten. Sie sitzt absolut,
+ * damit das Podest im Hintergrundbild getroffen wird, egal wie gross der
+ * Bildschirm ist.
+ */
+.charwahl__figur {
+  position: absolute;
+  left: var(--char-x, 50%);
+  top: var(--char-y, 72%);
+  z-index: 1;
+  transform: translate(-50%, -100%) scale(var(--char-scale, 1));
+  transform-origin: 50% 100%;
+  display: grid; place-items: end center;
+  pointer-events: none;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, .7));
+}
+.charwahl__figur img {
+  height: clamp(150px, 34vh, 300px);
+  width: auto;
+  image-rendering: pixelated;
+  display: block;
+  animation: charEin .28s var(--ease) both;
+}
+@keyframes charEin {
+  from { opacity: 0; transform: translateY(10px) scale(.94); }
+  to { opacity: 1; transform: none; }
+}
+.charwahl__schloss {
+  position: absolute; inset: auto 0 -6px 0;
+  text-align: center; font-size: 13px; font-weight: 700;
+  color: #ffd9a0; text-shadow: 0 2px 0 #000;
+}
+
+.charpfeil {
+  position: absolute;
+  top: 50%; transform: translateY(-50%);
+  width: 54px; height: 74px;
+  display: grid; place-items: center;
+  font-size: 40px; line-height: 1;
+  color: var(--gold-hell);
+  background: linear-gradient(180deg, rgba(59, 51, 72, .86), rgba(24, 20, 32, .9));
+  border: 2px solid rgba(224, 178, 60, .42);
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .16), 0 4px 0 #14101c;
+  z-index: 3;
+}
+.charpfeil:active { transform: translateY(calc(-50% + 2px)); }
+.charpfeil--links { left: 4px; }
+.charpfeil--rechts { right: 4px; }
+
+.charwahl__info {
+  position: relative;
+  z-index: 2;
+  justify-self: start;
+  align-self: start;
+  width: min(292px, 34vw);
+  margin: 4px 0 0 62px;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, rgba(30, 25, 40, .92), rgba(18, 14, 24, .95));
+  border: 2px solid rgba(224, 178, 60, .34);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .12), 0 10px 30px rgba(0, 0, 0, .6);
+  display: grid; gap: 6px;
+  max-height: 100%;
+  overflow: auto;
+}
+.charwahl__info h3 { margin: 0; font-size: 19px; color: var(--gold-hell); }
+.charwahl__info .charwahl__titel { color: rgba(236, 223, 196, .7); font-size: 12.5px; }
+.charwahl__info p { margin: 0; font-size: 12.5px; line-height: 1.5; color: rgba(236, 223, 196, .78); }
+.charwahl__tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.charwahl__tags .tag {
+  background: rgba(224, 178, 60, .13);
+  border: 1px solid rgba(224, 178, 60, .3);
+  color: #f0dfb4;
+  border-radius: 999px; padding: 2px 8px; font-size: 11px;
+}
+.charwahl__perk {
+  border-top: 1px solid rgba(224, 178, 60, .2);
+  padding-top: 6px; display: grid; gap: 2px;
+}
+.charwahl__perk b { color: var(--gold-hell); font-size: 13px; }
+.charwahl__perk span { font-size: 11.5px; color: rgba(236, 223, 196, .7); line-height: 1.45; }
+
+.charwahl__fuss {
+  display: grid; gap: 8px; justify-items: center;
+}
+.charpunkte { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+.charpunkte i {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: rgba(236, 223, 196, .28);
+  border: 1px solid rgba(224, 178, 60, .3);
+  transition: background .16s var(--ease);
+}
+.charpunkte i.is-aktiv { background: var(--gold-hell); box-shadow: 0 0 8px rgba(245, 217, 124, .8); }
+.charpunkte i.is-gesperrt { background: rgba(255, 120, 100, .35); }
+
+/* Hochkant: die Werte ruecken unter die Figur. */
+@media (max-width: 720px), (max-aspect-ratio: 1/1) {
+  .charwahl__info {
+    justify-self: center;
+    align-self: end;
+    width: min(440px, 94%);
+    margin: 0 0 2px;
+  }
+  .charwahl__figur img { height: clamp(120px, 26vh, 220px); }
+  .charpfeil { width: 46px; height: 64px; font-size: 34px; }
+}
+
+
+/* ==========================================================================
+   Laden
+   --------------------------------------------------------------------------
+   Buehne mit drei Ebenen: Hintergrundbild, Haendler, Tresen davor. Die
+   Auslagen liegen links, der Haendler steht rechts. Alle Bilder und ihre
+   Positionen kommen aus dem Admin.
+   ========================================================================== */
+.overlay--shop { padding: 0; align-items: stretch; }
+.overlay--shop .shop { width: 100%; }
+
+.shop {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  background: var(--shop-bg, none) center center / cover no-repeat, #100c16;
+  padding: calc(12px + var(--safe-t)) calc(14px + var(--safe-r)) calc(12px + var(--safe-b)) calc(14px + var(--safe-l));
+}
+.shop::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(8, 6, 14, .93) 0%, rgba(8, 6, 14, .74) 44%, rgba(8, 6, 14, .12) 66%, rgba(8, 6, 14, .06) 100%);
+  pointer-events: none;
+}
+
+/* Haendler: eine Ebene aus gestapelten Einzelbildern, von denen immer nur
+   eines sichtbar ist. Kein Nachladen waehrend der Animation, kein Ruckeln. */
+.shop__haendler {
+  position: absolute;
+  left: var(--shop-mx, 76%);
+  top: var(--shop-my, 62%);
+  transform: translate(-50%, -50%) scale(var(--shop-ms, 1));
+  transform-origin: 50% 50%;
+  width: clamp(170px, 30vw, 360px);
+  z-index: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, .65));
+  animation: haendlerAtmen 3.4s ease-in-out infinite;
+}
+.shop__haendler img {
+  position: absolute; inset: 0;
+  width: 100%; height: auto;
+  image-rendering: pixelated;
+  opacity: 0;
+}
+.shop__haendler img:first-child { position: relative; }
+.shop__haendler img.is-an { opacity: 1; }
+@keyframes haendlerAtmen {
+  0%, 100% { transform: translate(-50%, -50%) scale(var(--shop-ms, 1)); }
+  50% { transform: translate(-50%, calc(-50% - 6px)) scale(calc(var(--shop-ms, 1) * 1.012)); }
+}
+
+/*
+ * Der Tresen ist eine 3:1-Grafik. Ueber die volle Breite gezogen waere er
+ * auf einem Handy im Querformat fast bildschirmhoch und wuerde den
+ * Haendler komplett verdecken. Deshalb bekommt er eine feste Hoehe und
+ * wird von oben beschnitten - die Tischplatte bleibt, die Beine fallen
+ * unter den Bildrand.
+ */
+.shop__tresen {
+  position: absolute;
+  left: 50%;
+  top: var(--shop-cy, 100%);
+  transform: translate(-50%, -100%) scale(var(--shop-cs, 1));
+  transform-origin: 50% 100%;
+  width: 118%;
+  height: clamp(104px, 26vh, 260px);
+  object-fit: cover;
+  /* Ausschnitt so, dass Tischplatte und ein Stueck Front zu sehen sind -
+     die Beine liegen ohnehin unter dem Bildrand. */
+  object-position: center 42%;
+  max-width: none;
+  z-index: 2;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+
+.shop__inhalt {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 10px;
+  width: min(660px, 62%);
+  min-height: 0;
+}
+.shop__kopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.shop__titel {
+  margin: 0;
+  font-size: clamp(20px, 4.4vw, 32px);
+  color: var(--gold-hell);
+  letter-spacing: .04em;
+  text-shadow: 0 3px 0 #000, 0 0 22px rgba(224, 178, 60, .45);
+}
+.shop__geld {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(59, 51, 72, .92), rgba(24, 20, 32, .95));
+  border: 2px solid rgba(224, 178, 60, .4);
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .14);
+}
+.shop__geld b { color: var(--gold-hell); font-size: 18px; font-variant-numeric: tabular-nums; }
+.shop__geld.is-aenderung { animation: geldPuls .42s var(--ease); }
+@keyframes geldPuls {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.12); border-color: var(--gold-hell); }
+  100% { transform: scale(1); }
+}
+
+.shop__auslage {
+  display: grid;
+  gap: 9px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  align-content: start;
+  overflow: auto;
+  min-height: 0;
+  padding-right: 2px;
+}
+
+/*
+ * Eine Auslage. Alle Bewegungen laufen ueber transform und opacity - das
+ * sind die beiden Eigenschaften, die der Browser ohne neues Layout
+ * animiert. Deshalb bleibt der Laden auch auf dem Handy fluessig.
+ */
+.angebot {
+  position: relative;
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  grid-template-rows: auto auto auto;
+  gap: 3px 10px;
+  align-items: center;
+  padding: 10px 11px;
+  text-align: left;
+  border: 2px solid color-mix(in srgb, var(--rarity, #9aa6c2) 46%, transparent);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(60, 51, 73, .94), rgba(26, 21, 35, .96));
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .12), 0 6px 18px rgba(0, 0, 0, .5);
+  cursor: pointer;
+  color: inherit;
+  will-change: transform, opacity;
+  animation: angebotEin .26s var(--ease) both;
+  transition: transform .13s var(--ease), border-color .18s var(--ease), opacity .2s var(--ease);
+}
+.angebot--common { --rarity: #9aa6c2; }
+.angebot--rare { --rarity: #58b6ff; }
+.angebot--epic { --rarity: #c07bff; }
+.angebot--legendary { --rarity: #ffb020; }
+.angebot:nth-child(2) { animation-delay: .05s; }
+.angebot:nth-child(3) { animation-delay: .1s; }
+.angebot:nth-child(4) { animation-delay: .15s; }
+@keyframes angebotEin {
+  from { opacity: 0; transform: translate3d(0, 14px, 0) scale(.97); }
+  to { opacity: 1; transform: none; }
+}
+.angebot:active { transform: scale(.975); }
+.angebot.is-zuteuer { opacity: .5; cursor: not-allowed; }
+.angebot.is-zuteuer .angebot__preis { color: #ff9b86; }
+.angebot.is-verkauft { opacity: .42; cursor: default; filter: grayscale(.7); }
+
+.angebot__bild {
+  grid-row: 1 / span 3;
+  width: 46px; height: 46px;
+  display: grid; place-items: center;
+  font-size: 24px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, .32);
+  border: 1px solid rgba(224, 178, 60, .2);
+}
+.angebot__bild img { width: 40px; height: 34px; object-fit: contain; image-rendering: pixelated; }
+.angebot__kopf { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-right: 32px; }
+.angebot__name { font-weight: 700; font-size: 15px; color: var(--schrift-warm); }
+.angebot__art { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--rarity); }
+.angebot__wert { font-size: 12.5px; font-weight: 600; color: var(--rarity); }
+.angebot__text { font-size: 11.5px; color: rgba(236, 223, 196, .6); line-height: 1.4; }
+.angebot__fuss { display: flex; align-items: center; justify-content: space-between; gap: 8px; grid-column: 2; }
+.angebot__preis {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-weight: 700; font-size: 14px; color: var(--gold-hell);
+}
+
+.angebot__schloss {
+  position: absolute; top: 6px; right: 6px;
+  width: 30px; height: 30px;
+  display: grid; place-items: center;
+  border-radius: 8px;
+  font-size: 14px;
+  background: rgba(10, 8, 16, .7);
+  border: 1px solid rgba(224, 178, 60, .28);
+  color: rgba(236, 223, 196, .5);
+  cursor: pointer;
+  z-index: 2;
+}
+.angebot__schloss.is-an {
+  color: #2a1c05;
+  background: linear-gradient(180deg, #f5d97c, #d8a93a);
+  border-color: #7a5616;
+}
+.angebot.is-gemerkt { border-color: var(--gold-hell); box-shadow: 0 0 0 2px rgba(245, 217, 124, .2), 0 6px 18px rgba(0, 0, 0, .5); }
+
+/* Kaufbestaetigung: kurzer goldener Blitz, dann faellt die Karte zurueck. */
+.angebot.is-gekauft { animation: kaufBlitz .5s var(--ease); }
+@keyframes kaufBlitz {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(245, 217, 124, .8); }
+  28% { transform: scale(1.045); box-shadow: 0 0 0 8px rgba(245, 217, 124, 0); }
+  100% { transform: scale(1); }
+}
+.angebot__stempel {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  font-size: 17px; font-weight: 700; letter-spacing: .2em;
+  color: #f5d97c;
+  text-shadow: 0 2px 0 #000;
+  background: rgba(10, 8, 16, .5);
+  border-radius: 10px;
+  pointer-events: none;
+  animation: stempelEin .3s var(--ease) both;
+}
+@keyframes stempelEin {
+  from { opacity: 0; transform: scale(1.5) rotate(-10deg); }
+  to { opacity: 1; transform: scale(1) rotate(-7deg); }
+}
+
+/* Fliegende Münzen als Rueckmeldung beim Kauf. */
+.muenze {
+  position: fixed;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #fff2c0, #e0b23c 60%, #8a5f14);
+  box-shadow: 0 0 10px rgba(245, 217, 124, .8);
+  pointer-events: none;
+  z-index: 60;
+  will-change: transform, opacity;
+}
+
+.shop__leiste { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.shop__leiste .btn { flex: 0 0 auto; }
+.shop__leiste .btn--gold { margin-left: auto; }
+
+.shop__besitz {
+  position: absolute;
+  inset: calc(12px + var(--safe-t)) calc(14px + var(--safe-r)) calc(12px + var(--safe-b)) calc(14px + var(--safe-l));
+  z-index: 5;
+  padding: 14px;
+  border-radius: 14px;
+  border: 2px solid rgba(224, 178, 60, .34);
+  background: linear-gradient(180deg, rgba(30, 25, 40, .97), rgba(15, 12, 21, .98));
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 10px;
+  overflow: hidden;
+  animation: angebotEin .2s var(--ease) both;
+}
+.shop__besitzkopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.shop__besitzkopf h3 { margin: 0; color: var(--gold-hell); font-size: 18px; }
+.shop__besitz .upgradelist { overflow: auto; min-height: 0; }
+
+/* Schmale Bildschirme: der Haendler rueckt hinter die Auslagen. */
+@media (max-width: 700px) {
+  .shop__inhalt { width: 100%; }
+  /*
+   * Hochkant ist links kein Platz mehr - der Haendler rueckt in die
+   * Luecke zwischen Auslagen und Tresen, statt hinter den Karten zu
+   * verschwinden. Die Prozentwerte aus dem Admin gelten fuer die breite
+   * Ansicht, hier setzt das Layout eigene.
+   */
+  .shop__haendler {
+    width: clamp(150px, 54vw, 280px);
+    opacity: .85;
+    left: 64%;
+    top: auto;
+    bottom: 4%;
+    transform: translate(-50%, 0) scale(var(--shop-ms, 1));
+    transform-origin: 50% 100%;
+    animation: none;
+  }
+  .shop::before {
+    background: linear-gradient(180deg, rgba(8, 6, 14, .78) 0%, rgba(8, 6, 14, .86) 100%);
+  }
+  .angebot { grid-template-columns: 40px 1fr; }
+  .shop__leiste .btn { flex: 1 1 auto; }
+}
+
+/* Regler und Schalter im selben Gold wie der Rest. */
+.soundpanel {
+  background: linear-gradient(180deg, rgba(18, 14, 24, .8), rgba(28, 22, 36, .8));
+  border: 2px solid rgba(224, 178, 60, .22);
+}
+.soundrow > span { color: var(--pergament); }
+.switch {
+  background: rgba(20, 16, 26, .9);
+  border: 2px solid rgba(224, 178, 60, .3);
+}
+.switch::after { background: var(--pergament); }
+.switch:checked {
+  background: linear-gradient(180deg, #f5d97c, #d8a93a);
+  border-color: #7a5616;
+}
+.switch:checked::after { background: #2a1c05; }
+.soundrow input[type="range"]::-webkit-slider-runnable-track {
+  background: rgba(20, 16, 26, .9);
+  box-shadow: inset 0 0 0 1px rgba(224, 178, 60, .28);
+}
+.soundrow input[type="range"]::-moz-range-track {
+  background: rgba(20, 16, 26, .9);
+  box-shadow: inset 0 0 0 1px rgba(224, 178, 60, .28);
+}
+.soundrow input[type="range"]::-webkit-slider-thumb {
+  background: linear-gradient(180deg, #f5d97c, #d8a93a);
+  border: 2px solid #7a5616;
+}
+.soundrow input[type="range"]::-moz-range-thumb {
+  background: linear-gradient(180deg, #f5d97c, #d8a93a);
+  border: 2px solid #7a5616;
+}
+.dialog__hint { color: rgba(236, 223, 196, .55); }
+
+/* Ultimate-Knopf in denselben Farben. */
+.ultbtn {
+  border-color: rgba(224, 178, 60, .42);
+  background: radial-gradient(circle at 50% 32%, #3b3348 0%, #1b1622 72%);
+  color: #f0dfb4;
+}
+.ultbtn__fuell { background: conic-gradient(rgba(224, 178, 60, .5) var(--fuell, 0%), transparent 0); }
+.ultbtn__zeit { color: rgba(236, 223, 196, .65); }
+.ultbtn.is-ready {
+  border-color: var(--gold-hell);
+  color: #fff6de;
+  box-shadow: 0 0 0 3px rgba(224, 178, 60, .2), 0 0 26px rgba(245, 217, 124, .5);
+}
+.ultbtn.is-ready .ultbtn__zeit { color: var(--gold-hell); }
+@keyframes ultPuls {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(224, 178, 60, .16), 0 0 20px rgba(245, 217, 124, .35); }
+  50% { box-shadow: 0 0 0 5px rgba(224, 178, 60, .28), 0 0 34px rgba(245, 217, 124, .7); }
+}
+
+/* Lebens- und Schildbalken. */
+.bar {
+  border: 2px solid rgba(224, 178, 60, .3);
+  background: rgba(16, 12, 22, .85);
+}
+.bar--hp i { background: linear-gradient(90deg, #4fbf6f, #8ee89f); }
+.bar--shield i { background: linear-gradient(90deg, #5aa8d8, #a9e5ff); }
+
+/* Countdown und Bestenliste. */
+.countdown__zahl { color: var(--gold-hell); }
+.scorerow__score { color: var(--gold-hell); }
+
+/* Upgrade-Zeilen zeigen Stufe und Gesamtwirkung. */
+.upgradechip {
+  display: grid;
+  gap: 1px;
+  background: linear-gradient(180deg, rgba(58, 49, 70, .82), rgba(28, 23, 37, .88));
+  border: 1px solid rgba(224, 178, 60, .22);
+}
+.upgradechip small { color: rgba(236, 223, 196, .55); font-size: 11px; }
+
+/*
+ * Gold- und Steinknopf noch einmal, nachdem die allgemeine .btn-Regel
+ * oben neu gesetzt wurde - sonst gewinnt bei gleicher Spezifitaet die
+ * spaetere Regel und der Hauptknopf verloere seine Goldfarbe.
+ */
+.btn--gold {
+  color: #2a1c05;
+  background: linear-gradient(180deg, #f5d97c 0%, #e0b23c 46%, #b8862a 100%);
+  border-color: #7a5616;
+  text-shadow: 0 1px 0 rgba(255, 246, 214, .55);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 245, 210, .7),
+    inset 0 -3px 0 rgba(90, 60, 10, .42),
+    0 4px 0 #6b4a13;
+}
+.btn--gold:hover { filter: brightness(1.07); color: #2a1c05; }
+.btn--stein {
+  color: var(--pergament);
+  background: linear-gradient(180deg, #3b3348 0%, #2a2334 55%, #201a29 100%);
+  border-color: #6b5a3a;
+  box-shadow: inset 0 1px 0 rgba(255, 236, 195, .18), 0 3px 0 #14101c;
+}
+.btn--stein:hover { border-color: #a4854f; color: #fff4dc; }
+.btn--klein { font-size: 12px; padding: 9px 14px; letter-spacing: .12em; min-height: 38px; }
+
+/* Lange Beschreibungen im Laden auf zwei Zeilen begrenzen. */
+.angebot__text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Flache Bildschirme (Handy quer): Der Laden wird kompakter. */
+@media (max-height: 520px) {
+  .shop { padding-top: calc(8px + var(--safe-t)); padding-bottom: calc(8px + var(--safe-b)); }
+  .shop__inhalt { gap: 7px; }
+  .shop__titel { font-size: clamp(17px, 3.4vw, 24px); }
+  .angebot { padding: 7px 9px; gap: 2px 8px; }
+  .angebot__name { font-size: 13.5px; }
+  .angebot__wert { font-size: 11.5px; }
+  .angebot__text, .angebot__gesamt { font-size: 10.5px; }
+  .angebot__bild { width: 38px; height: 38px; font-size: 20px; }
+  .angebot__bild img { width: 34px; height: 28px; }
+  .shop__leiste .btn { min-height: 40px; padding: 9px 16px; font-size: 13px; }
+}
+
+/* ==========================================================================
+   Lesbarkeit
+   --------------------------------------------------------------------------
+   Alles ist ein gutes Stueck groesser geworden. Der kleinste Text im Spiel
+   liegt jetzt bei 13 px statt bei 10,5, die meisten Angaben bei 14-16 px,
+   Zahlen laufen mit tabular-nums und in der Lese-Schrift. Auf dem Handy
+   war vorher vor allem die Zahlenanzeige im HUD kaum zu entziffern.
+   ========================================================================== */
+body { font-size: 16px; line-height: 1.5; }
+
+/* --- HUD ---------------------------------------------------------------- */
+.pill { font-size: 14px; padding: 6px 14px; }
+.pill b {
+  font-size: 19px; font-family: var(--schrift);
+  font-variant-numeric: tabular-nums; font-weight: 700;
+}
+.hud__weapon { font-size: 15px; padding: 8px 12px; }
+.hud__weapon img { width: 40px; height: 26px; }
+.bar { height: 20px; }
+.bar--shield { height: 10px; }
+.bar span { font-size: 13px; font-weight: 700; }
+.bossbar__label { font-size: 13.5px; }
+.bossbar { height: 14px; }
+.iconbtn { width: 48px; height: 48px; font-size: 19px; }
+.ultbtn { width: 74px; height: 74px; }
+.ultbtn__icon { font-size: 30px; }
+.ultbtn__zeit { font-size: 13px; }
+.vitals { width: min(300px, 58%); }
+
+/* --- Karten und Laden ---------------------------------------------------- */
+.card { padding: 16px 14px; gap: 8px; }
+.card__title { font-size: 19px; }
+.card__value { font-size: 17px; }
+.card__desc { font-size: 14.5px; line-height: 1.5; }
+.card__rarity, .angebot__art { font-size: 13px; letter-spacing: .08em; }
+.card__gesamt, .angebot__gesamt { font-size: 14px; }
+.card__stufe, .angebot__stufe { font-size: 13.5px; padding: 3px 11px; }
+.card__icon--stat { font-size: 34px; }
+
+.angebot { grid-template-columns: 54px 1fr; padding: 12px 13px; gap: 4px 12px; }
+.angebot__bild { width: 54px; height: 54px; font-size: 28px; }
+.angebot__bild img { width: 46px; height: 40px; }
+.angebot__name { font-size: 18px; }
+.angebot__wert { font-size: 15.5px; }
+.angebot__text { font-size: 14px; line-height: 1.45; }
+.angebot__preis { font-size: 17px; font-variant-numeric: tabular-nums; }
+.angebot__schloss { width: 34px; height: 34px; font-size: 16px; }
+.shop__geld b { font-size: 23px; }
+.shop__geld { padding: 8px 16px; }
+.shop__auslage { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+
+/* --- Charakterauswahl ---------------------------------------------------- */
+.charwahl__info { width: min(330px, 38vw); padding: 14px 16px; }
+.charwahl__info h3 { font-size: 23px; }
+.charwahl__info .charwahl__titel { font-size: 15px; }
+.charwahl__info p { font-size: 15px; line-height: 1.5; }
+.charwahl__tags .tag { font-size: 13.5px; padding: 4px 10px; }
+.charwahl__perk b { font-size: 16px; }
+.charwahl__perk span { font-size: 14px; }
+.charpfeil { width: 60px; height: 82px; font-size: 46px; }
+.charpunkte i { width: 10px; height: 10px; }
+
+/* --- Panels, Listen, Formulare ------------------------------------------- */
+.statgrid > * span { font-size: 13px; letter-spacing: .06em; }
+.statgrid b { font-size: 19px; font-variant-numeric: tabular-nums; }
+.upgradechip { font-size: 14.5px; padding: 7px 12px; }
+.upgradechip small { font-size: 13px; }
+.overlay__kicker { font-size: 14px; letter-spacing: .16em; }
+.overlay__title { font-size: clamp(24px, 5.5vw, 34px); }
+.subhead { font-size: 15px; }
+.panel__head h2 { font-size: clamp(21px, 4.4vw, 27px); }
+.menu__best { font-size: 15.5px; }
+.scorerow__meta { font-size: 14px; }
+.scorerow__name { font-size: 16.5px; }
+.scorerow__score { font-size: 19px; font-family: var(--schrift); font-variant-numeric: tabular-nums; }
+.form label { font-size: 15px; }
+.form input, input, select, textarea { font-size: 16.5px; min-height: 52px; }
+.form-error { font-size: 15px; }
+.dialog h3 { font-size: 23px; }
+.dialog p { font-size: 15.5px; }
+.dialog__hint { font-size: 14px; }
+.soundrow { font-size: 15.5px; }
+.toast { font-size: 15px; padding: 12px 16px; }
+.chip { font-size: 14px; padding: 5px 12px; }
+.btn { font-size: 16px; padding: 14px 22px; min-height: 52px; }
+.btn--xl { font-size: 19px; padding: 17px 32px; min-height: 58px; }
+.btn--klein { font-size: 14px; padding: 10px 16px; min-height: 42px; }
+.banner { font-size: clamp(26px, 6.5vw, 46px); }
+.countdown__kicker { font-size: 15px; }
+.charwahl__kopf h2 { font-size: clamp(19px, 4vw, 26px); }
+.shop__titel { font-size: clamp(23px, 5vw, 36px); }
+
+/* Cinzel traegt etwas schmaler auf - Grossbuchstaben brauchen mehr Luft. */
+.btn, .iconbtn, .nav__item { letter-spacing: .04em; }
+
+/* Sehr schmale Handys: eine Stufe kleiner, aber immer noch gut lesbar. */
+@media (max-width: 380px) {
+  .pill { font-size: 13px; padding: 5px 11px; }
+  .pill b { font-size: 17px; }
+  .btn { font-size: 15px; padding: 12px 18px; min-height: 48px; }
+  .angebot { grid-template-columns: 46px 1fr; }
+  .angebot__bild { width: 46px; height: 46px; }
+  .angebot__name { font-size: 16.5px; }
+}
+
+/* Flache Bildschirme: HUD etwas kompakter, damit nichts kollidiert. */
+@media (max-height: 460px) {
+  .iconbtn { width: 42px; height: 42px; font-size: 17px; }
+  .ultbtn { width: 62px; height: 62px; }
+  .ultbtn__icon { font-size: 25px; }
+  .pill { font-size: 13px; padding: 4px 11px; }
+  .pill b { font-size: 17px; }
+}
+
+/* Der Schlossknopf ist mitgewachsen - der Kopf braucht mehr Platz daneben. */
+.angebot__kopf { padding-right: 42px; }
+
+/*
+ * Handy im Querformat: Der Laden muss mit vier Auslagen auf 420 px Hoehe
+ * passen. Diese Regeln stehen am Ende der Datei, damit sie die groesseren
+ * Standardwerte darueber wirklich ueberschreiben.
+ */
+@media (max-height: 560px) {
+  .shop { padding-top: calc(8px + var(--safe-t)); padding-bottom: calc(8px + var(--safe-b)); }
+  .shop__inhalt { gap: 7px; }
+  .shop__titel { font-size: clamp(19px, 3.6vw, 26px); }
+  .shop__geld { padding: 5px 12px; }
+  .shop__geld b { font-size: 18px; }
+  .shop__auslage { gap: 7px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .angebot { padding: 7px 10px; gap: 1px 9px; grid-template-columns: 40px 1fr; }
+  .angebot__bild { width: 40px; height: 40px; font-size: 21px; }
+  .angebot__bild img { width: 34px; height: 28px; }
+  .angebot__name { font-size: 15px; }
+  .angebot__art { font-size: 11.5px; }
+  .angebot__wert { font-size: 13px; }
+  .angebot__text, .angebot__gesamt { font-size: 12px; }
+  .angebot__text { -webkit-line-clamp: 1; }
+  .angebot__preis { font-size: 14.5px; }
+  .angebot__schloss { width: 26px; height: 26px; font-size: 13px; top: 4px; right: 4px; }
+  .angebot__kopf { padding-right: 30px; }
+  .angebot__stufe { font-size: 11.5px; padding: 1px 7px; }
+  .shop__leiste .btn { min-height: 42px; padding: 10px 16px; font-size: 14px; }
+
+  /* Upgrade-Karten ebenfalls kompakter, damit drei nebeneinander passen. */
+  .card { padding: 11px 10px; gap: 5px; }
+  .card__title { font-size: 16px; }
+  .card__value { font-size: 14.5px; }
+  .card__desc { font-size: 12.5px; }
+  .overlay__title { font-size: clamp(20px, 4.4vw, 26px); }
+  .overlay__kicker { font-size: 12.5px; }
+}

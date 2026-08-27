@@ -1,0 +1,4 @@
+; Grössere Uploads für Musik und Kartenbilder (PHP-FPM / CGI).
+upload_max_filesize = 24M
+post_max_size = 28M
+max_file_uploads = 20
