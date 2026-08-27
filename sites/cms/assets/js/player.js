@@ -104,6 +104,7 @@
       row.type = 'button';
       row.className = 'track';
       row.setAttribute('data-index', String(index));
+      row.style.setProperty('--i', String(index));
       row.innerHTML =
         '<span class="track__num">' +
         pad(index + 1) +
@@ -175,6 +176,10 @@
     markList();
     updateMediaSession(track);
 
+    if (window.RC_MOTION) {
+      window.setTimeout(window.RC_MOTION.refresh, 420);
+    }
+
     if (autoplay) play();
   }
 
@@ -209,6 +214,7 @@
 
     playing = true;
     root.classList.add('is-playing');
+    document.body.classList.add('rc-playing');
     if (elPlay) elPlay.setAttribute('aria-label', 'Pause');
   }
 
@@ -216,6 +222,7 @@
     audio.pause();
     playing = false;
     root.classList.remove('is-playing');
+    document.body.classList.remove('rc-playing');
     if (elPlay) elPlay.setAttribute('aria-label', 'Abspielen');
   }
 
@@ -366,15 +373,26 @@
         values[i] = data[slot] / 255;
       }
     } else {
-      // Vorführ-Wellen: drei überlagerte Sinuskurven ergeben eine
-      // Bewegung, die zufällig aussieht, aber ruhig läuft.
+      // Vorführ-Wellen: überlagerte Sinuskurven plus ein Kick auf 124
+      // Schlägen pro Minute. So hat die Seite auch ohne Audiodatei einen
+      // Takt zum Mittanzen – und man sieht sofort, wie es später wirkt.
       var t = now / 1000;
+      var phase = ((t * 124) / 60) % 1;
+      var kick = playing ? Math.pow(1 - phase, 4) : 0;
+      var hat = playing ? Math.pow(1 - ((phase * 2) % 1), 12) * 0.35 : 0;
+
       for (var j = 0; j < count; j += 1) {
+        var slope = j / (count - 1);
         var wave =
-          Math.sin(t * 2.1 + j * 0.35) * 0.34 +
-          Math.sin(t * 3.7 + j * 0.17) * 0.24 +
-          Math.sin(t * 1.3 + j * 0.62) * 0.22;
-        values[j] = Math.abs(wave) * (playing ? 1 : 0.18) + 0.05;
+          Math.sin(t * 2.1 + j * 0.35) * 0.28 +
+          Math.sin(t * 3.7 + j * 0.17) * 0.2 +
+          Math.sin(t * 1.3 + j * 0.62) * 0.18;
+
+        values[j] =
+          Math.abs(wave) * (playing ? 0.75 : 0.18) +
+          kick * Math.max(0, 1 - slope * 2.6) +
+          hat * Math.max(0, slope - 0.55) +
+          0.04;
       }
     }
 
@@ -396,6 +414,35 @@
       canvasCtx.fillStyle = 'rgba(255,255,255,' + (0.28 + smooth[k] * 0.72).toFixed(3) + ')';
       canvasCtx.fillRect(x, middle - barHeight / 2, barWidth, barHeight);
     }
+
+    publishPulse(values);
+  }
+
+  /* ----------------------------------------------------------------------
+   * Der Takt für die übrige Seite
+   *
+   * Die Frequenzen werden zu drei Zahlen zusammengefasst und an
+   * window.RC_PULSE gehängt. motion.js liest sie jeden Bildlauf aus und
+   * bewegt damit Hintergrund und Abschnitte.
+   * -------------------------------------------------------------------- */
+
+  function publishPulse(values) {
+    var count = values.length;
+    var lowEnd = Math.max(1, Math.round(count * 0.18));
+    var bass = 0;
+    var total = 0;
+
+    for (var i = 0; i < count; i += 1) {
+      total += values[i];
+      if (i < lowEnd) bass += values[i];
+    }
+
+    window.RC_PULSE = {
+      playing: playing,
+      demo: demo,
+      bass: bass / lowEnd,
+      energy: total / count,
+    };
   }
 
   /* ----------------------------------------------------------------------

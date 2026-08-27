@@ -46,6 +46,7 @@ function rc_default_site(): array {
 				'tiktok'     => '',
 			),
 			'effects'     => array(
+				'waves'     => true,
 				'grain'     => true,
 				'cursor'    => true,
 				'preloader' => true,

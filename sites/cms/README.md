@@ -97,12 +97,41 @@ Zahnrad in der Leiste oder `/dashboard`:
 - **Musik** – Titel für den Player: Name, Stilrichtung, Dauer, Audiodatei,
   Cover. Reihenfolge mit den Pfeilen.
 - **Seiten** – Seiten anlegen, umbenennen, löschen
-- **Darstellung** – Filmkorn, eigener Mauszeiger, Ladevorhang, Vignette
+- **Darstellung** – Wellen im Hintergrund, Filmkorn, eigener Mauszeiger,
+  Ladevorhang, Vignette
 - **Anfragen** – alle eingegangenen Booking-Anfragen (auch wenn eine Mail
   einmal nicht durchkommt)
 - **Dateien** – alles Hochgeladene auf einen Blick
 - **Konto** – Benutzername und Passwort ändern
 - **Daten** – Inhalte als Datei herunterladen, Seiten zurücksetzen
+
+---
+
+## Bewegung: Wellen, Tiefe, Takt
+
+Die Seite lebt auf drei Ebenen:
+
+- **Wellen** – ein Shader zeichnet fliessende Höhenlinien hinter der Seite.
+  Abschaltbar im Dashboard unter *Darstellung*.
+- **Tiefe** – beim Scrollen kippen die Abschnitte leicht im Raum, Cover und
+  grosse Titel drehen sich mit, die Titelliste fliegt gestaffelt ein.
+- **Takt** – sobald ein Titel läuft, misst die Seite die Frequenzen und
+  bewegt sich mit: Abschnitte atmen, Kanten blitzen, der Lichtschein am
+  Player pumpt, das Bannerbild schiebt sich mit dem Bass nach vorn. Ohne
+  Audiodatei läuft ein Vorführtakt mit 124 Schlägen pro Minute – man sieht
+  also sofort, wie es später wirkt.
+
+**Die Seite passt sich dem Gerät an.** Sie misst ihre eigene Bildrate und
+nimmt zurück, wenn es eng wird: erst fallen die Wellen weg und die Tiefe
+wird flach, dann bleibt nur noch der Takt. Auf schwachen Geräten startet
+sie gleich eine Stufe tiefer.
+
+Zum Vorführen **`?vollgas=1`** an die Adresse hängen, etwa
+`reymond-tobias.ch/musik?vollgas=1` – dann bleibt die höchste Stufe
+eingeschaltet, egal was das Gerät meldet.
+
+Wer im Betriebssystem „Bewegung reduzieren“ eingestellt hat, bekommt eine
+ruhige Seite: keine Wellen, keine Tiefe, kein Takt.
 
 ---
 
@@ -245,6 +274,7 @@ cms/
 │   ├── js/main.js         Animationen der Website
 │   ├── js/player.js       Musikplayer
 │   ├── js/contact.js      Formularprüfung
+│   ├── js/motion.js       Wellen, Tiefe beim Scrollen, Takt
 │   ├── js/canvas.js       im Rahmen: auswählen, ziehen, tippen
 │   ├── js/editor.js       Werkzeugleiste, Modell, Speichern
 │   ├── js/dashboard.js    Einstellungen

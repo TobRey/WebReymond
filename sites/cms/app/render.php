@@ -59,7 +59,9 @@ function rc_section_shell( array $props ): array {
 	$bg = (string) rc_get( $props, 'bg', 'schwarz' );
 
 	$map = array(
-		'schwarz' => 'var(--c-black)',
+		// Durchsichtig, damit die Wellen im Hintergrund sichtbar bleiben.
+		// Wer eine Fläche will, nimmt „Tiefschwarz“.
+		'schwarz' => 'transparent',
 		'tief'    => '#000',
 		'karte'   => 'var(--c-ink-2)',
 		'verlauf' => 'linear-gradient(180deg, var(--c-ink-2), var(--c-black))',
@@ -316,7 +318,7 @@ function rc_render_player( array $p ): string {
 	$cover = rc_image_url( (string) rc_get( $first, 'cover' ) );
 
 	$html  = '<div class="shell"><div class="player reveal" data-player>';
-	$html .= '<figure class="player__art"><img src="' . e( $cover ) . '" alt="Cover: ' . e( rc_get( $first, 'title' ) ) . '" />';
+	$html .= '<figure class="player__art" data-tilt><img src="' . e( $cover ) . '" alt="Cover: ' . e( rc_get( $first, 'title' ) ) . '" />';
 	$html .= '<figcaption class="player__index">01</figcaption>';
 	$html .= '<span class="player__live"><i></i> Läuft</span></figure>';
 
@@ -503,7 +505,7 @@ function rc_render_section( array $section ): string {
 
 	// Das Banner bringt seinen eigenen Rahmen mit.
 	if ( 'hero' === $type ) {
-		$wrapper = '<div class="rc-section rc-section--hero"%s>%s</div>';
+		$wrapper = '<div class="rc-section rc-section--hero" data-depth="0.5"%s>%s</div>';
 
 		return sprintf(
 			$wrapper,
@@ -527,6 +529,9 @@ function rc_render_section( array $section ): string {
 	if ( rc_get( $props, 'anchor' ) ) {
 		$extra .= ' id="' . e( preg_replace( '/[^a-zA-Z0-9_-]/', '', (string) rc_get( $props, 'anchor' ) ) ) . '"';
 	}
+
+	// Wie stark der Abschnitt beim Scrollen im Raum kippt.
+	$extra .= ' data-depth="' . ( 'marquee' === $type ? '0.6' : '1' ) . '"';
 
 	if ( rc_editing() ) {
 		$extra .= ' data-rc-section="' . e( rc_get( $section, 'id' ) ) . '" data-rc-type="' . e( $type ) . '"';

@@ -48,6 +48,10 @@ function rc_head( array $page ): void {
 		</div>
 	<?php endif; ?>
 
+	<?php if ( ! rc_editing() && ! empty( $effects['waves'] ) ) : ?>
+		<canvas id="rc-bg" aria-hidden="true"></canvas>
+	<?php endif; ?>
+
 	<?php if ( ! empty( $effects['grain'] ) ) : ?>
 		<div class="grain" aria-hidden="true"></div>
 	<?php endif; ?>
@@ -152,6 +156,7 @@ function rc_footer(): void {
 	</script>
 	<?php if ( ! rc_editing() ) : ?>
 		<script src="<?php echo e( rc_url( 'assets/js/main.js' ) ); ?>?v=<?php echo e( RC_VERSION ); ?>" defer></script>
+		<script src="<?php echo e( rc_url( 'assets/js/motion.js' ) ); ?>?v=<?php echo e( RC_VERSION ); ?>" defer></script>
 		<script src="<?php echo e( rc_url( 'assets/js/player.js' ) ); ?>?v=<?php echo e( RC_VERSION ); ?>" defer></script>
 		<script src="<?php echo e( rc_url( 'assets/js/contact.js' ) ); ?>?v=<?php echo e( RC_VERSION ); ?>" defer></script>
 	<?php else : ?>

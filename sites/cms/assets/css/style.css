@@ -281,7 +281,8 @@ ul {
 /* Filmkorn über der ganzen Seite – macht das Schwarz lebendig statt flach. */
 .grain {
   position: fixed;
-  inset: -150%;
+  inset: -30%;
+  will-change: transform;
   z-index: 9000;
   pointer-events: none;
   opacity: 0.05;
@@ -1932,4 +1933,338 @@ body.menu-open .menu__link:nth-child(3) {
   .grain {
     display: none;
   }
+}
+
+/* ==========================================================================
+   13. Raum und Takt
+   Der Hintergrund wellt, die Abschnitte kippen beim Scrollen leicht im
+   Raum, und sobald Musik läuft, atmet die ganze Seite im Takt mit.
+
+   Alles hängt an drei Zahlen, die das Skript setzt:
+     --beat    0…1  Ausschlag beim Schlag
+     --bass    0…1  wie viel Tiefe gerade da ist
+     --energy  0…1  Gesamtlautstärke
+     --p      -1…1  Position eines Abschnitts im Sichtfeld
+   ========================================================================== */
+
+:root {
+  --beat: 0;
+  --bass: 0;
+  --energy: 0;
+  --px: 0;
+  --py: 0;
+}
+
+/* Der Wellen-Hintergrund liegt hinter allem, ist aber Teil der Seite. */
+#rc-bg {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.85;
+  transition: opacity 0.8s var(--ease);
+}
+
+body.rc-playing #rc-bg {
+  opacity: 1;
+}
+
+main,
+.site-footer {
+  position: relative;
+  z-index: 1;
+}
+
+/* Im Takt wachsen die Abschnitte um Haaresbreite – das darf die Seite
+   nicht seitlich scrollen lassen. „clip“ statt „hidden“, damit klebende
+   Überschriften im Inneren weiter kleben. */
+html {
+  overflow-x: clip;
+}
+
+main {
+  overflow-x: clip;
+}
+
+/* -------------------------------------------------------------------------
+   Tiefe: jeder Abschnitt steht ein Stück im Raum und richtet sich beim
+   Scrollen auf. Die Perspektive steckt in der Transformation selbst –
+   so bleiben klebende Elemente innerhalb der Abschnitte funktionsfähig.
+   ---------------------------------------------------------------------- */
+
+.rc-section {
+  --p: 0;
+  transform: perspective(1500px) translate3d(0, calc(var(--beat) * -4px), calc(var(--p) * -80px))
+    rotateX(calc(var(--p) * 3.4deg)) scale(calc(1 + var(--beat) * 0.006));
+  transform-origin: 50% 50%;
+  will-change: transform;
+  /* Sagt dem Browser: was hier drin passiert, betrifft nur diesen Kasten.
+     Damit muss er beim Kippen nicht die ganze Seite neu berechnen. */
+  contain: layout paint style;
+}
+
+/* Das Banner bleibt ruhiger: es füllt den Bildschirm und würde sonst kippen. */
+.rc-section--hero {
+  transform: perspective(1800px) translate3d(0, 0, calc(var(--p) * -40px))
+    scale(calc(1 + var(--beat) * 0.004));
+}
+
+/* Laufbänder sitzen flach zwischen den Abschnitten. */
+.rc-section--flat {
+  transform: perspective(1200px) skewY(calc(var(--beat) * -0.4deg))
+    scale(calc(1 + var(--beat) * 0.01));
+}
+
+/* -------------------------------------------------------------------------
+   Auftritt: die Abschnitte kommen aus der Tiefe, nicht bloss von unten.
+   ---------------------------------------------------------------------- */
+
+.reveal {
+  transform: perspective(1000px) translate3d(0, 38px, -90px) rotateX(7deg);
+}
+
+.reveal.is-in {
+  transform: none;
+}
+
+.line-mask > span {
+  transform: translate3d(0, 105%, 0);
+}
+
+/* -------------------------------------------------------------------------
+   Takt: was mitgeht, wenn Musik läuft
+   ---------------------------------------------------------------------- */
+
+/* Ausgewählte Kanten blinken mit. Bewusst nur diese: färbt man den
+   Grundwert aller Linien um, zeichnet der Browser bei jedem Schlag die
+   ganze Seite neu. */
+body.rc-playing .player,
+body.rc-playing .track.is-current,
+body.rc-playing .form {
+  border-color: rgba(255, 255, 255, calc(0.16 + var(--beat) * 0.5));
+}
+
+/* Grosse Schrift atmet. Bewusst über den Massstab und nicht über
+   Schriftabstand oder Schatten: das eine löst bei jedem Bild einen neuen
+   Umbruch aus, das andere ein teures Weichzeichnen. */
+body.rc-playing .player__title,
+body.rc-playing .page-head__title,
+body.rc-playing .cta__title span,
+body.rc-playing .hero__title {
+  transform: scale(calc(1 + var(--beat) * 0.012));
+  transform-origin: left center;
+}
+
+body.rc-playing .cta__title span {
+  transform-origin: center;
+}
+
+/* Das Bannerbild schiebt sich mit dem Bass nach vorn. */
+body.rc-playing .hero__media {
+  transform: scale(calc(1 + var(--bass) * 0.025));
+}
+
+.hero__media {
+  transform: scale(1);
+  transition: transform 0.12s linear;
+}
+
+/* Die Abdunklung öffnet sich beim Schlag einen Spalt. */
+body.rc-playing .vignette {
+  opacity: calc(1 - var(--beat) * 0.4);
+}
+
+/* Cover: folgt dem Zeiger im Raum und wächst mit dem Bass. */
+.player__art {
+  transform: perspective(900px) rotateY(calc(var(--tx, 0) * 5deg))
+    rotateX(calc(var(--ty, 0) * -5deg)) scale(calc(1 + var(--bass) * 0.03));
+  transition: transform 0.14s linear;
+}
+
+.player.is-playing .player__art img {
+  transform: scale(calc(1.05 + var(--bass) * 0.04));
+}
+
+/* Der Lichtschein im Player pulsiert über die Deckkraft – das kostet
+   nichts, weil die Grafikkarte die Fläche ohnehin schon kennt. */
+body.rc-playing .player.is-playing::after {
+  opacity: calc(0.55 + var(--beat) * 0.45);
+  transform: scale(calc(1 + var(--beat) * 0.12));
+  animation: none;
+}
+
+/* Der laufende Titel in der Liste wippt mit. */
+body.rc-playing .track.is-current {
+  transform: perspective(700px) translateZ(calc(var(--beat) * 12px));
+}
+
+.track {
+  transform: perspective(700px) translateZ(0);
+  transition:
+    transform 0.12s linear,
+    color 0.35s linear,
+    padding-inline 0.5s var(--ease);
+}
+
+/* Knöpfe und Kennzahlen heben leicht ab. */
+body.rc-playing .btn--solid {
+  transform: translateZ(0) scale(calc(1 + var(--beat) * 0.02));
+}
+
+body.rc-playing .hero__stat b {
+  transform: translateX(calc(var(--beat) * -4px));
+  display: block;
+  transition: transform 0.1s linear;
+}
+
+/* Der Lichtschein im Schlussaufruf pumpt mit. */
+body.rc-playing .cta__glow {
+  opacity: calc(0.5 + var(--beat) * 0.5);
+  transform: translate(-50%, -50%) scale(calc(1 + var(--beat) * 0.25));
+}
+
+/* Die Kopfzeile bleibt ruhig, damit die Navigation lesbar bleibt –
+   nur die Linie darunter zuckt mit. */
+body.rc-playing .site-header.is-stuck {
+  border-bottom-color: rgba(255, 255, 255, calc(0.14 + var(--beat) * 0.6));
+}
+
+/* -------------------------------------------------------------------------
+   Ruhe für alle, die weniger Bewegung eingestellt haben
+   ---------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  #rc-bg {
+    display: none;
+  }
+
+  .rc-section,
+  .rc-section--hero,
+  .rc-section--flat,
+  .player__art,
+  .track,
+  .reveal {
+    transform: none !important;
+  }
+}
+
+/* Der grosse Titel im Textabschnitt klebte früher am oberen Rand. Innerhalb
+   einer räumlich gekippten Fläche geht das nicht mehr – stattdessen wandert
+   er beim Scrollen sanft gegen die Leserichtung. */
+.about__title {
+  position: static;
+  transform: translate3d(0, calc(var(--p) * -38px), 0);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about__title {
+    transform: none;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Noch mehr Raum beim Scrollen
+   ---------------------------------------------------------------------- */
+
+/* Das Cover dreht sich mit dem Scrollen – zusätzlich zum Zeiger. */
+.player__art {
+  transform: perspective(900px) rotateY(calc(var(--tx, 0) * 5deg + var(--p, 0) * 7deg))
+    rotateX(calc(var(--ty, 0) * -5deg + var(--p, 0) * -3deg)) scale(calc(1 + var(--bass) * 0.03));
+}
+
+/* Grosse Seitentitel kippen leicht mit. */
+.page-head__title,
+.cta__title {
+  transform: perspective(1200px) rotateX(calc(var(--p, 0) * -4deg))
+    translateZ(calc(var(--p, 0) * -30px));
+}
+
+/* Der Schriftzug in der Fusszeile steht schräg im Raum. */
+.site-footer__mark {
+  display: inline-block;
+  transform: perspective(900px) rotateX(calc(var(--py, 0) * 6deg))
+    rotateY(calc(var(--px, 0) * 8deg));
+  transition:
+    transform 0.25s var(--ease),
+    color 0.6s var(--ease);
+}
+
+/* Die Termine stapeln sich leicht in die Tiefe. */
+.date-row {
+  transform: perspective(800px) translateZ(calc(var(--p, 0) * -16px));
+}
+
+/* Die Titel der Liste fliegen nacheinander aus der Tiefe ein.
+   „backwards“ ist wichtig: nach dem Auftritt gilt wieder die normale
+   Regel, damit der laufende Titel im Takt wippen kann. */
+.tracklist.is-in .track {
+  animation: track-in 0.85s var(--ease) backwards;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+@keyframes track-in {
+  from {
+    opacity: 0;
+    transform: perspective(700px) rotateX(-16deg) translate3d(0, 30px, -70px);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(700px) rotateX(0) translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-head__title,
+  .cta__title,
+  .site-footer__mark,
+  .date-row,
+  .tracklist.is-in .track {
+    transform: none !important;
+    animation: none !important;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Stufen der Bewegung
+
+   Die Seite misst ihre eigene Bildrate und setzt eine dieser Klassen, wenn
+   das Gerät nicht mitkommt. Der Takt bleibt immer – er kostet fast nichts.
+   ---------------------------------------------------------------------- */
+
+/* Stufe 1: flach statt räumlich, keine Wellen. */
+html.rc-q1 .rc-section,
+html.rc-q1 .rc-section--hero {
+  transform: translate3d(0, calc(var(--beat) * -3px), 0) scale(calc(1 + var(--beat) * 0.005));
+}
+
+html.rc-q1 .page-head__title,
+html.rc-q1 .cta__title,
+html.rc-q1 .date-row,
+html.rc-q1 .about__title,
+html.rc-q1 .site-footer__mark {
+  transform: none;
+}
+
+html.rc-q1 .player__art {
+  transform: scale(calc(1 + var(--bass) * 0.03));
+}
+
+/* Stufe 0: nur noch der Takt. */
+html.rc-q0 .rc-section,
+html.rc-q0 .rc-section--hero,
+html.rc-q0 .rc-section--flat,
+html.rc-q0 .page-head__title,
+html.rc-q0 .cta__title,
+html.rc-q0 .date-row,
+html.rc-q0 .about__title,
+html.rc-q0 .site-footer__mark,
+html.rc-q0 .track {
+  transform: none;
+}
+
+html.rc-q0 .player__art {
+  transform: scale(calc(1 + var(--bass) * 0.02));
 }

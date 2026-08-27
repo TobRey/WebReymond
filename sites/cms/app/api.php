@@ -256,7 +256,7 @@ function rc_api_settings( array $input ): void {
 	}
 
 	if ( isset( $data['effects'] ) && is_array( $data['effects'] ) ) {
-		foreach ( array( 'grain', 'cursor', 'preloader', 'vignette' ) as $key ) {
+		foreach ( array( 'waves', 'grain', 'cursor', 'preloader', 'vignette' ) as $key ) {
 			$settings['effects'][ $key ] = ! empty( $data['effects'][ $key ] );
 		}
 	}

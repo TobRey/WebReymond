@@ -185,6 +185,7 @@ $rc_uploads  = rc_uploads_list();
 				<?php
 				$rc_effects = (array) rc_get( $rc_settings, 'effects', array() );
 				$rc_labels  = array(
+					'waves'     => 'Wellen im Hintergrund',
 					'grain'     => 'Filmkorn',
 					'cursor'    => 'Eigener Mauszeiger',
 					'preloader' => 'Ladevorhang',
