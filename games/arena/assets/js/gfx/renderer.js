@@ -25,6 +25,37 @@ function shadowSprite() {
   return shadowCanvas;
 }
 
+/**
+ * Roter Ring fuer Elitegegner - einmal gezeichnet, danach nur kopiert.
+ *
+ * Zwei gestrichene Ellipsen je Elite und Bild kosteten bei fuenfzig Eliten
+ * mehr Bildrate als alle Gegner zusammen. Als fertiges Bild ist es ein
+ * einziger drawImage-Aufruf.
+ */
+let eliteCanvas = null;
+function eliteRing() {
+  if (eliteCanvas) return eliteCanvas;
+  const w = 128;
+  const h = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.strokeStyle = '#ff6b5a';
+  ctx.globalAlpha = 0.22;
+  ctx.lineWidth = 9;
+  ctx.beginPath();
+  ctx.ellipse(w / 2, h / 2, w / 2 - 6, h / 2 - 6, 0, 0, TAU);
+  ctx.stroke();
+  ctx.globalAlpha = 0.8;
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.ellipse(w / 2, h / 2, w / 2 - 6, h / 2 - 6, 0, 0, TAU);
+  ctx.stroke();
+  eliteCanvas = canvas;
+  return eliteCanvas;
+}
+
 /** Weisse Silhouette eines Frames - für das Aufblitzen bei Treffern. */
 function silhouette(frame) {
   let cached = silhouettes.get(frame);
@@ -361,6 +392,16 @@ export class Renderer {
     if (!sprite) return;
 
     this.shadow(enemy.x, enemy.y + enemy.radius * 0.42, enemy.radius * 0.9, enemy.radius * 0.38);
+
+    // Elitegegner tragen einen roten Ring am Boden - ein fertiges Bild,
+    // damit man sofort sieht, wer haerter zuschlaegt, ohne dass es Bildrate
+    // kostet.
+    if (enemy.elite && !enemy.dying) {
+      const rw = enemy.radius * 2.1;
+      const rh = enemy.radius * 0.9;
+      ctx.drawImage(eliteRing(), enemy.x - rw / 2,
+        enemy.y + enemy.radius * 0.42 - rh / 2, rw, rh);
+    }
 
     const spawnPop = enemy.spawnTime < 0.25 ? 0.65 + (enemy.spawnTime / 0.25) * 0.35 : 1;
     const height = enemy.scale * spawnPop;

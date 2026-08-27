@@ -6,6 +6,7 @@ import { rollChoices, RARITY_LABEL, formatModifiers } from './game/upgrades.js';
 import { Shop } from './game/shop.js';
 import { formatTime, pick } from './core/util.js';
 import { Audio } from './core/audio.js';
+import { effectDamageFactor } from './game/effects.js';
 
 const content = window.ARENA_CONTENT;
 const $ = (id) => document.getElementById(id);
@@ -503,7 +504,8 @@ function renderWeapons() {
 }
 
 /* -------------------------------------------------------------- Run-Start */
-async function startRun(weapon) {
+async function startRun(weapon, charakter) {
+  if (charakter) selectedCharacter = charakter;
   const maps = activeMaps();
   if (!maps.length) {
     toast('Keine Welt vorhanden - lege im Admin eine Map an.', 'error');
@@ -1436,11 +1438,35 @@ window.addEventListener('keydown', (e) => {
 function aussehenAnwenden() {
   const ui = content.ui || {};
   const wurzel = document.documentElement.style;
-  if (ui.menuBackground) wurzel.setProperty('--menu-bg', bildUrl(ui.menuBackground));
-  if (ui.charBackground) wurzel.setProperty('--char-bg', bildUrl(ui.charBackground));
+  hintergrund('--menu-bg', ui.menuBackground, 'assets/sprites/menu-hintergrund.jpg');
+  hintergrund('--char-bg', ui.charBackground, 'assets/sprites/charakter-hintergrund.jpg');
   wurzel.setProperty('--char-x', (ui.charX ?? 50) + '%');
   wurzel.setProperty('--char-y', (ui.charY ?? 63) + '%');
   wurzel.setProperty('--char-scale', String((ui.charScale ?? 100) / 100));
+}
+
+/**
+ * Setzt ein Hintergrundbild - mit Rueckfallebene.
+ *
+ * Zeigt der eingestellte Pfad ins Leere (Datei geloescht, Upload
+ * fehlgeschlagen), bliebe der Bildschirm sonst einfach schwarz. Deshalb
+ * wird das Bild erst geladen und der Wert nur gesetzt, wenn es wirklich
+ * da ist; sonst greift das mitgelieferte Bild.
+ */
+function hintergrund(variable, pfad, ersatz) {
+  const wurzel = document.documentElement.style;
+  const setzen = (p) => wurzel.setProperty(variable, bildUrl(p));
+  if (!pfad) {
+    setzen(ersatz);
+    return;
+  }
+  setzen(pfad);
+  const probe = new Image();
+  probe.onerror = () => {
+    console.warn('Hintergrund fehlt:', pfad, '- nehme', ersatz);
+    setzen(ersatz);
+  };
+  probe.src = new URL(pfad, document.baseURI).href;
 }
 
 function checkOrientation() {
@@ -1469,6 +1495,11 @@ window.__assets = { Assets };
 
 window.ARENA_DEBUG = {
   audio: Audio,
+  // Fuer Balancing-Messungen: Kartenzug, Laden und Schadensfaktor ohne
+  // Oberflaeche.
+  rollChoices,
+  Shop,
+  effectFactor: (run) => effectDamageFactor(run, null),
   get arena() {
     return arena;
   },

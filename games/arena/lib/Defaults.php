@@ -10,7 +10,7 @@ final class Defaults
     public const SPRITE_BASE = 'assets/sprites/';
 
     /** Inhaltsversion. Erhöhen, wenn neue Standardinhalte nachgetragen werden sollen. */
-    public const VERSION = 5;
+    public const VERSION = 6;
 
     /** @return array<string, mixed> */
     public static function content(): array
@@ -35,9 +35,9 @@ final class Defaults
     public static function player(): array
     {
         return [
-            'maxHealth' => 100,
-            'moveSpeed' => 168,
-            'armor' => 0,
+            'maxHealth' => 130,
+            'moveSpeed' => 172,
+            'armor' => 1,
             'damageMult' => 1.0,
             'critChance' => 5,
             'critDamage' => 60,
@@ -139,17 +139,46 @@ final class Defaults
         return [
             'waveDuration' => 60,
             'bossDuration' => 120,
-            'enemySpawnRate' => 1.5,
-            // 80 waren fuer Mobilgeraete zu viel - jeder Gegner kostet
-            // Zeichenzeit. 60 fuellt den Bildschirm bereits gut.
-            'maxEnemies' => 60,
-            'healthScaling' => 1.45,
-            'damageScaling' => 1.28,
-            'speedScaling' => 1.035,
-            'spawnRateScaling' => 1.18,
-            'rewardScaling' => 1.25,
-            'moneyMultiplier' => 1.0,
+            // Am Anfang ruhiger als frueher, dafuer waechst der Nachschub
+            // schneller. So stirbt man in Welle 1 nicht mehr an einem
+            // Pulk, und spaeter wird es wirklich voll.
+            'enemySpawnRate' => 1.6,
+            /*
+             * Wie viele Gegner gleichzeitig auf der Karte stehen duerfen.
+             *
+             * Frueher war das eine feste Zahl - 60, egal ob Welle 1 oder
+             * Zyklus 20. Jetzt waechst die Grenze mit dem Fortschritt: Sie
+             * beginnt bei 42 und wird je Zyklus um 12 % groesser. Je weiter
+             * man kommt, desto voller wird das Feld. "maxEnemiesLimit" ist
+             * keine Spielregel mehr, sondern nur die Notbremse fuer schwache
+             * Geraete.
+             */
+            'maxEnemies' => 22,
+            'maxEnemiesGrowth' => 1.16,
+            'maxEnemiesLimit' => 260,
+            'healthScaling' => 1.62,
+            // Gegner treffen mit jedem Zyklus spuerbar haerter - sonst
+            // merkt man den Fortschritt nur an der Lebensleiste.
+            'damageScaling' => 1.34,
+            'speedScaling' => 1.03,
+            'spawnRateScaling' => 1.20,
+            // Geld waechst deutlich langsamer als frueher (1.25). Zusammen
+            // mit den Ladenpreisen, die demselben Exponenten folgen, bleibt
+            // die Kaufkraft ueber den ganzen Run gleich.
+            'rewardScaling' => 1.06,
+            'moneyMultiplier' => 0.45,
+            // Elitegegner: ab diesem Zyklus, mit diesem Zuwachs je Welle,
+            // bis zu diesem Anteil. Sie haben mehr Leben, schlagen haerter,
+            // sind groesser und tragen einen roten Ring.
+            'eliteFromCycle' => 3,
+            'eliteGrowth' => 0.06,
+            'eliteMax' => 0.55,
+            'eliteHealth' => 2.2,
+            'eliteDamage' => 1.4,
             'contactDamageCooldown' => 0.8,
+            // Kurze Unverwundbarkeit nach jedem Treffer - deckelt den
+            // Schaden aus grossen Pulks. Siehe player.js.
+            'hitInvuln' => 0.4,
             'bossBombCooldown' => 4.5,
             'bossBombRadius' => 170,
             'bossBombDelay' => 1.3,
@@ -162,7 +191,7 @@ final class Defaults
             'waveMixShare' => 0.45,
             // So viele Gegner stehen zum Wellenstart schon bereit, damit es
             // nach der Upgrade-Auswahl sofort weitergeht.
-            'waveStartEnemies' => 4,
+            'waveStartEnemies' => 3,
             // Ultimate: Druckwelle auf Knopfdruck.
             'ultCooldown' => 30.0,
             'ultRadius' => 300.0,
@@ -172,7 +201,9 @@ final class Defaults
             'rarityRareBase' => 26,
             'rarityEpicBase' => 9,
             'rarityLegendaryBase' => 2,
-            'rarityCycleBonus' => 1.35,
+            // 1.35 liess die Seltenheiten davonlaufen: ab Zyklus 8 kamen
+            // fast nur noch epische und legendaere Karten.
+            'rarityCycleBonus' => 1.22,
         ];
     }
 
@@ -210,7 +241,11 @@ final class Defaults
             'priceEpic' => 3.2,
             'priceLegendary' => 5.4,
             'priceWeapon' => 4.0,
-            'priceCycleBonus' => 0.35,
+            // Preise wachsen exponentiell wie die Beute (rewardScaling).
+            // Dadurch bleibt die Kaufkraft ueber den ganzen Run gleich -
+            // frueher wuchs das Geld exponentiell, die Preise linear, und
+            // ab Zyklus 10 konnte man sich alles leisten.
+            'priceCycleGrowth' => 1.40,
             // Jede weitere Stufe desselben Upgrades kostet mehr.
             'priceStackBonus' => 0.45,
             'rerollCost' => 18,
@@ -345,7 +380,10 @@ final class Defaults
             ['mira', 'Mira', 90, 'Sammlerin', 'Zieht alles an sich und findet doppelt so viele Heilflaschen.', 'magnet',
              ['pickupRange' => 2.0, 'potionRate' => 1.5, 'moveSpeed' => 1.04], false],
             ['dax', 'Dax', 40, 'Glücksritter', 'Verdient deutlich mehr Geld an jedem Gegner.', 'greed',
-             ['money' => 1.6, 'maxHealth' => 0.95, 'dodge' => 5], false],
+             // Der Geldbonus steckt in der Faehigkeit "Goldrausch". Frueher
+             // stand er zusaetzlich noch einmal in den Werten - zusammen das
+             // Zweieinhalbfache, und Dax konnte sich im Laden alles leisten.
+             ['money' => 1.0, 'maxHealth' => 0.95, 'dodge' => 5], false],
             ['iva', 'Iva', 210, 'Scharfschützin', 'Trifft auf Distanz härter als jeder andere.', 'sniper',
              ['range' => 1.30, 'projectileSpeed' => 1.25, 'maxHealth' => 0.86, 'critChance' => 4], false],
             ['ossa', 'Ossa', 120, 'Zähe Haut', 'Überlebt einmal je Welle einen tödlichen Treffer.', 'secondWind',
@@ -416,7 +454,7 @@ final class Defaults
             ['speer', 'Speer', 'speer.png', 'THRUST', '',
              42, 0.62, 165, 0, 130, 10, 65, 0, 'Stoß nach vorne mit schmalem Trefferbereich und hohem Schaden.', 120, 16],
             ['dolch', 'Dolch', 'dolch.png', 'MELEE_ARC', '',
-             17, 0.19, 100, 0, 45, 15, 70, 0, 'Blitzschnelle Stiche auf kurze Distanz.', 58, 16],
+             16, 0.20, 100, 0, 45, 15, 70, 0, 'Blitzschnelle Stiche auf kurze Distanz.', 58, 16],
             ['schwert', 'Schwert', 'schwert.png', 'MELEE_ARC', '',
              25, 0.48, 140, 0, 110, 8, 60, 0, 'Weiter Schwung vor dem Spieler, trifft mehrere Gegner.', 95, 16],
             ['axt', 'Axt', 'axt.png', 'MELEE_360', '',
@@ -500,7 +538,7 @@ final class Defaults
         return [
             [
                 'id' => 'enemy1', 'name' => 'Kriecher', 'sprite' => $s . 'enemy1.gif',
-                'health' => 34, 'damage' => 8, 'speed' => 80, 'reward' => 3,
+                'health' => 34, 'damage' => 7, 'speed' => 80, 'reward' => 2,
                 'spawnWeight' => 100, 'boss' => false, 'contactCooldown' => 0.8,
                 'scale' => 64, 'hitbox' => ['shape' => 'circle', 'r' => 19, 'ox' => 0, 'oy' => 4],
                 'wave' => 1,
@@ -509,7 +547,7 @@ final class Defaults
             ],
             [
                 'id' => 'enemy2', 'name' => 'Schleicher', 'sprite' => $s . 'enemy2.gif',
-                'health' => 72, 'damage' => 12, 'speed' => 94, 'reward' => 6,
+                'health' => 52, 'damage' => 10, 'speed' => 94, 'reward' => 4,
                 'spawnWeight' => 100, 'boss' => false, 'contactCooldown' => 0.8,
                 'scale' => 74, 'hitbox' => ['shape' => 'circle', 'r' => 21, 'ox' => 0, 'oy' => 4],
                 'wave' => 2,
@@ -518,7 +556,7 @@ final class Defaults
             ],
             [
                 'id' => 'enemy3', 'name' => 'Brecher', 'sprite' => $s . 'enemy3.gif',
-                'health' => 135, 'damage' => 18, 'speed' => 72, 'reward' => 11,
+                'health' => 88, 'damage' => 15, 'speed' => 72, 'reward' => 7,
                 'spawnWeight' => 100, 'boss' => false, 'contactCooldown' => 0.9,
                 'scale' => 96, 'hitbox' => ['shape' => 'circle', 'r' => 25, 'ox' => 0, 'oy' => 6],
                 'wave' => 3,
@@ -527,7 +565,7 @@ final class Defaults
             ],
             [
                 'id' => 'boss1', 'name' => 'Bombenwerfer', 'sprite' => $s . 'boss1.gif',
-                'health' => 1700, 'damage' => 26, 'speed' => 60, 'reward' => 120,
+                'health' => 1300, 'damage' => 18, 'speed' => 60, 'reward' => 70,
                 'spawnWeight' => 0, 'boss' => true, 'contactCooldown' => 1.0,
                 'scale' => 190, 'hitbox' => ['shape' => 'circle', 'r' => 46, 'ox' => 0, 'oy' => 8],
                 'wave' => 4,

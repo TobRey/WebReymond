@@ -44,6 +44,8 @@ export class Arena {
     // Rohdaten der Karte bleiben erreichbar - der Renderer holt sich daraus
     // Farbe und Menge der Stimmungsteilchen.
     this.mapDef = mapDef;
+    // 1 = volle Gegnergrenze. Faellt die Bildrate, geht der Wert zurueck.
+    this.enemyBudget = 1;
     this.camera = new Camera();
     this.effects = new Effects();
     this.enemies = new EnemyManager(this.map);
@@ -209,6 +211,7 @@ export class Arena {
     // der Spieler laeuft. Einmal je Takt gesetzt statt an jeder Stelle neu.
     this.run.aliveEnemies = this.enemies.countAlive;
     this.run.moving = this.player.moving;
+    this.run.tickHealBudget(dt, EFFECT_VALUES.healCapShare);
     updateEffects(this.run, dt);
     this.updateEffectTimers(dt);
     this.updateUlt(dt);
@@ -385,9 +388,10 @@ export class Arena {
     if (crit && this.run.hasEffect('critHeal')) {
       heilung += EFFECT_VALUES.critHeal * this.run.effectLevel('critHeal');
     }
-    if (heilung > 0 && !this.player.dead && this.run.health < this.run.stats.maxHealth) {
-      this.run.health = Math.min(this.run.stats.maxHealth, this.run.health + heilung);
-    }
+    // Heilung aus Treffern laeuft ueber ein Budget je Sekunde. Sonst
+    // heilt eine Waffe mit fuenf Angriffen je Sekunde fuenfmal so viel wie
+    // eine langsame - und wird damit unsterblich.
+    if (heilung > 0 && !this.player.dead) this.run.healFromHit(heilung);
     // Fähigkeit "Frost": getroffene Gegner werden träge.
     if (this.run.perk === 'frost') {
       enemy.slowFactor = PERK_VALUES.frostFactor;
@@ -421,13 +425,13 @@ export class Arena {
     enemy.contactTimer = 999;
     this.run.kills++;
 
-    // Fähigkeit "Lebensraub": jeder Kill heilt ein wenig.
+    // Fähigkeit "Lebensraub": jeder Kill heilt ein wenig - ebenfalls aus
+    // dem Budget, damit Massenkills nicht alles wieder auffuellen.
     if (this.run.perk === 'lifesteal' && !this.player.dead) {
       const heal = enemy.boss ? PERK_VALUES.lifestealBoss : PERK_VALUES.lifestealNormal;
-      const before = this.run.health;
-      this.run.health = Math.min(this.run.stats.maxHealth, this.run.health + heal);
-      if (this.run.health > before) {
-        this.effects.number(this.player.x, this.player.y - 46, '+' + Math.round(this.run.health - before), { color: '#5ee08a' });
+      const geheilt = this.run.healFromHit(heal);
+      if (geheilt > 0.5) {
+        this.effects.number(this.player.x, this.player.y - 46, '+' + Math.round(geheilt), { color: '#5ee08a' });
       }
     }
 
@@ -1071,7 +1075,27 @@ export class Arena {
 
   render(dt, time, fps) {
     this.renderer.adapt(fps, dt);
+    this.leistungsBudget(fps, dt);
     this.renderer.draw(time, dt);
+  }
+
+  /**
+   * Wie viele Gegner sich dieses Geraet leisten kann.
+   *
+   * Die Gegnergrenze waechst mit dem Fortschritt und ist bewusst keine
+   * feste Zahl mehr. Auf einem schwachen Geraet kann das irgendwann zu
+   * viel werden - dann zieht dieses Budget die Grenze langsam zurueck und
+   * gibt sie wieder frei, sobald Luft da ist. Die Aufloesung wird parallel
+   * ueber renderer.adapt() angepasst; erst wenn das nicht reicht, greift
+   * hier die Bremse.
+   */
+  leistungsBudget(fps, dt) {
+    if (!fps) return;
+    this._budgetTimer = (this._budgetTimer || 0) + dt;
+    if (this._budgetTimer < 2.5) return;
+    this._budgetTimer = 0;
+    if (fps < 38) this.enemyBudget = Math.max(0.4, this.enemyBudget - 0.08);
+    else if (fps > 55) this.enemyBudget = Math.min(1, this.enemyBudget + 0.04);
   }
 
   resize() {

@@ -1,6 +1,7 @@
 # Arena Survivors
 
 Mobiles 2D-Top-Down-Roguelite: Wellen überleben, Upgrades sammeln, Bosse legen.
+104 Upgrades, 15 Charaktere, 10 Waffen, ein Händler zwischen den Wellen.
 **Reines PHP + Vanilla JS (ES-Module), keine Datenbank, kein Build-Schritt, keine externen Libraries.**
 
 ---
@@ -293,22 +294,23 @@ Das Hintergrundbild lässt sich im Admin unter *Laden & Aussehen* austauschen.
 
 ### Zwei Schriften, beide mitgeliefert
 
-Zuerst lief die ganze Oberfläche in einer einzigen Pixelschrift. Das sah
-stimmig aus, war aber bei 11 px nicht mehr zu gebrauchen: Ein Pixelraster
-liegt dort unter der Auflösung des Displays, und eine **2 war kaum von einer
-8 zu unterscheiden**. Deshalb jetzt zwei Schnitte mit klarer Aufgabenteilung:
+Eine Pixelschrift sah zum Artwork stimmig aus, war aber klein gesetzt nicht
+zu gebrauchen: Ein Pixelraster liegt bei 11 px unter der Auflösung des
+Displays, und eine **2 war kaum von einer 8 zu unterscheiden**. Sie ist
+deshalb ganz raus. Jetzt zwei Schnitte mit klarer Aufgabenteilung:
 
-* **Pixelify Sans** für alles Grosse — Titel, Knöpfe, Banner, Countdown, die
-  Werte im HUD. Dort ist sie gross genug, um eindeutig zu bleiben, und sie
-  gibt dem Spiel seinen Ton.
-* **Rubik** für Fliesstext und alle Zahlen. Dieselbe warme, runde Anmutung,
-  aber in jeder Grösse eindeutig lesbar.
+* **Cinzel** für alles Grosse — Titel, Knöpfe, Banner, Countdown,
+  Überschriften. Eine kräftige Schrift mit Fantasy-Anmutung, die auch bei
+  13 px eindeutig bleibt und deutlich besser zum Artwork passt.
+* **Rubik** für Fliesstext und alle Zahlen — in jeder Grösse eindeutig.
 
-Zusätzlich wurde **alles angehoben, was vorher bei 10–12 px stand**: Der
-kleinste Text im Spiel ist jetzt 11,5 px, die meisten Angaben 12,5–14 px,
-Zahlen laufen mit `tabular-nums`, damit sie nicht springen.
+Zusätzlich ist **alles ein gutes Stück grösser** geworden: Grundgrösse 16 px,
+der kleinste Text im Spiel 13 px statt 10,5, die Werte im HUD 19 px, Knöpfe
+16 px bei 52 px Höhe. Zahlen laufen mit `tabular-nums`, damit sie nicht
+springen. Für schmale Handys (unter 380 px) und flache Querformate gibt es je
+eine Stufe darunter, damit nichts kollidiert.
 
-Beide Schriften liegen als `assets/fonts/*.woff2` (75 KB zusammen) **beim
+Beide Schriften liegen als `assets/fonts/*.woff2` (95 KB zusammen) **beim
 Spiel selbst**, es wird nichts von Google nachgeladen — auch im Admin nicht.
 Das Spiel sieht damit ohne Verbindung nach aussen gleich aus, und im ZIP ist
 alles dabei.
@@ -508,15 +510,63 @@ ein Wellenwechsel nicht wie ein Neustart aussieht.
 
 ### Schwierigkeitsskalierung
 
+Alle Werte hängen an **einer** Zahl: dem Fortschritt. Der ist eine
+Kommazahl — 0 in Welle 1, +0,25 je Welle, also +1 je Zyklus:
+
 ```
-Gegnerleben  = Basisleben  × healthScaling^(Zyklus-1)     (Standard 1.45)
-Gegnerschaden= Basisschaden× damageScaling^(Zyklus-1)     (Standard 1.28)
-Tempo        = Basistempo  × speedScaling^(Zyklus-1)      (Standard 1.035)
-Spawnrate    = Basisrate   × spawnRateScaling^(Zyklus-1)  (Standard 1.18)
-Geld         = Basisgeld   × rewardScaling^(Zyklus-1)     (Standard 1.25)
+Fortschritt  = (Zyklus − 1) + (Welle − 1) / 4
+
+Gegnerleben  = Basisleben   × healthScaling^Fortschritt     (Standard 1.62)
+Gegnerschaden= Basisschaden × damageScaling^Fortschritt     (Standard 1.34)
+Tempo        = Basistempo   × speedScaling^Fortschritt      (Standard 1.03)
+Spawnrate    = Basisrate    × spawnRateScaling^Fortschritt  (Standard 1.20)
+Geld         = Basisgeld    × rewardScaling^Fortschritt     (Standard 1.06)
+Gegnergrenze = maxEnemies   × maxEnemiesGrowth^Fortschritt  (Standard 1.16)
+Ladenpreise  = Grundpreis   × priceCycleGrowth^Fortschritt  (Standard 1.40)
 ```
 
-Alle fünf Werte sind im Admin unter **Balancing** einstellbar.
+Vorher lief die Rechnung über `Zyklus − 1`. Innerhalb eines Zyklus blieb
+damit **drei Wellen lang alles gleich**, dann kam ein Sprung — und es fühlte
+sich an, als würden die Gegner gar nicht stärker. Über vier Wellen kommt
+jetzt genau dasselbe heraus, aber gleichmässig verteilt.
+
+So sieht die Kurve mit den Standardwerten aus:
+
+| Welle | Leben × | Schaden × | Gegner gleichzeitig | Beute × | Elite | Preise × |
+|------:|--------:|----------:|--------------------:|--------:|------:|---------:|
+| 1  | 1,0   | 1,0  | 22  | 1,00 | –    | 1,0  |
+| 9  | 2,6   | 1,8  | 30  | 1,12 | –    | 2,0  |
+| 17 | 6,9   | 3,2  | 40  | 1,26 | 12 % | 3,8  |
+| 25 | 18,1  | 5,8  | 54  | 1,42 | 24 % | 7,5  |
+| 33 | 47,4  | 10,4 | 72  | 1,59 | 36 % | 14,8 |
+| 41 | 124,5 | 18,7 | 97  | 1,79 | 48 % | 28,9 |
+| 45 | 201,7 | 25,0 | 113 | 1,90 | 54 % | 40,5 |
+
+Alle Werte sind im Admin unter **Balancing** einstellbar.
+
+### Keine feste Gegnergrenze mehr
+
+`maxEnemies` war früher eine harte Zahl — 60, egal ob Welle 1 oder Zyklus 20.
+Sie ist jetzt nur noch der **Startwert** und wächst mit dem Fortschritt: 22
+zu Beginn, 113 bei Welle 45. Je weiter man kommt, desto voller wird das Feld.
+
+Zwei Dinge schützen dabei schwache Geräte, ohne dass eine feste Obergrenze
+das Spiel bestimmt:
+
+* **`maxEnemiesLimit`** (Standard 260) ist die reine Notbremse.
+* Ein **Leistungsbudget** zieht die Grenze langsam zurück, wenn die Bildrate
+  unter 38 fällt, und gibt sie wieder frei, sobald Luft da ist. Parallel
+  wird bereits die Renderauflösung angepasst; erst wenn das nicht reicht,
+  greift die Bremse.
+
+### Elitegegner
+
+Ab Zyklus 3 erscheint ein wachsender Anteil der Gegner als **Elite**:
+2,2-faches Leben, 1,4-facher Schaden, 20 % grösser, doppelte Beute und ein
+roter Ring am Boden. Der Anteil wächst um 6 Prozentpunkte je Welle bis
+höchstens 55 %. Damit sieht man, dass es härter wird — statt es nur an der
+Lebensleiste zu merken. Der Ring ist ein einmal gezeichnetes Bild und kostet
+je Elite genau einen `drawImage`-Aufruf.
 
 ### Boss-Bombe
 
@@ -678,6 +728,79 @@ Zwei Dinge sorgen dafür, dass das Umfallen auch wie ein Umfallen aussieht:
   Drittel der Zeit wird die Figur durchsichtig und ist beim Aufkommen fast
   verschwunden — sie bleibt nicht mehr sichtbar liegen und blinkt dann weg.
 
+### Warum ein Run nicht mehr entgleist
+
+Zwei Sorten Runs gab es vorher: nach drei Wellen tot — oder nach fünfzig
+Wellen unsterblich mit Millionen auf dem Konto. Beides hatte klare Ursachen.
+
+**Der Schaden lief davon.** Jeder Sondereffekt hatte einen Deckel, aber der
+wurde mit der Stufe multipliziert: acht Karten „Berserker" ergaben +400 %
+statt +50 %. Ein Dutzend solcher Karten nebeneinander kam auf einen
+Schadensfaktor von zwanzig. Jede weitere Stufe zählt jetzt nur noch **gut zur
+Hälfte** (`stufenFaktor` in `effects.js`) — stapeln lohnt sich weiter, läuft
+aber nicht mehr davon. Zusätzlich hat jeder dauerhafte Zuschlag ein eigenes
+Feld mit eigenem Deckel, statt dass alle in einen Topf laufen:
+
+| Karte | vorher | jetzt |
+|-------|--------|-------|
+| Bankier | +4 % je 100 Gold, **jede Welle obendrauf** | jede Welle neu berechnet, höchstens +60 % |
+| Seelenfänger | +6 % je Boss, unbegrenzt | höchstens +80 % |
+| Mutation | +4 % je Welle, unbegrenzt | höchstens +120 % |
+| Albtraum | +9 % je Zyklus, unbegrenzt | höchstens +120 % |
+| Schneeball | +0,25 % je Kill, +75 % je Stufe | hart bei +90 % |
+| Überkritisch | Krit-Überschuss unbegrenzt | Überschuss bei 150 gedeckelt |
+
+**Heilung hing an der Angriffsrate.** Lebensraub und Vampirzähne lösen bei
+jedem Treffer aus — eine Waffe mit fünf Angriffen je Sekunde heilte fünfmal
+so viel wie eine langsame. Genau das machte **Ruun mit dem Dolch** praktisch
+unbesiegbar. Heilung aus Treffern läuft jetzt über ein **Budget**: höchstens
+5 % des Maximallebens je Sekunde, egal wie oft man trifft. Heilflaschen,
+Notverband und Ernte laufen bewusst daran vorbei — die haben ihren eigenen
+Takt und lassen sich nicht hochskalieren.
+
+**Ein Pulk war der sofortige Tod.** Der eingehende Schaden hing direkt an der
+Zahl der Gegner, die einen berührten: zwanzig Gegner mit 0,8 s
+Berührungspause ergeben fünfundzwanzig Treffer je Sekunde. Nach jedem Treffer
+ist man jetzt **0,4 Sekunden unverwundbar** (`hitInvuln`), was den Schaden auf
+gut zwei Treffer je Sekunde deckelt — unabhängig davon, wie viele anstehen.
+Rüstung wirkt dadurch nebenbei doppelt so stark, weil sie je Treffer abzieht.
+
+**Geld wuchs schneller als die Preise.** Die Beute stieg exponentiell
+(×1,25 je Zyklus), die Ladenpreise nur linear. Ab Zyklus zehn konnte man sich
+jede Welle alles kaufen. Jetzt wachsen **beide exponentiell**, und die Preise
+schneller als das Einkommen: Beute ×1,06, Preise ×1,40 je Zyklus. Dazu ist
+die Grundbeute halbiert (`moneyMultiplier` 0,45) und die Beute je Gegnertyp
+gesenkt. Über einen ganzen Run bleibt der Kontostand damit meist zweistellig
+— Kaufen ist wieder eine Entscheidung.
+
+**Einzelne Kombinationen stachen heraus.** Ruuns *Glückskarten* hoben die
+Seltenheit um zwei ganze Zyklen an (jetzt einen), der Seltenheitsbonus je
+Zyklus lag bei 1,35 (jetzt 1,22), und Dax hatte den Geldbonus doppelt — in
+der Fähigkeit *und* in seinen Werten. Der steht jetzt nur noch in der
+Fähigkeit, und die gibt +45 % statt +60 %.
+
+#### Gemessen, nicht geraten
+
+Für das Balancing gibt es einen Prüfstand: Das Spiel läuft im
+Schnelldurchlauf ohne Bild, von Hand getaktet, mit einer Spieler-KI, die aus
+24 Richtungen die beste wählt, Bossbomben ausweicht, die Ultimate benutzt und
+mit Nahkampfwaffen bewusst herangeht. Nach jeder Welle zieht sie eine
+zufällige Karte und kauft im Laden, solange das Geld reicht.
+
+Zwölf Runs quer durch die Charaktere, vorher und nachher:
+
+| | vorher | jetzt |
+|---|---|---|
+| Erreichte Wellen | 2 · 2 · 4 · 6 · 7 · 10 · 11 · 11 · 20 · **∞** · **∞** | 3 · 4 · 7 · 9 · 11 · 11 · 12 · 13 · 14 · 16 · 17 · 18 |
+| Gold bei Welle 40 | 1 877 529 | – (niemand kommt so weit) |
+| Leben bei Welle 30 | 100 % | – |
+
+Die beiden Endlos-Runs sind weg, und der Abstand zwischen dem schlechtesten
+und dem besten Lauf ist von Faktor 20 auf Faktor 6 geschrumpft. Ruun mit dem
+Dolch, vorher zweimal von sechs unendlich, kommt jetzt auf 5 · 6 · 7 · 9 · 17.
+Die KI spielt deutlich schlechter als ein Mensch — die Zahlen sind zum
+Vergleichen da, nicht als Vorhersage.
+
 ---
 
 ## Stimmung: Teilchen über dem ganzen Bild
@@ -746,16 +869,20 @@ der Laden auf**, und dort wird es ausgegeben.
 * **Kaufen, so lange Geld da ist.** Man muss nicht. Wer spart, hat beim
   nächsten Besuch mehr — die Preise steigen aber mit dem Zyklus.
 * **Besser heisst teurer.** Der Preis entsteht aus dem Grundpreis mal dem
-  Faktor der Seltenheit, mal einem Aufschlag je Zyklus, mal einem Aufschlag je
-  Stufe, die man von diesem Upgrade schon hat:
+  Faktor der Seltenheit, mal dem Preiswachstum hoch Fortschritt, mal einem
+  Aufschlag je Stufe, die man von diesem Upgrade schon hat:
 
   ```
-  Preis = Grundpreis × Seltenheit × (1 + Zyklusaufschlag × (Zyklus−1))
+  Preis = Grundpreis × Seltenheit × priceCycleGrowth^Fortschritt
                                   × (1 + Stufenaufschlag × vorhandene Stufen)
   ```
 
   Mit den Standardwerten kostet ein gewöhnliches Upgrade 26, ein legendäres
   140, eine Waffe 104 — und die zweite Stufe desselben Upgrades 45 % mehr.
+  Der Aufschlag je Zyklus war früher **linear**, während das Geld
+  exponentiell wuchs; ab Zyklus zehn konnte man sich alles leisten. Jetzt
+  wächst er exponentiell und schneller als die Beute (1,40 gegen 1,06), damit
+  Kaufen bis zum Schluss eine Entscheidung bleibt.
 * **Tauschen** wirft alle nicht gemerkten Auslagen weg und legt neue hin. Der
   erste Tausch kostet 18, jeder weitere das 1,6-fache. Verkaufte Plätze zählen
   dabei wie freie: Wer alles gekauft hat, darf gegen Aufpreis neue Ware holen.
@@ -1307,3 +1434,16 @@ Automatisiert im echten Browser geprüft (Chromium, Desktop und Mobil-Viewport):
 * Speer: Ansatzpunkt des Stichs liegt auf Waffenhöhe (−10 px), nicht mehr
   auf Fusshöhe; Schwung von Schwert, Axt und Dolch mit Sichel und Funken
   angesehen
+* Balancing im Schnelldurchlauf gemessen: zwölf Runs quer durch die
+  Charaktere enden nach 3–18 Wellen (Median 12) statt nach 2–∞; kein Run
+  wird mehr unsterblich, der Kontostand bleibt über den ganzen Lauf
+  zweistellig
+* Ruun mit dem Dolch — vorher zweimal von sechs endlos — endet jetzt nach
+  5, 6, 7, 9 und 17 Wellen
+* Elitegegner erscheinen wie gerechnet: 9 von 46 bei Zyklus 6, 51 von 113
+  bei Zyklus 12
+* Gegnergrenze wächst mit dem Fortschritt: 22 in Welle 1, 46 bei Zyklus 6,
+  113 bei Zyklus 12 — und das Leistungsbudget zieht sie auf einem vierfach
+  gedrosselten Handy selbsttätig auf 86 zurück
+* Startbild kommt zurück: `.screen--titel` behält sein Bild, obwohl die
+  allgemeine Stein-Regel später in der Datei steht

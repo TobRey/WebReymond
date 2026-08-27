@@ -1,28 +1,30 @@
 /*
  * Zwei Schriften, beide beim Spiel selbst - kein Nachladen von aussen.
  *
- * Pixelify Sans traegt Titel, Knoepfe und alles Grosse: Sie gibt den Ton an.
- * Fuer Fliesstext und Zahlen ist sie aber ungeeignet - bei 11 px liegt ein
- * Pixelraster unter der Aufloesung, und eine 2 sieht aus wie eine 8. Dort
- * uebernimmt Rubik: dieselbe warme, runde Anmutung, aber in jeder Groesse
- * eindeutig lesbar.
+ * Cinzel traegt Titel, Knoepfe und alles Grosse: eine klare, kraeftige
+ * Schrift mit Fantasy-Anmutung, die auch bei 13 px eindeutig bleibt.
+ * Rubik traegt Fliesstext und alle Zahlen.
+ *
+ * Vorher stand hier eine Pixelschrift. Die passte zum Bild, war aber bei
+ * kleinen Groessen unbrauchbar - eine 2 sah aus wie eine 8. Zusammen mit
+ * durchgehend groesseren Schriftgraden ist davon jetzt nichts mehr uebrig.
  */
 @font-face {
-  font-family: 'Pixelify Sans';
+  font-family: 'Cinzel';
   font-style: normal;
-  font-weight: 400 700;
+  font-weight: 400 900;
   font-display: swap;
-  src: url('../fonts/pixelify-sans-latin.woff2') format('woff2');
+  src: url('../fonts/cinzel-latin.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
     U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
     U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
-  font-family: 'Pixelify Sans';
+  font-family: 'Cinzel';
   font-style: normal;
-  font-weight: 400 700;
+  font-weight: 400 900;
   font-display: swap;
-  src: url('../fonts/pixelify-sans-latin-ext.woff2') format('woff2');
+  src: url('../fonts/cinzel-latin-ext.woff2') format('woff2');
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
     U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
     U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
@@ -67,8 +69,8 @@
   --danger: #ff5f7e;
   --hp: #5ee08a;
   --shield: #62c8ff;
-  /* Anzeige-Schrift (gross) und Lese-Schrift (klein, Zahlen). */
-  --schrift-titel: "Pixelify Sans", "Trebuchet MS", Verdana, system-ui, sans-serif;
+  /* Anzeige-Schrift (Titel, Knoepfe) und Lese-Schrift (Text, Zahlen). */
+  --schrift-titel: Cinzel, "Times New Roman", Georgia, serif;
   --schrift: Rubik, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --menu-bg: url('../sprites/menu-hintergrund.jpg');
   --char-bg: url('../sprites/charakter-hintergrund.jpg');
@@ -1624,46 +1626,151 @@ input:focus, select:focus, textarea:focus {
 /* ==========================================================================
    Lesbarkeit
    --------------------------------------------------------------------------
-   Alles, was vorher bei 10-12 px stand, ist jetzt mindestens 12,5 px gross.
-   Zusammen mit der Lese-Schrift sind Zahlen damit auch auf dem Handy
-   eindeutig - eine 2 lässt sich nicht mehr mit einer 8 verwechseln.
+   Alles ist ein gutes Stueck groesser geworden. Der kleinste Text im Spiel
+   liegt jetzt bei 13 px statt bei 10,5, die meisten Angaben bei 14-16 px,
+   Zahlen laufen mit tabular-nums und in der Lese-Schrift. Auf dem Handy
+   war vorher vor allem die Zahlenanzeige im HUD kaum zu entziffern.
    ========================================================================== */
-.pill { font-size: 13px; }
-.pill b { font-size: 15px; font-family: var(--schrift); font-variant-numeric: tabular-nums; }
-.hud__weapon { font-size: 13px; }
-.bar span { font-size: 11.5px; font-weight: 700; }
-.bossbar__label { font-size: 12px; }
+body { font-size: 16px; line-height: 1.5; }
 
-.card__desc { font-size: 13px; line-height: 1.5; }
-.card__value { font-size: 15px; }
-.card__rarity, .angebot__art { font-size: 11.5px; letter-spacing: .1em; }
-.card__gesamt, .angebot__gesamt { font-size: 12.5px; }
-.card__stufe, .angebot__stufe { font-size: 12px; }
+/* --- HUD ---------------------------------------------------------------- */
+.pill { font-size: 14px; padding: 6px 14px; }
+.pill b {
+  font-size: 19px; font-family: var(--schrift);
+  font-variant-numeric: tabular-nums; font-weight: 700;
+}
+.hud__weapon { font-size: 15px; padding: 8px 12px; }
+.hud__weapon img { width: 40px; height: 26px; }
+.bar { height: 20px; }
+.bar--shield { height: 10px; }
+.bar span { font-size: 13px; font-weight: 700; }
+.bossbar__label { font-size: 13.5px; }
+.bossbar { height: 14px; }
+.iconbtn { width: 48px; height: 48px; font-size: 19px; }
+.ultbtn { width: 74px; height: 74px; }
+.ultbtn__icon { font-size: 30px; }
+.ultbtn__zeit { font-size: 13px; }
+.vitals { width: min(300px, 58%); }
 
-.angebot__name { font-size: 16px; }
-.angebot__wert { font-size: 13.5px; }
-.angebot__text { font-size: 12.5px; line-height: 1.45; }
-.angebot__preis { font-size: 15px; font-variant-numeric: tabular-nums; }
-.shop__geld b { font-size: 19px; }
+/* --- Karten und Laden ---------------------------------------------------- */
+.card { padding: 16px 14px; gap: 8px; }
+.card__title { font-size: 19px; }
+.card__value { font-size: 17px; }
+.card__desc { font-size: 14.5px; line-height: 1.5; }
+.card__rarity, .angebot__art { font-size: 13px; letter-spacing: .08em; }
+.card__gesamt, .angebot__gesamt { font-size: 14px; }
+.card__stufe, .angebot__stufe { font-size: 13.5px; padding: 3px 11px; }
+.card__icon--stat { font-size: 34px; }
 
-.charwahl__info .charwahl__titel { font-size: 13.5px; }
-.charwahl__info p { font-size: 13.5px; }
-.charwahl__tags .tag { font-size: 12px; padding: 3px 9px; }
-.charwahl__perk b { font-size: 14px; }
-.charwahl__perk span { font-size: 12.5px; }
+.angebot { grid-template-columns: 54px 1fr; padding: 12px 13px; gap: 4px 12px; }
+.angebot__bild { width: 54px; height: 54px; font-size: 28px; }
+.angebot__bild img { width: 46px; height: 40px; }
+.angebot__name { font-size: 18px; }
+.angebot__wert { font-size: 15.5px; }
+.angebot__text { font-size: 14px; line-height: 1.45; }
+.angebot__preis { font-size: 17px; font-variant-numeric: tabular-nums; }
+.angebot__schloss { width: 34px; height: 34px; font-size: 16px; }
+.shop__geld b { font-size: 23px; }
+.shop__geld { padding: 8px 16px; }
+.shop__auslage { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
 
-.statgrid > * span { font-size: 11.5px; letter-spacing: .08em; }
-.statgrid b { font-size: 16px; font-variant-numeric: tabular-nums; }
-.upgradechip { font-size: 13px; }
-.upgradechip small { font-size: 12px; }
-.overlay__kicker { font-size: 12.5px; }
-.subhead { font-size: 13px; }
-.menu__best { font-size: 14px; }
-.scorerow__meta { font-size: 12.5px; }
-.form-error { font-size: 13.5px; }
-.dialog p { font-size: 14px; }
-.dialog__hint { font-size: 12.5px; }
-.soundrow { font-size: 14px; }
-.toast { font-size: 13.5px; }
-.btn--klein { font-size: 13px; }
-.chip { font-size: 12.5px; }
+/* --- Charakterauswahl ---------------------------------------------------- */
+.charwahl__info { width: min(330px, 38vw); padding: 14px 16px; }
+.charwahl__info h3 { font-size: 23px; }
+.charwahl__info .charwahl__titel { font-size: 15px; }
+.charwahl__info p { font-size: 15px; line-height: 1.5; }
+.charwahl__tags .tag { font-size: 13.5px; padding: 4px 10px; }
+.charwahl__perk b { font-size: 16px; }
+.charwahl__perk span { font-size: 14px; }
+.charpfeil { width: 60px; height: 82px; font-size: 46px; }
+.charpunkte i { width: 10px; height: 10px; }
+
+/* --- Panels, Listen, Formulare ------------------------------------------- */
+.statgrid > * span { font-size: 13px; letter-spacing: .06em; }
+.statgrid b { font-size: 19px; font-variant-numeric: tabular-nums; }
+.upgradechip { font-size: 14.5px; padding: 7px 12px; }
+.upgradechip small { font-size: 13px; }
+.overlay__kicker { font-size: 14px; letter-spacing: .16em; }
+.overlay__title { font-size: clamp(24px, 5.5vw, 34px); }
+.subhead { font-size: 15px; }
+.panel__head h2 { font-size: clamp(21px, 4.4vw, 27px); }
+.menu__best { font-size: 15.5px; }
+.scorerow__meta { font-size: 14px; }
+.scorerow__name { font-size: 16.5px; }
+.scorerow__score { font-size: 19px; font-family: var(--schrift); font-variant-numeric: tabular-nums; }
+.form label { font-size: 15px; }
+.form input, input, select, textarea { font-size: 16.5px; min-height: 52px; }
+.form-error { font-size: 15px; }
+.dialog h3 { font-size: 23px; }
+.dialog p { font-size: 15.5px; }
+.dialog__hint { font-size: 14px; }
+.soundrow { font-size: 15.5px; }
+.toast { font-size: 15px; padding: 12px 16px; }
+.chip { font-size: 14px; padding: 5px 12px; }
+.btn { font-size: 16px; padding: 14px 22px; min-height: 52px; }
+.btn--xl { font-size: 19px; padding: 17px 32px; min-height: 58px; }
+.btn--klein { font-size: 14px; padding: 10px 16px; min-height: 42px; }
+.banner { font-size: clamp(26px, 6.5vw, 46px); }
+.countdown__kicker { font-size: 15px; }
+.charwahl__kopf h2 { font-size: clamp(19px, 4vw, 26px); }
+.shop__titel { font-size: clamp(23px, 5vw, 36px); }
+
+/* Cinzel traegt etwas schmaler auf - Grossbuchstaben brauchen mehr Luft. */
+.btn, .iconbtn, .nav__item { letter-spacing: .04em; }
+
+/* Sehr schmale Handys: eine Stufe kleiner, aber immer noch gut lesbar. */
+@media (max-width: 380px) {
+  .pill { font-size: 13px; padding: 5px 11px; }
+  .pill b { font-size: 17px; }
+  .btn { font-size: 15px; padding: 12px 18px; min-height: 48px; }
+  .angebot { grid-template-columns: 46px 1fr; }
+  .angebot__bild { width: 46px; height: 46px; }
+  .angebot__name { font-size: 16.5px; }
+}
+
+/* Flache Bildschirme: HUD etwas kompakter, damit nichts kollidiert. */
+@media (max-height: 460px) {
+  .iconbtn { width: 42px; height: 42px; font-size: 17px; }
+  .ultbtn { width: 62px; height: 62px; }
+  .ultbtn__icon { font-size: 25px; }
+  .pill { font-size: 13px; padding: 4px 11px; }
+  .pill b { font-size: 17px; }
+}
+
+/* Der Schlossknopf ist mitgewachsen - der Kopf braucht mehr Platz daneben. */
+.angebot__kopf { padding-right: 42px; }
+
+/*
+ * Handy im Querformat: Der Laden muss mit vier Auslagen auf 420 px Hoehe
+ * passen. Diese Regeln stehen am Ende der Datei, damit sie die groesseren
+ * Standardwerte darueber wirklich ueberschreiben.
+ */
+@media (max-height: 560px) {
+  .shop { padding-top: calc(8px + var(--safe-t)); padding-bottom: calc(8px + var(--safe-b)); }
+  .shop__inhalt { gap: 7px; }
+  .shop__titel { font-size: clamp(19px, 3.6vw, 26px); }
+  .shop__geld { padding: 5px 12px; }
+  .shop__geld b { font-size: 18px; }
+  .shop__auslage { gap: 7px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .angebot { padding: 7px 10px; gap: 1px 9px; grid-template-columns: 40px 1fr; }
+  .angebot__bild { width: 40px; height: 40px; font-size: 21px; }
+  .angebot__bild img { width: 34px; height: 28px; }
+  .angebot__name { font-size: 15px; }
+  .angebot__art { font-size: 11.5px; }
+  .angebot__wert { font-size: 13px; }
+  .angebot__text, .angebot__gesamt { font-size: 12px; }
+  .angebot__text { -webkit-line-clamp: 1; }
+  .angebot__preis { font-size: 14.5px; }
+  .angebot__schloss { width: 26px; height: 26px; font-size: 13px; top: 4px; right: 4px; }
+  .angebot__kopf { padding-right: 30px; }
+  .angebot__stufe { font-size: 11.5px; padding: 1px 7px; }
+  .shop__leiste .btn { min-height: 42px; padding: 10px 16px; font-size: 14px; }
+
+  /* Upgrade-Karten ebenfalls kompakter, damit drei nebeneinander passen. */
+  .card { padding: 11px 10px; gap: 5px; }
+  .card__title { font-size: 16px; }
+  .card__value { font-size: 14.5px; }
+  .card__desc { font-size: 12.5px; }
+  .overlay__title { font-size: clamp(20px, 4.4vw, 26px); }
+  .overlay__kicker { font-size: 12.5px; }
+}

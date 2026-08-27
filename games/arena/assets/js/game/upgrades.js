@@ -26,7 +26,10 @@ export function rollChoices(content, run, count = 3) {
     // Glueck (Karte "Glücksklee") und die Fähigkeit "Glückskarten"
     // verschieben die Seltenheiten nach oben.
     const glueck = (run.stats.luck || 0) / 10;
-    const rarity = rollRarity(balance, run.cycle + (run.perk === 'luckyCards' ? 2 : 0) + glueck);
+    // Glueckskarten hoben die Seltenheit frueher um zwei ganze Zyklen an -
+    // damit war Ruun ab Welle 3 dauernd bei legendaeren Karten. Ein Zyklus
+    // ist immer noch deutlich spuerbar.
+    const rarity = rollRarity(balance, run.cycle + (run.perk === 'luckyCards' ? 1 : 0) + glueck);
     let options = pool.filter(
       (u) => u.rarity === rarity && !usedIds.has(u.id) && run.stackCount(u.id) < u.maxStack,
     );

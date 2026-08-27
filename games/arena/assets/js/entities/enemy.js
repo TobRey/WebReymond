@@ -29,7 +29,7 @@ export class EnemyManager {
         contactCooldown: 0.8, deathTime: 0, hitboxOx: 0, hitboxOy: 0, id: 0,
         burnDps: 0, burnTime: 0, burnTick: 0, burnNumber: 0, burnPhase: 0,
         slowTime: 0, slowFactor: 1,
-        dying: false, deathTime: 0, deathTilt: 0, stuckTime: 0,
+        dying: false, deathTime: 0, deathTilt: 0, stuckTime: 0, elite: false,
       }),
       (e, options) => {
         Object.assign(e, options);
@@ -55,6 +55,8 @@ export class EnemyManager {
         e.deathTime = 0;
         e.deathTilt = 0;
         e.stuckTime = 0;
+        // "elite" kommt aus den Optionen und darf hier nicht wieder auf
+        // false gesetzt werden - Object.assign oben hat es schon gesetzt.
       },
       40,
     );
@@ -82,22 +84,35 @@ export class EnemyManager {
     this.pool.clear();
   }
 
+  /**
+   * Ein Gegner betritt die Karte.
+   *
+   * "scaling" traegt die Faktoren des Fortschritts. Ist "elite" gesetzt,
+   * kommt der Gegner als Elite: deutlich mehr Leben, mehr Schaden, groesser
+   * und mit einem roten Ring am Boden. Das ist der sichtbare Beweis, dass
+   * es haerter wird.
+   */
   spawn(def, sprite, x, y, scaling) {
     const hb = def.hitbox || {};
+    const elite = !def.boss && !!scaling.elite;
+    const eLeben = elite ? (scaling.eliteHealth || 2.2) : 1;
+    const eSchaden = elite ? (scaling.eliteDamage || 1.4) : 1;
+    const eGroesse = elite ? 1.2 : 1;
     return this.pool.spawn({
       id: this._nextId++,
       def,
       sprite,
       x, y,
-      maxHealth: def.health * scaling.health,
-      health: def.health * scaling.health,
-      damage: def.damage * scaling.damage,
+      elite,
+      maxHealth: def.health * scaling.health * eLeben,
+      health: def.health * scaling.health * eLeben,
+      damage: def.damage * scaling.damage * eSchaden,
       speed: def.speed * scaling.speed,
-      reward: def.reward * scaling.reward,
-      radius: hb.r || 20,
+      reward: def.reward * scaling.reward * (elite ? 2 : 1),
+      radius: (hb.r || 20) * eGroesse,
       hitboxOx: hb.ox || 0,
-      hitboxOy: hb.oy || 0,
-      scale: def.scale || 64,
+      hitboxOy: (hb.oy || 0) * eGroesse,
+      scale: (def.scale || 64) * eGroesse,
       boss: !!def.boss,
       contactCooldown: def.contactCooldown || 0.8,
     });

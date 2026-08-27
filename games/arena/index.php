@@ -26,7 +26,7 @@ $importMap = Version::importMap(__DIR__);
 <meta name="description" content="Arena Survivors - mobiles Top-Down-Roguelite mit Wellen, Bossen und Upgrades.">
 <title>Arena Survivors</title>
 <link rel="preload" href="assets/fonts/rubik-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="assets/fonts/pixelify-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/cinzel-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/game.css?v=<?= htmlspecialchars($version, ENT_QUOTES) ?>">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%237c6cff'/><path d='M28 66l22-38 22 38z' fill='%23fff'/></svg>">
 </head>

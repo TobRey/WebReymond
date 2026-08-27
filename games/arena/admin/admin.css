@@ -25,11 +25,11 @@ html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--te
   -webkit-font-smoothing: antialiased; }
 
 @font-face {
-  font-family: 'Pixelify Sans';
+  font-family: 'Cinzel';
   font-style: normal;
-  font-weight: 400 700;
+  font-weight: 400 900;
   font-display: swap;
-  src: url('../assets/fonts/pixelify-sans-latin.woff2') format('woff2');
+  src: url('../assets/fonts/cinzel-latin.woff2') format('woff2');
 }
 @font-face {
   font-family: 'Rubik';
@@ -40,8 +40,9 @@ html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--te
 }
 
 h1, h2, h3, h4, .brand, .nav__item, .btn, .view-title, #view-title {
-  font-family: 'Pixelify Sans', system-ui, sans-serif;
+  font-family: Cinzel, Georgia, serif;
   letter-spacing: .02em;
+  font-weight: 700;
 }
 body.is-admin { overflow-x: hidden; }
 button, input, select, textarea { font: inherit; color: inherit; }

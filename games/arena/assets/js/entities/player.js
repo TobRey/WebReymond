@@ -145,7 +145,18 @@ export class Player {
     this.run.health -= damage;
     this.run.damageTaken += damage;
     this.hitFlash = 1;
-    this.invuln = 0.25;
+    /*
+     * Kurze Unverwundbarkeit nach jedem Treffer.
+     *
+     * Ohne sie haengt der eingehende Schaden direkt an der Zahl der Gegner,
+     * die einen gerade beruehren: Zwanzig Gegner mit 0,8 s Beruehrungspause
+     * ergeben fuenfundzwanzig Treffer je Sekunde. Damit war jeder groessere
+     * Pulk der sofortige Tod, egal wie gut der Aufbau war - und genau das
+     * hat die Runs so unberechenbar gemacht. Die Pause deckelt den Schaden
+     * auf gut zwei Treffer je Sekunde, unabhaengig davon, wie viele
+     * anstehen. Ruestung wirkt dadurch nebenbei doppelt so stark.
+     */
+    this.invuln = this.run.balance.hitInvuln ?? 0.4;
     this.squash = 1;
     if (this.run.health <= 0) {
       this.run.health = 0;

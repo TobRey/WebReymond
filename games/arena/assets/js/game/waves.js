@@ -42,14 +42,23 @@ export class WaveController {
     return this.run.wave === 4;
   }
 
-  /** Skalierungsfaktoren des aktuellen Zyklus. */
+  /**
+   * Skalierungsfaktoren fuer den naechsten Gegner.
+   *
+   * Ob er als Elite kommt, wird hier gewuerfelt - der Anteil waechst mit
+   * dem Fortschritt.
+   */
   scaling() {
     const run = this.run;
+    const b = this.balance;
     return {
       health: run.difficulty * effectEnemyHealth(run),
       damage: run.damageDifficulty,
       speed: run.speedDifficulty,
       reward: run.rewardDifficulty,
+      elite: Math.random() < run.eliteShare,
+      eliteHealth: b.eliteHealth ?? 2.2,
+      eliteDamage: b.eliteDamage ?? 1.4,
     };
   }
 
@@ -93,7 +102,7 @@ export class WaveController {
     const start = this.balance.waveStartEnemies ?? 4;
     const fehlend = Math.min(
       start - this.arena.enemies.countAlive,
-      this.balance.maxEnemies - this.arena.enemies.countAlive,
+      this.enemyCap - this.arena.enemies.countAlive,
     );
     for (let i = 0; i < fehlend; i++) this.spawnEnemy();
   }
@@ -126,8 +135,9 @@ export class WaveController {
   }
 
   updateBossWave(dt) {
-    // Ein leichter Nachschub normaler Gegner haelt den Druck hoch.
-    this.spawnTick(dt, 0.3);
+    // Ein leichter Nachschub normaler Gegner haelt den Druck hoch - aber
+    // nur ein Rinnsal, sonst kaempft man gegen den Boss und einen Pulk.
+    this.spawnTick(dt, 0.15);
 
     if (this.timeLeft <= 0 && !this.bossEnraged) {
       // Zeit abgelaufen: Der Boss wird wütend statt einfach zu verschwinden.
@@ -139,19 +149,42 @@ export class WaveController {
     }
   }
 
+  /**
+   * Nachschub.
+   *
+   * Die Rate waechst mit dem Fortschritt - je weiter man kommt, desto
+   * dichter wird es. "maxEnemies" ist keine Spielregel mehr, sondern nur
+   * noch eine Notbremse fuer schwache Geraete: Der Wert steht hoch genug,
+   * dass man ihn im normalen Spiel nicht erreicht.
+   */
+  /**
+   * Wie viele Gegner gerade gleichzeitig auf der Karte stehen duerfen.
+   * Waechst mit dem Fortschritt, gedeckelt durch die Notbremse.
+   */
+  get enemyCap() {
+    const b = this.balance;
+    const wachstum = b.maxEnemiesGrowth ?? 1.12;
+    const grenze = b.maxEnemiesLimit ?? 260;
+    const gewachsen = b.maxEnemies * Math.pow(wachstum, this.run.progress);
+    // Auf schwachen Geraeten zieht das Leistungsbudget die Grenze zurueck.
+    const budget = this.arena.enemyBudget ?? 1;
+    return Math.max(12, Math.min(grenze, Math.round(gewachsen * budget)));
+  }
+
   spawnTick(dt, factor) {
     const balance = this.balance;
     const enemies = this.arena.enemies;
-    if (enemies.countAlive >= balance.maxEnemies) return;
+    const grenze = this.enemyCap;
+    if (enemies.countAlive >= grenze) return;
 
     const rate = balance.enemySpawnRate
-      * Math.pow(balance.spawnRateScaling, this.run.cycle - 1)
-      * (1 + (this.run.wave - 1) * 0.16)
+      * Math.pow(balance.spawnRateScaling, this.run.progress)
       * factor;
 
     this.spawnAccumulator += rate * dt;
-    let budget = 4;
-    while (this.spawnAccumulator >= 1 && budget-- > 0 && enemies.countAlive < balance.maxEnemies) {
+    // Mehr Nachschub je Takt, sonst bremst das Budget die hohen Raten aus.
+    let budget = 8;
+    while (this.spawnAccumulator >= 1 && budget-- > 0 && enemies.countAlive < grenze) {
       this.spawnAccumulator -= 1;
       this.spawnEnemy();
     }

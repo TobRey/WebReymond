@@ -574,9 +574,11 @@ final class Validate
         $d = Defaults::balance();
         $limits = [
             'waveDuration' => [5, 900], 'bossDuration' => [10, 1800], 'enemySpawnRate' => [0.05, 50],
-            'maxEnemies' => [5, 400], 'healthScaling' => [1, 5], 'damageScaling' => [1, 5],
+            'maxEnemies' => [5, 800], 'maxEnemiesGrowth' => [1, 2], 'maxEnemiesLimit' => [10, 800], 'healthScaling' => [1, 5], 'damageScaling' => [1, 5],
             'speedScaling' => [1, 3], 'spawnRateScaling' => [1, 5], 'rewardScaling' => [1, 5],
-            'moneyMultiplier' => [0.1, 20], 'contactDamageCooldown' => [0.1, 10],
+            'moneyMultiplier' => [0.05, 20], 'contactDamageCooldown' => [0.1, 10], 'hitInvuln' => [0, 3],
+            'eliteFromCycle' => [1, 99], 'eliteGrowth' => [0, 1], 'eliteMax' => [0, 1],
+            'eliteHealth' => [1, 20], 'eliteDamage' => [1, 10],
             'bossBombCooldown' => [0.5, 60], 'bossBombRadius' => [20, 900], 'bossBombDelay' => [0.1, 10],
             'bossBombFlightTime' => [0.1, 6], 'bossBombMinCooldown' => [0.3, 30],
             'burnDuration' => [0.2, 60],
@@ -592,6 +594,8 @@ final class Validate
             $out[$key] = self::num($in[$key] ?? $fallback, (float) $min, (float) $max, (float) $fallback);
         }
         $out['maxEnemies'] = (int) $out['maxEnemies'];
+        $out['maxEnemiesLimit'] = (int) $out['maxEnemiesLimit'];
+        $out['eliteFromCycle'] = (int) $out['eliteFromCycle'];
         $out['upgradeChoices'] = (int) $out['upgradeChoices'];
         $out['waveStartEnemies'] = (int) $out['waveStartEnemies'];
         return $out;
@@ -641,7 +645,7 @@ final class Validate
             'priceEpic' => self::num($in['priceEpic'] ?? $d['priceEpic'], 0.1, 20, (float) $d['priceEpic']),
             'priceLegendary' => self::num($in['priceLegendary'] ?? $d['priceLegendary'], 0.1, 20, (float) $d['priceLegendary']),
             'priceWeapon' => self::num($in['priceWeapon'] ?? $d['priceWeapon'], 0.1, 20, (float) $d['priceWeapon']),
-            'priceCycleBonus' => self::num($in['priceCycleBonus'] ?? $d['priceCycleBonus'], 0, 4, (float) $d['priceCycleBonus']),
+            'priceCycleGrowth' => self::num($in['priceCycleGrowth'] ?? $d['priceCycleGrowth'], 1, 3, (float) $d['priceCycleGrowth']),
             'priceStackBonus' => self::num($in['priceStackBonus'] ?? $d['priceStackBonus'], 0, 4, (float) $d['priceStackBonus']),
             'rerollCost' => self::num($in['rerollCost'] ?? $d['rerollCost'], 0, 5000, (float) $d['rerollCost']),
             'rerollGrowth' => self::num($in['rerollGrowth'] ?? $d['rerollGrowth'], 1, 5, (float) $d['rerollGrowth']),

@@ -167,7 +167,10 @@ export class Shop {
     const faktor = offer.kind === 'weapon'
       ? (c.priceWeapon ?? 4)
       : (c[RARITY_FACTOR[offer.rarity]] ?? 1);
-    const zyklus = 1 + (c.priceCycleBonus ?? 0.35) * Math.max(0, this.run.cycle - 1);
+    // Die Preise wachsen mit demselben Exponenten wie die Beute. Wuerde
+    // das Geld exponentiell und der Preis nur linear steigen, koennte man
+    // ab einem gewissen Punkt jede Welle alles kaufen.
+    const zyklus = Math.pow(c.priceCycleGrowth ?? 1.13, this.run.progress);
     const stufe = offer.kind === 'weapon'
       ? 1
       : 1 + (c.priceStackBonus ?? 0.45) * this.run.stackCount(offer.id);

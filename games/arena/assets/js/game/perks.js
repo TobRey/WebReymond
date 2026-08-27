@@ -44,7 +44,7 @@ export const PERK_VALUES = {
   magnetRange: 2,
   magnetPotion: 2,
   /** Goldrausch: Geldfaktor. */
-  greedMoney: 1.6,
+  greedMoney: 1.45,
   /** Scharfschütze: Zuschlag bei voller Reichweite. */
   sniperMax: 0.55,
 };

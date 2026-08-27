@@ -1,5 +1,5 @@
 import { emptyModifiers, applyUpgrade, resolveStats, resolveWeapon } from './stats.js';
-import { PERK_LABELS } from './perks.js';
+import { PERK_LABELS, PERK_VALUES } from './perks.js';
 
 /**
  * Zustand eines Durchlaufs: Statistiken, Upgrades, Geld, Welle, Zyklus.
@@ -50,23 +50,60 @@ export class RunState {
     // Werte, die Sondereffekte je Takt aus dem Spiel brauchen.
     this.aliveEnemies = 0;   // wie viele Gegner gerade stehen
     this.moving = false;     // laeuft der Spieler oder steht er
-    this.snowballBonus = 0;  // waechst mit jedem Kill (Schneeball)
+    // Jeder dauerhafte Zuschlag hat sein eigenes Feld und seinen eigenen
+    // Deckel. Frueher liefen sie alle in bonusDamage zusammen und konnten
+    // sich gegenseitig ins Unendliche schaukeln.
+    this.snowballBonus = 0;    // Schneeball, waechst mit jedem Kill
+    this.bloodMoneyBonus = 0;  // Blutgeld
+    this.soulBonus = 0;        // Seelenfaenger, je Boss
+    this.mutationBonus = 0;    // Mutation, je Welle
+    this.bankerBonus = 0;      // Bankier, jede Welle neu aus dem Gold
+    // Heilung aus Treffern wird je Sekunde gedeckelt - siehe heal().
+    this.healBudget = 0;
+  }
+
+  /**
+   * Fortschritt als Kommazahl: 0 in Welle 1 des ersten Zyklus, +1 je Zyklus.
+   *
+   * Vorher sprang die Schwierigkeit nur alle vier Wellen. Innerhalb eines
+   * Zyklus blieb alles gleich - drei Wellen lang wurde nichts staerker, dann
+   * kam ein Sprung. Jetzt waechst sie mit jeder einzelnen Welle um ein
+   * Viertel Zyklus. Ueber vier Wellen kommt genau dasselbe heraus wie
+   * vorher, es fuehlt sich aber durchgehend an.
+   */
+  get progress() {
+    return (this.cycle - 1) + (this.wave - 1) / 4;
   }
 
   get difficulty() {
-    return Math.pow(this.balance.healthScaling, this.cycle - 1);
+    return Math.pow(this.balance.healthScaling, this.progress);
   }
 
   get damageDifficulty() {
-    return Math.pow(this.balance.damageScaling, this.cycle - 1);
+    return Math.pow(this.balance.damageScaling, this.progress);
   }
 
   get speedDifficulty() {
-    return Math.pow(this.balance.speedScaling, this.cycle - 1);
+    return Math.pow(this.balance.speedScaling, this.progress);
   }
 
   get rewardDifficulty() {
-    return Math.pow(this.balance.rewardScaling, this.cycle - 1);
+    return Math.pow(this.balance.rewardScaling, this.progress);
+  }
+
+  /**
+   * Anteil der Gegner, die als Elite erscheinen.
+   *
+   * Ab dem eingestellten Zyklus waechst er langsam an und ist gedeckelt.
+   * Elitegegner haben deutlich mehr Leben, schlagen haerter und sind
+   * groesser - so sieht man, dass es haerter wird, statt es nur zu merken.
+   */
+  get eliteShare() {
+    const ab = this.balance.eliteFromCycle ?? 3;
+    if (this.cycle < ab) return 0;
+    const wachstum = this.balance.eliteGrowth ?? 0.05;
+    const max = this.balance.eliteMax ?? 0.45;
+    return Math.min(max, (this.progress - (ab - 1)) * wachstum);
   }
 
   /** Wie oft ein Sondereffekt gewaehlt wurde (0 = gar nicht). */
@@ -121,9 +158,39 @@ export class RunState {
     return entry ? entry.count : 0;
   }
 
+  /**
+   * Heilung aus Treffern - mit Obergrenze je Sekunde.
+   *
+   * Lebensraub und Vampirzaehne loesen bei jedem Treffer aus. Eine Waffe
+   * mit fuenf Angriffen je Sekunde heilte damit fuenfmal so viel wie eine
+   * langsame, und der Dolch wurde in Kombination mit Heilkarten schlicht
+   * unsterblich. Das Budget begrenzt die Heilung auf einen festen Anteil
+   * des Maximallebens je Sekunde - unabhaengig davon, wie oft man trifft.
+   *
+   * Heilflaschen, Notverband und Ernte laufen bewusst daran vorbei: Die
+   * haben ihren eigenen Takt und koennen nicht hochskaliert werden.
+   *
+   * @returns {number} tatsaechlich geheiltes Leben
+   */
+  healFromHit(amount) {
+    if (amount <= 0) return 0;
+    const moeglich = Math.min(amount, this.healBudget);
+    if (moeglich <= 0) return 0;
+    this.healBudget -= moeglich;
+    const vorher = this.health;
+    this.health = Math.min(this.stats.maxHealth, this.health + moeglich);
+    return this.health - vorher;
+  }
+
+  /** Fuellt das Heilbudget jeden Takt wieder auf. */
+  tickHealBudget(dt, share) {
+    const proSekunde = this.stats.maxHealth * share;
+    this.healBudget = Math.min(proSekunde, this.healBudget + proSekunde * dt);
+  }
+
   addMoney(amount) {
     // Fähigkeit "Goldrausch" und der Geld-Faktor des Charakters wirken hier.
-    const perk = this.perk === 'greed' ? 1.6 : 1;
+    const perk = this.perk === 'greed' ? PERK_VALUES.greedMoney : 1;
     const value = Math.max(0, Math.round(
       amount * (this.balance.moneyMultiplier || 1) * (this.stats.moneyMult || 1) * perk,
     ));
