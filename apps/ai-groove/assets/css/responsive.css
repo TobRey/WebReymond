@@ -1,0 +1,259 @@
+/* =============================================================================
+   AI Groove – Anpassung an Geraet und Orientierung
+   Reihenfolge der Prioritaeten: iPhone > Desktop > Tablet > Android
+   ========================================================================== */
+
+/* --- Tablet / kleiner Desktop --------------------------------------------- */
+
+@media (max-width: 1180px) {
+  :root {
+    --sidebar-w: 250px;
+    --inspector-w: 286px;
+  }
+}
+
+@media (max-width: 1000px) {
+  .workspace,
+  .workspace--inspector {
+    grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  }
+
+  /* Der Inspector wird auf mittleren Groessen zum Overlay. */
+  .ws-inspector {
+    position: fixed;
+    top: calc(var(--topbar-h) + var(--safe-t));
+    right: 0;
+    bottom: calc(var(--transport-h) + var(--safe-b));
+    width: min(340px, 88vw);
+    z-index: 60;
+    transform: translateX(102%);
+    transition: transform var(--d-med) var(--e-out);
+    background: var(--c-bg-elev);
+    box-shadow: var(--sh-3);
+    border-left: 1px solid var(--c-border);
+  }
+
+  .workspace--inspector .ws-inspector {
+    transform: translateX(0);
+  }
+}
+
+/* --- Mobile ---------------------------------------------------------------- */
+
+@media (max-width: 760px), (max-height: 460px) and (orientation: landscape) {
+  :root {
+    --topbar-h: 50px;
+    --transport-h: 58px;
+  }
+
+  .tabbar {
+    display: flex;
+  }
+
+  .workspace,
+  .workspace--inspector {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Die Sample-Liste wird auf dem Handy zu einer eigenen Ansicht. */
+  .ws-sidebar {
+    position: absolute;
+    inset: 0;
+    z-index: 25;
+    border-right: 0;
+    background: var(--c-bg);
+    display: none;
+  }
+
+  .studio[data-mobile-view='sounds'] .ws-sidebar {
+    display: flex;
+  }
+
+  .ws-inspector {
+    top: calc(var(--topbar-h) + var(--safe-t));
+    bottom: calc(var(--transport-h) + var(--tabbar-h) + var(--safe-b));
+    width: min(400px, 100vw);
+  }
+
+  .viewtabs {
+    display: none;
+  }
+
+  .workspace {
+    position: relative;
+  }
+
+  .toast-root {
+    bottom: calc(var(--s-3) + var(--safe-b) + var(--tabbar-h) + var(--transport-h));
+  }
+
+  /* Groessere Beruehrungsflaechen */
+  .btn {
+    min-height: 44px;
+  }
+
+  .btn--sm {
+    min-height: 36px;
+  }
+
+  .sitem {
+    padding: 10px 8px;
+  }
+
+  .sitem__play {
+    width: 36px;
+    height: 36px;
+  }
+
+  .sitem__more {
+    width: 36px;
+    height: 36px;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: calc(100dvh - var(--safe-t) - var(--safe-b) - 24px);
+    border-radius: var(--r-lg);
+  }
+
+  .modal__body {
+    padding: var(--s-4);
+  }
+
+  .modal__head,
+  .modal__foot {
+    padding: var(--s-3) var(--s-4);
+  }
+
+  .modal__foot .btn {
+    flex: 1;
+  }
+
+  .page {
+    padding: calc(var(--s-4) + var(--safe-t)) calc(var(--s-4) + var(--safe-r))
+      calc(var(--s-6) + var(--safe-b)) calc(var(--s-4) + var(--safe-l));
+  }
+
+  .hero {
+    padding: var(--s-5) var(--s-4);
+  }
+
+  .tiles {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: var(--s-3);
+  }
+
+  .tile {
+    min-height: 112px;
+    padding: var(--s-3);
+  }
+
+  .mixch {
+    width: 84px;
+  }
+
+  .pads-wrap {
+    padding: var(--s-2);
+    gap: var(--s-2);
+  }
+
+  .transport {
+    gap: var(--s-2);
+  }
+
+  .pos {
+    min-width: 88px;
+    font-size: var(--fs-md);
+  }
+
+  .mini-knob {
+    min-width: 64px;
+  }
+}
+
+/* --- Sehr schmale Geraete (iPhone SE) -------------------------------------- */
+
+@media (max-width: 380px) {
+  .tiles {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .hero__title {
+    font-size: 30px;
+  }
+
+  .mixch {
+    width: 78px;
+  }
+}
+
+/* --- Querformat auf dem Handy ---------------------------------------------- */
+
+@media (max-height: 500px) and (orientation: landscape) and (pointer: coarse) {
+  :root {
+    --topbar-h: 44px;
+    --transport-h: 52px;
+    --tabbar-h: 50px;
+  }
+
+  .topbar__meta {
+    display: none;
+  }
+
+  .pads {
+    gap: 6px;
+  }
+
+  .chat__chips {
+    display: none;
+  }
+}
+
+/* --- Geraete ohne echten Hover (Touch) ------------------------------------- */
+
+@media (hover: none) {
+  .tile:hover,
+  .recent__row:hover,
+  .sitem:hover {
+    transform: none;
+    background: var(--c-surface);
+  }
+
+  .sitem:hover {
+    border-color: var(--c-border);
+  }
+
+  .btn:hover:not(:disabled) {
+    background: var(--btn-bg);
+    border-color: var(--btn-bd);
+  }
+
+  .grid-scroll-h,
+  .grid-scroll-v {
+    opacity: 0.55;
+  }
+
+  .grid-canvas-wrap {
+    cursor: default;
+  }
+}
+
+/* --- Grosse Bildschirme ---------------------------------------------------- */
+
+@media (min-width: 1600px) {
+  :root {
+    --sidebar-w: 320px;
+    --inspector-w: 380px;
+  }
+}
+
+/* --- Druck ----------------------------------------------------------------- */
+
+@media print {
+  body::before,
+  .transport,
+  .tabbar,
+  .topbar {
+    display: none !important;
+  }
+}
