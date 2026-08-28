@@ -1,7 +1,7 @@
-AI GROOVE 1.1.1
+AI GROOVE 1.1.2
 ===============
 
-NEU IN 1.1.1: Eigene KI "GrooveNet"
+NEU IN 1.1.2: Eigene KI "GrooveNet"
 -----------------------------------
 Die Klangerzeugung laeuft jetzt vollstaendig ueber eine eigene KI, die im
 Browser rechnet. Kein Konto, kein API-Key, keine laufenden Kosten, keine
@@ -80,7 +80,15 @@ protokolliert werden koennte.
 5. BEKANNTE BROWSER-EINSCHRAENKUNGEN
 ------------------------------------
 - iPhone/iPad (Safari): Ton startet erst nach der ersten Beruehrung des
-  Bildschirms (Vorgabe von Apple). Der seitliche Stummschalter muss aus sein.
+  Bildschirms (Vorgabe von Apple).
+  Der seitliche Stummschalter schaltete bisher den gesamten Ton stumm - ohne
+  jede Meldung. Seit Fassung 1.1.2 meldet sich AI Groove als Musik-Wiedergabe
+  an, dadurch wird der Schalter ignoriert (Safari 16.4 und neuer). Auf
+  aelteren Fassungen muss er weiterhin ausgeschaltet sein.
+  Massgeblich ist die MEDIEN-Lautstaerke: waehrend ein Klang laeuft die
+  Lautstaerketasten druecken, sonst wird der Klingelton geregelt.
+  Bei Tonproblemen hilft der Selbsttest unter "KI": er prueft Audioausgang,
+  Erzeugung, Lesbarkeit und Wiedergabe einzeln.
 - Safari (alle Geraete): OGG/Vorbis, Opus und teilweise FLAC koennen nicht
   dekodiert werden - dort WAV, MP3 oder M4A verwenden.
 - Auswahl des Audio-Ausgangs funktioniert nur in Chrome/Edge, nicht in

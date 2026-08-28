@@ -16,7 +16,8 @@ import { activeProvider, engineStatus, setQuality, getQuality, analysePrompt } f
 import { generateVariants } from '../ai/generate.js';
 import { settings } from '../core/settings.js';
 import { engine } from '../audio/engine.js';
-import { getContext, contextState } from '../audio/context.js';
+import { isIOS } from '../core/util.js';
+import { getContext, contextState, audioSessionInfo } from '../audio/context.js';
 
 const QUALITY_OPTIONS = [
   { value: 'fast', label: 'Schnell', hint: 'Wenige Sekunden. Gut zum Ausprobieren und für schwache Geräte.' },
@@ -133,8 +134,14 @@ export function createAiConnectView() {
         // Schritt 1: Audio freigeben. Muss aus diesem Klick heraus geschehen.
         await engine.init();
         const ctx = getContext();
+        const session = audioSessionInfo();
         if (ctx.state === 'running') {
           sAudio.textContent = `bereit (${Math.round(ctx.sampleRate)} Hz)`;
+          if (isIOS) {
+            sAudio.textContent += session.typ === 'playback'
+              ? ', Stummschalter wird ignoriert'
+              : ', ACHTUNG: seitlichen Stummschalter ausschalten und Lautstärke aufdrehen';
+          }
         } else {
           sAudio.textContent = `blockiert (Zustand: ${contextState()}) – einmal irgendwo auf die Seite tippen`;
         }
@@ -174,23 +181,35 @@ export function createAiConnectView() {
           ctx.state === 'running'
             ? 'läuft – jetzt muss ein Kick zu hören sein'
             : 'gestartet, aber der Browser hat Audio noch gesperrt';
-        toast('Selbsttest abgeschlossen.');
+        toast.info('Selbsttest abgeschlossen', 'Alle Schritte sind durchgelaufen.');
       } catch (error) {
         const failing = [sAudio, sGen, sDecode, sPlay].find((el) => el.textContent === '—' || el.textContent.includes('geprüft'));
         if (failing) failing.textContent = `fehlgeschlagen: ${error.message}`;
-        toast('Der Selbsttest ist fehlgeschlagen.', 'error');
+        toast.error('Selbsttest fehlgeschlagen', error.message);
       } finally {
         btn.disabled = false;
       }
     });
     testBox.appendChild(btn);
 
-    const deviceHint = h('p.field__hint', {
-      text: settings.get('outputDeviceId')
-        ? 'Hinweis: In den Einstellungen ist ein bestimmter Audioausgang gewählt. Ist das Gerät nicht angeschlossen, bleibt es still.'
-        : 'Audioausgang: Systemvorgabe.',
-    });
-    testBox.appendChild(deviceHint);
+    testBox.appendChild(
+      h('p.field__hint', {
+        text: settings.get('outputDeviceId')
+          ? 'Hinweis: In den Einstellungen ist ein bestimmter Audioausgang gewählt. Ist das Gerät nicht angeschlossen, bleibt es still.'
+          : 'Audioausgang: Systemvorgabe.',
+      }),
+    );
+    if (isIOS) {
+      const session = audioSessionInfo();
+      testBox.appendChild(
+        h('p.field__hint', {
+          text:
+            session.typ === 'playback'
+              ? 'iPhone/iPad: Diese Seite ist als Musik-Wiedergabe angemeldet, der seitliche Stummschalter wirkt daher nicht mehr. Es zählt der Lautstärkeregler für Medien.'
+              : 'iPhone/iPad: Dieses Safari kennt die Audiositzung noch nicht (vor Safari 16.4). Bleibt es still, ist fast immer der seitliche Stummschalter aktiv – ausschalten und Lautstärke aufdrehen.',
+        }),
+      );
+    }
   }
 
   function build() {
@@ -236,7 +255,7 @@ export function createAiConnectView() {
         setQuality(value);
         settings.set('aiQuality', value);
         hint.textContent = QUALITY_OPTIONS.find((o) => o.value === value)?.hint || '';
-        toast(`Rechenqualität: ${QUALITY_OPTIONS.find((o) => o.value === value)?.label}`);
+        toast.info('Rechenqualität geändert', QUALITY_OPTIONS.find((o) => o.value === value)?.label || '');
       },
     );
     qualityBox.appendChild(seg);

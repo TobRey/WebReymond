@@ -17,6 +17,40 @@ let unlocked = false;
 let unlockHandlersAttached = false;
 const readyWaiters = [];
 
+/**
+ * Meldet iOS an, dass diese Seite Musik wiedergibt.
+ *
+ * Ohne diese Angabe behandelt iOS Web Audio als "Nebengeraeusch" und schaltet
+ * es stumm, sobald der seitliche Stummschalter aktiv ist – lautlos und ohne
+ * jede Fehlermeldung. Genau das ist der haeufigste Grund dafuer, dass auf
+ * iPhone und iPad ueberhaupt nichts zu hoeren ist, obwohl die App arbeitet.
+ *
+ * Mit der Kategorie "playback" richtet sich die Lautstaerke nach dem
+ * Medienregler und der Stummschalter wird ignoriert – so wie bei einer
+ * Musik-App. Verfuegbar ab Safari 16.4; aeltere Fassungen ignorieren es.
+ */
+function configureAudioSession() {
+  try {
+    if (navigator.audioSession && navigator.audioSession.type !== 'playback') {
+      navigator.audioSession.type = 'playback';
+      return true;
+    }
+  } catch (_) {
+    /* Browser kennt die Audiositzung nicht – dann gilt das Standardverhalten */
+  }
+  return false;
+}
+
+/** Kennt dieser Browser die Audiositzung? Fuer Diagnose und Selbsttest. */
+export function audioSessionInfo() {
+  try {
+    if (!navigator.audioSession) return { verfuegbar: false, typ: null };
+    return { verfuegbar: true, typ: navigator.audioSession.type || null };
+  } catch (_) {
+    return { verfuegbar: false, typ: null };
+  }
+}
+
 export const AUDIO_EVENTS = {
   READY: 'audio:ready',
   SUSPENDED: 'audio:suspended',
@@ -24,6 +58,10 @@ export const AUDIO_EVENTS = {
 };
 
 function createContext() {
+  // Vor dem Erzeugen setzen: iOS wertet die Kategorie beim Start der
+  // Wiedergabe aus.
+  configureAudioSession();
+
   const Ctor = window.AudioContext || window.webkitAudioContext;
   if (!Ctor) {
     bus.emit(AUDIO_EVENTS.BLOCKED, {
@@ -69,6 +107,10 @@ export function isUnlocked() {
  * werden, sonst blockiert Safari die Wiedergabe.
  */
 export async function unlockAudio() {
+  // Erneut setzen: Auf iOS kann die Kategorie nach einer Unterbrechung
+  // (Anruf, Sperrbildschirm) zuruecckfallen.
+  configureAudioSession();
+
   const c = getContext();
   try {
     if (c.state !== 'running') await c.resume();
@@ -157,6 +199,7 @@ export function latencyInfo() {
     sampleRate: c.sampleRate,
     state: c.state,
     ios: isIOS,
+    audioSession: audioSessionInfo(),
   };
 }
 

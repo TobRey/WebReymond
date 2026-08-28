@@ -39,7 +39,7 @@ const FAQ = [
   ],
   [
     'Der Ton startet auf dem iPhone nicht.',
-    'Safari erlaubt Audio erst nach einer Berührung. Einmal irgendwo tippen genügt. Achte ausserdem darauf, dass der Stummschalter am Gerät nicht aktiv ist.',
+    'Erstens: Safari erlaubt Audio erst nach einer Berührung – einmal irgendwo tippen genügt. Zweitens: AI Groove meldet sich seit Fassung 1.1.2 als Musik-Wiedergabe an, dadurch wirkt der seitliche Stummschalter nicht mehr; auf älteren Safari-Fassungen (vor 16.4) muss er weiterhin ausgeschaltet sein. Drittens: Es zählt der Lautstärkeregler für Medien, nicht der für den Klingelton – während ein Klang läuft die Lautstärketasten drücken. Der Selbsttest unter „KI“ sagt dir, an welcher Stelle es klemmt.',
   ],
   [
     'Kann ich AI Groove wie eine App installieren?',
