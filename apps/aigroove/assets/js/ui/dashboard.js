@@ -13,7 +13,7 @@ import { estimateStorage, requestPersistence } from '../core/idb.js';
 import { settings } from '../core/settings.js';
 import { openTutorial } from './tutorial.js';
 
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 
 function tile({ iconName, title, text, primary = false, disabled = false, onClick }) {
   const btn = h(`button.tile${primary ? '.tile--primary' : ''}`, { type: 'button', disabled });

@@ -219,7 +219,17 @@ export function renderMono(gene, opts) {
   const attack = Math.max(1, p.attack * sr);
   const hold = p.hold * sr;
   const decay = Math.max(1, p.decay * sr);
-  const releaseStart = Math.max(0, n - p.release * sr);
+  // Ausblendung am Ende.
+  //
+  // Sie darf nie den ganzen Klang umfassen: Ist die Release-Zeit laenger als
+  // die Datei, wuerde aus ihr eine lineare Ausblendung von der ersten bis zur
+  // letzten Probe – und die ueberdeckt jede Huellkurve. Gemessen wurden
+  // Release-Zeiten von sechs Sekunden bei einem Kick von 0,77 Sekunden; das
+  // Ergebnis war ein Klang, der gleichmaessig leiser wird statt abzuklingen.
+  // Sie beginnt deshalb fruehestens nach Anschlag und Haltephase und deckt
+  // hoechstens die hintere Haelfte ab.
+  const releaseSamples = Math.min(p.release * sr, n * 0.55);
+  const releaseStart = Math.max(attack + hold, n - releaseSamples);
   const releaseLen = Math.max(1, n - releaseStart);
   const noiseDecay = Math.max(1, p.noiseDecay * sr);
   const pitchEnvTime = Math.max(1, p.pitchEnvTime * sr);

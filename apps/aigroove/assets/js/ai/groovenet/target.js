@@ -15,6 +15,7 @@
  */
 
 import { BANDS, FRAMES, melBandCenters } from './features.js';
+import { ARCHETYPES } from './lexicon.js';
 
 /**
  * Baut den Ziel-Fingerabdruck.
@@ -57,12 +58,23 @@ export function buildTarget(intent, seconds, sampleRate) {
   // --- Zeitverlauf -----------------------------------------------------------
   const rising = intent.archetype === 'riser' || intent.archetype === 'sweep';
   const attack = Math.min(seconds * 0.5, 0.0008 * 2 ** ((1 - d.transient) * 11));
-  // Abklingzeit. Sie haengt nicht nur an der gewuenschten Laenge, sondern
-  // ausdruecklich auch an der Knackigkeit: In eine Datei von 0,7 Sekunden
-  // passt ein Kick von 150 Millisekunden. Ohne diesen Faktor verlangt das Ziel
-  // eine Abklingzeit von gut 200 ms, und der Klang bleibt die erste zehntel
-  // Sekunde durchgehend gleich laut – ein Knall statt eines Schlags.
-  const decay = Math.max(0.01, seconds * (0.05 + d.sustain * 0.8) * (1 - d.transient * 0.55));
+  // Abklingzeit des Koerpers.
+  //
+  // Sie kommt aus der Instrumentenkunde, nicht aus allgemeinen Klangachsen:
+  // Eine Kick traegt rund 300 ms, eine geschlossene Hi-Hat 50 ms. Frueher
+  // wurde sie aus Laenge, Ausklang und Knackigkeit errechnet und landete bei
+  // 67 ms – das ist kein Instrument mehr, das ist ein Klicken. Genau das war
+  // hoerbar.
+  //
+  // Der Ausklang-Wunsch aus dem Prompt streckt oder staucht den Wert
+  // ("kurz", "tight" halbieren, "lang", "boomy" verdoppeln). Die Knackigkeit
+  // wirkt bewusst NICHT mit: Sie beschreibt den Anschlag, nicht die Laenge
+  // des Koerpers. Ein Kick kann knackig anschlagen und trotzdem tragen.
+  const nominal = ARCHETYPES[intent.archetype]?.bodyDecay;
+  const decay = nominal
+    ? Math.min(seconds * 0.9, nominal * (0.5 + d.sustain * 1.3))
+    : Math.max(0.01, seconds * (0.25 + d.sustain * 0.7));
+
   // Haltepegel: Ein geschlagener Klang klingt bis zur Stille aus, eine Flaeche
   // steht. Ohne diese Kopplung an die Knackigkeit gibt das Ziel selbst fuer
   // eine Kick ein Plateau bei rund -13 dB vor – und die Suche liefert
@@ -166,6 +178,6 @@ export function targetWeights(intent) {
     envelope: 0.55 + d.transient * 0.75,
     descriptors: 0.5 + d.harmonicity * 0.35,
     // Je knackiger der Klang, desto staerker zaehlen die ersten Zeitschritte.
-    attackBias: Math.max(0, d.transient - 0.4) * 6,
+    attackBias: Math.max(0, d.transient - 0.4) * 2.5,
   };
 }

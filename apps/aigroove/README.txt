@@ -1,4 +1,4 @@
-AI GROOVE 1.2.0
+AI GROOVE 1.2.1
 ===============
 
 NEU IN 1.2.0: Eigene KI "GrooveNet"
@@ -67,9 +67,11 @@ Wie sie arbeitet (in Kurzform):
 5. Der beste Kandidat wird in voller Aufloesung berechnet und fertig
    aufbereitet ausgegeben.
 
-Damit die Suche musikalisch bleibt, kennt jede Klangart ihre Grenzen: Eine
-Kick hat einen Grundton zwischen 45 und 72 Hz, klingt aus statt zu stehen und
-bekommt nur wenig Saettigung und Hall. Wer ausdruecklich "verzerrt" oder "mit
+Damit die Suche musikalisch bleibt, kennt jede Klangart ihre Grenzen und ihre
+typische Abklingzeit: Eine Kick hat einen Grundton zwischen 45 und 72 Hz und
+traegt rund 300 Millisekunden, eine geschlossene Hi-Hat 50, eine Glocke fast
+zwei Sekunden. Sie klingt aus statt zu stehen und bekommt nur wenig
+Saettigung und Hall. Wer ausdruecklich "verzerrt" oder "mit
 viel Hall" schreibt, hebt die jeweilige Grenze wieder auf.
 
 Drums, Baesse und Impacts bekommen ausserdem immer eine Tiefenanhebung - ein

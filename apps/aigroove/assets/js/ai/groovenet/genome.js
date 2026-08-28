@@ -490,7 +490,7 @@ export const ARCHETYPE_BOUNDS = {
     filterCutoff: [2500, 14000],
     modalMix: [0, 0.25],
     attack: [0.0004, 0.005],
-    decay: [0.06, 0.45],
+    decay: [0.16, 0.6],
     reverbAmount: [0, 0.25],
   },
   sub: {
@@ -514,24 +514,35 @@ export const ARCHETYPE_BOUNDS = {
   },
   snare: {
     sustain: [0, 0.06],
+    decay: [0.09, 0.5],
     pitch: [120, 340],
-    noiseLevel: [0.4, 1],
-    modalMix: [0.12, 0.7],
+    noiseLevel: [0.4, 0.92],
+    // Eine Snare ist Fell UND Teppich. Ohne Untergrenze fuer Klangkoerper und
+    // Grundton bleibt nur das Rauschen uebrig – gemessen 99,5 % der Energie
+    // oberhalb 1 kHz, also reines Zischen ohne Trommel darunter.
+    oscLevel: [0.22, 1],
+    modalMix: [0.25, 0.7],
+    filterCutoff: [1200, 14000],
     subLevel: [0, 0.25],
     attack: [0.0004, 0.006],
     pitchEnvAmount: [0, 14],
   },
   clap: {
     sustain: [0, 0.06],
+    decay: [0.1, 0.5],
     pitch: [200, 900],
     noiseLevel: [0.6, 1],
+    // Ein Clap sitzt in den Mitten, nicht in den Hoehen: der Klang entsteht
+    // im Raum zwischen 800 Hz und 3 kHz.
+    filterCutoff: [900, 7000],
+    noiseBandFreq: [700, 3500],
     subLevel: [0, 0.12],
     modalMix: [0, 0.35],
     attack: [0.0004, 0.008],
   },
   rim: { sustain: [0, 0.05], pitch: [200, 1400], noiseLevel: [0.2, 0.8], subLevel: [0, 0.1], decay: [0.01, 0.3] },
-  tom: { sustain: [0, 0.06], pitch: [70, 260], pitchEnvAmount: [3, 16], noiseLevel: [0, 0.3], subLevel: [0.1, 0.7] },
-  perc: { sustain: [0, 0.06], pitch: [150, 3000], noiseLevel: [0.1, 0.8], subLevel: [0, 0.2] },
+  tom: { decay: [0.12, 0.7], sustain: [0, 0.06], pitch: [70, 260], pitchEnvAmount: [3, 16], noiseLevel: [0, 0.3], subLevel: [0.1, 0.7] },
+  perc: { decay: [0.04, 0.35], sustain: [0, 0.06], pitch: [150, 3000], noiseLevel: [0.1, 0.8], subLevel: [0, 0.2] },
   hat: {
     sustain: [0, 0.04],
     pitch: [2500, 9000],
@@ -583,6 +594,15 @@ export function applyBounds(gene, intent) {
   if (intent.family === 'drum') {
     // Geschlagene Klaenge: wenig Saettigung, wenig Hall, kein Haltesegment.
     // Alles drei schiebt sonst die Lautstaerkespitze hinter den Anschlag.
+    //
+    // "hold" haelt die Huellkurve auf vollem Pegel, bevor sie abklingt.
+    // Gemessen wurden 213 ms bei einem Kick – eine Fuenftelsekunde
+    // gleichbleibend laut, also genau das Gegenteil eines Schlags. Bei
+    // Perkussion sind wenige Millisekunden das Aeusserste.
+    effektiv.hold = [0, 0.012];
+    // Ebenso die Ausblendung: Sie gehoert ans Ende, nicht ueber den ganzen
+    // Klang.
+    effektiv.release = [0.005, Math.min(effektiv.release?.[1] ?? 1, 0.25)];
     if (d.drive <= 0.72) effektiv.drive = [0, Math.min(effektiv.drive?.[1] ?? 1, 0.45)];
     if (d.space <= 0.7) effektiv.reverbAmount = [0, Math.min(effektiv.reverbAmount?.[1] ?? 1, 0.12)];
     if (d.sustain <= 0.85) effektiv.sustain = [0, Math.min(effektiv.sustain?.[1] ?? 1, 0.1)];

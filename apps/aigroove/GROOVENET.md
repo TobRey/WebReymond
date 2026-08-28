@@ -147,6 +147,15 @@ Die Reihenfolge im Synthesizer ist nicht beliebig. Drei Punkte wurden durch
 Messung korrigiert, weil sie den Unterschied zwischen einem Schlag und einem
 Knall ausmachen:
 
+0. **Die Hüllkurve muss die Hüllkurve bleiben.** Drei Parameter konnten sie
+   aushebeln, und die Suche hat das genutzt: `hold` hielt den vollen Pegel
+   213 ms lang, `release` war mit sechs Sekunden länger als der ganze Klang
+   (und wurde damit zur linearen Ausblendung von der ersten bis zur letzten
+   Probe), und die Abklingzeit stammte aus allgemeinen Achsen statt aus dem
+   Instrument – 67 ms, also ein Klicken. Heute liefert `bodyDecay` je Klangart
+   die typische Abklingzeit (Kick 300 ms, Hi-Hat 50 ms, Glocke 1,8 s), die
+   Haltephase ist bei Perkussion auf 12 ms begrenzt und die Ausblendung deckt
+   höchstens die hintere Hälfte ab.
 1. **Sättigung vor der Hüllkurve.** Sättigung drückt zusammen – das ist ihr
    Wesen. Steht sie hinter der Hüllkurve, verschwindet mit ihr das Abklingen:
    Aus einem Kick-Abfall von 32 dB wurde ein Plateau von 4 dB. Davor gestellt
