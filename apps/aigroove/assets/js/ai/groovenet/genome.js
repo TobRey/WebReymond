@@ -317,7 +317,7 @@ export function seedGenome(intent, random, spread = 0) {
       g[i] = clamp01(g[i] + gauss(random) * spread);
     }
   }
-  return g;
+  return applyBounds(g, intent);
 }
 
 /**
@@ -457,6 +457,162 @@ function applyArchetypeRules(g, intent, set, hz, sec, seconds) {
     default:
       break;
   }
+}
+
+
+/**
+ * Leitplanken je Klangart, in echten Einheiten (Hertz, Sekunden, Halbtoene).
+ *
+ * Der Optimierer sucht frei – und findet ohne Grenzen Loesungen, die auf dem
+ * Papier gut zum Ziel passen, aber musikalisch unbrauchbar sind. Gemessen
+ * wurde genau das: Bei einer Kick landete der Grundton am unteren Anschlag von
+ * 20 Hz. Rechnerisch stimmte die Energieverteilung, hoerbar war es ein
+ * unhoerbares Rumpeln statt einer Trommel.
+ *
+ * Diese Grenzen bilden ab, was eine Klangart ausmacht. Eine Kick hat einen
+ * Grundton zwischen 42 und 70 Hz und einen kurzen Tonhoehensturz von oben –
+ * das ist keine Geschmacksfrage, sondern die Bauart des Instruments.
+ *
+ * Ausdrueckliche Wuensche im Prompt ("verzerrt", "rauschig") weiten die
+ * passende Grenze wieder auf, siehe applyBounds().
+ */
+export const ARCHETYPE_BOUNDS = {
+  kick: {
+    sustain: [0, 0.06],
+    pitch: [45, 72],
+    pitchEnvAmount: [12, 28],
+    pitchEnvTime: [0.008, 0.07],
+    noiseLevel: [0, 0.3],
+    noiseDecay: [0.002, 0.035],
+    drive: [0, 0.4],
+    subLevel: [0.45, 1],
+    wave: [0, 0.3],
+    filterCutoff: [2500, 14000],
+    modalMix: [0, 0.25],
+    attack: [0.0004, 0.005],
+    decay: [0.06, 0.45],
+    reverbAmount: [0, 0.25],
+  },
+  sub: {
+    pitch: [28, 95],
+    pitchEnvAmount: [0, 10],
+    noiseLevel: [0, 0.06],
+    wave: [0, 0.22],
+    drive: [0, 0.45],
+    modalMix: [0, 0.1],
+    attack: [0.0008, 0.03],
+    reverbAmount: [0, 0.25],
+  },
+  bass: {
+    pitch: [30, 170],
+    pitchEnvAmount: [0, 12],
+    noiseLevel: [0, 0.22],
+    subLevel: [0.25, 1],
+    modalMix: [0, 0.3],
+    attack: [0.0005, 0.05],
+    reverbAmount: [0, 0.4],
+  },
+  snare: {
+    sustain: [0, 0.06],
+    pitch: [120, 340],
+    noiseLevel: [0.4, 1],
+    modalMix: [0.12, 0.7],
+    subLevel: [0, 0.25],
+    attack: [0.0004, 0.006],
+    pitchEnvAmount: [0, 14],
+  },
+  clap: {
+    sustain: [0, 0.06],
+    pitch: [200, 900],
+    noiseLevel: [0.6, 1],
+    subLevel: [0, 0.12],
+    modalMix: [0, 0.35],
+    attack: [0.0004, 0.008],
+  },
+  rim: { sustain: [0, 0.05], pitch: [200, 1400], noiseLevel: [0.2, 0.8], subLevel: [0, 0.1], decay: [0.01, 0.3] },
+  tom: { sustain: [0, 0.06], pitch: [70, 260], pitchEnvAmount: [3, 16], noiseLevel: [0, 0.3], subLevel: [0.1, 0.7] },
+  perc: { sustain: [0, 0.06], pitch: [150, 3000], noiseLevel: [0.1, 0.8], subLevel: [0, 0.2] },
+  hat: {
+    sustain: [0, 0.04],
+    pitch: [2500, 9000],
+    noiseLevel: [0.3, 1],
+    subLevel: [0, 0.04],
+    filterCutoff: [2500, 18000],
+    decay: [0.008, 0.25],
+    pitchEnvAmount: [0, 4],
+  },
+  openhat: {
+    sustain: [0, 0.08],
+    pitch: [2500, 9000],
+    noiseLevel: [0.3, 1],
+    subLevel: [0, 0.04],
+    filterCutoff: [2000, 18000],
+    pitchEnvAmount: [0, 4],
+  },
+  cymbal: { sustain: [0, 0.08], pitch: [2000, 9000], noiseLevel: [0.3, 1], subLevel: [0, 0.04], filterCutoff: [1500, 18000] },
+  bell: { sustain: [0, 0.06], pitch: [200, 4000], noiseLevel: [0, 0.25], subLevel: [0, 0.15], modalMix: [0.6, 1] },
+  impact: { sustain: [0, 0.25], pitch: [35, 120], pitchEnvAmount: [8, 30], subLevel: [0.4, 1], noiseLevel: [0.1, 0.7] },
+  riser: { noiseLevel: [0.35, 1], subLevel: [0, 0.2], pitchEnvAmount: [0, 4] },
+  sweep: { noiseLevel: [0.4, 1], subLevel: [0, 0.2], pitchEnvAmount: [0, 4] },
+  pad: { pitch: [90, 900], noiseLevel: [0, 0.3], pitchEnvAmount: [0, 3], attack: [0.03, 2.5] },
+  drone: { pitch: [40, 500], noiseLevel: [0, 0.45], pitchEnvAmount: [0, 3] },
+  lead: { pitch: [150, 1800], noiseLevel: [0, 0.25], pitchEnvAmount: [0, 6] },
+  pluck: { sustain: [0, 0.15], pitch: [100, 1400], noiseLevel: [0, 0.3], pitchEnvAmount: [0, 6] },
+  stab: { sustain: [0, 0.3], pitch: [100, 1000], noiseLevel: [0, 0.25], pitchEnvAmount: [0, 6] },
+  chord: { pitch: [100, 900], noiseLevel: [0, 0.2], pitchEnvAmount: [0, 4] },
+  vocal: { pitch: [90, 500], noiseLevel: [0, 0.35], pitchEnvAmount: [0, 5] },
+  texture: { pitchEnvAmount: [0, 4] },
+};
+
+/**
+ * Beschraenkt ein Genom auf die Leitplanken seiner Klangart.
+ *
+ * @param {Float32Array} gene wird an Ort und Stelle geaendert
+ * @param {object} intent
+ * @returns {Float32Array}
+ */
+export function applyBounds(gene, intent) {
+  const table = ARCHETYPE_BOUNDS[intent.archetype];
+  const d = intent.dimsByName;
+
+  // Regeln, die fuer eine ganze Familie gelten – unabhaengig davon, ob die
+  // Klangart den Parameter selbst auffuehrt. Ohne diesen Zusammenbau griffen
+  // sie nur bei den Klangarten, die den Parameter ohnehin schon nannten; eine
+  // Snare kam so auf 36 % Hallanteil, obwohl die Regel 12 % vorsah.
+  const effektiv = { ...(table || {}) };
+  if (intent.family === 'drum') {
+    // Geschlagene Klaenge: wenig Saettigung, wenig Hall, kein Haltesegment.
+    // Alles drei schiebt sonst die Lautstaerkespitze hinter den Anschlag.
+    if (d.drive <= 0.72) effektiv.drive = [0, Math.min(effektiv.drive?.[1] ?? 1, 0.45)];
+    if (d.space <= 0.7) effektiv.reverbAmount = [0, Math.min(effektiv.reverbAmount?.[1] ?? 1, 0.12)];
+    if (d.sustain <= 0.85) effektiv.sustain = [0, Math.min(effektiv.sustain?.[1] ?? 1, 0.1)];
+  }
+  if (!Object.keys(effektiv).length) return gene;
+
+  for (const [name, range] of Object.entries(effektiv)) {
+    const index = PARAM_INDEX[name];
+    if (index == null) continue;
+
+    let [lo, hi] = range;
+
+    // Ausdrueckliche Wuensche heben die passende Grenze auf: Wer "verzerrt"
+    // schreibt, soll Verzerrung bekommen, auch bei einer Kick.
+    if (name === 'drive' && d.drive > 0.72) hi = 1;
+    if (name === 'noiseLevel' && d.noisiness > 0.78) hi = 1;
+    if (name === 'reverbAmount' && d.space > 0.75) hi = 1;
+    if (name === 'decay' && d.sustain > 0.8) hi = Math.max(hi, PARAMS[index].max);
+    // Ein geschlagener Klang hat kein Haltesegment: er klingt vom ersten
+    // Moment an aus. Nur ein ausdruecklich langer Klang darf laenger stehen.
+    if (name === 'sustain' && d.sustain > 0.85) hi = Math.min(1, hi + 0.25);
+    // Eine genannte Tonart schlaegt jede Tonhoehengrenze.
+    if (name === 'pitch' && intent.root != null && intent.family !== 'drum') continue;
+
+    const loGene = encodeParam(name, lo);
+    const hiGene = encodeParam(name, Math.max(lo, hi));
+    if (gene[index] < loGene) gene[index] = loGene;
+    else if (gene[index] > hiGene) gene[index] = hiGene;
+  }
+  return gene;
 }
 
 /** Erzeugt einen Nachkommen aus drei Eltern (Differentielle Evolution). */

@@ -84,6 +84,19 @@ Wichtig: Anregung und schwingender Körper haben getrennte Hüllkurven. Eine
 Glocke wird kurz angeregt und klingt danach von selbst aus – ohne diese
 Trennung klänge jede Glocke wie ein langsam aufziehendes Pad.
 
+### 3a. Leitplanken
+
+Der Optimierer sucht frei – und findet ohne Grenzen Lösungen, die messbar zum
+Ziel passen, aber kein Instrument mehr sind. Gemessen: Bei einer Kick lief der
+Grundton auf den kleinsten erlaubten Wert von 20 Hz. Rechnerisch stimmte die
+Energieverteilung, hörbar war es ein unhörbares Rumpeln.
+
+`genome.js` legt deshalb je Klangart Grenzen in echten Einheiten fest – eine
+Kick hat einen Grundton zwischen 45 und 72 Hz, wenig Sättigung, kaum Hall und
+kein Haltesegment. Dazu kommen Regeln für ganze Familien: geschlagene Klänge
+klingen immer aus, statt zu stehen. Ausdrückliche Wünsche im Prompt
+("verzerrt", "mit viel Hall") heben die passende Grenze wieder auf.
+
 ### 4. Optimierung
 
 `optimizer.js` verwendet **Differentielle Evolution**: Aus je drei
@@ -127,6 +140,28 @@ Die Berechnung läuft in einem Modul-Worker. Ist der nicht verfügbar, rechnet
 dieselbe Engine im Hauptstrang weiter – es fällt nichts aus.
 
 ---
+
+## Signalweg und warum die Reihenfolge zählt
+
+Die Reihenfolge im Synthesizer ist nicht beliebig. Drei Punkte wurden durch
+Messung korrigiert, weil sie den Unterschied zwischen einem Schlag und einem
+Knall ausmachen:
+
+1. **Sättigung vor der Hüllkurve.** Sättigung drückt zusammen – das ist ihr
+   Wesen. Steht sie hinter der Hüllkurve, verschwindet mit ihr das Abklingen:
+   Aus einem Kick-Abfall von 32 dB wurde ein Plateau von 4 dB. Davor gestellt
+   färbt sie den Klang, ohne die Dynamik anzutasten.
+2. **Die Hüllkurve formt die Anregung, nie den Ausgang.** Ein Instrument wird
+   angeregt, Körper und Filter klingen danach von selbst aus. Eine anteilige
+   Hüllkurve ließ bei 25 % Körperanteil drei Viertel des Signals ungehüllt
+   durchlaufen – eine flache Hüllkurve über 160 ms.
+3. **Der Nachhall braucht Pegelausgleich.** Sechs Kammfilter mit Rückkopplung
+   0,9 verstärken um das Sechzigfache. Ohne Ausgleich übertönte der Hall schon
+   bei 12 % Anteil das Direktsignal und schob die Lautstärkespitze hinter den
+   Anschlag.
+
+Ebenso zählt die Einblendung: Sie liegt bei 0,2 ms. Die früheren 2 ms
+schnitten genau den Klick weg, der eine Trommel als Trommel erkennbar macht.
 
 ## Grenzen (ehrlich benannt)
 

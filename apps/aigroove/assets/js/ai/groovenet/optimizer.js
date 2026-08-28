@@ -20,7 +20,7 @@
  * schneller und aendert an der Rangfolge der Kandidaten praktisch nichts.
  */
 
-import { GENE_COUNT, seedGenome, differentialMix, rng, decode } from './genome.js';
+import { GENE_COUNT, seedGenome, differentialMix, rng, decode, applyBounds } from './genome.js';
 import { renderMono } from './synth.js';
 import { fingerprint, distance } from './features.js';
 import { buildTarget, targetWeights } from './target.js';
@@ -155,6 +155,9 @@ export function optimize(opts) {
       const factor = 0.45 + random() * 0.45;
       const crossRate = 0.55 + random() * 0.35;
       differentialMix(population[a], population[b], population[c], factor, crossRate, random, trial);
+      // Ohne die Leitplanken findet die Suche Loesungen, die zum Ziel passen,
+      // aber kein Instrument mehr sind (etwa eine Kick bei 20 Hz).
+      applyBounds(trial, intent);
 
       const score = evaluate(trial, seed + i);
       evaluations++;
@@ -210,6 +213,7 @@ export function optimize(opts) {
       const gi = Math.floor(random() * GENE_COUNT);
       candidate[gi] = Math.min(1, Math.max(0, candidate[gi] + (random() * 2 - 1) * 0.09));
     }
+    applyBounds(candidate, intent);
     const score = evaluateFull(candidate, seed + bestIdx);
     evaluations++;
     if (score < scores[bestIdx]) {
@@ -240,6 +244,7 @@ export function optimize(opts) {
     for (let i = 0; i < GENE_COUNT; i++) {
       if (random() < 0.3) variant[i] = Math.min(1, Math.max(0, variant[i] + (random() * 2 - 1) * 0.12));
     }
+    applyBounds(variant, intent);
     if (chosen.some((g) => geneDistance(g, variant) < 0.03)) continue;
     chosen.push(variant);
     chosenScores.push(evaluate(variant, seed + 900 + guard));

@@ -9,7 +9,7 @@
 declare(strict_types=1);
 
 // Version fuer Cache-Busting. Bei jedem Deployment erhoehen.
-const AIG_VERSION = '1.1.2';
+const AIG_VERSION = '1.2.0';
 
 $v = AIG_VERSION;
 

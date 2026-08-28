@@ -39,20 +39,43 @@ export function buildTarget(intent, seconds, sampleRate) {
   const slopeLow = 5 + (1 - d.weight) * 11 + d.brightness * 4;
   const slopeHigh = 5 + (1 - d.brightness) * 15 + (1 - d.complexity) * 4;
 
-  // Rauschen fuellt das Spektrum auf, Tonhaftigkeit spitzt es zu.
+  // Rauschboden.
   //
-  // Metallische Klaenge zaehlen hier zum "vollen" Spektrum: Becken und
-  // Glocken bestehen aus vielen unharmonischen Teiltoenen, die sich ueber
-  // den ganzen Hoerbereich verteilen. In der Mel-Darstellung sieht das einem
-  // breiten Band aehnlicher als einem einzelnen Ton.
-  const floorDb = -46 + d.noisiness * 30 + d.complexity * 6 + Math.max(0, d.metallic - 0.5) * 26;
+  // Wichtig: Der Boden faellt mit der Frequenz. Ein waagerechter Boden waere
+  // die Aufforderung, ueberall bis 18 kHz Energie zu haben – die Suche fuellt
+  // das dann pflichtgemaess mit Rauschen auf, und aus einer Kick wird ein
+  // Zischen. Bei einer tonalen Kick liegt der Boden dadurch rund 65 dB unter
+  // der Spitze, bei einem Clap nur rund 35 dB.
+  //
+  // Metallische Klaenge zaehlen zum "vollen" Spektrum: Becken und Glocken
+  // bestehen aus vielen unharmonischen Teiltoenen ueber den ganzen
+  // Hoerbereich.
+  const floorAt1k = -80 + d.noisiness * 46 + d.complexity * 6 + Math.max(0, d.metallic - 0.5) * 26;
+  const floorSlope = 5 + (1 - d.noisiness) * 9;
   const sharpen = 0.75 + d.harmonicity * 0.5 - d.noisiness * 0.35;
 
   // --- Zeitverlauf -----------------------------------------------------------
   const rising = intent.archetype === 'riser' || intent.archetype === 'sweep';
   const attack = Math.min(seconds * 0.5, 0.0008 * 2 ** ((1 - d.transient) * 11));
-  const decay = Math.max(0.01, seconds * (0.08 + d.sustain * 0.85));
-  const sustainLevel = Math.min(0.95, d.sustain * 0.9);
+  // Abklingzeit. Sie haengt nicht nur an der gewuenschten Laenge, sondern
+  // ausdruecklich auch an der Knackigkeit: In eine Datei von 0,7 Sekunden
+  // passt ein Kick von 150 Millisekunden. Ohne diesen Faktor verlangt das Ziel
+  // eine Abklingzeit von gut 200 ms, und der Klang bleibt die erste zehntel
+  // Sekunde durchgehend gleich laut – ein Knall statt eines Schlags.
+  const decay = Math.max(0.01, seconds * (0.05 + d.sustain * 0.8) * (1 - d.transient * 0.55));
+  // Haltepegel: Ein geschlagener Klang klingt bis zur Stille aus, eine Flaeche
+  // steht. Ohne diese Kopplung an die Knackigkeit gibt das Ziel selbst fuer
+  // eine Kick ein Plateau bei rund -13 dB vor – und die Suche liefert
+  // folgerichtig einen Klang, der 160 ms lang gleich laut bleibt.
+  const sustainLevel = Math.min(0.95, d.sustain * 0.9 * (1 - d.transient * 0.95));
+
+  // Helligkeit des Anschlags: bis zu 34 dB Anhebung in den ersten
+  // Millisekunden, abhaengig von der geforderten Knackigkeit.
+  // Das Ziel hat FRAMES Zeitschritte. Ist das Anschlagfenster kuerzer als ein
+  // Schritt, faellt es zwischen das Raster und bleibt wirkungslos. Es umfasst
+  // deshalb mindestens den ersten Schritt.
+  const clickAmount = rising ? 0 : Math.max(0, d.transient - 0.35) * 44;
+  const clickTime = Math.max(0.006, (seconds / FRAMES) * 1.05);
 
   for (let f = 0; f < FRAMES; f++) {
     const t = ((f + 0.5) / FRAMES) * seconds;
@@ -73,6 +96,22 @@ export function buildTarget(intent, seconds, sampleRate) {
       let db = octaves < 0 ? octaves * slopeLow * sharpen : -octaves * slopeHigh * sharpen;
       // Rauschboden anheben: bei geraeuschhaften Klaengen traegt das ganze
       // Spektrum, nicht nur die Umgebung des Schwerpunkts.
+      let floorDb = floorAt1k - Math.max(0, Math.log2(centers[b] / 1000)) * floorSlope;
+
+      // Der Anschlag ist hell.
+      //
+      // Ohne diesen Zusatz beschreibt das Ziel einen Klang, der von der ersten
+      // bis zur letzten Millisekunde gleich dunkel ist. Die Suche filtert dann
+      // folgerichtig alle Hoehen weg – und mit ihnen den Anschlag, der eine
+      // Trommel ueberhaupt erst als Trommel erkennbar macht. Gemessen: die
+      // Filtergrenze lief auf den kleinsten erlaubten Wert.
+      //
+      // Deshalb wird der Boden in den ersten Millisekunden angehoben, und zwar
+      // umso staerker, je knackiger der Prompt klingt.
+      if (clickAmount > 0 && t < clickTime) {
+        const anteil = 1 - t / clickTime;
+        floorDb += clickAmount * anteil * Math.min(1, Math.log2(1 + centers[b] / 400));
+      }
       db = Math.max(db, floorDb);
 
       // Hohe Anteile klingen frueher aus als tiefe – so verhalten sich fast
@@ -126,5 +165,7 @@ export function targetWeights(intent) {
     surface: 1,
     envelope: 0.55 + d.transient * 0.75,
     descriptors: 0.5 + d.harmonicity * 0.35,
+    // Je knackiger der Klang, desto staerker zaehlen die ersten Zeitschritte.
+    attackBias: Math.max(0, d.transient - 0.4) * 6,
   };
 }

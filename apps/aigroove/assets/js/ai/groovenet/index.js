@@ -40,6 +40,25 @@ export const ENGINE = {
     'Eigene Klang-KI: versteht den Prompt, stellt ein Zielspektrum auf und sucht per Evolution den passenden Klang – vollstaendig im Browser.',
 };
 
+/**
+ * Wie viel Tiefenanhebung bekommt ein Klang?
+ *
+ * Ein satter Unterbau ist bei elektronischer Musik keine Geschmacksfrage,
+ * sondern Grundausstattung: Kick, Sub, Bass, Tom und Impact tragen das ganze
+ * Stueck. Sie bekommen deshalb immer eine Grundanhebung, dazu mehr, je
+ * wuchtiger der Prompt klingt ("fett", "tief", "wuchtig").
+ *
+ * Hi-Hats, Becken und Glocken bleiben unberuehrt – dort waere Tiefe nur Matsch.
+ */
+function bassLiftFor(intent) {
+  const traegt = ['kick', 'sub', 'bass', 'tom', 'impact', 'snare'].includes(intent.archetype);
+  const duennerKlang = ['hat', 'openhat', 'cymbal', 'rim', 'bell'].includes(intent.archetype);
+  if (duennerKlang) return 0;
+  const grund = traegt ? 2 : 0;
+  const nachWucht = Math.max(0, intent.dimsByName.weight - 0.5) * 6;
+  return Math.min(5, grund + nachWucht);
+}
+
 /** Rechenaufwand je Qualitaetsstufe, in Millisekunden pro Variante. */
 export const EFFORT_PRESETS = {
   fast: { budgetMs: 700, effort: 0.35, label: 'Schnell' },
@@ -103,7 +122,11 @@ export function generate(opts) {
     const params = decode(gene);
     const channels = spatialize(mono, params, sampleRate);
     normalize(channels, 0.9);
-    master(channels, sampleRate, { fadeOut: Math.min(0.02, seconds * 0.05) });
+    master(channels, sampleRate, {
+      fadeOut: Math.min(0.02, seconds * 0.05),
+      bassLift: bassLiftFor(intent),
+      oneShot: true,
+    });
 
     const score = scoreSignal(mono, sampleRate, intent, seconds);
     results.push({
@@ -142,7 +165,7 @@ function generateLoops({ intent, count, sampleRate, seed, seconds, onProgress, s
       bpm: intent.bpm,
       onProgress: (p, label) => onProgress(0.05 + ((i + p) / count) * 0.9, label),
     });
-    master(loop.channels, sampleRate, { fadeOut: 0.004 });
+    master(loop.channels, sampleRate, { fadeOut: 0.004, bassLift: Math.max(2, bassLiftFor(intent) * 0.8) });
     results.push({
       channels: loop.channels,
       sampleRate,

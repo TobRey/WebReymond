@@ -312,13 +312,23 @@ export function distance(a, b, weights = {}) {
   const wEnvelope = weights.envelope ?? 0.9;
   const wDesc = weights.descriptors ?? 0.6;
 
+  // Zeitliche Gewichtung: Bei perkussiven Klaengen entscheidet der Anschlag
+  // darueber, ob etwas wie eine Trommel klingt. Ohne diese Gewichtung faellt
+  // der erste Zeitschritt gegen neunzehn Ausklang-Schritte nicht ins Gewicht,
+  // und die Suche opfert den Anschlag fuer einen minimal besseren Ausklang.
+  const attackBias = weights.attackBias ?? 0;
   let surf = 0;
+  let surfWeight = 0;
   const n = Math.min(a.surface.length, b.surface.length);
+  const bands = a.bands || 1;
   for (let i = 0; i < n; i++) {
+    const frame = Math.floor(i / bands);
+    const w = 1 + attackBias * Math.exp(-frame / 2.2);
     const d = a.surface[i] - b.surface[i];
-    surf += d * d;
+    surf += d * d * w;
+    surfWeight += w;
   }
-  surf = Math.sqrt(surf / Math.max(1, n));
+  surf = Math.sqrt(surf / Math.max(1, surfWeight));
 
   let env = 0;
   const m = Math.min(a.envelope.length, b.envelope.length);

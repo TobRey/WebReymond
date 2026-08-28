@@ -9,6 +9,23 @@
  * sein – im Studio wird danach ohnehin weitergearbeitet.
  */
 
+/**
+ * Tiefenanhebung (Kuhschwanzfilter).
+ *
+ * Hebt alles unterhalb der Eckfrequenz an, ohne die Mitten zu beruehren.
+ * Sorgt fuer den satten Unterbau, den Drums und Baesse brauchen.
+ */
+function lowShelf(channel, sampleRate, hz, gainDb) {
+  if (Math.abs(gainDb) < 0.1) return;
+  const gain = 10 ** (gainDb / 20) - 1;
+  const c = 1 - Math.exp((-2 * Math.PI * hz) / sampleRate);
+  let lp = 0;
+  for (let i = 0; i < channel.length; i++) {
+    lp += c * (channel[i] - lp);
+    channel[i] += lp * gain;
+  }
+}
+
 /** Entfernt Gleichspannung und Rumpeln unterhalb des Hoerbereichs. */
 function highPass(channel, sampleRate, hz = 24) {
   const r = 1 - (2 * Math.PI * hz) / sampleRate;
@@ -96,20 +113,44 @@ function peakOf(channels) {
 export function master(channels, sampleRate, opts = {}) {
   const ceiling = opts.ceiling ?? 0.97;
   const targetRms = opts.loudness ?? 10 ** (-14 / 20);
+  const seconds = channels[0].length / sampleRate;
+  // Einzelklaenge sind kurz; alles ueber zwei Sekunden gilt als Schleife
+  // oder Flaeche, wo Lautheit sinnvoll ist.
+  const isOneShot = opts.oneShot ?? seconds < 2;
 
-  for (const ch of channels) highPass(ch, sampleRate);
+  // Rumpeln unterhalb des Hoerbaren kostet nur Aussteuerungsreserve.
+  for (const ch of channels) highPass(ch, sampleRate, isOneShot ? 28 : 24);
+
+  // Tiefenanhebung nach Wunsch: gibt Drums und Baessen den satten Unterbau.
+  if (opts.bassLift) {
+    for (const ch of channels) lowShelf(ch, sampleRate, opts.bassHz ?? 95, opts.bassLift);
+  }
 
   // Pegel angleichen: erst grob ueber den Effektivwert, dann sicher begrenzen.
   const rms = rmsOf(channels);
   if (rms > 1e-6) {
-    // Perkussive Klaenge haben naturgemaess einen niedrigen Effektivwert.
-    // Deshalb wird die Anhebung begrenzt, sonst wuerde der Begrenzer alles
-    // platt druecken und der Anschlag ginge verloren.
-    const wanted = Math.min(6, Math.max(0.25, targetRms / rms));
+    // Perkussive Einzelklaenge haben naturgemaess einen sehr niedrigen
+    // Effektivwert. Wuerde man sie auf Schleifen-Lautheit ziehen, presste der
+    // Begrenzer den Anschlag flach – gemessen ein Scheitelfaktor unter 5, und
+    // genau das klingt nach Explosion statt nach Trommel. Deshalb hier nur
+    // eine sanfte Angleichung; die Spitze macht den Pegel.
+    const wanted = isOneShot
+      ? Math.min(1.6, Math.max(0.5, targetRms / rms))
+      : Math.min(6, Math.max(0.25, targetRms / rms));
     for (const ch of channels) for (let i = 0; i < ch.length; i++) ch[i] *= wanted;
   }
 
-  if (peakOf(channels) > ceiling) limit(channels, sampleRate, ceiling);
+  // Einzelklaenge auf die Spitze normieren statt sie zu begrenzen: der
+  // Anschlag bleibt unangetastet.
+  if (isOneShot) {
+    const peakNow = peakOf(channels);
+    if (peakNow > 1e-6) {
+      const f = ceiling / peakNow;
+      for (const ch of channels) for (let i = 0; i < ch.length; i++) ch[i] *= f;
+    }
+  } else if (peakOf(channels) > ceiling) {
+    limit(channels, sampleRate, ceiling);
+  }
 
   // Sicherheitsnetz, falls der Begrenzer knapp daneben liegt.
   const peak = peakOf(channels);
@@ -118,8 +159,9 @@ export function master(channels, sampleRate, opts = {}) {
     for (const ch of channels) for (let i = 0; i < ch.length; i++) ch[i] *= f;
   }
 
-  // Saubere Raender.
-  const fadeIn = Math.min(channels[0].length >> 1, Math.round(sampleRate * 0.0015));
+  // Saubere Raender. Die Einblendung bleibt bei wenigen Abtastwerten, damit
+  // der Anschlag unangetastet bleibt (siehe applyFades in synth.js).
+  const fadeIn = Math.min(channels[0].length >> 1, Math.max(4, Math.round(sampleRate * 0.0002)));
   const fadeOut = Math.min(channels[0].length >> 1, Math.round(sampleRate * (opts.fadeOut ?? 0.006)));
   for (const ch of channels) {
     for (let i = 0; i < fadeIn; i++) ch[i] *= i / fadeIn;

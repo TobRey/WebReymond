@@ -1,7 +1,7 @@
-AI GROOVE 1.1.2
+AI GROOVE 1.2.0
 ===============
 
-NEU IN 1.1.2: Eigene KI "GrooveNet"
+NEU IN 1.2.0: Eigene KI "GrooveNet"
 -----------------------------------
 Die Klangerzeugung laeuft jetzt vollstaendig ueber eine eigene KI, die im
 Browser rechnet. Kein Konto, kein API-Key, keine laufenden Kosten, keine
@@ -66,6 +66,15 @@ Wie sie arbeitet (in Kurzform):
    kandidaten, misst jeden gegen das Ziel und verbessert die besten weiter.
 5. Der beste Kandidat wird in voller Aufloesung berechnet und fertig
    aufbereitet ausgegeben.
+
+Damit die Suche musikalisch bleibt, kennt jede Klangart ihre Grenzen: Eine
+Kick hat einen Grundton zwischen 45 und 72 Hz, klingt aus statt zu stehen und
+bekommt nur wenig Saettigung und Hall. Wer ausdruecklich "verzerrt" oder "mit
+viel Hall" schreibt, hebt die jeweilige Grenze wieder auf.
+
+Drums, Baesse und Impacts bekommen ausserdem immer eine Tiefenanhebung - ein
+satter Unterbau ist bei elektronischer Musik Grundausstattung. Hi-Hats,
+Becken und Glocken bleiben davon unberuehrt.
 
 Rechenqualitaet einstellen:
 Unter "KI" laesst sich zwischen "Schnell", "Ausgewogen" (Vorgabe) und

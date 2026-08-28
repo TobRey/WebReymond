@@ -260,7 +260,10 @@ export function composeLoop(opts) {
   };
 
   // --- Perkussion ------------------------------------------------------------
-  const drumGain = { kick: 1, clap: 0.72, hat: 0.4, openhat: 0.38, perc: 0.42, snare: 0.75, tom: 0.6, rim: 0.5, cymbal: 0.45 };
+  // Pegel der Spuren zueinander. Kick und Bass tragen die Schleife und stehen
+  // deshalb deutlich vorn; Hi-Hats und Percussion wuerden sonst den Unterbau
+  // zudecken – gemessen lag der Bassanteil einer Techno-Schleife bei 11 %.
+  const drumGain = { kick: 1.15, clap: 0.6, hat: 0.3, openhat: 0.28, perc: 0.32, snare: 0.66, tom: 0.6, rim: 0.42, cymbal: 0.34 };
   for (const part of parts) {
     const pattern = groove[part] || groove[part === 'snare' ? 'clap' : part];
     if (!pattern) continue;
@@ -309,7 +312,7 @@ export function composeLoop(opts) {
         const offbeat = step % 4 === 2 && random() < 0.45;
         if (!onKick && !offbeat) continue;
         const buf = renderCached('bass', gene, noteLen, midiToHz(midi));
-        mixInto(mix, buf, stepTime(bar, step) * sampleRate, (onKick ? 0.62 : 0.4) * (0.9 + random() * 0.15));
+        mixInto(mix, buf, stepTime(bar, step) * sampleRate, (onKick ? 0.9 : 0.58) * (0.9 + random() * 0.15));
       }
     }
     used.push(part);
@@ -334,7 +337,7 @@ export function composeLoop(opts) {
         for (const interval of voicing) {
           const midi = scaleNote(root, scale, degree + interval);
           const buf = renderCached(part, gene, noteLen, midiToHz(midi));
-          const gain = (isPad ? 0.28 : 0.34) / Math.sqrt(voicing.length);
+          const gain = (isPad ? 0.22 : 0.27) / Math.sqrt(voicing.length);
           mixInto(mix, buf, stepTime(bar, step) * sampleRate, gain * (0.88 + random() * 0.2));
         }
       }
@@ -364,7 +367,7 @@ export function composeLoop(opts) {
         const target = step === 0 ? chordDegree : degree;
         const midi = scaleNote(root + 12, scale, target);
         const buf = renderCached(part, gene, noteLen, midiToHz(midi));
-        mixInto(mix, buf, stepTime(bar, step) * sampleRate, 0.42 * (0.85 + random() * 0.25));
+        mixInto(mix, buf, stepTime(bar, step) * sampleRate, 0.34 * (0.85 + random() * 0.25));
       }
     }
     used.push(part);

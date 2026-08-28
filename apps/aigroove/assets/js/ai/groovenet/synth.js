@@ -122,17 +122,26 @@ function waveform(phase, morph, dt) {
   return saw * (1 - t) + square * t;
 }
 
-/** Saettigungskennlinien: weich, gefaltet, hart begrenzt. */
+/**
+ * Saettigungskennlinien: weich, gefaltet, hart begrenzt.
+ *
+ * Die Verstaerkung ist bewusst zurueckhaltend. Mit dem frueheren Faktor
+ * (bis zu 12-fach) wurde jedes Signal oberhalb eines Zwoelftels der
+ * Vollaussteuerung an die Grenze gedrueckt: Aus dem Abklingen einer Kick
+ * wurde ein flaches Plateau ueber 200 ms – gemessen der Unterschied zwischen
+ * einem Schlag und einer Explosion. Bis zum Sechsfachen bleibt die Dynamik
+ * erhalten und es klingt trotzdem satt.
+ */
 function shape(x, drive, type) {
-  const gain = 1 + drive * 11;
-  const soft = Math.tanh(x * gain) / Math.tanh(1 + drive * 11);
+  const gain = 1 + drive * 6;
+  const soft = Math.tanh(x * gain) / Math.tanh(gain);
   if (type < 0.5) {
     const t = type / 0.5;
-    const folded = Math.sin(x * gain * 1.3);
+    const folded = Math.sin(x * gain * 1.1);
     return soft * (1 - t) + folded * t;
   }
   const t = (type - 0.5) / 0.5;
-  const folded = Math.sin(x * gain * 1.3);
+  const folded = Math.sin(x * gain * 1.1);
   const hard = Math.max(-1, Math.min(1, x * gain * 0.8));
   return folded * (1 - t) + hard * t;
 }
@@ -175,6 +184,9 @@ export function renderMono(gene, opts) {
 
   let phase2 = 0;
   let subPhase = 0;
+  // Uebergang zwischen "Oktave tiefer" und "Grundton verstaerken",
+  // weich zwischen 55 und 110 Hz.
+  const subRatio = 0.5 + 0.5 * Math.min(1, Math.max(0, (110 - basePitch) / 55));
 
   // --- Modaler Koerper -------------------------------------------------------
   const modeCount = Math.max(1, Math.min(quality < 0.7 ? 4 : 8, Math.round(p.modalCount)));
@@ -283,7 +295,12 @@ export function renderMono(gene, opts) {
     }
 
     if (p.subLevel > 0.001) {
-      subPhase += freq / (2 * sr);
+      // Der Sub-Ton geht nur dann eine Oktave tiefer, wenn der Grundton hoch
+      // genug liegt. Bei einer Kick auf 54 Hz laege die Oktave darunter bei
+      // 27 Hz – das hoert niemand, es frisst nur Aussteuerungsreserve und
+      // laesst den Klang duenn wirken. Unterhalb von 80 Hz verstaerkt der
+      // Sub-Ton deshalb den Grundton selbst.
+      subPhase += (freq * subRatio) / sr;
       if (subPhase >= 1) subPhase -= 1;
       osc += Math.sin(2 * Math.PI * subPhase) * p.subLevel;
     }
@@ -301,14 +318,36 @@ export function renderMono(gene, opts) {
       noise = banded * nEnv * p.noiseLevel;
     }
 
-    // Anregung und Koerper werden getrennt gehuellt.
+    // Die Huellkurve formt immer die Anregung, nie den Ausgang.
     //
-    // Ein schwingender Koerper (Glocke, Becken, Trommelfell) wird kurz
-    // angeregt und klingt danach von selbst aus. Wuerde die Huellkurve erst
-    // hinter dem Resonator wirken, klaenge jede Glocke wie ein langsam
-    // aufziehendes Pad. Deshalb formt die Huellkurve bei hohem Koerperanteil
-    // die Anregung, und der Ausgang bekommt nur noch die Ausblendung.
-    const excitation = (osc + noise) * (1 - p.modalMix + p.modalMix * amp);
+    // Das entspricht dem Vorbild: Ein Instrument wird angeregt – geschlagen,
+    // gezupft, angeblasen – und Koerper wie Filter klingen danach von selbst
+    // aus. Legt man die Huellkurve stattdessen hinter den Resonator, klingt
+    // jede Glocke wie ein langsam aufziehendes Pad.
+    //
+    // Frueher wurde hier nur anteilig gehuellt (nach Koerperanteil). Bei einer
+    // Kick mit 25 % Koerper lief dadurch drei Viertel des Signals voellig
+    // ungehuellt weiter: gemessen eine flache Huellkurve ueber 160 ms statt
+    // eines Abklingens – der Klang schlug nicht, er knallte.
+    // --- Charakter -----------------------------------------------------------
+    // Saettigung wirkt auf das ungehuellte Signal.
+    //
+    // Sie zusammenzudruecken ist ihr Wesen: Alles oberhalb einer Schwelle
+    // wandert an die Grenze. Steht sie hinter der Huellkurve, verschwindet
+    // damit das Abklingen – gemessen wurde aus einem Kick-Abfall von 32 dB
+    // ein Plateau von 4 dB. Vor der Huellkurve faerbt sie den Klang, ohne die
+    // Dynamik anzutasten. Zusaetzlich bleibt der Oberton-Gehalt ueber die
+    // ganze Dauer gleich, statt mit der Lautstaerke zu schwanken.
+    let raw = osc + noise;
+    if (p.drive > 0.01) raw = shape(raw, p.drive, p.driveType);
+    if (p.filterDrive > 0.01) raw = Math.tanh(raw * (1 + p.filterDrive * 3));
+    if (levels < 60000) raw = Math.round(raw * levels) / levels;
+    if (holdSamples > 1) {
+      if (i % holdSamples === 0) held = raw;
+      raw = held;
+    }
+
+    const excitation = raw * amp;
 
     // --- Koerper -------------------------------------------------------------
     let body = 0;
@@ -328,23 +367,13 @@ export function renderMono(gene, opts) {
     }
     filter.process(sig);
     sig = (filter.lp * lpType + filter.bp * bpType + filter.hp * hpType) / typeSum;
-    if (p.filterDrive > 0.01) sig = Math.tanh(sig * (1 + p.filterDrive * 3));
-
-    // --- Charakter -----------------------------------------------------------
-    if (p.drive > 0.01) sig = shape(sig, p.drive, p.driveType);
-    if (levels < 60000) sig = Math.round(sig * levels) / levels;
-    if (holdSamples > 1) {
-      if (i % holdSamples === 0) held = sig;
-      sig = held;
-    }
 
     // --- Dynamik -------------------------------------------------------------
+    // Gehuellt wurde bereits die Anregung. Hier folgt nur noch die
+    // Ausblendung zum Ende und die Modulation der Lautstaerke.
     const ampLfo = 1 - p.lfoToAmp * 0.5 * (1 - lfo);
-    // Gegenstueck zur Anregungshuellkurve oben: was dort schon geformt wurde,
-    // wird hier nicht noch einmal gedaempft.
-    const outEnv = amp * (1 - p.modalMix) + p.modalMix;
     const releaseGain = i >= releaseStart ? Math.max(0, 1 - (i - releaseStart) / releaseLen) : 1;
-    out[i] = sig * outEnv * releaseGain * ampLfo * velocity;
+    out[i] = sig * releaseGain * ampLfo * velocity;
   }
 
   applyTransientShaper(out, sr, p.transient);
@@ -370,8 +399,11 @@ function applyTransientShaper(data, sampleRate, amount) {
     envFast += fast * (level - envFast);
     envSlow += slow * (level - envSlow);
     const diff = envFast - envSlow;
-    const gain = 1 + amount * diff * 6;
-    data[i] *= Math.min(4, Math.max(0.05, gain));
+    // Maßvoll: Der Formen soll den Anschlag betonen, nicht den Koerper
+    // wegschneiden. Mit dem frueheren Bereich (bis 4-fach) fiel eine Kick
+    // schon nach 60 ms um 22 dB ab und klang duenn statt satt.
+    const gain = 1 + amount * diff * 4;
+    data[i] *= Math.min(2.5, Math.max(0.3, gain));
   }
 }
 
@@ -400,9 +432,17 @@ function removeDc(data, sampleRate) {
   }
 }
 
-/** Kurze Ein- und Ausblendung: verhindert Knacken an den Raendern. */
+/**
+ * Kurze Ein- und Ausblendung: verhindert Knacken an den Raendern.
+ *
+ * Die Einblendung ist bewusst sehr kurz (rund 0,2 ms). Alle Huellkurven
+ * starten ohnehin bei null; noetig sind nur wenige Abtastwerte gegen einen
+ * Sprung am Anfang. Frueher waren es 2 ms – und genau darin liegt der Klick
+ * einer Kick oder Snare. Gemessen wanderte die Spitze dadurch von 2 ms auf
+ * 100 ms, der Klang schwoll an, statt zu schlagen.
+ */
 function applyFades(data, sampleRate, seconds) {
-  const inLen = Math.min(data.length >> 1, Math.floor(sampleRate * 0.002));
+  const inLen = Math.min(data.length >> 1, Math.max(4, Math.floor(sampleRate * 0.0002)));
   const outLen = Math.min(data.length >> 1, Math.floor(sampleRate * Math.min(0.02, seconds * 0.05)));
   for (let i = 0; i < inLen; i++) data[i] *= i / inLen;
   for (let i = 0; i < outLen; i++) data[data.length - 1 - i] *= i / outLen;
@@ -482,9 +522,18 @@ export function spatialize(mono, p, sampleRate) {
   let apR = null;
   let preDelayBuf = null;
   let preDelayPos = 0;
+  let wetScale = 1;
 
   if (wet >= 0.005) {
     const feedback = 0.72 + p.reverbSize * 0.26;
+    // Pegelausgleich fuer den Nachhall.
+    //
+    // Ein Kammfilter mit Rueckkopplung f verstaerkt im eingeschwungenen
+    // Zustand um 1/(1-f); bei sechs davon summiert sich das auf ein
+    // Vielfaches. Ohne Ausgleich uebertoent der Hall selbst bei 12 %
+    // Hallanteil das Direktsignal – gemessen wanderte die Lautstaerkespitze
+    // einer Kick dadurch von 0 ms auf 100 ms, der Schlag ging unter.
+    wetScale = ((1 - feedback) * 1.7) / Math.sqrt(COMB_TUNING.length);
     const damp = 0.15 + p.reverbDamp * 0.7;
     combsL = COMB_TUNING.map((l) => new Comb(Math.max(8, Math.round(l * scale * (0.5 + p.reverbSize))), feedback, damp));
     combsR = COMB_TUNING.map((l) => new Comb(Math.max(8, Math.round((l + 23) * scale * (0.5 + p.reverbSize))), feedback, damp));
@@ -508,7 +557,7 @@ export function spatialize(mono, p, sampleRate) {
     if (combsL) {
       preDelayBuf[preDelayPos] = dry;
       preDelayPos = (preDelayPos + 1) % preDelayBuf.length;
-      const input = preDelayBuf[preDelayPos] * 0.28;
+      const input = preDelayBuf[preDelayPos];
       for (let c = 0; c < combsL.length; c++) {
         wetL += combsL[c].process(input);
         wetR += combsR[c].process(input);
@@ -517,6 +566,8 @@ export function spatialize(mono, p, sampleRate) {
         wetL = apL[a].process(wetL);
         wetR = apR[a].process(wetR);
       }
+      wetL *= wetScale;
+      wetR *= wetScale;
     }
 
     // Direktsignal breiter machen: rechter Kanal minimal versetzt.
