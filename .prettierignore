@@ -5,3 +5,6 @@ coverage/
 
 # Dokumentation wird von Hand formatiert (Tabellen, Diagramme, Einrückungen).
 *.md
+
+# AI Groove bringt eigene Formatierung mit (eigenstaendige Browser-App).
+apps/aigroove/

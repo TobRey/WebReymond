@@ -1,0 +1,86 @@
+# =============================================================================
+#  AI Groove – Apache-Konfiguration (GoDaddy / cPanel / Shared Hosting)
+# =============================================================================
+
+# --- Kein Directory-Listing --------------------------------------------------
+Options -Indexes -MultiViews
+
+# --- Startseite --------------------------------------------------------------
+DirectoryIndex index.php index.html
+
+# --- Zeichensatz -------------------------------------------------------------
+AddDefaultCharset UTF-8
+
+# --- Korrekte MIME-Typen -----------------------------------------------------
+<IfModule mod_mime.c>
+    AddType application/javascript          .js .mjs
+    AddType application/manifest+json       .webmanifest
+    AddType image/svg+xml                   .svg
+    AddType audio/wav                       .wav
+    AddType audio/mpeg                      .mp3
+    AddType audio/ogg                       .ogg
+    AddType audio/flac                      .flac
+    AddType application/octet-stream        .aigroove
+</IfModule>
+
+# --- Sicherheits-Header ------------------------------------------------------
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "no-referrer"
+    Header always set Permissions-Policy "microphone=(self), camera=(), geolocation=(), payment=(), usb=()"
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+
+    # Service Worker darf den gesamten Scope steuern und wird nie lange gecacht.
+    <FilesMatch "^sw\.js$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+        Header set Service-Worker-Allowed "/"
+    </FilesMatch>
+
+    # Statische Assets sind versioniert (?v=) und duerfen lange gecacht werden.
+    <FilesMatch "\.(css|js|mjs|svg|png|webp|woff2)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+
+    <FilesMatch "\.php$">
+        Header set Cache-Control "no-cache, must-revalidate"
+    </FilesMatch>
+</IfModule>
+
+# --- Kompression -------------------------------------------------------------
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/plain
+    AddOutputFilterByType DEFLATE application/javascript application/json
+    AddOutputFilterByType DEFLATE application/manifest+json image/svg+xml
+</IfModule>
+
+# --- Zugriffsschutz ----------------------------------------------------------
+# Punktdateien, Projektdateien und Konfigurationen sind nie oeffentlich.
+<FilesMatch "(^\.|\.(aigroove|env|ini|log|md|json5|bak|sql|sh)$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# manifest.webmanifest muss erreichbar bleiben (wird oben nicht erfasst, aber sicherheitshalber):
+<Files "manifest.webmanifest">
+    <IfModule mod_authz_core.c>
+        Require all granted
+    </IfModule>
+</Files>
+
+# --- Kein ETag-Fingerprinting ------------------------------------------------
+<IfModule mod_headers.c>
+    Header unset ETag
+</IfModule>
+FileETag None
+
+# --- PHP-Grenzen (werden von cPanel/MultiPHP ggf. ueberschrieben) ------------
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_flag log_errors On
+</IfModule>

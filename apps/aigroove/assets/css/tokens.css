@@ -1,0 +1,163 @@
+/* =============================================================================
+   AI Groove – Design-Tokens
+   Eine eigenstaendige, ruhige Designsprache: viel Tiefe, wenig Laerm.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark light;
+
+  /* --- Basis-Farbwerte (dunkel) ------------------------------------------ */
+  --c-bg: #0b0d14;
+  --c-bg-deep: #070810;
+  --c-bg-elev: #11141f;
+  --c-surface: rgba(255, 255, 255, 0.045);
+  --c-surface-2: rgba(255, 255, 255, 0.075);
+  --c-surface-3: rgba(255, 255, 255, 0.11);
+  --c-border: rgba(255, 255, 255, 0.09);
+  --c-border-strong: rgba(255, 255, 255, 0.17);
+  --c-text: #e9ecf5;
+  --c-text-dim: #a2abc4;
+  --c-text-faint: #6d7691;
+
+  /* --- Akzente ----------------------------------------------------------- */
+  --c-accent: #7d5cff;
+  --c-accent-soft: #a48dff;
+  --c-accent-ink: #ffffff;
+  --c-mint: #2fd8c4;
+  --c-amber: #f5a524;
+  --c-rose: #ff4d6d;
+  --c-blue: #4d9cff;
+
+  --c-ok: #34d399;
+  --c-warn: #f5a524;
+  --c-err: #ff5a72;
+
+  /* --- Spuren-Farbpalette (Tracks / Kanaele) ----------------------------- */
+  --t1: #7d5cff;
+  --t2: #2fd8c4;
+  --t3: #ff8f5c;
+  --t4: #4d9cff;
+  --t5: #ff5c9d;
+  --t6: #b7f24a;
+  --t7: #f5c94a;
+  --t8: #59e0ff;
+
+  /* --- Glas / Tiefe ------------------------------------------------------ */
+  --glass-blur: 18px;
+  --glass-bg: rgba(18, 21, 33, 0.62);
+  --glass-hi: rgba(255, 255, 255, 0.06);
+
+  --sh-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --sh-2: 0 4px 16px -6px rgba(0, 0, 0, 0.55);
+  --sh-3: 0 18px 48px -18px rgba(0, 0, 0, 0.75);
+  --sh-glow: 0 0 0 1px rgba(125, 92, 255, 0.35), 0 8px 30px -10px rgba(125, 92, 255, 0.5);
+
+  /* --- Radien ------------------------------------------------------------ */
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --r-pill: 999px;
+
+  /* --- Abstaende --------------------------------------------------------- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+
+  /* --- Typografie -------------------------------------------------------- */
+  --font-ui: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display",
+    "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", "JetBrains Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  --fs-xs: 11px;
+  --fs-sm: 12.5px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 28px;
+  --fs-3xl: 40px;
+  --fs-4xl: 56px;
+
+  /* --- Bewegung ---------------------------------------------------------- */
+  --e-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --e-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --e-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --d-fast: 120ms;
+  --d-med: 220ms;
+  --d-slow: 420ms;
+
+  /* --- Layout ------------------------------------------------------------ */
+  --topbar-h: 56px;
+  --transport-h: 64px;
+  --tabbar-h: 60px;
+  --sidebar-w: 288px;
+  --inspector-w: 320px;
+
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+}
+
+/* --- Helles Erscheinungsbild ---------------------------------------------- */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --c-bg: #f2f3f9;
+  --c-bg-deep: #e8eaf3;
+  --c-bg-elev: #ffffff;
+  --c-surface: rgba(14, 18, 38, 0.035);
+  --c-surface-2: rgba(14, 18, 38, 0.06);
+  --c-surface-3: rgba(14, 18, 38, 0.1);
+  --c-border: rgba(14, 18, 38, 0.1);
+  --c-border-strong: rgba(14, 18, 38, 0.2);
+  --c-text: #131728;
+  --c-text-dim: #545d78;
+  --c-text-faint: #838ca6;
+
+  --c-accent: #6538ff;
+  --c-accent-soft: #8a63ff;
+  --c-mint: #0aa596;
+
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-hi: rgba(255, 255, 255, 0.9);
+
+  --sh-1: 0 1px 2px rgba(20, 26, 51, 0.08);
+  --sh-2: 0 6px 18px -8px rgba(20, 26, 51, 0.22);
+  --sh-3: 0 22px 52px -22px rgba(20, 26, 51, 0.35);
+  --sh-glow: 0 0 0 1px rgba(101, 56, 255, 0.28), 0 10px 32px -12px rgba(101, 56, 255, 0.4);
+}
+
+/* Systemvorgabe, wenn der Nutzer nichts explizit gewaehlt hat. */
+@media (prefers-color-scheme: light) {
+  :root[data-theme='auto'] {
+    color-scheme: light;
+
+    --c-bg: #f2f3f9;
+    --c-bg-deep: #e8eaf3;
+    --c-bg-elev: #ffffff;
+    --c-surface: rgba(14, 18, 38, 0.035);
+    --c-surface-2: rgba(14, 18, 38, 0.06);
+    --c-surface-3: rgba(14, 18, 38, 0.1);
+    --c-border: rgba(14, 18, 38, 0.1);
+    --c-border-strong: rgba(14, 18, 38, 0.2);
+    --c-text: #131728;
+    --c-text-dim: #545d78;
+    --c-text-faint: #838ca6;
+    --c-accent: #6538ff;
+    --c-accent-soft: #8a63ff;
+    --c-mint: #0aa596;
+    --glass-bg: rgba(255, 255, 255, 0.72);
+    --glass-hi: rgba(255, 255, 255, 0.9);
+    --sh-1: 0 1px 2px rgba(20, 26, 51, 0.08);
+    --sh-2: 0 6px 18px -8px rgba(20, 26, 51, 0.22);
+    --sh-3: 0 22px 52px -22px rgba(20, 26, 51, 0.35);
+    --sh-glow: 0 0 0 1px rgba(101, 56, 255, 0.28), 0 10px 32px -12px rgba(101, 56, 255, 0.4);
+  }
+}

@@ -15,6 +15,9 @@ export default tseslint.config(
       '**/src/generated/**',
       '**/*.config.js',
       '**/*.config.mjs',
+      // AI Groove ist eine eigenstaendige Browser-App ohne Build-Schritt.
+      // Sie laeuft nicht unter den TypeScript-Regeln des Monorepos.
+      'apps/aigroove/**',
     ],
   },
   js.configs.recommended,

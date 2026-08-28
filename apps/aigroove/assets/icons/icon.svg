@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="AI Groove">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8f6bff"/>
+      <stop offset="0.55" stop-color="#6538ff"/>
+      <stop offset="1" stop-color="#20d3c2"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="112" fill="url(#sheen)"/>
+
+  <g fill="#0b0d14">
+    <rect x="96"  y="238" width="34" height="36"  rx="17"/>
+    <rect x="150" y="186" width="34" height="140" rx="17"/>
+    <rect x="204" y="120" width="34" height="272" rx="17"/>
+    <rect x="258" y="164" width="34" height="184" rx="17"/>
+    <rect x="312" y="212" width="34" height="88"  rx="17"/>
+    <rect x="366" y="152" width="34" height="208" rx="17"/>
+  </g>
+</svg>

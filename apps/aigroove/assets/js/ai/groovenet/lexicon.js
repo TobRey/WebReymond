@@ -1,0 +1,592 @@
+/**
+ * GrooveNet – Wissensbasis der Sprachverarbeitung.
+ *
+ * Die KI hat keinen Zugang zu einem Sprachmodell im Netz. Stattdessen liegt
+ * das noetige Wissen hier: Jedes Wort wird auf Klangeigenschaften abgebildet.
+ * "dunkel" senkt die Helligkeit, "punchy" erhoeht den Anschlag, "techno" setzt
+ * gleich mehrere Eigenschaften und ein Tempo.
+ *
+ * Aufbau:
+ *   DIMENSIONS  Die 16 Achsen, in denen Klang beschrieben wird.
+ *   ARCHETYPES  Klangarten (Kick, Pad, Riser, …) mit Zielprofil.
+ *   TERMS       Woerter und Wortgruppen, deutsch und englisch.
+ *   GENRES      Stilrichtungen mit Tempo, Tonart und Rhythmusvorlage.
+ *
+ * Werte in TERMS sind Verschiebungen im Bereich -1 bis +1 gegenueber der
+ * neutralen Mitte 0.5. Sie werden im Encoder aufaddiert und begrenzt.
+ */
+
+/** Die Achsen des Klangraums. Reihenfolge ist Teil der Schnittstelle. */
+export const DIMENSIONS = [
+  'brightness', // dunkel … hell
+  'weight', // leicht … wuchtig, tief
+  'density', // duenn … dicht besetzt
+  'roughness', // glatt … rau, kratzig
+  'transient', // weicher Einsatz … harter Anschlag
+  'sustain', // kurz … lang stehend
+  'noisiness', // tonal … geraeuschhaft
+  'harmonicity', // unharmonisch … klar tonal
+  'motion', // statisch … stark moduliert
+  'width', // mono … breites Stereobild
+  'space', // trocken … halliger Raum
+  'drive', // sauber … gesaettigt, verzerrt
+  'metallic', // organisch … metallisch, glockig
+  'warmth', // kalt, digital … warm, analog
+  'pitchDrop', // konstante Tonhoehe … stark fallend
+  'complexity', // einfach … spektral komplex
+];
+
+export const DIM_INDEX = Object.fromEntries(DIMENSIONS.map((d, i) => [d, i]));
+
+/** Neutrale Mitte fuer jede Achse. */
+export const NEUTRAL = 0.5;
+
+/**
+ * Klangarten. `dims` ist das Zielprofil in absoluten Werten (0..1),
+ * `seconds` die uebliche Laenge als One-Shot, `family` steuert Nachbearbeitung.
+ */
+export const ARCHETYPES = {
+  kick: {
+    label: 'Kick',
+    family: 'drum',
+    seconds: 0.85,
+    dims: { brightness: 0.2, weight: 0.95, transient: 0.85, sustain: 0.25, noisiness: 0.25, harmonicity: 0.7, pitchDrop: 0.9, width: 0.15, complexity: 0.35 },
+  },
+  sub: {
+    label: 'Sub-Bass',
+    family: 'tonal',
+    seconds: 1.6,
+    dims: { brightness: 0.05, weight: 1, transient: 0.6, sustain: 0.7, noisiness: 0.05, harmonicity: 0.95, pitchDrop: 0.2, width: 0.1, complexity: 0.15 },
+  },
+  bass: {
+    label: 'Bass',
+    family: 'tonal',
+    seconds: 1.2,
+    dims: { brightness: 0.35, weight: 0.85, transient: 0.6, sustain: 0.55, noisiness: 0.15, harmonicity: 0.85, width: 0.25, complexity: 0.5 },
+  },
+  snare: {
+    label: 'Snare',
+    family: 'drum',
+    seconds: 0.7,
+    dims: { brightness: 0.65, weight: 0.45, transient: 0.9, sustain: 0.3, noisiness: 0.75, harmonicity: 0.35, width: 0.45, complexity: 0.6 },
+  },
+  clap: {
+    label: 'Clap',
+    family: 'drum',
+    seconds: 0.8,
+    dims: { brightness: 0.7, weight: 0.3, transient: 0.8, sustain: 0.35, noisiness: 0.9, harmonicity: 0.15, width: 0.6, complexity: 0.55, space: 0.55 },
+  },
+  hat: {
+    label: 'Hi-Hat',
+    family: 'drum',
+    seconds: 0.3,
+    dims: { brightness: 0.92, weight: 0.1, transient: 0.9, sustain: 0.12, noisiness: 0.8, harmonicity: 0.15, metallic: 0.75, width: 0.4, complexity: 0.6 },
+  },
+  openhat: {
+    label: 'Open Hat',
+    family: 'drum',
+    seconds: 0.9,
+    dims: { brightness: 0.9, weight: 0.12, transient: 0.7, sustain: 0.55, noisiness: 0.8, harmonicity: 0.15, metallic: 0.8, width: 0.5, complexity: 0.65 },
+  },
+  cymbal: {
+    label: 'Cymbal',
+    family: 'drum',
+    seconds: 2.4,
+    dims: { brightness: 0.9, weight: 0.15, transient: 0.6, sustain: 0.85, noisiness: 0.85, harmonicity: 0.1, metallic: 0.9, width: 0.7, complexity: 0.8 },
+  },
+  tom: {
+    label: 'Tom',
+    family: 'drum',
+    seconds: 0.8,
+    dims: { brightness: 0.35, weight: 0.7, transient: 0.75, sustain: 0.4, noisiness: 0.3, harmonicity: 0.7, pitchDrop: 0.6, width: 0.3 },
+  },
+  perc: {
+    label: 'Percussion',
+    family: 'drum',
+    seconds: 0.55,
+    dims: { brightness: 0.6, weight: 0.35, transient: 0.85, sustain: 0.2, noisiness: 0.5, harmonicity: 0.45, width: 0.45, complexity: 0.55 },
+  },
+  rim: {
+    label: 'Rimshot',
+    family: 'drum',
+    seconds: 0.3,
+    dims: { brightness: 0.75, weight: 0.25, transient: 0.95, sustain: 0.12, noisiness: 0.45, harmonicity: 0.4, metallic: 0.4, complexity: 0.5 },
+  },
+  stab: {
+    label: 'Stab',
+    family: 'tonal',
+    seconds: 1.2,
+    dims: { brightness: 0.6, weight: 0.45, transient: 0.75, sustain: 0.4, noisiness: 0.1, harmonicity: 0.9, density: 0.8, width: 0.5, complexity: 0.7 },
+  },
+  chord: {
+    label: 'Akkord',
+    family: 'tonal',
+    seconds: 2.4,
+    dims: { brightness: 0.55, weight: 0.4, transient: 0.35, sustain: 0.75, noisiness: 0.08, harmonicity: 0.95, density: 0.85, width: 0.6, complexity: 0.7 },
+  },
+  pad: {
+    label: 'Pad',
+    family: 'tonal',
+    seconds: 5,
+    dims: { brightness: 0.45, weight: 0.4, transient: 0.08, sustain: 0.95, noisiness: 0.12, harmonicity: 0.9, density: 0.8, motion: 0.6, width: 0.85, space: 0.7, complexity: 0.65 },
+  },
+  drone: {
+    label: 'Drone',
+    family: 'texture',
+    seconds: 8,
+    dims: { brightness: 0.3, weight: 0.7, transient: 0.05, sustain: 1, noisiness: 0.3, harmonicity: 0.7, motion: 0.45, width: 0.8, space: 0.7, complexity: 0.6 },
+  },
+  lead: {
+    label: 'Lead',
+    family: 'tonal',
+    seconds: 1.6,
+    dims: { brightness: 0.75, weight: 0.35, transient: 0.7, sustain: 0.5, noisiness: 0.1, harmonicity: 0.9, motion: 0.4, width: 0.45, complexity: 0.6 },
+  },
+  pluck: {
+    label: 'Pluck',
+    family: 'tonal',
+    seconds: 1,
+    dims: { brightness: 0.7, weight: 0.3, transient: 0.9, sustain: 0.3, noisiness: 0.12, harmonicity: 0.9, width: 0.45, complexity: 0.5 },
+  },
+  bell: {
+    label: 'Bell',
+    family: 'tonal',
+    seconds: 2.6,
+    dims: { brightness: 0.8, weight: 0.25, transient: 0.8, sustain: 0.8, noisiness: 0.08, harmonicity: 0.6, metallic: 0.9, width: 0.55, complexity: 0.75 },
+  },
+  vocal: {
+    label: 'Vocal',
+    family: 'tonal',
+    seconds: 1.6,
+    dims: { brightness: 0.55, weight: 0.35, transient: 0.4, sustain: 0.6, noisiness: 0.25, harmonicity: 0.85, motion: 0.5, width: 0.5, complexity: 0.8 },
+  },
+  riser: {
+    label: 'Riser',
+    family: 'fx',
+    seconds: 4,
+    dims: { brightness: 0.7, weight: 0.3, transient: 0.05, sustain: 1, noisiness: 0.7, harmonicity: 0.3, motion: 0.9, width: 0.8, space: 0.6, complexity: 0.7 },
+  },
+  impact: {
+    label: 'Impact',
+    family: 'fx',
+    seconds: 3,
+    dims: { brightness: 0.25, weight: 0.95, transient: 0.9, sustain: 0.7, noisiness: 0.6, harmonicity: 0.3, pitchDrop: 0.8, width: 0.7, space: 0.8, complexity: 0.6 },
+  },
+  sweep: {
+    label: 'Sweep',
+    family: 'fx',
+    seconds: 3,
+    dims: { brightness: 0.6, weight: 0.3, transient: 0.1, sustain: 0.95, noisiness: 0.85, harmonicity: 0.1, motion: 0.85, width: 0.85, space: 0.6 },
+  },
+  texture: {
+    label: 'Textur',
+    family: 'texture',
+    seconds: 6,
+    dims: { brightness: 0.5, weight: 0.35, transient: 0.05, sustain: 1, noisiness: 0.85, harmonicity: 0.2, motion: 0.5, width: 0.9, space: 0.75, complexity: 0.7 },
+  },
+};
+
+export const ARCHETYPE_IDS = Object.keys(ARCHETYPES);
+
+/**
+ * Woerter und Wortgruppen.
+ * `arch` nennt die Klangart, `dims` verschiebt Eigenschaften.
+ * Mehrwortbegriffe werden als N-Gramme erkannt und haben Vorrang.
+ */
+export const TERMS = {
+  // --- Klangarten, deutsch und englisch -------------------------------------
+  kick: { arch: 'kick' },
+  kicks: { arch: 'kick' },
+  kickdrum: { arch: 'kick' },
+  'kick drum': { arch: 'kick' },
+  bassdrum: { arch: 'kick' },
+  'bass drum': { arch: 'kick' },
+  bassdrums: { arch: 'kick' },
+  bd: { arch: 'kick', w: 0.6 },
+  fussmaschine: { arch: 'kick' },
+  stomp: { arch: 'kick', dims: { drive: 0.3, weight: 0.2 } },
+  boom: { arch: 'kick', dims: { weight: 0.35, sustain: 0.2 } },
+  '808': { arch: 'sub', dims: { weight: 0.35, sustain: 0.3, warmth: 0.2 } },
+  '909': { arch: 'kick', dims: { transient: 0.25, brightness: 0.15, drive: 0.2 } },
+  '707': { arch: 'kick', dims: { brightness: 0.2, weight: -0.15 } },
+  '606': { arch: 'hat', dims: { brightness: 0.2, metallic: 0.2 } },
+  sub: { arch: 'sub' },
+  subbass: { arch: 'sub' },
+  'sub bass': { arch: 'sub' },
+  tiefbass: { arch: 'sub' },
+  sinebass: { arch: 'sub', dims: { noisiness: -0.3 } },
+  bass: { arch: 'bass' },
+  bassline: { arch: 'bass', dims: { motion: 0.3 } },
+  basslinie: { arch: 'bass', dims: { motion: 0.3 } },
+  reese: { arch: 'bass', dims: { motion: 0.5, roughness: 0.35, width: 0.35, complexity: 0.3 } },
+  acid: { arch: 'bass', dims: { motion: 0.6, brightness: 0.25, roughness: 0.3, complexity: 0.35 } },
+  wobble: { arch: 'bass', dims: { motion: 0.85, roughness: 0.3 } },
+  snare: { arch: 'snare' },
+  snaredrum: { arch: 'snare' },
+  kleine: { w: 0.2 },
+  trommel: { arch: 'snare', w: 0.5 },
+  rimshot: { arch: 'rim' },
+  rim: { arch: 'rim' },
+  sidestick: { arch: 'rim' },
+  clap: { arch: 'clap' },
+  claps: { arch: 'clap' },
+  handclap: { arch: 'clap' },
+  klatschen: { arch: 'clap' },
+  klatsch: { arch: 'clap' },
+  snap: { arch: 'clap', dims: { sustain: -0.25, brightness: 0.2 } },
+  fingersnap: { arch: 'clap', dims: { sustain: -0.3, brightness: 0.25 } },
+  hihat: { arch: 'hat' },
+  'hi hat': { arch: 'hat' },
+  'hi-hat': { arch: 'hat' },
+  hat: { arch: 'hat' },
+  hats: { arch: 'hat' },
+  hh: { arch: 'hat', w: 0.6 },
+  'closed hat': { arch: 'hat', dims: { sustain: -0.25 } },
+  'geschlossene hi-hat': { arch: 'hat', dims: { sustain: -0.25 } },
+  'open hat': { arch: 'openhat' },
+  'offene hi-hat': { arch: 'openhat' },
+  openhat: { arch: 'openhat' },
+  ohh: { arch: 'openhat', w: 0.6 },
+  shaker: { arch: 'hat', dims: { noisiness: 0.3, metallic: -0.4, transient: -0.2 } },
+  tambourine: { arch: 'hat', dims: { metallic: 0.3, complexity: 0.2 } },
+  tamburin: { arch: 'hat', dims: { metallic: 0.3, complexity: 0.2 } },
+  ride: { arch: 'cymbal', dims: { sustain: 0.2, brightness: 0.1 } },
+  crash: { arch: 'cymbal', dims: { transient: 0.2 } },
+  cymbal: { arch: 'cymbal' },
+  becken: { arch: 'cymbal' },
+  tom: { arch: 'tom' },
+  toms: { arch: 'tom' },
+  'floor tom': { arch: 'tom', dims: { weight: 0.25, brightness: -0.2 } },
+  standtom: { arch: 'tom', dims: { weight: 0.25, brightness: -0.2 } },
+  perc: { arch: 'perc' },
+  percussion: { arch: 'perc' },
+  conga: { arch: 'perc', dims: { warmth: 0.3, harmonicity: 0.2 } },
+  bongo: { arch: 'perc', dims: { warmth: 0.3, brightness: 0.15 } },
+  clave: { arch: 'perc', dims: { brightness: 0.25, sustain: -0.2, harmonicity: 0.3 } },
+  woodblock: { arch: 'perc', dims: { brightness: 0.2, warmth: 0.2, sustain: -0.25 } },
+  holzblock: { arch: 'perc', dims: { brightness: 0.2, warmth: 0.2, sustain: -0.25 } },
+  cowbell: { arch: 'perc', dims: { metallic: 0.6, harmonicity: 0.2 } },
+  click: { arch: 'perc', dims: { transient: 0.3, sustain: -0.35, brightness: 0.2 } },
+  tick: { arch: 'perc', dims: { transient: 0.3, sustain: -0.35, brightness: 0.25 } },
+  stab: { arch: 'stab' },
+  stabs: { arch: 'stab' },
+  chord: { arch: 'chord' },
+  chords: { arch: 'chord' },
+  akkord: { arch: 'chord' },
+  akkorde: { arch: 'chord' },
+  organ: { arch: 'chord', dims: { harmonicity: 0.2, complexity: 0.15, transient: -0.2 } },
+  orgel: { arch: 'chord', dims: { harmonicity: 0.2, transient: -0.2 } },
+  brass: { arch: 'stab', dims: { brightness: 0.2, drive: 0.2, complexity: 0.25 } },
+  blaeser: { arch: 'stab', dims: { brightness: 0.2, complexity: 0.25 } },
+  pad: { arch: 'pad' },
+  pads: { arch: 'pad' },
+  flaeche: { arch: 'pad' },
+  strings: { arch: 'pad', dims: { complexity: 0.25, motion: 0.2, warmth: 0.15 } },
+  streicher: { arch: 'pad', dims: { complexity: 0.25, motion: 0.2 } },
+  drone: { arch: 'drone' },
+  lead: { arch: 'lead' },
+  melody: { arch: 'lead' },
+  melodie: { arch: 'lead' },
+  arp: { arch: 'lead', dims: { motion: 0.5, transient: 0.2 } },
+  arpeggio: { arch: 'lead', dims: { motion: 0.5, transient: 0.2 } },
+  pluck: { arch: 'pluck' },
+  plucks: { arch: 'pluck' },
+  zupf: { arch: 'pluck' },
+  bell: { arch: 'bell' },
+  bells: { arch: 'bell' },
+  glocke: { arch: 'bell' },
+  glockenspiel: { arch: 'bell', dims: { brightness: 0.2 } },
+  chime: { arch: 'bell', dims: { brightness: 0.2, sustain: 0.15 } },
+  mallet: { arch: 'bell', dims: { metallic: -0.3, warmth: 0.3, sustain: -0.2 } },
+  keys: { arch: 'pluck', dims: { harmonicity: 0.15, density: 0.3 } },
+  piano: { arch: 'pluck', dims: { harmonicity: 0.2, density: 0.3, warmth: 0.2, complexity: 0.2 } },
+  klavier: { arch: 'pluck', dims: { harmonicity: 0.2, density: 0.3, warmth: 0.2 } },
+  guitar: { arch: 'pluck', dims: { warmth: 0.25, complexity: 0.25 } },
+  gitarre: { arch: 'pluck', dims: { warmth: 0.25, complexity: 0.25 } },
+  vocal: { arch: 'vocal' },
+  vocals: { arch: 'vocal' },
+  vox: { arch: 'vocal' },
+  stimme: { arch: 'vocal' },
+  gesang: { arch: 'vocal' },
+  choir: { arch: 'vocal', dims: { density: 0.4, sustain: 0.3, width: 0.3 } },
+  chor: { arch: 'vocal', dims: { density: 0.4, sustain: 0.3, width: 0.3 } },
+  'vocal chop': { arch: 'vocal', dims: { transient: 0.3, sustain: -0.3, motion: 0.3 } },
+  riser: { arch: 'riser' },
+  uplifter: { arch: 'riser' },
+  buildup: { arch: 'riser' },
+  'build up': { arch: 'riser' },
+  spannungsbogen: { arch: 'riser' },
+  aufsteiger: { arch: 'riser' },
+  impact: { arch: 'impact' },
+  einschlag: { arch: 'impact' },
+  downlifter: { arch: 'impact', dims: { pitchDrop: 0.3, sustain: 0.2 } },
+  slam: { arch: 'impact', dims: { transient: 0.25 } },
+  sweep: { arch: 'sweep' },
+  whoosh: { arch: 'sweep', dims: { motion: 0.2 } },
+  rauschsweep: { arch: 'sweep' },
+  noise: { arch: 'texture', w: 0.6, dims: { noisiness: 0.35 } },
+  rauschen: { arch: 'texture', w: 0.6, dims: { noisiness: 0.35 } },
+  texture: { arch: 'texture' },
+  textur: { arch: 'texture' },
+  atmo: { arch: 'texture', dims: { space: 0.3, motion: 0.2 } },
+  ambience: { arch: 'texture', dims: { space: 0.35, motion: 0.2 } },
+  atmosphaere: { arch: 'texture', dims: { space: 0.35 } },
+  wind: { arch: 'texture', dims: { motion: 0.35, brightness: 0.1 } },
+  regen: { arch: 'texture', dims: { brightness: 0.3, density: 0.3 } },
+  rain: { arch: 'texture', dims: { brightness: 0.3, density: 0.3 } },
+  fx: { arch: 'sweep', w: 0.5 },
+  effekt: { arch: 'sweep', w: 0.5 },
+
+  // --- Eigenschaften ---------------------------------------------------------
+  dark: { dims: { brightness: -0.55, warmth: 0.15 } },
+  dunkel: { dims: { brightness: -0.55, warmth: 0.15 } },
+  dunkler: { dims: { brightness: -0.55, warmth: 0.15 } },
+  bright: { dims: { brightness: 0.55 } },
+  hell: { dims: { brightness: 0.55 } },
+  heller: { dims: { brightness: 0.55 } },
+  crisp: { dims: { brightness: 0.4, transient: 0.35 } },
+  knackig: { dims: { brightness: 0.3, transient: 0.5 } },
+  airy: { dims: { brightness: 0.45, space: 0.3, weight: -0.2 } },
+  luftig: { dims: { brightness: 0.45, space: 0.3, weight: -0.2 } },
+  shiny: { dims: { brightness: 0.4, metallic: 0.25 } },
+  glaenzend: { dims: { brightness: 0.4, metallic: 0.25 } },
+  dull: { dims: { brightness: -0.45, transient: -0.2 } },
+  dumpf: { dims: { brightness: -0.5, transient: -0.2 } },
+  muffled: { dims: { brightness: -0.5, space: 0.15 } },
+  deep: { dims: { weight: 0.5, brightness: -0.25 } },
+  tief: { dims: { weight: 0.5, brightness: -0.25 } },
+  tiefer: { dims: { weight: 0.5, brightness: -0.25 } },
+  low: { dims: { weight: 0.4, brightness: -0.2 } },
+  high: { dims: { weight: -0.35, brightness: 0.35 } },
+  hoch: { dims: { weight: -0.35, brightness: 0.35 } },
+  fat: { dims: { weight: 0.4, density: 0.35, drive: 0.2 } },
+  fett: { dims: { weight: 0.4, density: 0.35, drive: 0.2 } },
+  thin: { dims: { weight: -0.4, density: -0.4 } },
+  duenn: { dims: { weight: -0.4, density: -0.4 } },
+  heavy: { dims: { weight: 0.45, drive: 0.25, density: 0.25 } },
+  schwer: { dims: { weight: 0.45, drive: 0.2 } },
+  wuchtig: { dims: { weight: 0.5, transient: 0.25, drive: 0.2 } },
+  massiv: { dims: { weight: 0.45, density: 0.3 } },
+  huge: { dims: { weight: 0.35, space: 0.4, width: 0.35, sustain: 0.25 } },
+  riesig: { dims: { weight: 0.35, space: 0.4, width: 0.35 } },
+  punchy: { dims: { transient: 0.55, weight: 0.2 } },
+  punch: { dims: { transient: 0.5, weight: 0.2 } },
+  druckvoll: { dims: { transient: 0.45, weight: 0.3 } },
+  snappy: { dims: { transient: 0.55, sustain: -0.35 } },
+  tight: { dims: { sustain: -0.4, transient: 0.3 } },
+  eng: { dims: { sustain: -0.35, width: -0.25 } },
+  hard: { dims: { transient: 0.4, drive: 0.4, roughness: 0.3 } },
+  hart: { dims: { transient: 0.4, drive: 0.4, roughness: 0.3 } },
+  haerter: { dims: { transient: 0.45, drive: 0.45, roughness: 0.35 } },
+  aggressive: { dims: { drive: 0.5, roughness: 0.45, transient: 0.3, brightness: 0.15 } },
+  aggressiv: { dims: { drive: 0.5, roughness: 0.45, transient: 0.3 } },
+  brutal: { dims: { drive: 0.6, roughness: 0.55, transient: 0.3 } },
+  soft: { dims: { transient: -0.4, drive: -0.35, warmth: 0.25 } },
+  weich: { dims: { transient: -0.4, drive: -0.35, warmth: 0.25 } },
+  sanft: { dims: { transient: -0.45, drive: -0.35, warmth: 0.25 } },
+  smooth: { dims: { roughness: -0.45, transient: -0.25, warmth: 0.2 } },
+  rund: { dims: { roughness: -0.35, warmth: 0.3, brightness: -0.15 } },
+  warm: { dims: { warmth: 0.55, brightness: -0.15 } },
+  waermer: { dims: { warmth: 0.55, brightness: -0.15 } },
+  cold: { dims: { warmth: -0.5, brightness: 0.2 } },
+  kalt: { dims: { warmth: -0.5, brightness: 0.2 } },
+  clean: { dims: { drive: -0.5, roughness: -0.4, noisiness: -0.25 } },
+  sauber: { dims: { drive: -0.5, roughness: -0.4, noisiness: -0.25 } },
+  dirty: { dims: { drive: 0.45, roughness: 0.4, noisiness: 0.2 } },
+  dreckig: { dims: { drive: 0.45, roughness: 0.4, noisiness: 0.2 } },
+  distorted: { dims: { drive: 0.65, roughness: 0.5, complexity: 0.25 } },
+  verzerrt: { dims: { drive: 0.65, roughness: 0.5, complexity: 0.25 } },
+  distortion: { dims: { drive: 0.6, roughness: 0.45 } },
+  saturated: { dims: { drive: 0.45, warmth: 0.25, complexity: 0.2 } },
+  gesaettigt: { dims: { drive: 0.45, warmth: 0.25 } },
+  overdrive: { dims: { drive: 0.5, roughness: 0.3 } },
+  crunch: { dims: { drive: 0.5, roughness: 0.45, brightness: 0.15 } },
+  crushed: { dims: { drive: 0.4, roughness: 0.55, metallic: 0.3, complexity: 0.3 } },
+  bitcrush: { dims: { roughness: 0.6, metallic: 0.4, brightness: 0.2, complexity: 0.35 } },
+  lofi: { dims: { brightness: -0.3, roughness: 0.35, warmth: 0.3, noisiness: 0.2 } },
+  'lo-fi': { dims: { brightness: -0.3, roughness: 0.35, warmth: 0.3, noisiness: 0.2 } },
+  vintage: { dims: { warmth: 0.4, brightness: -0.2, roughness: 0.15 } },
+  analog: { dims: { warmth: 0.45, roughness: 0.15, complexity: 0.15 } },
+  digital: { dims: { warmth: -0.35, brightness: 0.2, metallic: 0.2 } },
+  vinyl: { dims: { warmth: 0.35, noisiness: 0.25, brightness: -0.2 } },
+  tape: { dims: { warmth: 0.4, brightness: -0.15, motion: 0.15 } },
+  band: { dims: { warmth: 0.3, brightness: -0.1 } },
+  short: { dims: { sustain: -0.5 } },
+  kurz: { dims: { sustain: -0.5 } },
+  kuerzer: { dims: { sustain: -0.5 } },
+  long: { dims: { sustain: 0.5 } },
+  lang: { dims: { sustain: 0.5 } },
+  laenger: { dims: { sustain: 0.5 } },
+  sustained: { dims: { sustain: 0.55, transient: -0.2 } },
+  tail: { dims: { sustain: 0.35, space: 0.2 } },
+  ausklang: { dims: { sustain: 0.35, space: 0.2 } },
+  dry: { dims: { space: -0.5, sustain: -0.2 } },
+  trocken: { dims: { space: -0.5, sustain: -0.2 } },
+  wet: { dims: { space: 0.5, sustain: 0.25 } },
+  reverb: { dims: { space: 0.55, sustain: 0.3, width: 0.25 } },
+  hall: { dims: { space: 0.55, sustain: 0.3, width: 0.25 } },
+  nachhall: { dims: { space: 0.55, sustain: 0.3 } },
+  room: { dims: { space: 0.35, width: 0.2 } },
+  raum: { dims: { space: 0.35, width: 0.2 } },
+  cathedral: { dims: { space: 0.75, sustain: 0.45, width: 0.4 } },
+  kathedrale: { dims: { space: 0.75, sustain: 0.45, width: 0.4 } },
+  wide: { dims: { width: 0.55 } },
+  breit: { dims: { width: 0.55 } },
+  stereo: { dims: { width: 0.4 } },
+  mono: { dims: { width: -0.6 } },
+  narrow: { dims: { width: -0.45 } },
+  metallic: { dims: { metallic: 0.6, harmonicity: -0.25 } },
+  metallisch: { dims: { metallic: 0.6, harmonicity: -0.25 } },
+  glassy: { dims: { metallic: 0.45, brightness: 0.35, harmonicity: 0.2 } },
+  glasig: { dims: { metallic: 0.45, brightness: 0.35 } },
+  wooden: { dims: { metallic: -0.45, warmth: 0.3 } },
+  hoelzern: { dims: { metallic: -0.45, warmth: 0.3 } },
+  organic: { dims: { metallic: -0.35, warmth: 0.3, complexity: 0.2 } },
+  organisch: { dims: { metallic: -0.35, warmth: 0.3, complexity: 0.2 } },
+  synthetic: { dims: { metallic: 0.25, warmth: -0.25 } },
+  synthetisch: { dims: { metallic: 0.25, warmth: -0.25 } },
+  noisy: { dims: { noisiness: 0.5, harmonicity: -0.35 } },
+  rauschig: { dims: { noisiness: 0.5, harmonicity: -0.35 } },
+  tonal: { dims: { harmonicity: 0.5, noisiness: -0.4 } },
+  atonal: { dims: { harmonicity: -0.5, noisiness: 0.25 } },
+  moving: { dims: { motion: 0.5 } },
+  bewegt: { dims: { motion: 0.5 } },
+  modulated: { dims: { motion: 0.55, complexity: 0.2 } },
+  moduliert: { dims: { motion: 0.55, complexity: 0.2 } },
+  static: { dims: { motion: -0.5 } },
+  statisch: { dims: { motion: -0.5 } },
+  evolving: { dims: { motion: 0.6, sustain: 0.3, complexity: 0.3 } },
+  pulsing: { dims: { motion: 0.6, transient: 0.2 } },
+  pulsierend: { dims: { motion: 0.6, transient: 0.2 } },
+  vibrato: { dims: { motion: 0.45 } },
+  tremolo: { dims: { motion: 0.5 } },
+  detuned: { dims: { motion: 0.3, complexity: 0.3, width: 0.25, harmonicity: -0.15 } },
+  verstimmt: { dims: { motion: 0.3, complexity: 0.3, harmonicity: -0.15 } },
+  layered: { dims: { density: 0.5, complexity: 0.35, width: 0.2 } },
+  geschichtet: { dims: { density: 0.5, complexity: 0.35 } },
+  simple: { dims: { complexity: -0.45, density: -0.3 } },
+  einfach: { dims: { complexity: -0.45, density: -0.3 } },
+  complex: { dims: { complexity: 0.5 } },
+  komplex: { dims: { complexity: 0.5 } },
+  rich: { dims: { complexity: 0.4, density: 0.3, warmth: 0.15 } },
+  voll: { dims: { density: 0.4, weight: 0.2 } },
+  hollow: { dims: { density: -0.35, metallic: 0.2, harmonicity: -0.2 } },
+  hohl: { dims: { density: -0.35, metallic: 0.2 } },
+  rough: { dims: { roughness: 0.5 } },
+  rau: { dims: { roughness: 0.5 } },
+  gritty: { dims: { roughness: 0.5, noisiness: 0.25, drive: 0.25 } },
+  koernig: { dims: { roughness: 0.45, noisiness: 0.25 } },
+
+  // --- Stimmung ---------------------------------------------------------------
+  dreamy: { dims: { space: 0.5, sustain: 0.4, brightness: 0.15, transient: -0.35, width: 0.35 } },
+  traeumerisch: { dims: { space: 0.5, sustain: 0.4, transient: -0.35, width: 0.35 } },
+  epic: { dims: { space: 0.5, width: 0.45, density: 0.4, weight: 0.25 } },
+  episch: { dims: { space: 0.5, width: 0.45, density: 0.4 } },
+  sad: { dims: { brightness: -0.25, warmth: 0.2, sustain: 0.25 } },
+  traurig: { dims: { brightness: -0.25, warmth: 0.2, sustain: 0.25 } },
+  happy: { dims: { brightness: 0.3, transient: 0.2 } },
+  froehlich: { dims: { brightness: 0.3, transient: 0.2 } },
+  dreamlike: { dims: { space: 0.45, motion: 0.3, transient: -0.3 } },
+  mysterious: { dims: { brightness: -0.2, space: 0.4, motion: 0.35 } },
+  geheimnisvoll: { dims: { brightness: -0.2, space: 0.4, motion: 0.35 } },
+  cinematic: { dims: { space: 0.55, width: 0.45, sustain: 0.3, density: 0.3 } },
+  filmisch: { dims: { space: 0.55, width: 0.45, sustain: 0.3 } },
+  underground: { dims: { brightness: -0.3, roughness: 0.3, warmth: 0.15 } },
+  raw: { dims: { roughness: 0.4, drive: 0.25, space: -0.2 } },
+  roh: { dims: { roughness: 0.4, drive: 0.25, space: -0.2 } },
+  polished: { dims: { roughness: -0.35, brightness: 0.15, complexity: 0.15 } },
+  modern: { dims: { brightness: 0.2, transient: 0.2, width: 0.2 } },
+  retro: { dims: { warmth: 0.35, brightness: -0.2 } },
+  hypnotic: { dims: { motion: 0.4, sustain: 0.25, complexity: -0.15 } },
+  hypnotisch: { dims: { motion: 0.4, sustain: 0.25 } },
+};
+
+/**
+ * Stilrichtungen. Setzen Klangeigenschaften, Tempo und musikalischen Rahmen.
+ */
+export const GENRES = {
+  techno: { bpm: 132, dims: { drive: 0.3, roughness: 0.25, brightness: -0.1, transient: 0.25, sustain: -0.1 }, scale: 'minor', groove: 'four', swing: 0 },
+  'hard techno': { bpm: 150, dims: { drive: 0.5, roughness: 0.45, transient: 0.35 }, scale: 'phrygian', groove: 'four', swing: 0 },
+  hardtechno: { bpm: 150, dims: { drive: 0.5, roughness: 0.45, transient: 0.35 }, scale: 'phrygian', groove: 'four', swing: 0 },
+  schranz: { bpm: 155, dims: { drive: 0.6, roughness: 0.5, transient: 0.35, metallic: 0.2 }, scale: 'phrygian', groove: 'four', swing: 0 },
+  'melodic techno': { bpm: 124, dims: { space: 0.4, width: 0.35, motion: 0.4, harmonicity: 0.2 }, scale: 'minor', groove: 'four', swing: 0 },
+  minimal: { bpm: 126, dims: { density: -0.35, complexity: -0.25, space: 0.2 }, scale: 'minor', groove: 'four', swing: 0.08 },
+  house: { bpm: 124, dims: { warmth: 0.3, transient: 0.2, space: 0.2 }, scale: 'minor', groove: 'house', swing: 0.12 },
+  'deep house': { bpm: 122, dims: { warmth: 0.4, brightness: -0.2, space: 0.35 }, scale: 'dorian', groove: 'house', swing: 0.14 },
+  'tech house': { bpm: 126, dims: { transient: 0.3, brightness: 0.1, density: -0.1 }, scale: 'minor', groove: 'house', swing: 0.1 },
+  trance: { bpm: 138, dims: { brightness: 0.3, width: 0.45, space: 0.45, motion: 0.4 }, scale: 'minor', groove: 'four', swing: 0 },
+  psytrance: { bpm: 145, dims: { motion: 0.6, brightness: 0.25, drive: 0.3 }, scale: 'phrygian', groove: 'four', swing: 0 },
+  dnb: { bpm: 174, dims: { transient: 0.4, brightness: 0.2, drive: 0.25 }, scale: 'minor', groove: 'breaks', swing: 0 },
+  'drum and bass': { bpm: 174, dims: { transient: 0.4, brightness: 0.2, drive: 0.25 }, scale: 'minor', groove: 'breaks', swing: 0 },
+  jungle: { bpm: 168, dims: { transient: 0.4, roughness: 0.3, complexity: 0.35 }, scale: 'minor', groove: 'breaks', swing: 0.1 },
+  dubstep: { bpm: 140, dims: { weight: 0.45, motion: 0.5, drive: 0.35, width: 0.3 }, scale: 'minor', groove: 'halftime', swing: 0 },
+  trap: { bpm: 140, dims: { weight: 0.5, brightness: 0.15, transient: 0.3 }, scale: 'minor', groove: 'trap', swing: 0 },
+  hiphop: { bpm: 90, dims: { warmth: 0.3, weight: 0.35, brightness: -0.15 }, scale: 'minor', groove: 'boombap', swing: 0.16 },
+  'hip hop': { bpm: 90, dims: { warmth: 0.3, weight: 0.35, brightness: -0.15 }, scale: 'minor', groove: 'boombap', swing: 0.16 },
+  boombap: { bpm: 90, dims: { warmth: 0.4, roughness: 0.3, brightness: -0.2 }, scale: 'minor', groove: 'boombap', swing: 0.18 },
+  lofi: { bpm: 80, dims: { warmth: 0.45, brightness: -0.35, roughness: 0.3, noisiness: 0.2 }, scale: 'dorian', groove: 'boombap', swing: 0.2 },
+  ambient: { bpm: 70, dims: { space: 0.7, sustain: 0.6, transient: -0.5, width: 0.6, motion: 0.35 }, scale: 'lydian', groove: 'sparse', swing: 0 },
+  cinematic: { bpm: 80, dims: { space: 0.6, width: 0.5, density: 0.35 }, scale: 'minor', groove: 'sparse', swing: 0 },
+  industrial: { bpm: 135, dims: { drive: 0.55, roughness: 0.5, metallic: 0.4, brightness: -0.1 }, scale: 'phrygian', groove: 'four', swing: 0 },
+  breakbeat: { bpm: 130, dims: { transient: 0.35, complexity: 0.3 }, scale: 'minor', groove: 'breaks', swing: 0.08 },
+  garage: { bpm: 132, dims: { transient: 0.3, brightness: 0.15 }, scale: 'minor', groove: 'garage', swing: 0.22 },
+  afro: { bpm: 118, dims: { warmth: 0.35, complexity: 0.35, metallic: -0.2 }, scale: 'dorian', groove: 'afro', swing: 0.1 },
+  afrohouse: { bpm: 120, dims: { warmth: 0.35, complexity: 0.35 }, scale: 'dorian', groove: 'afro', swing: 0.1 },
+  disco: { bpm: 118, dims: { warmth: 0.35, brightness: 0.2, density: 0.25 }, scale: 'major', groove: 'house', swing: 0.1 },
+  funk: { bpm: 105, dims: { warmth: 0.3, transient: 0.35, complexity: 0.3 }, scale: 'dorian', groove: 'funk', swing: 0.18 },
+  pop: { bpm: 112, dims: { brightness: 0.2, width: 0.3, density: 0.25 }, scale: 'major', groove: 'four', swing: 0 },
+  rock: { bpm: 120, dims: { drive: 0.35, roughness: 0.3, warmth: 0.2 }, scale: 'minor', groove: 'rock', swing: 0 },
+  reggaeton: { bpm: 95, dims: { warmth: 0.25, transient: 0.3 }, scale: 'minor', groove: 'dembow', swing: 0 },
+  dembow: { bpm: 95, dims: { warmth: 0.25, transient: 0.3 }, scale: 'minor', groove: 'dembow', swing: 0 },
+  phonk: { bpm: 130, dims: { weight: 0.4, roughness: 0.35, brightness: -0.2, metallic: 0.25 }, scale: 'minor', groove: 'trap', swing: 0 },
+  hardstyle: { bpm: 150, dims: { drive: 0.6, weight: 0.45, pitchDrop: 0.4, transient: 0.35 }, scale: 'minor', groove: 'four', swing: 0 },
+  gabber: { bpm: 180, dims: { drive: 0.75, roughness: 0.6, transient: 0.4 }, scale: 'phrygian', groove: 'four', swing: 0 },
+};
+
+/** Verstaerker und Abschwaecher. Wirken auf die folgenden Woerter. */
+export const INTENSIFIERS = {
+  very: 1.6, sehr: 1.6, super: 1.6, ultra: 1.9, extremely: 1.9, extrem: 1.9,
+  really: 1.4, richtig: 1.4, mega: 1.8, total: 1.5, voll: 1.4, krass: 1.7,
+  more: 1.35, mehr: 1.35, much: 1.5, viel: 1.5, deutlich: 1.5, stark: 1.5,
+  slightly: 0.5, leicht: 0.5, etwas: 0.55, bisschen: 0.5, 'a bit': 0.5,
+  subtle: 0.5, subtil: 0.5, dezent: 0.5, sanft: 0.6, moderately: 0.75, maessig: 0.75,
+};
+
+/** Verneinungen. Kehren die Wirkung der folgenden Woerter um. */
+export const NEGATIONS = new Set([
+  'no', 'not', 'without', 'never', 'less',
+  'kein', 'keine', 'keinen', 'nicht', 'ohne', 'weniger', 'nie',
+]);
+
+/** Woerter, die eine Schleife statt eines Einzelklangs verlangen. */
+export const LOOP_TERMS = new Set([
+  'loop', 'loops', 'schleife', 'beat', 'beats', 'groove', 'pattern', 'rhythm',
+  'rhythmus', 'takt', 'takte', 'bars', 'bar', 'sequence', 'sequenz', 'riff',
+  'progression', 'akkordfolge', 'drumloop', 'drum loop', 'breakbeat', 'break',
+]);
+
+/** Woerter, die ausdruecklich einen Einzelklang verlangen. */
+export const ONESHOT_TERMS = new Set([
+  'oneshot', 'one shot', 'one-shot', 'single hit', 'hit', 'einzelklang',
+  'einzelschlag', 'sample',
+]);
+
+/**
+ * Fuellwoerter und Fachangaben, die nie als Klangbegriff gedeutet werden
+ * duerfen. Ohne diese Liste wird "moll" zu "voll" und "bars" zu "bass",
+ * weil sich die Woerter nur in einem Buchstaben unterscheiden.
+ */
+export const STOPWORDS = new Set([
+  // Artikel, Praepositionen, Bindewoerter
+  'der', 'die', 'das', 'den', 'dem', 'des', 'ein', 'eine', 'einen', 'einem', 'einer',
+  'und', 'oder', 'aber', 'mit', 'ohne', 'fuer', 'auf', 'aus', 'bei', 'zum', 'zur',
+  'the', 'a', 'an', 'and', 'or', 'but', 'with', 'for', 'from', 'into', 'onto', 'of',
+  'in', 'on', 'at', 'to', 'is', 'it', 'this', 'that', 'ist', 'als', 'wie', 'sehr',
+  // Mass- und Musikangaben
+  'bpm', 'bar', 'bars', 'takt', 'takte', 'takten', 'beat', 'beats', 'sec', 'secs',
+  'sek', 'sekunde', 'sekunden', 'second', 'seconds', 'ms', 'hz', 'khz', 'db',
+  'key', 'tonart', 'note', 'root', 'grundton', 'oktave', 'octave',
+  'moll', 'dur', 'minor', 'major', 'min', 'maj', 'scale', 'skala',
+  'dorian', 'dorisch', 'phrygian', 'phrygisch', 'lydian', 'lydisch',
+  'mixolydian', 'mixolydisch', 'pentatonic', 'pentatonik',
+]);
