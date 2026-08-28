@@ -40,4 +40,44 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'off',
     },
   },
+  {
+    // games/heavenclimb ist reines Browser-JavaScript ohne Build-Schritt und
+    // damit ohne Bundler, der die Umgebung kennt. Das Paket `globals` ist im
+    // Monorepo nicht vorhanden, deshalb stehen die benötigten Namen hier
+    // direkt. Der Ordner wird bewusst NICHT ignoriert – geprüft werden soll er.
+    files: ['games/**/web/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        console: 'readonly',
+        AbortController: 'readonly',
+      },
+    },
+    rules: {
+      // js.configs.recommended schaltet die KERNregel no-unused-vars ein. Die
+      // kennt das `_`-Präfix nicht und meldet zusätzlich zur bereits
+      // konfigurierten TypeScript-Variante – also doppelt. Hier abschalten,
+      // zuständig bleibt @typescript-eslint/no-unused-vars.
+      'no-unused-vars': 'off',
+    },
+  },
+  {
+    // Packskript und Spieltests laufen in Node.
+    files: ['games/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+      },
+    },
+    rules: {
+      'no-unused-vars': 'off',
+    },
+  },
 );

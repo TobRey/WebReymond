@@ -1,0 +1,19 @@
+# Die Bestenliste und die Ratenbegrenzung liegen in diesem Verzeichnis.
+# Sie gehen niemanden etwas an und werden hier für den direkten Abruf gesperrt.
+#
+# Das gilt nur für Apache. Bei nginx gehört stattdessen in die Serverkonfiguration:
+#
+#   location ~ /data/ { deny all; return 404; }
+#
+# Wer ganz sichergehen will, verschiebt die Ablage aus dem Webverzeichnis
+# heraus – dafür in score.php die Konstante DATA_DIR auf einen absoluten Pfad
+# ausserhalb des Webroots setzen.
+
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+</IfModule>
