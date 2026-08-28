@@ -15,6 +15,8 @@ import { toast } from './toast.js';
 import { activeProvider, engineStatus, setQuality, getQuality, analysePrompt } from '../ai/providers.js';
 import { generateVariants } from '../ai/generate.js';
 import { settings } from '../core/settings.js';
+import { engine } from '../audio/engine.js';
+import { getContext, contextState } from '../audio/context.js';
 
 const QUALITY_OPTIONS = [
   { value: 'fast', label: 'Schnell', hint: 'Wenige Sekunden. Gut zum Ausprobieren und für schwache Geräte.' },
@@ -89,40 +91,106 @@ export function createAiConnectView() {
     update();
   }
 
-  /** Kurzer Selbsttest: erzeugt einen Klang und meldet die Passgenauigkeit. */
+  /**
+   * Selbsttest ueber die gesamte Kette: erzeugen, dekodieren, abspielen.
+   *
+   * Der Test sagt ausdruecklich, an welcher Stelle es klemmt. "Kein Ton" hat
+   * meist nichts mit der KI zu tun, sondern mit dem Audioausgang oder damit,
+   * dass der Browser Audio noch nicht freigegeben hat.
+   */
   function renderTest() {
     clear(testBox);
     testBox.appendChild(h('h2.section-title', { text: 'Selbsttest' }));
-    const line = h('p.field__hint', { text: 'Erzeugt einen kurzen Testklang und misst, wie genau er zum Text passt.' });
-    testBox.appendChild(line);
+    testBox.appendChild(
+      h('p.field__hint', {
+        text: 'Erzeugt einen Testklang, spielt ihn ab und prüft jeden Schritt einzeln. Der Ton muss hörbar sein – Lautstärke aufdrehen.',
+      }),
+    );
 
-    const btn = h('button.btn.btn--sm', { type: 'button', text: 'Test starten' });
+    const lines = h('div.settings-group__rows');
+    testBox.appendChild(lines);
+
+    const step = (label, value) => {
+      const row = h('div.settings-row');
+      row.appendChild(h('div.settings-row__label', null, [h('b', { text: label })]));
+      const out = h('span', { text: value });
+      row.appendChild(h('div.settings-row__control', null, [out]));
+      lines.appendChild(row);
+      return out;
+    };
+
+    const btn = h('button.btn.btn--sm', { type: 'button', text: 'Selbsttest starten' });
     btn.addEventListener('click', async () => {
       btn.disabled = true;
-      line.textContent = 'Test läuft …';
+      clear(lines);
+
+      const sAudio = step('1. Audioausgang', 'wird geprüft …');
+      const sGen = step('2. Klang erzeugen', '—');
+      const sDecode = step('3. Klang lesen', '—');
+      const sPlay = step('4. Abspielen', '—');
+
       try {
+        // Schritt 1: Audio freigeben. Muss aus diesem Klick heraus geschehen.
+        await engine.init();
+        const ctx = getContext();
+        if (ctx.state === 'running') {
+          sAudio.textContent = `bereit (${Math.round(ctx.sampleRate)} Hz)`;
+        } else {
+          sAudio.textContent = `blockiert (Zustand: ${contextState()}) – einmal irgendwo auf die Seite tippen`;
+        }
+
+        // Schritt 2: Klang erzeugen.
         const started = Date.now();
         const variants = await generateVariants({
           prompt: 'punchy techno kick, dark',
           duration: 0.7,
           count: 1,
           onProgress: (p, label) => {
-            line.textContent = `${label || 'Test läuft'} (${Math.round(p * 100)} %)`;
+            sGen.textContent = `${label || 'läuft'} (${Math.round(p * 100)} %)`;
           },
         });
-        const match = variants[0]?.meta?.match;
-        line.textContent = `Test bestanden: Klang in ${((Date.now() - started) / 1000).toFixed(1)} s erzeugt${
+        const variant = variants[0];
+        const match = variant?.meta?.match;
+        sGen.textContent = `fertig in ${((Date.now() - started) / 1000).toFixed(1)} s${
           match != null ? `, Passgenauigkeit ${match} %` : ''
-        }.`;
-        toast('Die KI arbeitet einwandfrei.');
+        }`;
+
+        // Schritt 3: Ist das Ergebnis lesbares Audio mit Pegel?
+        const buffer = variant.buffer;
+        const data = buffer.getChannelData(0);
+        let peak = 0;
+        for (let i = 0; i < data.length; i++) {
+          const v = Math.abs(data[i]);
+          if (v > peak) peak = v;
+        }
+        sDecode.textContent = `${buffer.duration.toFixed(2)} s, ${buffer.numberOfChannels} Kanäle, Spitzenpegel ${(peak * 100).toFixed(0)} %`;
+        if (peak < 0.01) {
+          sDecode.textContent += ' – das Sample ist still, bitte melden';
+        }
+
+        // Schritt 4: ueber denselben Weg abspielen wie jedes andere Sample.
+        await engine.previewBuffer(buffer, { gain: 0.9 });
+        sPlay.textContent =
+          ctx.state === 'running'
+            ? 'läuft – jetzt muss ein Kick zu hören sein'
+            : 'gestartet, aber der Browser hat Audio noch gesperrt';
+        toast('Selbsttest abgeschlossen.');
       } catch (error) {
-        line.textContent = `Test fehlgeschlagen: ${error.message}`;
-        toast('Der Test ist fehlgeschlagen.', 'error');
+        const failing = [sAudio, sGen, sDecode, sPlay].find((el) => el.textContent === '—' || el.textContent.includes('geprüft'));
+        if (failing) failing.textContent = `fehlgeschlagen: ${error.message}`;
+        toast('Der Selbsttest ist fehlgeschlagen.', 'error');
       } finally {
         btn.disabled = false;
       }
     });
     testBox.appendChild(btn);
+
+    const deviceHint = h('p.field__hint', {
+      text: settings.get('outputDeviceId')
+        ? 'Hinweis: In den Einstellungen ist ein bestimmter Audioausgang gewählt. Ist das Gerät nicht angeschlossen, bleibt es still.'
+        : 'Audioausgang: Systemvorgabe.',
+    });
+    testBox.appendChild(deviceHint);
   }
 
   function build() {

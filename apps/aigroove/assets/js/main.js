@@ -27,7 +27,7 @@ import { collectGarbage, requestPersistence } from './core/idb.js';
 import { EXPIRY_MS } from './core/project.js';
 import { relativeTime } from './core/util.js';
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 
 // --- 1. Darstellung ----------------------------------------------------------
 settings.apply();
@@ -133,9 +133,25 @@ if ('serviceWorker' in navigator) {
           const worker = registration.installing;
           worker?.addEventListener('statechange', () => {
             if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-              toast.info('Update verfügbar', 'Beim nächsten Öffnen wird die neue Version geladen.');
+              toast.info('Update wird geladen', 'Die neue Version wird jetzt übernommen.');
             }
           });
+        });
+
+        // Sobald die neue Fassung die Kontrolle uebernimmt, wird die Seite
+        // einmal neu geladen. Ohne das laeuft im Fenster weiter der alte
+        // Programmcode aus dem alten Zwischenspeicher.
+        //
+        // Achtung: Das kann erst ab dieser Fassung wirken. Beim Sprung von
+        // einer aelteren Fassung laeuft in diesem Moment noch deren main.js
+        // ohne diesen Handler – dort ist einmalig ein zweites Neuladen noetig.
+        // Erzwungenes Neuladen aus dem Service Worker heraus waere der
+        // naheliegende Ausweg, blockiert dort aber die Aktivierung.
+        let reloading = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (reloading) return;
+          reloading = true;
+          window.location.reload();
         });
       })
       .catch((err) => {

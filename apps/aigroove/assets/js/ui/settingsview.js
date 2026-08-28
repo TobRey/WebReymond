@@ -366,7 +366,7 @@ export function createSettingsView() {
 
     inner.appendChild(
       h('p.field__hint', {
-        text: 'AI Groove 1.1.0 · Läuft vollständig in deinem Browser. Eigene KI, keine Konten, keine Projektdaten auf dem Server.',
+        text: 'AI Groove 1.1.1 · Läuft vollständig in deinem Browser. Eigene KI, keine Konten, keine Projektdaten auf dem Server.',
       }),
     );
 

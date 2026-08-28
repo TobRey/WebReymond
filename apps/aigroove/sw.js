@@ -7,7 +7,7 @@
  *   - /api/: NIE cachen (die App braucht keinen Server, die Regel bleibt als Schutz).
  */
 
-const VERSION = 'aigroove-v1.1.0';
+const VERSION = 'aigroove-v1.1.1';
 const STATIC_CACHE = `${VERSION}-static`;
 
 const SCOPE_PATH = new URL('./', self.registration.scope).pathname;
@@ -117,6 +117,7 @@ self.addEventListener('install', (event) => {
     })(),
   );
 });
+
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(

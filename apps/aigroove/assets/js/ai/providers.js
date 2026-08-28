@@ -25,7 +25,13 @@ export class AIError extends Error {
   }
 }
 
-/** Erzeugt WAV-Bytes aus rohen Kanaldaten (ohne AudioContext). */
+/**
+ * Erzeugt WAV-Bytes aus rohen Kanaldaten (ohne AudioContext).
+ *
+ * Bewusst 16 Bit: Safari - und damit jedes iPhone und iPad - dekodiert
+ * 24-Bit-WAV nicht zuverlaessig. Der Unterschied ist bei erzeugten Samples
+ * ohnehin nicht hoerbar, ein stummes Sample dagegen sehr wohl.
+ */
 function wavFromChannels(channels, sampleRate) {
   const fake = {
     numberOfChannels: channels.length,
@@ -33,7 +39,7 @@ function wavFromChannels(channels, sampleRate) {
     sampleRate,
     getChannelData: (i) => channels[i],
   };
-  return encodeWav(fake, { bitDepth: 24 });
+  return encodeWav(fake, { bitDepth: 16 });
 }
 
 /**

@@ -559,7 +559,7 @@ export function openAiGenerateDialog(prefill = '') {
       card.appendChild(waveThumb(variant.buffer, cssVar(`--t${(index % 8) + 1}`)));
       card.addEventListener('click', () => {
         chosen = index;
-        engine.previewBuffer(variant.buffer, { gain: 0.9 }).catch(() => {});
+        engine.previewBuffer(variant.buffer, { gain: 0.9 }).catch((err) => reportError('Vorhören', err));
         renderVariants();
       });
       variantsWrap.appendChild(card);
@@ -758,7 +758,7 @@ export function openAiEditDialog(sampleId) {
       top.appendChild(h('div.variant__name', { text: 'Original' }));
       card.appendChild(top);
       card.appendChild(waveThumb(orig, trackColorValue(sample.id)));
-      card.addEventListener('click', () => engine.previewBuffer(orig, { gain: 0.9 }).catch(() => {}));
+      card.addEventListener('click', () => engine.previewBuffer(orig, { gain: 0.9 }).catch((err) => reportError('Vorhören', err)));
       variantsWrap.appendChild(card);
     }
 
@@ -773,7 +773,7 @@ export function openAiEditDialog(sampleId) {
       card.appendChild(waveThumb(variant.buffer, cssVar(`--t${(index % 8) + 1}`)));
       card.addEventListener('click', () => {
         chosen = index;
-        engine.previewBuffer(variant.buffer, { gain: 0.9 }).catch(() => {});
+        engine.previewBuffer(variant.buffer, { gain: 0.9 }).catch((err) => reportError('Vorhören', err));
         renderVariants();
       });
       variantsWrap.appendChild(card);

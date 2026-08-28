@@ -1,7 +1,7 @@
-AI GROOVE 1.1.0
+AI GROOVE 1.1.1
 ===============
 
-NEU IN 1.1.0: Eigene KI "GrooveNet"
+NEU IN 1.1.1: Eigene KI "GrooveNet"
 -----------------------------------
 Die Klangerzeugung laeuft jetzt vollstaendig ueber eine eigene KI, die im
 Browser rechnet. Kein Konto, kein API-Key, keine laufenden Kosten, keine
