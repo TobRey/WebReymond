@@ -7,7 +7,7 @@
  *   - /api/: NIE cachen (enthaelt KI-Anfragen und darf niemals gespeichert werden).
  */
 
-const VERSION = 'aigroove-v1.0.0';
+const VERSION = 'aigroove-v1.0.1';
 const STATIC_CACHE = `${VERSION}-static`;
 
 const SCOPE_PATH = new URL('./', self.registration.scope).pathname;

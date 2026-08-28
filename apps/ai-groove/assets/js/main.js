@@ -27,7 +27,7 @@ import { collectGarbage, requestPersistence } from './core/idb.js';
 import { EXPIRY_MS } from './core/project.js';
 import { relativeTime } from './core/util.js';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 
 // --- 1. Darstellung ----------------------------------------------------------
 settings.apply();

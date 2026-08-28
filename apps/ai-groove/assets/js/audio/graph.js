@@ -14,17 +14,46 @@
 import { createEffectNode } from './effects.js';
 import { clamp } from '../core/util.js';
 
+/**
+ * Setzt einen AudioParam.
+ *
+ * Live wird sanft geglättet (verhindert Knackser beim Reglerbewegen).
+ * Solange der Context noch nicht läuft (currentTime === 0 – so ist es beim
+ * Offline-Rendering waehrend des kompletten Aufbaus), MUSS der Wert dagegen
+ * hart gesetzt werden: setTargetAtTime naehert sich nur exponentiell an und
+ * wuerde die ersten Millisekunden des Exports mit falschem Pegel rendern –
+ * Mute wuerde am Anfang sogar durchklingen.
+ */
+function setParam(ctx, param, value, timeConstant = 0.01) {
+  const v = Number.isFinite(value) ? value : 0;
+  if (ctx.currentTime <= 0) {
+    try {
+      param.cancelScheduledValues(0);
+    } catch (_) {
+      /* egal */
+    }
+    param.value = v;
+    try {
+      param.setValueAtTime(v, 0);
+    } catch (_) {
+      /* egal */
+    }
+    return;
+  }
+  try {
+    param.setTargetAtTime(v, ctx.currentTime, timeConstant);
+  } catch (_) {
+    param.value = v;
+  }
+}
+
 function makePanner(ctx) {
   if (typeof ctx.createStereoPanner === 'function') {
     const node = ctx.createStereoPanner();
     return {
       node,
-      setPan(v, time) {
-        try {
-          node.pan.setTargetAtTime(clamp(v, -1, 1), time ?? ctx.currentTime, 0.01);
-        } catch (_) {
-          node.pan.value = clamp(v, -1, 1);
-        }
+      setPan(v) {
+        setParam(ctx, node.pan, clamp(v, -1, 1));
       },
     };
   }
@@ -62,12 +91,17 @@ class Channel {
     this.analyser.smoothingTimeConstant = 0;
 
     this.effects = [];
+    /** Signatur der aktuell verdrahteten Effektkette. '' bedeutet: keine Effekte. */
     this.signature = '';
     this.peak = 0;
     this.peakHold = 0;
     this.clipped = false;
     this._meterBuf = new Float32Array(this.analyser.fftSize);
 
+    // Grundverdrahtung OHNE Effekte. Wichtig: diese Verbindung muss hier
+    // entstehen, denn syncEffects() steigt bei leerer Kette frueh aus
+    // (Signatur unveraendert) und wuerde den Weg sonst nie herstellen.
+    this.input.connect(this.volume);
     this.volume.connect(this.panner.node);
     this.panner.node.connect(this.analyser);
   }
@@ -109,17 +143,12 @@ class Channel {
     prev.connect(this.volume);
   }
 
-  setGain(value, time) {
-    const v = Math.max(0, value);
-    try {
-      this.volume.gain.setTargetAtTime(v, time ?? this.ctx.currentTime, 0.008);
-    } catch (_) {
-      this.volume.gain.value = v;
-    }
+  setGain(value) {
+    setParam(this.ctx, this.volume.gain, Math.max(0, value), 0.008);
   }
 
-  setPan(value, time) {
-    this.panner.setPan(value, time);
+  setPan(value) {
+    this.panner.setPan(value);
   }
 
   /** Spitzenpegel seit dem letzten Aufruf (0…>1). */
@@ -173,11 +202,14 @@ export class MixerGraph {
     this.masterAnalyser.fftSize = 512;
     this.masterAnalyser.smoothingTimeConstant = 0;
     this.masterEffects = [];
+    /** Signatur der Master-Effektkette. '' bedeutet: keine Effekte. */
     this.masterSignature = '';
     this.masterPeak = 0;
     this.masterClipped = false;
     this._masterBuf = new Float32Array(this.masterAnalyser.fftSize);
 
+    // Auch hier die Grundverdrahtung sofort herstellen (siehe Channel).
+    this.masterIn.connect(this.masterGain);
     this.masterGain.connect(this.masterAnalyser);
     this.masterAnalyser.connect(ctx.destination);
 
@@ -255,11 +287,7 @@ export class MixerGraph {
       }
     }
 
-    try {
-      this.masterGain.gain.setTargetAtTime(project.master.gain, this.ctx.currentTime, 0.01);
-    } catch (_) {
-      this.masterGain.gain.value = project.master.gain;
-    }
+    setParam(this.ctx, this.masterGain.gain, project.master.gain);
   }
 
   readMeter(id) {
