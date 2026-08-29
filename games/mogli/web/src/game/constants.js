@@ -14,14 +14,30 @@ export const TILE = 16;
 /**
  * Interne Auflösung: Hochformat, weil das Spiel nach oben geht.
  *
- * Bewusst klein gehalten. Je weniger Pixel auf den Bildschirm passen, desto
- * grösser ist die Figur darin – bei 192 × 256 füllt Mogli rund ein Zehntel der
- * Bildhöhe. Beide Werte sind Vielfache von 16, damit das Kachelraster exakt
- * aufgeht, und das Verhältnis 3:4 skaliert ganzzahlig auf gängige Bildschirme
- * (×4 = 768 × 1024).
+ * Die Breite liegt fest – der Schacht ist zwölf Kacheln breit, daran hängt die
+ * gesamte Levelgeometrie. Die HÖHE dagegen richtet sich nach dem Gerät.
+ *
+ * Grund: Handys sind sehr viel höher als breit (ein iPhone hat 0.46), ein
+ * festes 3:4-Bild liesse dort oben und unten je ein Drittel schwarz. Beim
+ * Start wird deshalb die Höhe gewählt, die zum Bildschirm passt, auf ein
+ * Vielfaches der Kachelgrösse gerundet. Mehr Höhe zeigt nur mehr Schacht über
+ * Mogli – das Spiel wird davon nicht leichter, denn die Gefahr kommt von unten.
  */
-export const VIEW_W = 192; // 12 Kacheln
-export const VIEW_H = 256; // 16 Kacheln
+export const VIEW_W = 192; // 12 Kacheln, unveränderlich
+export const VIEW_H_MIN = 256; // 16 Kacheln
+export const VIEW_H_MAX = 448; // 28 Kacheln
+export let VIEW_H = VIEW_H_MIN;
+
+/**
+ * Setzt die Bildhöhe auf das nächste Vielfache der Kachelgrösse im erlaubten
+ * Bereich. Wird beim Start und bei Grössenänderungen aufgerufen.
+ * @returns {number} die tatsächlich gesetzte Höhe
+ */
+export function setViewHeight(wanted) {
+  const rounded = Math.round(wanted / TILE) * TILE;
+  VIEW_H = Math.max(VIEW_H_MIN, Math.min(VIEW_H_MAX, rounded));
+  return VIEW_H;
+}
 
 /** Breite der Spielwelt in Kacheln. Die Kamera bewegt sich nur vertikal. */
 export const GRID_W = 12;
@@ -184,15 +200,39 @@ export const HAZARD = {
   catchUpFactor: 2.1,
   mercyLead: 80, // px, ab denen sie kurz Gnade zeigt
   mercyFactor: 0.72,
-  /** Startabstand unter dem Spieler – Zeit, sich zu sortieren. */
-  startOffset: 300,
+
+  /**
+   * Die Leine: weiter als so viele Pixel unter die bisher erreichte Höhe fällt
+   * die Glut nie zurück. Ohne sie könnte man nach einem guten Lauf beliebig
+   * tief stürzen, ohne zu sterben.
+   *
+   * Der Wert steht bewusst hier und wird NICHT aus dem Bildausschnitt
+   * hergeleitet. Früher hing die Leine am unteren Bildrand – damit war das
+   * Spiel auf einem hohen Handy ein anderes als auf einem breiten Monitor:
+   * dieselbe Eingabe endete dort nach 4 m und hier nach 60 m. Ein Wert, den
+   * man sehen kann, darf nicht bestimmen, wie schwer das Spiel ist.
+   */
+  maxLead: 240,
+  /** Startabstand unter dem Spieler. Gleich der Leine, sonst ruckt es im ersten Tick. */
+  startOffset: 240,
 };
 
 export const CAM = {
-  /** Der Spieler sitzt so weit über dem unteren Bildrand. */
-  playerOffset: 150,
+  /**
+   * Wo Mogli im Bild sitzt, als Anteil von oben gemessen – NICHT als fester
+   * Abstand in Pixeln. Die Bildhöhe richtet sich nach dem Gerät; ein fester
+   * Abstand hiesse, dass er auf einem hohen Handy in der Bildmitte klebt und
+   * auf einem kurzen fast oben. Als Anteil sitzt er überall gleich: knapp
+   * unterhalb der Mitte, mit reichlich Platz nach oben, denn dorthin geht es.
+   */
+  playerAt: 0.62,
   smoothing: 0.2,
 };
+
+/** Abstand des Spielers vom unteren Bildrand, aus CAM.playerAt hergeleitet. */
+export function cameraOffset() {
+  return Math.round(VIEW_H * (1 - CAM.playerAt));
+}
 
 /** Punkte pro eingesammeltem Smaragd. */
 export const EMERALD_BONUS = 20;

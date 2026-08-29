@@ -2,7 +2,7 @@
 // Lauf überhaupt endet – und gleichzeitig die untere Todeslinie, weshalb es
 // keine gesonderte Regel für "unten aus dem Bild gefallen" braucht.
 
-import { HAZARD, VIEW_H } from './constants.js';
+import { HAZARD } from './constants.js';
 
 export function createHazard(startY) {
   return { y: startY + HAZARD.startOffset, speed: HAZARD.baseSpeed };
@@ -36,13 +36,13 @@ export function hazardSpeed(tick, heightPx, lead) {
  * @param {{y:number,speed:number}} hazard
  * @param {number} tick
  * @param {number} heightPx
- * @param {number} playerY
- * @param {number} cameraY Weltkoordinate der oberen Bildkante.
+ * @param {number} playerY aktuelle Höhe des Spielers
+ * @param {number} bestY höchster bisher erreichter Punkt (kleinstes y)
  */
-export function updateHazard(hazard, tick, heightPx, playerY, cameraY) {
+export function updateHazard(hazard, tick, heightPx, playerY, bestY) {
   hazard.speed = hazardSpeed(tick, heightPx, hazard.y - playerY);
   hazard.y -= hazard.speed;
-  // Nie weiter als knapp unter den unteren Bildrand zurückfallen: sonst kann
-  // man beliebig tief fallen, ohne zu sterben.
-  hazard.y = Math.min(hazard.y, cameraY + VIEW_H + 8);
+  // Die Leine: nie weiter als HAZARD.maxLead unter die bisher erreichte Höhe
+  // zurückfallen. Sonst könnte man beliebig tief stürzen, ohne zu sterben.
+  hazard.y = Math.min(hazard.y, bestY + HAZARD.maxLead);
 }

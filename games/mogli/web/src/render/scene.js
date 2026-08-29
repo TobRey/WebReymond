@@ -8,13 +8,29 @@ import { buildBackground, drawBackground } from './background.js';
 import { drawParticles, emitEmber, shakeOffset } from './particles.js';
 import { COLORS, PALETTE } from './palette.js';
 
+// Figuren- und Kachelblätter hängen nicht von der Bildhöhe ab und werden
+// deshalb nur einmal gebrannt. Die Hintergrundebenen dagegen sind so hoch wie
+// das Bild und müssen bei einer Grössenänderung neu entstehen.
+let cachedAtlases = null;
+let cachedTiles = null;
+
 export function createScene() {
+  if (cachedAtlases === null) cachedAtlases = buildAtlases();
+  if (cachedTiles === null) cachedTiles = buildTileSheet();
   return {
-    atlases: buildAtlases(),
-    tiles: buildTileSheet(),
+    atlases: cachedAtlases,
+    tiles: cachedTiles,
     background: buildBackground(),
     frame: 0,
   };
+}
+
+/**
+ * Nach einer Änderung der Bildhöhe: nur die Hintergrundebenen sind so hoch wie
+ * das Bild und müssen neu entstehen. Figuren und Kacheln bleiben.
+ */
+export function resizeScene(scene) {
+  scene.background = buildBackground();
 }
 
 function slotForTile(tile, col, row, level, frame) {

@@ -1,9 +1,14 @@
 /*
- * Mogli – Tempelflucht. Oberfläche rund um das Spielfeld.
+ * Mogli – Tempelflucht.
  *
  * Alle Farben stehen als --hc-* hier oben; in den Regeln darunter und in den
  * JS-Modulen kommen keine losen Hex-Werte vor. Die Spielgrafik selbst hat ihre
  * eigene, gleichwertige Quelle in src/render/palette.js.
+ *
+ * Die Seite besteht aus genau einem Element: dem Spielfeld. Es füllt den
+ * Bildschirm, und alles Weitere – Bestenliste, Sprache, Ton – liegt als
+ * Einblendung darüber. Es gibt nichts zu scrollen, an dem man vorbeikommen
+ * könnte.
  */
 
 :root {
@@ -22,7 +27,6 @@
   --hc-gold: #f5c53a;
 
   --hc-radius: 10px;
-  --hc-gap: 16px;
 
   color-scheme: dark;
 }
@@ -31,29 +35,26 @@
   box-sizing: border-box;
 }
 
+/*
+ * Nichts scrollt, nichts markiert sich beim Langdrücken.
+ *
+ * Das Spiel hat genau einen Knopf, und der ist die ganze Spielfläche. Ein
+ * gehaltener Finger würde sonst die Textmarkierung, die Lupe und auf iOS das
+ * Kontextmenü auslösen – mitten im Sprung. Das Namensfeld nimmt sich weiter
+ * unten wieder aus.
+ */
 html,
 body {
   margin: 0;
   padding: 0;
-  min-height: 100%;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   background: var(--hc-bg);
   color: var(--hc-text);
   font-family: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Menlo, Consolas, monospace;
   font-size: 15px;
   line-height: 1.5;
-}
-
-/*
- * Nichts markiert sich beim Langdrücken.
- *
- * Das Spiel hat genau einen Knopf, und der ist die ganze Spielfläche. Ein
- * gehaltener Finger würde sonst die blaue Textmarkierung, die Lupe und auf iOS
- * das Kontextmenü auslösen – mitten im Sprung. Die vier Eigenschaften schalten
- * genau das ab; das Eingabefeld für den Namen nimmt sich weiter unten wieder
- * aus.
- */
-html,
-body {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
@@ -61,133 +62,28 @@ body {
   overscroll-behavior: none;
 }
 
-.shell {
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: var(--hc-gap);
-  display: flex;
-  flex-direction: column;
-  gap: var(--hc-gap);
-  min-height: 100vh;
-}
-
-/* --- Kopfzeile ----------------------------------------------------------- */
-
-.bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--hc-gap);
-  flex-wrap: wrap;
-}
-
-.brand {
-  margin: 0;
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.brand__name {
-  font-size: 20px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--hc-accent);
-}
-
-.brand__sub {
-  font-size: 12px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--hc-muted);
-}
-
-.bar__tools {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.langswitch {
-  display: inline-flex;
-  border: 1px solid var(--hc-border);
-  border-radius: var(--hc-radius);
-  overflow: hidden;
-}
-
-.langswitch__btn,
-.iconbtn {
-  font: inherit;
-  color: var(--hc-muted);
-  background: var(--hc-surface);
-  border: 0;
-  padding: 6px 12px;
-  cursor: pointer;
-}
-
-.langswitch__btn + .langswitch__btn {
-  border-left: 1px solid var(--hc-border);
-}
-
-.langswitch__btn[aria-pressed='true'] {
-  background: var(--hc-primary);
-  color: var(--hc-text);
-}
-
-.iconbtn {
-  border: 1px solid var(--hc-border);
-  border-radius: var(--hc-radius);
-}
-
-.langswitch__btn:hover,
-.iconbtn:hover {
-  color: var(--hc-text);
-}
-
-/* Fokusrahmen bleiben sichtbar – Tastaturbedienung ist hier kein Nachgedanke. */
-:focus-visible {
-  outline: 2px solid var(--hc-accent);
-  outline-offset: 2px;
-}
-
-/* --- Aufteilung ---------------------------------------------------------- */
-
-.layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(250px, 300px);
-  gap: var(--hc-gap);
-  align-items: start;
-}
-
-@media (max-width: 860px) {
-  .layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
 /* --- Spielfeld ----------------------------------------------------------- */
 
-/* stagewrap spannt den verfügbaren Platz auf; engine/canvas.js misst genau
-   diesen Kasten und wählt daraus den grössten ganzzahligen Faktor. */
-.stagewrap {
+/*
+ * 100dvh statt 100vh: auf dem Handy wächst und schrumpft die sichtbare Höhe,
+ * wenn die Adressleiste ein- und ausfährt. Mit 100vh stünde das Spiel dann
+ * teils unter dem Bildschirmrand. Für ältere Browser bleibt 100vh als
+ * Rückfall stehen.
+ */
+.stage {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  height: min(78vh, 760px);
-}
-
-/* stage umschliesst den Canvas passgenau – der Rahmen sitzt damit immer
-   direkt am Bild und nicht um eine halbleere Fläche herum. */
-.stage {
-  position: relative;
-  width: fit-content;
   background: var(--hc-bg);
-  border: 1px solid var(--hc-border);
-  border-radius: var(--hc-radius);
   overflow: hidden;
-  /* Die ganze Fläche ist der Sprungknopf: kein Scrollen, kein Zoomen, kein
-     Doppeltipp-Vergrössern. */
+  /* Kein Wischen, kein Zoomen, keine 300-ms-Wartezeit auf einen Doppeltipp:
+     die Fläche ist ein Knopf, sonst nichts. Die Einblendung darüber nimmt
+     sich davon wieder aus, sonst liesse sie sich nicht scrollen. */
   touch-action: none;
   cursor: pointer;
 }
@@ -200,39 +96,6 @@ body {
   image-rendering: -webkit-optimize-contrast;
 }
 
-/* --- Vollbild ------------------------------------------------------------ */
-
-/*
- * Im Vollbild bleibt nur das Spiel. Kopfzeile, Seitenspalte und Fusszeile
- * verschwinden, das Spielfeld nimmt die volle Höhe – auf dem Handy ist das
- * der Unterschied zwischen "Webseite mit Spiel" und "Spiel".
- */
-:fullscreen .bar,
-:fullscreen .side,
-:fullscreen .foot {
-  display: none;
-}
-
-:fullscreen .shell {
-  padding: 0;
-  max-width: none;
-  height: 100vh;
-}
-
-:fullscreen .layout {
-  grid-template-columns: minmax(0, 1fr);
-  height: 100%;
-}
-
-:fullscreen .stagewrap {
-  height: 100vh;
-}
-
-:fullscreen .stage {
-  border: 0;
-  border-radius: 0;
-}
-
 /* --- Anzeige im Spiel ---------------------------------------------------- */
 
 .hud {
@@ -240,45 +103,49 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  padding: 8px 10px 14px;
+  padding: max(10px, env(safe-area-inset-top)) 14px 16px;
   pointer-events: none;
-  font-size: 12px;
-  text-shadow: 0 1px 0 rgb(0 0 0 / 85%);
   /* Ein weicher Schleier nach unten. Ohne ihn steht die Anzeige direkt auf dem
      bemoosten Stein und ist genau dann unlesbar, wenn es darauf ankommt. */
   background: linear-gradient(rgb(5 10 9 / 85%) 40%, rgb(5 10 9 / 0%));
 }
 
+.hud[hidden] {
+  display: none;
+}
+
 .hud__row {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
-}
-
-.hud__row--dim {
-  color: var(--hc-muted);
-}
-
-.hud__label {
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--hc-muted);
+  align-items: baseline;
+  gap: 12px;
 }
 
 .hud__value {
   color: var(--hc-text);
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 0 rgb(0 0 0 / 85%);
+}
+
+.hud__value--big {
+  font-size: clamp(20px, 6vw, 30px);
+  letter-spacing: 0.04em;
 }
 
 .hud__value--gem {
+  font-size: clamp(16px, 4.5vw, 22px);
   color: var(--hc-accent);
 }
 
+.hud__value--gem::before {
+  content: '◆ ';
+}
+
 .pressure {
-  margin-top: 6px;
-  height: 4px;
+  margin-top: 8px;
+  height: 5px;
   background: rgb(255 255 255 / 12%);
-  border-radius: 2px;
+  border-radius: 3px;
   overflow: hidden;
 }
 
@@ -294,14 +161,14 @@ body {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 22px;
+  bottom: max(28px, env(safe-area-inset-bottom));
   margin: 0;
   text-align: center;
-  font-size: 12px;
-  letter-spacing: 0.1em;
+  font-size: clamp(13px, 3.6vw, 16px);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--hc-text);
-  text-shadow: 0 1px 0 rgb(0 0 0 / 85%);
+  text-shadow: 0 2px 0 rgb(0 0 0 / 85%);
   pointer-events: none;
   animation: taphint 1.4s ease-in-out infinite;
 }
@@ -326,25 +193,35 @@ body {
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: center;
   justify-content: center;
-  padding: 14px;
-  /* Dunkel genug, dass die Texte klar lesbar bleiben, hell genug, dass man
-     den kletternden Automaten dahinter noch erkennt. */
-  background: rgb(5 10 9 / 78%);
-  backdrop-filter: blur(1px);
+  padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
+  background: rgb(5 10 9 / 80%);
+  backdrop-filter: blur(2px);
+  /* Die Einblendung ist die EINZIGE Fläche der Seite, die scrollen darf – und
+     nur senkrecht, damit ein Wisch nicht seitwärts ausbricht. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 
 .overlay[hidden] {
   display: none;
 }
 
+/*
+ * margin: auto statt align-items: center. Zentriert genauso, aber wenn die
+ * Tafel höher ist als der Bildschirm – Handy im Querformat –, bleibt ihr oberer
+ * Rand erreichbar. Mit align-items: center würde er nach oben aus dem
+ * scrollbaren Bereich herauswandern.
+ */
 .panel {
   width: 100%;
-  max-width: 300px;
+  max-width: 340px;
+  margin: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   text-align: center;
 }
 
@@ -352,15 +229,37 @@ body {
   display: none;
 }
 
+.brand {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.brand__name {
+  font-size: clamp(26px, 9vw, 38px);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hc-accent);
+  line-height: 1.1;
+}
+
+.brand__sub {
+  font-size: clamp(11px, 3.2vw, 13px);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--hc-muted);
+}
+
 .panel__title {
   margin: 0;
-  font-size: 22px;
-  letter-spacing: 0.06em;
+  font-size: clamp(22px, 7vw, 30px);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .panel__tag {
-  margin: 0 0 4px;
+  margin: 0;
   color: var(--hc-muted);
   font-size: 13px;
 }
@@ -377,29 +276,31 @@ body {
 
 .panel__status {
   margin: 0;
-  min-height: 1.5em;
+  min-height: 1.4em;
   font-size: 12px;
   color: var(--hc-muted);
 }
 
-/* --- Story --------------------------------------------------------------- */
-
-.panel--story {
-  max-width: 320px;
-  gap: 14px;
+.panel__version {
+  margin: 0;
+  font-size: 10px;
+  color: var(--hc-muted);
+  opacity: 0.7;
 }
+
+/* --- Story --------------------------------------------------------------- */
 
 .story {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   align-items: flex-start;
   text-align: left;
 }
 
 .story__portrait {
   flex: 0 0 auto;
-  width: 72px;
-  height: 72px;
+  width: 84px;
+  height: 84px;
   image-rendering: pixelated;
   image-rendering: -webkit-optimize-contrast;
   background: var(--hc-surface-2);
@@ -414,21 +315,15 @@ body {
 .story__who {
   margin: 0 0 4px;
   font-size: 12px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--hc-accent);
 }
 
 .story__text {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.55;
-}
-
-.story__actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 }
 
 /* --- Formular und Knöpfe ------------------------------------------------- */
@@ -447,7 +342,7 @@ body {
 
 .field input {
   font: inherit;
-  padding: 8px 10px;
+  padding: 10px 12px;
   color: var(--hc-text);
   background: var(--hc-surface);
   border: 1px solid var(--hc-border);
@@ -455,16 +350,19 @@ body {
   /* Ausnahme zur globalen Regel: hier muss man markieren können. */
   user-select: text;
   -webkit-user-select: text;
+  touch-action: auto;
 }
 
 .btn {
   font: inherit;
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-radius: var(--hc-radius);
   border: 1px solid var(--hc-border);
   background: var(--hc-surface-2);
   color: var(--hc-text);
   cursor: pointer;
+  /* Fingerfreundlich: nichts unter 44 px. */
+  min-height: 44px;
 }
 
 .btn:hover {
@@ -480,22 +378,82 @@ body {
   background: var(--hc-primary-hover);
 }
 
+.btn--big {
+  font-size: clamp(16px, 4.6vw, 20px);
+  padding: 16px;
+  letter-spacing: 0.06em;
+}
+
 .btn--ghost {
   background: transparent;
   color: var(--hc-muted);
 }
 
-.btn--small {
-  padding: 6px 10px;
-  font-size: 12px;
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
 }
+
+.langswitch {
+  display: inline-flex;
+  border: 1px solid var(--hc-border);
+  border-radius: var(--hc-radius);
+  overflow: hidden;
+}
+
+.langswitch__btn,
+.iconbtn {
+  font: inherit;
+  font-size: 13px;
+  color: var(--hc-muted);
+  background: var(--hc-surface);
+  border: 0;
+  padding: 10px 14px;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+.langswitch__btn + .langswitch__btn {
+  border-left: 1px solid var(--hc-border);
+}
+
+.langswitch__btn[aria-pressed='true'] {
+  background: var(--hc-primary);
+  color: var(--hc-text);
+}
+
+.iconbtn {
+  border: 1px solid var(--hc-border);
+  border-radius: var(--hc-radius);
+}
+
+/* [hidden] allein reicht nicht gegen die Anzeigeart oben. */
+.iconbtn[hidden],
+.btn[hidden] {
+  display: none;
+}
+
+.langswitch__btn:hover,
+.iconbtn:hover {
+  color: var(--hc-text);
+}
+
+/* Fokusrahmen bleiben sichtbar – Tastaturbedienung ist hier kein Nachgedanke. */
+:focus-visible {
+  outline: 2px solid var(--hc-accent);
+  outline-offset: 2px;
+}
+
+/* --- Ergebnis ------------------------------------------------------------ */
 
 .result {
   margin: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .result__row {
@@ -514,99 +472,83 @@ body {
 }
 
 .result__row--total {
-  padding-top: 4px;
+  padding-top: 6px;
   border-top: 1px solid var(--hc-border);
-  font-size: 15px;
+  font-size: 17px;
   color: var(--hc-accent);
 }
 
-/* --- Seitenspalte -------------------------------------------------------- */
+/* --- Bestenliste --------------------------------------------------------- */
 
-.side {
-  display: flex;
-  flex-direction: column;
-  gap: var(--hc-gap);
-}
-
-.card {
+.board {
   background: var(--hc-surface);
   border: 1px solid var(--hc-border);
   border-radius: var(--hc-radius);
-  padding: 14px;
+  padding: 10px 12px;
+  text-align: left;
 }
 
-.card__title {
-  margin: 0 0 10px;
-  font-size: 14px;
-  letter-spacing: 0.06em;
+.board__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--hc-muted);
 }
 
-.card__hint,
-.card__note {
-  margin: 10px 0 0;
-  font-size: 11px;
-  color: var(--hc-muted);
-}
-
-.card__hint[hidden] {
-  display: none;
-}
-
-.badge {
+.board__mode {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-size: 12px;
+  gap: 6px;
 }
 
-.badge__dot {
-  width: 8px;
-  height: 8px;
+.board__dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--hc-muted);
 }
 
-.badge--server .badge__dot {
+.board--server .board__dot {
   background: var(--hc-accent);
 }
 
-.badge--local .badge__dot {
+.board--local .board__dot {
   background: var(--hc-warn);
 }
 
-.board {
+/*
+ * Die Liste hat ihren eigenen Rollbereich. Sonst schiebt eine volle Top 25 den
+ * Startknopf aus dem Bild – und der ist wichtiger als Platz 19.
+ */
+.board__list {
   list-style: none;
-  margin: 10px 0 0;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  max-height: 260px;
-  overflow-y: auto;
+  gap: 1px;
   font-size: 13px;
+  max-height: 34vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
-.board li {
+.board__list li {
   display: grid;
-  grid-template-columns: 2.2em minmax(0, 1fr) auto;
+  grid-template-columns: 1.8em minmax(0, 1fr) auto;
   gap: 8px;
   padding: 3px 0;
 }
 
-.board li:nth-child(odd) {
+.board__list li:nth-child(odd) {
   background: rgb(255 255 255 / 3%);
-}
-
-/* Die Leermeldung ist kein Ranglisteneintrag und darf nicht in dessen
-   Dreispaltenraster gequetscht werden. */
-.board li.board__empty {
-  display: block;
-  color: var(--hc-muted);
-  font-size: 12px;
-  background: none;
 }
 
 .board__rank {
@@ -625,31 +567,18 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.keys {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.board__list li.board__empty {
+  display: block;
+  background: none;
+  color: var(--hc-muted);
   font-size: 12px;
 }
 
-.keys__row dt {
-  color: var(--hc-text);
-}
-
-.keys__row dd {
-  margin: 0;
+.board__note {
+  margin: 8px 0 0;
+  font-size: 10px;
+  line-height: 1.4;
   color: var(--hc-muted);
-}
-
-/* --- Fusszeile ----------------------------------------------------------- */
-
-.foot {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: var(--hc-muted);
-  margin-top: auto;
 }
 
 /* --- Rücksicht auf Bewegungsempfindlichkeit ------------------------------ */

@@ -44,6 +44,11 @@ SO WIRD GESPIELT
   Am Rechner geht auch: Leertaste springen, P Pause, R neu starten,
   M Ton an/aus, F Vollbild. Gamepads werden unterstuetzt.
 
+  Auf dem Handy fuellt das Spiel den Bildschirm: die Seite ist genau so hoch
+  wie das Fenster, es gibt nichts zu scrollen, und beim Start geht es von
+  allein ins Vollbild. Die Bestenliste steht im Menue und nach jedem Lauf im
+  Ergebnis - sie liegt ueber dem Spiel, nie darunter.
+
 WELTWEITE BESTENLISTE
 
   Liegt score.php mit auf dem Server und ist PHP aktiv, tragen sich alle

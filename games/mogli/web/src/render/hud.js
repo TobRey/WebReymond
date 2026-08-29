@@ -11,7 +11,6 @@ import { t } from '../i18n.js';
 export function createHud(elements) {
   let lastHeight = -1;
   let lastEmeralds = -1;
-  let lastBest = -1;
   let lastPressure = -1;
 
   return {
@@ -23,7 +22,7 @@ export function createHud(elements) {
     },
 
     /** Nur schreiben, was sich geändert hat – spart Layoutarbeit je Bild. */
-    update(world, best) {
+    update(world) {
       const height = world.metres;
       if (height !== lastHeight) {
         elements.height.textContent = `${height} ${t('hud.metres')}`;
@@ -34,11 +33,6 @@ export function createHud(elements) {
       if (emeralds !== lastEmeralds) {
         elements.emeralds.textContent = String(emeralds);
         lastEmeralds = emeralds;
-      }
-
-      if (best !== lastBest) {
-        elements.best.textContent = String(best);
-        lastBest = best;
       }
 
       const pressure = Math.round(hazardPressure(world) * 100);
@@ -52,7 +46,6 @@ export function createHud(elements) {
     invalidate() {
       lastHeight = -1;
       lastEmeralds = -1;
-      lastBest = -1;
       lastPressure = -1;
     },
   };

@@ -54,6 +54,7 @@ export default tseslint.config(
         document: 'readonly',
         console: 'readonly',
         AbortController: 'readonly',
+        Node: 'readonly',
       },
     },
     rules: {

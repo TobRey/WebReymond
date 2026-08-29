@@ -1,7 +1,7 @@
 // Bindet Level, Mogli, Gefahr und Kamera zusammen. Bewusst ohne DOM: so
 // kann ein kompletter Lauf in Node simuliert werden (Tests, Automat).
 
-import { CAM, EMERALD_BONUS, PHYS, TILE, VIEW_H } from './constants.js';
+import { CAM, EMERALD_BONUS, PHYS, TILE, VIEW_H, cameraOffset } from './constants.js';
 import { createLevel, difficultyFromHeight } from './level.js';
 import { createHazard, updateHazard } from './hazard.js';
 import { createPlayer, heightInMetres, idleTick, kill, updatePlayer } from './player.js';
@@ -24,7 +24,7 @@ export function createWorld(seed) {
 
   const player = createPlayer(startX, startY);
   const hazard = createHazard(startY);
-  const cameraTarget = startY - (VIEW_H - CAM.playerOffset);
+  const cameraTarget = startY - (VIEW_H - cameraOffset());
 
   const world = {
     seed,
@@ -91,11 +91,11 @@ export function createWorld(seed) {
     updatePlayer(player, effective, level, world.events);
 
     // Kamera folgt nur nach oben.
-    const target = player.body.y - (VIEW_H - CAM.playerOffset);
+    const target = player.body.y - (VIEW_H - cameraOffset());
     if (target < world.camera.minY) world.camera.minY = target;
     world.camera.y += (world.camera.minY - world.camera.y) * CAM.smoothing;
 
-    updateHazard(hazard, world.tick, world.heightPx, player.body.y, world.camera.y);
+    updateHazard(hazard, world.tick, world.heightPx, player.body.y, player.bestY);
 
     if (!player.dead && player.body.y + player.body.h >= hazard.y) {
       kill(player, world.events);

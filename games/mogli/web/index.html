@@ -2,8 +2,15 @@
 <html lang="de">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
     <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#050a09" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta
       name="description"
       content="Mogli – Tempelflucht. Ein Pixel-Art-Jump-'n'-Run mit genau einem Knopf: tippen zum Springen, an der Wand abstossen, so hoch wie möglich."
@@ -16,224 +23,158 @@
     />
   </head>
   <body>
-    <div class="shell">
-      <header class="bar">
-        <h1 class="brand">
-          <span class="brand__name" data-i18n="app.title">Mogli</span>
-          <span class="brand__sub" data-i18n="app.subtitle">Tempelflucht</span>
-        </h1>
-        <div class="bar__tools">
-          <div class="langswitch" role="group" data-i18n-attr="aria-label:menu.langLabel">
-            <button type="button" class="langswitch__btn" data-lang="de">DE</button>
-            <button type="button" class="langswitch__btn" data-lang="en">EN</button>
-          </div>
-          <button type="button" class="iconbtn" id="mute" data-i18n="misc.muteOn">Ton aus</button>
-          <button type="button" class="iconbtn" id="full" data-i18n="misc.fullscreen">
-            Vollbild
+    <!--
+      Das Spiel füllt den Bildschirm, sonst ist hier nichts. Alles andere –
+      Bestenliste, Sprache, Ton – lebt in den Einblendungen darüber. So gibt es
+      auf dem Handy keine Seite, an der man vorbeiscrollen kann.
+    -->
+    <div class="stage" id="stage">
+      <canvas id="screen" width="192" height="256" aria-label="Mogli"></canvas>
+
+      <div class="hud" id="hud" hidden>
+        <div class="hud__row">
+          <span
+            class="hud__value hud__value--big"
+            id="hudHeight"
+            data-i18n-attr="aria-label:hud.height"
+            >0 m</span
+          >
+          <span
+            class="hud__value hud__value--gem"
+            id="hudEmeralds"
+            data-i18n-attr="aria-label:hud.emeralds"
+            >0</span
+          >
+        </div>
+        <div class="pressure" aria-hidden="true"><i id="pressureFill"></i></div>
+      </div>
+
+      <!-- Blendet sich nach dem ersten Sprung aus. -->
+      <p class="taphint" id="tapHint" hidden>Tippen und los</p>
+
+      <div class="overlay" id="overlay">
+        <section class="panel" id="panelMenu">
+          <h1 class="brand">
+            <span class="brand__name" data-i18n="app.title">Mogli</span>
+            <span class="brand__sub" data-i18n="app.subtitle">Tempelflucht</span>
+          </h1>
+          <p class="panel__tag" data-i18n="app.tagline">Ein Knopf. Immer nach oben.</p>
+
+          <button
+            type="button"
+            class="btn btn--primary btn--big"
+            id="btnStart"
+            data-i18n="menu.start"
+          >
+            Los geht’s
           </button>
-        </div>
-      </header>
 
-      <main class="layout">
-        <!-- stagewrap gibt den verfügbaren Platz vor, stage schmiegt sich an
-             den ganzzahlig vergrösserten Canvas an. Ohne diese Trennung müsste
-             der Canvas in einen fest geformten Kasten passen und bliebe fast
-             immer eine Vergrösserungsstufe unter dem Möglichen. -->
-        <div class="stagewrap" id="stagewrap">
-          <div class="stage" id="stage">
-            <canvas id="screen" width="192" height="256" aria-label="Mogli"></canvas>
+          <div class="board" id="boardMenu"></div>
 
-            <div class="hud" id="hud" hidden>
-              <div class="hud__row">
-                <span class="hud__label" data-i18n="hud.height">Höhe</span>
-                <span class="hud__value" id="hudHeight">0 m</span>
-              </div>
-              <div class="hud__row">
-                <span class="hud__label" data-i18n="hud.emeralds">Smaragde</span>
-                <span class="hud__value hud__value--gem" id="hudEmeralds">0</span>
-              </div>
-              <div class="hud__row hud__row--dim">
-                <span class="hud__label" data-i18n="hud.best">Rekord</span>
-                <span class="hud__value" id="hudBest">0</span>
-              </div>
-              <div class="pressure" aria-hidden="true"><i id="pressureFill"></i></div>
+          <label class="field">
+            <span class="field__label" data-i18n="menu.nameLabel">Dein Name</span>
+            <input
+              type="text"
+              id="playerName"
+              maxlength="12"
+              autocomplete="nickname"
+              spellcheck="false"
+              data-i18n-attr="placeholder:menu.namePlaceholder"
+            />
+          </label>
+
+          <div class="tools">
+            <div class="langswitch" role="group" data-i18n-attr="aria-label:menu.langLabel">
+              <button type="button" class="langswitch__btn" data-lang="de">DE</button>
+              <button type="button" class="langswitch__btn" data-lang="en">EN</button>
             </div>
+            <button type="button" class="iconbtn" id="mute" data-i18n="misc.muteOn">Ton aus</button>
+            <button type="button" class="iconbtn" id="full" data-i18n="misc.fullscreen">
+              Vollbild
+            </button>
+            <button type="button" class="iconbtn" id="btnStory" data-i18n="menu.story">
+              Geschichte
+            </button>
+          </div>
 
-            <!-- Blendet sich nach dem ersten Sprung aus. -->
-            <p class="taphint" id="tapHint" hidden data-i18n="misc.tapToJump">
-              Tippen zum Springen
-            </p>
+          <p class="panel__version" id="version"></p>
+        </section>
 
-            <div class="overlay" id="overlay">
-              <section class="panel" id="panelMenu">
-                <p class="panel__tag" data-i18n="app.tagline">Ein Knopf. Immer nach oben.</p>
-                <label class="field">
-                  <span class="field__label" data-i18n="menu.nameLabel">Dein Name</span>
-                  <input
-                    type="text"
-                    id="playerName"
-                    maxlength="12"
-                    autocomplete="nickname"
-                    spellcheck="false"
-                    data-i18n-attr="placeholder:menu.namePlaceholder"
-                  />
-                </label>
-                <button type="button" class="btn btn--primary" id="btnStart" data-i18n="menu.start">
-                  Los geht’s
-                </button>
-                <button
-                  type="button"
-                  class="btn btn--ghost btn--small"
-                  id="btnStory"
-                  data-i18n="menu.story"
-                >
-                  Geschichte ansehen
-                </button>
-              </section>
-
-              <section class="panel panel--story" id="panelStory" hidden>
-                <div class="story">
-                  <canvas
-                    class="story__portrait"
-                    id="storyPortrait"
-                    width="24"
-                    height="24"
-                  ></canvas>
-                  <div class="story__body">
-                    <p class="story__who" id="storyWho"></p>
-                    <p class="story__text" id="storyText"></p>
-                  </div>
-                </div>
-                <div class="story__actions">
-                  <button
-                    type="button"
-                    class="btn btn--primary"
-                    id="btnStoryNext"
-                    data-i18n="story.next"
-                  >
-                    Weiter
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn--ghost btn--small"
-                    id="btnStorySkip"
-                    data-i18n="story.skip"
-                  >
-                    Überspringen
-                  </button>
-                </div>
-              </section>
-
-              <section class="panel" id="panelPause" hidden>
-                <h2 class="panel__title" data-i18n="pause.title">Pause</h2>
-                <button
-                  type="button"
-                  class="btn btn--primary"
-                  id="btnResume"
-                  data-i18n="pause.resume"
-                >
-                  Weiter
-                </button>
-                <button type="button" class="btn" id="btnRestartPause" data-i18n="pause.restart">
-                  Neu starten
-                </button>
-                <button
-                  type="button"
-                  class="btn btn--ghost"
-                  id="btnMenuPause"
-                  data-i18n="pause.menu"
-                >
-                  Zum Menü
-                </button>
-              </section>
-
-              <section class="panel" id="panelOver" hidden>
-                <h2 class="panel__title" data-i18n="over.title">Erwischt</h2>
-                <p class="panel__best" id="overBest" hidden data-i18n="over.newBest"></p>
-                <dl class="result">
-                  <div class="result__row">
-                    <dt data-i18n="over.height">Höhe</dt>
-                    <dd id="overHeight">0 m</dd>
-                  </div>
-                  <div class="result__row">
-                    <dt data-i18n="over.emeralds">Smaragde</dt>
-                    <dd id="overEmeralds">0</dd>
-                  </div>
-                  <div class="result__row result__row--total">
-                    <dt data-i18n="over.score">Punkte</dt>
-                    <dd id="overScore">0</dd>
-                  </div>
-                </dl>
-                <p class="panel__status" id="overStatus"></p>
-                <button type="button" class="btn btn--primary" id="btnRetry" data-i18n="over.retry">
-                  Nochmal
-                </button>
-                <button type="button" class="btn btn--ghost" id="btnMenuOver" data-i18n="over.menu">
-                  Zum Menü
-                </button>
-              </section>
+        <section class="panel panel--story" id="panelStory" hidden>
+          <div class="story">
+            <canvas class="story__portrait" id="storyPortrait" width="24" height="24"></canvas>
+            <div class="story__body">
+              <p class="story__who" id="storyWho"></p>
+              <p class="story__text" id="storyText"></p>
             </div>
           </div>
-        </div>
+          <button
+            type="button"
+            class="btn btn--primary btn--big"
+            id="btnStoryNext"
+            data-i18n="story.next"
+          >
+            Weiter
+          </button>
+          <button type="button" class="btn btn--ghost" id="btnStorySkip" data-i18n="story.skip">
+            Überspringen
+          </button>
+        </section>
 
-        <aside class="side">
-          <section class="card">
-            <h2 class="card__title" data-i18n="menu.leaderboardTitle">Bestenliste</h2>
-            <p class="badge" id="boardBadge">
-              <span class="badge__dot" id="boardDot"></span>
-              <span id="boardMode" data-i18n="board.loading">Wird geladen …</span>
-            </p>
-            <p class="card__hint" id="boardHint" hidden data-i18n="board.localHint"></p>
-            <ol class="board" id="board"></ol>
-            <p class="card__note" data-i18n="board.forgeable"></p>
-            <button
-              type="button"
-              class="btn btn--ghost btn--small"
-              id="btnReload"
-              data-i18n="board.reload"
-            >
-              Neu laden
-            </button>
-          </section>
+        <section class="panel" id="panelPause" hidden>
+          <h2 class="panel__title" data-i18n="pause.title">Pause</h2>
+          <button
+            type="button"
+            class="btn btn--primary btn--big"
+            id="btnResume"
+            data-i18n="pause.resume"
+          >
+            Weiter
+          </button>
+          <button type="button" class="btn" id="btnRestartPause" data-i18n="pause.restart">
+            Neu starten
+          </button>
+          <button type="button" class="btn btn--ghost" id="btnMenuPause" data-i18n="pause.menu">
+            Zum Menü
+          </button>
+        </section>
 
-          <section class="card">
-            <h2 class="card__title" data-i18n="menu.controlsTitle">Steuerung</h2>
-            <dl class="keys">
-              <div class="keys__row">
-                <dt data-i18n="controls.tap">Springen</dt>
-                <dd data-i18n="controls.tapHow"></dd>
-              </div>
-              <div class="keys__row">
-                <dt data-i18n="controls.run">Laufen</dt>
-                <dd data-i18n="controls.runHow"></dd>
-              </div>
-              <div class="keys__row">
-                <dt data-i18n="controls.wall">Wandsprung</dt>
-                <dd data-i18n="controls.wallHow"></dd>
-              </div>
-              <div class="keys__row">
-                <dt data-i18n="controls.turn">Umdrehen</dt>
-                <dd data-i18n="controls.turnHow"></dd>
-              </div>
-              <div class="keys__row">
-                <dt data-i18n="controls.emerald">Smaragde</dt>
-                <dd data-i18n="controls.emeraldHow"></dd>
-              </div>
-              <div class="keys__row">
-                <dt data-i18n="controls.vine">Ranken</dt>
-                <dd data-i18n="controls.vineHow"></dd>
-              </div>
-            </dl>
-            <p class="card__note" data-i18n="controls.keys"></p>
-            <p class="card__note" data-i18n="controls.pad"></p>
-          </section>
-        </aside>
-      </main>
-
-      <footer class="foot">
-        <span data-i18n="app.title">Mogli</span>
-        <span id="version"></span>
-      </footer>
+        <section class="panel" id="panelOver" hidden>
+          <h2 class="panel__title" data-i18n="over.title">Erwischt</h2>
+          <p class="panel__best" id="overBest" hidden data-i18n="over.newBest"></p>
+          <dl class="result">
+            <div class="result__row">
+              <dt data-i18n="over.height">Höhe</dt>
+              <dd id="overHeight">0 m</dd>
+            </div>
+            <div class="result__row">
+              <dt data-i18n="over.emeralds">Smaragde</dt>
+              <dd id="overEmeralds">0</dd>
+            </div>
+            <div class="result__row">
+              <dt data-i18n="hud.best">Rekord</dt>
+              <dd id="overPersonal">0</dd>
+            </div>
+            <div class="result__row result__row--total">
+              <dt data-i18n="over.score">Punkte</dt>
+              <dd id="overScore">0</dd>
+            </div>
+          </dl>
+          <p class="panel__status" id="overStatus"></p>
+          <button
+            type="button"
+            class="btn btn--primary btn--big"
+            id="btnRetry"
+            data-i18n="over.retry"
+          >
+            Nochmal
+          </button>
+          <div class="board" id="boardOver"></div>
+          <button type="button" class="btn btn--ghost" id="btnMenuOver" data-i18n="over.menu">
+            Zum Menü
+          </button>
+        </section>
+      </div>
     </div>
 
     <noscript>

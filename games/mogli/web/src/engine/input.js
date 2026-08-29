@@ -66,14 +66,23 @@ export function createInput() {
   /**
    * Macht eine Fläche zum Sprungknopf. Es gibt keine Richtungstasten mehr –
    * die ganze Spielfläche ist der Knopf.
+   *
+   * `deadZone` ist ein Bereich innerhalb der Fläche, der nicht springt: die
+   * Einblendung mit Knöpfen und Namensfeld. Ohne diese Ausnahme würde das
+   * preventDefault unten das Antippen eines Knopfes und das Hineintippen ins
+   * Namensfeld verschlucken – der Sprungknopf darf nicht die Bedienung fressen.
    */
-  function bindTapArea(element) {
+  function bindTapArea(element, deadZone = null) {
     if (element === null) return;
+    const inDeadZone = (target) =>
+      deadZone !== null && target instanceof Node && deadZone.contains(target);
+
     element.addEventListener(
       'pointerdown',
       (event) => {
         // Nur die primäre Taste; ein Rechtsklick soll nicht springen.
         if (event.button !== 0) return;
+        if (inDeadZone(event.target)) return;
         event.preventDefault();
         pointerHeld = true;
         press();
@@ -87,7 +96,10 @@ export function createInput() {
     element.addEventListener('pointercancel', release);
     element.addEventListener('pointerleave', release);
     // Auf iOS öffnet ein langer Druck sonst das Kontextmenü.
-    element.addEventListener('contextmenu', (event) => event.preventDefault());
+    element.addEventListener('contextmenu', (event) => {
+      if (inDeadZone(event.target)) return;
+      event.preventDefault();
+    });
   }
 
   function button(gp, index) {

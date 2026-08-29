@@ -103,10 +103,23 @@ im Diff lesbar. Die Palette hat 32 Farben in geschlossenen Abstufungsreihen – 
 Grundton, Licht, Glanz. Genau das trennt den Eindruck einer 8-Bit- von einer 32-Bit-Konsole:
 nicht mehr Pixel, sondern mehr Zwischentöne auf denselben Pixeln.
 
-**Ganzzahlige Skalierung.** Intern wird immer auf 192 × 256 gezeichnet und dann ganzzahlig
+**Ganzzahlige Skalierung.** Intern wird auf 192 Pixel Breite gezeichnet und dann ganzzahlig
 vergrössert – berechnet in *Geräte*pixeln, nicht in CSS-Pixeln (`engine/canvas.js`). Der
 verbreitete Weg über `image-rendering: pixelated` allein verwischt bei einem gebrochenen
 `devicePixelRatio` wie 1.5 oder 2.625, wie es auf Windows- und Android-Geräten üblich ist.
+
+**Die Höhe richtet sich nach dem Gerät.** Die Breite liegt fest – zwölf Kacheln, daran hängt
+die Levelgeometrie. Die Höhe wird beim Start und bei jeder Grössenänderung aus dem
+Seitenverhältnis gewählt (`setViewHeight()`, 256 bis 448 Pixel, immer ein Vielfaches der
+Kachelgrösse). Ein Handy ist mehr als doppelt so hoch wie breit; mit fester Höhe bliebe dort
+oben und unten je ein Drittel schwarz. Mehr Höhe zeigt nur mehr Schacht über Mogli und macht
+das Spiel nicht leichter – die Gefahr kommt von unten. Auf einem iPhone-Format füllt das Bild
+so 97 % des Bildschirms.
+
+**Die Seite ist das Spiel.** `index.html` enthält genau ein Element: die Bühne. Bestenliste,
+Sprache und Ton liegen als Einblendung darüber, nicht darunter. Es gibt nichts zu scrollen, an
+dem man auf dem Handy vorbeikommen könnte, und keine Steuerungstafel – der einzige Knopf ist
+der Bildschirm selbst, und ein Hinweis beim Start sagt das einmal.
 
 **Der Automat.** `game/bot.js` spielt das Spiel selbst. Hinter den Menüs klettert er im
 Hintergrund, damit der Bildschirm nicht tot ist; in den Tests zeigt er, dass die erzeugte

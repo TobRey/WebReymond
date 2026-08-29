@@ -9,8 +9,15 @@ import { STORY, STORY_SEEN_KEY, nameKey } from './game/story.js';
 import { createLoop } from './engine/loop.js';
 import { createInput } from './engine/input.js';
 import { createAudio } from './engine/audio.js';
-import { createBuffer, present, watchResize } from './engine/canvas.js';
-import { createScene, drawScene } from './render/scene.js';
+import {
+  chooseViewHeight,
+  createBuffer,
+  fitScreen,
+  present,
+  resizeBuffer,
+  watchResize,
+} from './engine/canvas.js';
+import { createScene, drawScene, resizeScene } from './render/scene.js';
 import { createHud } from './render/hud.js';
 import { CREATURE_SIZE, buildCreatureAtlas } from './render/creatures.js';
 import {
@@ -42,7 +49,6 @@ const $ = (id) => document.getElementById(id);
 
 const dom = {
   stage: $('stage'),
-  stagewrap: $('stagewrap'),
   screen: $('screen'),
   overlay: $('overlay'),
   panelMenu: $('panelMenu'),
@@ -52,7 +58,6 @@ const dom = {
   hudRoot: $('hud'),
   hudHeight: $('hudHeight'),
   hudEmeralds: $('hudEmeralds'),
-  hudBest: $('hudBest'),
   pressure: $('pressureFill'),
   tapHint: $('tapHint'),
   name: $('playerName'),
@@ -63,18 +68,21 @@ const dom = {
   overHeight: $('overHeight'),
   overEmeralds: $('overEmeralds'),
   overScore: $('overScore'),
+  overPersonal: $('overPersonal'),
   overBest: $('overBest'),
   overStatus: $('overStatus'),
-  board: $('board'),
-  boardBadge: $('boardBadge'),
-  boardMode: $('boardMode'),
-  boardHint: $('boardHint'),
+  boardMenu: $('boardMenu'),
+  boardOver: $('boardOver'),
   mute: $('mute'),
   full: $('full'),
   version: $('version'),
 };
 
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Zuerst die Bildhöhe zum Gerät wählen: Puffer, Hintergrundebenen und die
+// Kamera der Vorschauwelt hängen daran und werden gleich darunter gebaut.
+chooseViewHeight(dom.stage);
 
 const buffer = createBuffer();
 const scene = createScene();
@@ -85,7 +93,6 @@ const hud = createHud({
   root: dom.hudRoot,
   height: dom.hudHeight,
   emeralds: dom.hudEmeralds,
-  best: dom.hudBest,
   pressure: dom.pressure,
 });
 
@@ -118,6 +125,7 @@ function toMenu() {
 
 function startGame() {
   audio.unlock();
+  enterFullscreenOnTouch();
   const name = sanitizeName(dom.name.value);
   dom.name.value = name === 'ANON' ? '' : name;
   writeString(NAME_KEY, name);
@@ -163,6 +171,7 @@ function endGame() {
 
   dom.overHeight.textContent = `${world.metres} ${t('hud.metres')}`;
   dom.overEmeralds.textContent = String(world.player.emeralds);
+  dom.overPersonal.textContent = String(best);
   dom.overScore.textContent = String(score);
   dom.overBest.hidden = !isBest;
   dom.overStatus.textContent = '';
@@ -349,7 +358,7 @@ function update() {
   }
 
   updateParticles(particles);
-  hud.update(world, best);
+  hud.update(world);
   updateTapHint();
 
   if (world.over) endGame();
@@ -400,45 +409,77 @@ function updateAttract() {
 // Bestenliste
 // ---------------------------------------------------------------------------
 
-function renderBoard(entries) {
-  dom.board.replaceChildren();
-  if (entries.length === 0) {
-    const li = document.createElement('li');
-    li.className = 'board__empty';
-    li.textContent = t('board.empty');
-    dom.board.append(li);
-    return;
-  }
-  entries.forEach((entry, index) => {
-    const li = document.createElement('li');
-    const rank = document.createElement('span');
-    rank.className = 'board__rank';
-    rank.textContent = `${index + 1}.`;
-    const name = document.createElement('span');
-    name.className = 'board__name';
-    // textContent, nie innerHTML: Namen kommen von fremden Leuten.
-    name.textContent = String(entry.name ?? '');
-    const score = document.createElement('span');
-    score.className = 'board__score';
-    score.textContent = String(entry.score ?? 0);
-    li.append(rank, name, score);
-    dom.board.append(li);
-  });
+// Die Liste steht zweimal in der Seite: im Menü und im Ergebnis. Beide bekommen
+// denselben Inhalt aus einer Quelle – die Daten liegen hier, nicht im DOM.
+const BOARD_LIMIT = 25;
+let boardEntries = [];
+let boardLoading = false;
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className !== undefined) node.className = className;
+  // textContent, nie innerHTML: Namen kommen von fremden Leuten.
+  if (text !== undefined) node.textContent = text;
+  return node;
 }
 
-function renderMode() {
+function renderBoardInto(container) {
   const mode = getMode();
-  dom.boardBadge.classList.toggle('badge--server', mode === 'server');
-  dom.boardBadge.classList.toggle('badge--local', mode === 'local');
-  dom.boardMode.textContent = mode === 'server' ? t('board.worldwide') : t('board.local');
-  dom.boardHint.hidden = mode !== 'local';
+  container.classList.toggle('board--server', mode === 'server');
+  container.classList.toggle('board--local', mode === 'local');
+
+  const head = el('p', 'board__head');
+  const modeBox = el('span', 'board__mode');
+  modeBox.append(
+    el('i', 'board__dot'),
+    el(
+      'span',
+      undefined,
+      boardLoading
+        ? t('board.loading')
+        : mode === 'server'
+          ? t('board.worldwide')
+          : t('board.local'),
+    ),
+  );
+  head.append(el('span', undefined, t('menu.leaderboardTitle')), modeBox);
+
+  const list = el('ol', 'board__list');
+  if (boardEntries.length === 0) {
+    list.append(el('li', 'board__empty', t('board.empty')));
+  } else {
+    boardEntries.forEach((entry, index) => {
+      const li = el('li');
+      li.append(
+        el('span', 'board__rank', `${index + 1}.`),
+        el('span', 'board__name', String(entry.name ?? '')),
+        el('span', 'board__score', String(entry.score ?? 0)),
+      );
+      list.append(li);
+    });
+  }
+
+  const note = el(
+    'p',
+    'board__note',
+    mode === 'local' ? t('board.localHint') : t('board.forgeable'),
+  );
+
+  container.replaceChildren(head, list, note);
+}
+
+function renderBoards() {
+  renderBoardInto(dom.boardMenu);
+  renderBoardInto(dom.boardOver);
 }
 
 async function loadBoard() {
-  dom.boardMode.textContent = t('board.loading');
-  const result = await fetchTop(25);
-  renderMode();
-  renderBoard(result.entries);
+  boardLoading = true;
+  renderBoards();
+  const result = await fetchTop(BOARD_LIMIT);
+  boardEntries = result.entries;
+  boardLoading = false;
+  renderBoards();
 }
 
 async function sendScore(score, seconds) {
@@ -448,8 +489,8 @@ async function sendScore(score, seconds) {
 
   const result = await submit({ name: sanitizeName(dom.name.value), score, time: seconds });
   submitting = false;
-  renderMode();
-  renderBoard(result.entries);
+  boardEntries = result.entries;
+  renderBoards();
 
   if (result.ok) {
     dom.overStatus.textContent =
@@ -470,17 +511,59 @@ function toggleMute() {
   dom.mute.textContent = muted ? t('misc.muteOff') : t('misc.muteOn');
 }
 
-function toggleFullscreen() {
+/**
+ * Auf iPhones gibt es die Vollbild-API nicht. Dort bleibt der Knopf nicht
+ * wirkungslos stehen, sondern verschwindet – und das Spiel füllt trotzdem den
+ * Bildschirm, weil die Seite selbst genau so hoch ist wie das Fenster.
+ */
+function fullscreenSupported() {
   const root = document.documentElement;
-  if (document.fullscreenElement === null || document.fullscreenElement === undefined) {
-    const request = root.requestFullscreen ?? root.webkitRequestFullscreen;
-    // Auf iPhones gibt es die Vollbild-API nicht; dort bleibt der Knopf ohne
-    // Wirkung, statt einen Fehler zu werfen.
-    if (typeof request === 'function') request.call(root).catch(() => {});
+  return typeof (root.requestFullscreen ?? root.webkitRequestFullscreen) === 'function';
+}
+
+function isFullscreen() {
+  return document.fullscreenElement !== null && document.fullscreenElement !== undefined;
+}
+
+function enterFullscreen() {
+  const root = document.documentElement;
+  const request = root.requestFullscreen ?? root.webkitRequestFullscreen;
+  if (typeof request === 'function') request.call(root).catch(() => {});
+}
+
+/**
+ * Am Handy geht es beim Losspielen von allein ins Vollbild: dort ist das Spiel
+ * die ganze Seite, und die Adressleiste nimmt sonst ein Stück davon weg. Am
+ * Rechner bleibt es beim Knopf und der Taste F – da will man das Fenster oft
+ * behalten. Der Aufruf steht in startGame(), also innerhalb eines Tipps; ohne
+ * diese Nutzergeste lehnen Browser das Vollbild ab.
+ */
+function enterFullscreenOnTouch() {
+  if (isFullscreen() || !fullscreenSupported()) return;
+  if (!window.matchMedia('(pointer: coarse)').matches) return;
+  enterFullscreen();
+}
+
+function toggleFullscreen() {
+  if (!isFullscreen()) {
+    enterFullscreen();
   } else {
     const exit = document.exitFullscreen ?? document.webkitExitFullscreen;
     if (typeof exit === 'function') exit.call(document).catch(() => {});
   }
+}
+
+/** Alles, was von der Sprache abhängt und nicht per data-i18n läuft. */
+function refreshLanguage() {
+  for (const button of document.querySelectorAll('[data-lang]')) {
+    button.setAttribute('aria-pressed', String(button.getAttribute('data-lang') === getLang()));
+  }
+  dom.mute.textContent = audio.muted ? t('misc.muteOff') : t('misc.muteOn');
+  dom.version.textContent = `${t('misc.version')} ${VERSION}`;
+  updateFullscreenLabel();
+  hud.invalidate();
+  renderBoards();
+  if (state === 'story') showStoryBeat();
 }
 
 function bindLanguage() {
@@ -491,21 +574,11 @@ function bindLanguage() {
       setLang(button.getAttribute('data-lang'));
     });
   }
-  onLangChange(() => {
-    for (const button of document.querySelectorAll('[data-lang]')) {
-      button.setAttribute('aria-pressed', String(button.getAttribute('data-lang') === getLang()));
-    }
-    dom.mute.textContent = audio.muted ? t('misc.muteOff') : t('misc.muteOn');
-    updateFullscreenLabel();
-    hud.invalidate();
-    renderMode();
-    if (state === 'story') showStoryBeat();
-  });
+  onLangChange(refreshLanguage);
 }
 
 function updateFullscreenLabel() {
-  const active = document.fullscreenElement !== null && document.fullscreenElement !== undefined;
-  dom.full.textContent = active ? t('misc.fullscreenExit') : t('misc.fullscreen');
+  dom.full.textContent = isFullscreen() ? t('misc.fullscreenExit') : t('misc.fullscreen');
 }
 
 function bindButtons() {
@@ -513,7 +586,8 @@ function bindButtons() {
     const element = $(id);
     if (element === null) return;
     element.addEventListener('click', (event) => {
-      // Der Klick darf nicht als Sprung bei der Spielfläche darunter ankommen.
+      // Gürtel und Hosenträger: die Einblendung ist für den Sprungknopf schon
+      // ein toter Bereich, hier hört der Klick zusätzlich auf.
       event.stopPropagation();
       audio.unlock();
       audio.play('ui');
@@ -529,7 +603,6 @@ function bindButtons() {
   click('btnMenuPause', toMenu);
   click('btnRetry', startGame);
   click('btnMenuOver', toMenu);
-  click('btnReload', loadBoard);
 
   dom.mute.addEventListener('click', () => {
     audio.unlock();
@@ -559,28 +632,52 @@ function bindVisibility() {
 
 let resizeNow = () => {};
 
+/**
+ * Passt das Bild an die Bühne an – in dieser Reihenfolge, sie hängt zusammen:
+ *
+ * 1. Bildhöhe zum Seitenverhältnis wählen. Ein Handy ist mehr als doppelt so
+ *    hoch wie breit; bei fester Höhe bliebe oben und unten ein schwarzer
+ *    Balken, und das Spiel wäre eine Briefmarke in der Mitte.
+ * 2. Nur wenn sich die Höhe wirklich geändert hat: Puffer und die
+ *    bildhohen Hintergrundebenen neu bauen. Das kostet ein paar Millisekunden
+ *    und darf nicht bei jedem Ausfahren der Adressleiste passieren.
+ * 3. Ganzzahlig auf den Bildschirm einpassen und sofort ein Bild zeichnen,
+ *    damit es zwischen Grössenänderung und nächstem Bild nicht flackert.
+ */
+function fitToStage() {
+  if (chooseViewHeight(dom.stage).changed) {
+    resizeBuffer(buffer);
+    resizeScene(scene);
+  }
+  fitScreen(dom.screen, dom.stage);
+  render();
+}
+
 function boot() {
   setLang(initialLang());
   applyTranslations(document);
 
-  dom.version.textContent = `${t('misc.version')} ${VERSION}`;
   dom.name.value = readString(NAME_KEY, '') ?? '';
-  dom.hudBest.textContent = String(best);
-  dom.mute.textContent = audio.muted ? t('misc.muteOff') : t('misc.muteOn');
-  updateFullscreenLabel();
+  dom.overPersonal.textContent = String(best);
+  dom.full.hidden = !fullscreenSupported();
 
   bindLanguage();
   bindButtons();
   bindVisibility();
+  // Alles Sprachabhängige einmal setzen – setLang() oben lief, bevor der
+  // Zuhörer dafür überhaupt angemeldet war.
+  refreshLanguage();
 
-  // Die gesamte Spielfläche ist der Sprungknopf. Es gibt keine Knöpfe mehr.
-  input.bindTapArea(dom.stage);
+  // Die gesamte Spielfläche ist der Sprungknopf – ausser dort, wo gerade eine
+  // Einblendung liegt. Es gibt keine Knöpfe mehr.
+  input.bindTapArea(dom.stage, dom.overlay);
 
   // Beim ersten Druck den Ton freischalten (Autoplay-Regel der Browser).
   window.addEventListener('keydown', () => audio.unlock(), { once: true });
   window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
 
-  resizeNow = watchResize(dom.screen, dom.stagewrap, () => render());
+  resizeNow = fitToStage;
+  watchResize(fitToStage);
 
   toMenu();
   loop.start();

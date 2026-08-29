@@ -20,25 +20,8 @@ export const DICT = {
     'menu.story': 'Geschichte ansehen',
     'menu.nameLabel': 'Dein Name für die Bestenliste',
     'menu.namePlaceholder': 'z. B. REY',
-    'menu.controlsTitle': 'Steuerung',
     'menu.leaderboardTitle': 'Bestenliste',
     'menu.langLabel': 'Sprache',
-
-    'controls.tap': 'Springen',
-    'controls.tapHow': 'Auf das Bild tippen oder klicken. Sonst gibt es nichts zu drücken.',
-    'controls.run': 'Laufen',
-    'controls.runHow': 'Mogli läuft von allein. Du bestimmst nur, wann er springt.',
-    'controls.wall': 'Wandsprung',
-    'controls.wallHow':
-      'An einer Wand rutscht er ab. Tippen stösst ihn weg – und er läuft ab da andersherum.',
-    'controls.turn': 'Umdrehen',
-    'controls.turnHow': 'Läuft er am Boden in eine Wand, dreht er von selbst um.',
-    'controls.emerald': 'Smaragde',
-    'controls.emeraldHow': 'Geben Punkte. Liegen selten bequem.',
-    'controls.vine': 'Ranken',
-    'controls.vineHow': 'Wer eine erwischt, wird ein gutes Stück nach oben gerissen.',
-    'controls.keys': 'Am Rechner geht auch: Leertaste springen, P Pause, R neu, M Ton, F Vollbild.',
-    'controls.pad': 'Gamepad wird unterstützt.',
 
     'hud.height': 'Höhe',
     'hud.best': 'Rekord',
@@ -86,7 +69,6 @@ export const DICT = {
     'board.empty': 'Noch keine Einträge. Sei die erste Person.',
     'board.forgeable':
       'Punkte werden im Browser berechnet und lassen sich fälschen. Nimm die Liste sportlich.',
-    'board.reload': 'Neu laden',
 
     'error.network': 'Server nicht erreichbar',
     'error.rate_limited': 'Zu viele Einträge in kurzer Zeit',
@@ -112,25 +94,8 @@ export const DICT = {
     'menu.story': 'Watch the story',
     'menu.nameLabel': 'Your name for the leaderboard',
     'menu.namePlaceholder': 'e.g. REY',
-    'menu.controlsTitle': 'Controls',
     'menu.leaderboardTitle': 'Leaderboard',
     'menu.langLabel': 'Language',
-
-    'controls.tap': 'Jump',
-    'controls.tapHow': 'Tap or click the picture. There is nothing else to press.',
-    'controls.run': 'Running',
-    'controls.runHow': 'Mowgli runs by himself. You only decide when he jumps.',
-    'controls.wall': 'Wall jump',
-    'controls.wallHow':
-      'He slides down walls. A tap pushes him off — and from then on he runs the other way.',
-    'controls.turn': 'Turning',
-    'controls.turnHow': 'If he runs into a wall on the ground, he turns around by himself.',
-    'controls.emerald': 'Emeralds',
-    'controls.emeraldHow': 'They score points. They are rarely in convenient places.',
-    'controls.vine': 'Vines',
-    'controls.vineHow': 'Catch one and it yanks you a good way upward.',
-    'controls.keys': 'On a computer: Space jumps, P pauses, R restarts, M mutes, F is fullscreen.',
-    'controls.pad': 'Gamepads are supported.',
 
     'hud.height': 'Height',
     'hud.best': 'Best',
@@ -177,7 +142,6 @@ export const DICT = {
     'board.empty': 'No entries yet. Be the first.',
     'board.forgeable':
       'Scores are computed in the browser and can be forged. Take the list lightly.',
-    'board.reload': 'Reload',
 
     'error.network': 'Server unreachable',
     'error.rate_limited': 'Too many submissions in a short time',
