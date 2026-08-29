@@ -33,6 +33,21 @@ export function resizeScene(scene) {
   scene.background = buildBackground();
 }
 
+/**
+ * Nach dem Einsetzen eines Grafikpakets: alles neu brennen.
+ *
+ * Anders als bei einer Grössenänderung sind hier auch Figuren- und Kachelblatt
+ * betroffen, deshalb müssen die Zwischenspeicher weg.
+ */
+export function reloadScene(scene) {
+  cachedAtlases = null;
+  cachedTiles = null;
+  const fresh = createScene();
+  scene.atlases = fresh.atlases;
+  scene.tiles = fresh.tiles;
+  scene.background = fresh.background;
+}
+
 function slotForTile(tile, col, row, level, frame) {
   switch (tile) {
     case T.STONE: {

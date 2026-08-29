@@ -1,9 +1,13 @@
-// Vier Parallax-Ebenen, alle prozedural erzeugt und einmalig gebrannt. Pro
-// Bild kostet der Hintergrund danach acht drawImage-Aufrufe.
+// Drei Parallax-Ebenen, prozedural erzeugt und einmalig gebrannt. Pro Bild
+// kostet der Hintergrund danach eine Handvoll drawImage-Aufrufe.
 //
-// Die Ebenen wiederholen sich vertikal: gezeichnet wird jeweils an
-// (versatz mod Höhe) und eine Bildhöhe darüber. Zwei Aufrufe je Ebene decken
-// den Bildschirm lückenlos ab, egal wie hoch man geklettert ist.
+// Die Ebenen wiederholen sich vertikal: gezeichnet wird an (versatz mod Höhe)
+// und so oft eine Ebenenhöhe darüber, bis der Bildschirm gedeckt ist – egal
+// wie hoch man geklettert ist.
+//
+// Ein eingesetzter Hintergrund aus dem Admin-Bereich bringt seine eigenen
+// Ebenen und Tempi mit; deshalb steht das Tempo bei der Ebene und nicht als
+// feste Zahl im Zeichenaufruf.
 //
 // Motiv: ein Tempelschacht, der im Dschungel versinkt. Ganz hinten Dunst und
 // verfallene Stufenpyramiden, davor drei Laubschichten, dazwischen
@@ -13,6 +17,7 @@
 import { VIEW_H, VIEW_W } from '../game/constants.js';
 import { COLORS, PALETTE } from './palette.js';
 import { createRng } from '../game/rng.js';
+import { layerOverride } from './assets.js';
 
 /** Höhe in Pixeln, ab der der Dunst sein helles Maximum erreicht hat. */
 const HAZE_TOP = 9000;
@@ -264,16 +269,43 @@ function buildNear() {
   return canvas;
 }
 
+/**
+ * Die Ebenen mit ihrem Scrolltempo.
+ *
+ * Ein eingesetzter Hintergrund ersetzt ALLE Ebenen, nicht einzelne: die drei
+ * mitgelieferten sind aufeinander abgestimmt (Dunst, Laub, Ranken), und eine
+ * fremde Ebene dazwischen sähe aus wie ein Fehler. Wer den Hintergrund
+ * austauscht, tauscht ihn ganz aus.
+ */
 export function buildBackground() {
-  return { far: buildFar(), mid: buildMid(), near: buildNear() };
+  const custom = layerOverride();
+  if (custom !== null) {
+    return { layers: custom.map((layer) => ({ canvas: layer.image, speed: layer.speed })) };
+  }
+  return {
+    layers: [
+      { canvas: buildFar(), speed: 0.12 },
+      { canvas: buildMid(), speed: 0.3 },
+      { canvas: buildNear(), speed: 0.55, alpha: 0.9 },
+    ],
+  };
 }
 
+/**
+ * Zeichnet eine Ebene zweimal übereinander, damit sie beim Scrollen nie endet.
+ *
+ * Die Höhe kommt aus der Ebene selbst, nicht aus VIEW_H: eine eingesetzte
+ * Ebene darf beliebig hoch sein, und mit VIEW_H als Sprungweite hätte sie
+ * Lücken oder Doppelungen.
+ */
 function tiled(ctx, canvas, offset, alpha) {
+  const height = canvas.height || VIEW_H;
   // Positiver Rest, auch bei negativen Versätzen.
-  const y = ((offset % VIEW_H) + VIEW_H) % VIEW_H;
+  const y = ((offset % height) + height) % height;
   ctx.globalAlpha = alpha;
-  ctx.drawImage(canvas, 0, Math.round(y));
-  ctx.drawImage(canvas, 0, Math.round(y) - VIEW_H);
+  for (let top = Math.round(y); top > -height; top -= height) {
+    ctx.drawImage(canvas, 0, top, VIEW_W, height);
+  }
   ctx.globalAlpha = 1;
 }
 
@@ -293,7 +325,7 @@ export function drawBackground(ctx, bg, cameraY, heightPx) {
 
   // cameraY wird beim Klettern negativ, deshalb das Minus: die Ebenen sollen
   // nach unten wandern, wenn man steigt.
-  tiled(ctx, bg.far, -cameraY * 0.12, 1);
-  tiled(ctx, bg.mid, -cameraY * 0.3, 1);
-  tiled(ctx, bg.near, -cameraY * 0.55, 0.9);
+  for (const layer of bg.layers) {
+    tiled(ctx, layer.canvas, -cameraY * layer.speed, layer.alpha ?? 1);
+  }
 }

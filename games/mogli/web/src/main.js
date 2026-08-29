@@ -17,7 +17,8 @@ import {
   resizeBuffer,
   watchResize,
 } from './engine/canvas.js';
-import { createScene, drawScene, resizeScene } from './render/scene.js';
+import { createScene, drawScene, reloadScene, resizeScene } from './render/scene.js';
+import { loadPack } from './render/assets.js';
 import { createHud } from './render/hud.js';
 import { CREATURE_SIZE, buildCreatureAtlas } from './render/creatures.js';
 import {
@@ -683,6 +684,18 @@ function boot() {
   loop.start();
 
   probe().then(() => loadBoard());
+
+  // Eigene Grafik aus dem Admin-Bereich. Das Spiel läuft dabei schon – ein
+  // Paket darf den Start nicht aufhalten, und wenn es nie kommt (kein PHP,
+  // nichts hochgeladen), bleibt einfach alles, wie es ist.
+  loadPack().then((changed) => {
+    if (!changed) return;
+    reloadScene(scene);
+    // Die Vorschauwelt hinter dem Menü läuft mit der alten Trefferfläche –
+    // eine neue holt sich die geänderten Masse.
+    previewWorld = createWorld((Date.now() ^ 0xa55e7) >>> 0);
+    render();
+  });
 }
 
 boot();

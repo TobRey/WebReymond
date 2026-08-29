@@ -8,6 +8,7 @@
 
 import { FRAMES, FRAME_SIZE } from './frames.js';
 import { PALETTE } from './palette.js';
+import { frameOverride } from './assets.js';
 
 function createCanvas(width, height) {
   const canvas = document.createElement('canvas');
@@ -47,8 +48,24 @@ function paintFrame(ctx, rows, originX, originY, flip) {
 }
 
 /**
- * @returns {Record<string, {canvas: HTMLCanvasElement, count: number}>}
+ * Ein eingesetztes Bild in beide Zeilen des Blattes brennen.
+ *
+ * Gespiegelt wird über eine negative Skalierung. Bei den Zeichenketten geht
+ * das Spiegeln pixelweise, hier nicht – ein PNG kennt seine Pixel nicht.
  */
+function paintImage(ctx, image, originX, originY, flip) {
+  ctx.save();
+  if (flip) {
+    ctx.translate(originX + FRAME_SIZE, originY);
+    ctx.scale(-1, 1);
+  } else {
+    ctx.translate(originX, originY);
+  }
+  ctx.drawImage(image, 0, 0, FRAME_SIZE, FRAME_SIZE);
+  ctx.restore();
+}
+
+/** @returns {Record<string, {canvas: HTMLCanvasElement, count: number}>} */
 export function buildAtlases() {
   /** @type {Record<string, {canvas: HTMLCanvasElement, count: number}>} */
   const atlases = {};
@@ -56,9 +73,21 @@ export function buildAtlases() {
     const canvas = createCanvas(FRAME_SIZE * frames.length, FRAME_SIZE * 2);
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
+
+    // Eingesetzte Bilder ersetzen die mitgelieferten platzweise: wer nur drei
+    // von fünf Laufbildern hochlädt, bekommt für die anderen zwei weiterhin
+    // die mitgelieferte Grafik. Eine Lücke im Blatt wäre ein Loch im Bild.
+    const custom = frameOverride(name);
+
     frames.forEach((rows, index) => {
-      paintFrame(ctx, rows, index * FRAME_SIZE, 0, false);
-      paintFrame(ctx, rows, index * FRAME_SIZE, FRAME_SIZE, true);
+      const image = custom?.[index] ?? null;
+      if (image === null) {
+        paintFrame(ctx, rows, index * FRAME_SIZE, 0, false);
+        paintFrame(ctx, rows, index * FRAME_SIZE, FRAME_SIZE, true);
+      } else {
+        paintImage(ctx, image, index * FRAME_SIZE, 0, false);
+        paintImage(ctx, image, index * FRAME_SIZE, FRAME_SIZE, true);
+      }
     });
     atlases[name] = { canvas, count: frames.length };
   }
@@ -89,7 +118,7 @@ function tintedCanvas(atlas, name, color) {
 }
 
 /**
- * Zeichnet ein Einzelbild. x/y ist die linke obere Ecke des 16×16-Bildes und
+ * Zeichnet ein Einzelbild. x/y ist die linke obere Ecke des 32×32-Bildes und
  * wird auf ganze Pixel gerundet – sonst verschmiert die Pixelgrafik.
  *
  * @param {CanvasRenderingContext2D} ctx

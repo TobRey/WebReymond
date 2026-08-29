@@ -9,6 +9,7 @@
 // vier Tonwerte statt zwei, das ist der ganze Unterschied zur 8-Bit-Optik.
 
 import { PALETTE, COLORS } from './palette.js';
+import { tileOverride } from './assets.js';
 
 export const TILE_SIZE = 16;
 
@@ -25,8 +26,15 @@ export const SLOT = {
   WALL_B: 8,
   SPIKE: 9,
   LEAF: 10,
-  EMERALD_0: 11, // vier Bilder
-  VINE_0: 15, // zwei Bilder
+  // Die Einzelbilder stehen einzeln da, obwohl der Zeichencode sie in einer
+  // Schleife füllt: der Admin-Bereich braucht je Bild einen benannten Platz,
+  // und "EMERALD_0 plus drei" wäre eine Absprache, die nur im Kommentar steht.
+  EMERALD_0: 11,
+  EMERALD_1: 12,
+  EMERALD_2: 13,
+  EMERALD_3: 14,
+  VINE_0: 15,
+  VINE_1: 16,
 
   // Wandschmuck. Das sind KEINE eigenen Kachelarten – die Wand bleibt für die
   // Physik überall dieselbe. Es sind nur andere Bilder derselben Wand, die
@@ -405,6 +413,18 @@ export function buildTileSheet() {
   }
   for (let frame = 0; frame < 2; frame += 1) {
     vine(ctx, (SLOT.VINE_0 + frame) * TILE_SIZE, 0, frame);
+  }
+
+  // Eingesetzte Kacheln zuletzt, damit sie die gezeichnete Kachel wirklich
+  // ersetzen und nicht darunter durchscheinen. Die Zelle wird vorher geleert:
+  // ein PNG mit durchsichtigen Stellen soll durchsichtig bleiben und nicht das
+  // mitgelieferte Moos durchlassen.
+  for (const [name, slot] of Object.entries(SLOT)) {
+    const image = tileOverride(name);
+    if (image === null) continue;
+    const ox = slot * TILE_SIZE;
+    ctx.clearRect(ox, 0, TILE_SIZE, TILE_SIZE);
+    ctx.drawImage(image, ox, 0, TILE_SIZE, TILE_SIZE);
   }
 
   return { canvas, slots: SLOT_COUNT };
