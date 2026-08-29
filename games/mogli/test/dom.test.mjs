@@ -18,13 +18,13 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { DICT } from '../web/src/i18n.js';
+import { VERSION } from '../web/src/version.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const webDir = join(here, '..', 'web');
-const html = readFileSync(join(webDir, 'index.html'), 'utf8');
 
-/** Alle .js-Dateien unter web/src, samt Inhalt. */
-function sourceFiles(dir = join(webDir, 'src')) {
+/** Alle .js-Dateien unter einem Verzeichnis, samt Inhalt. */
+function sourceFiles(dir) {
   const out = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name);
@@ -34,30 +34,71 @@ function sourceFiles(dir = join(webDir, 'src')) {
   return out;
 }
 
-const sources = sourceFiles();
-const allSource = sources.map((file) => file.text).join('\n');
+const read = (...parts) => readFileSync(join(webDir, ...parts), 'utf8');
+const joined = (dir) =>
+  sourceFiles(join(webDir, ...dir))
+    .map((file) => file.text)
+    .join('\n');
+
+const html = read('index.html');
+const allSource = joined(['src']);
+
+/**
+ * Die beiden Seiten des Auslieferungsordners. Beide werden gleich streng
+ * geprüft – der Admin-Bereich hat mehr Elemente als das Spiel und damit mehr
+ * Gelegenheit, eine id zu verlieren.
+ */
+const PAGES = [
+  { name: 'Spiel', html, source: allSource },
+  { name: 'Admin', html: read('admin', 'index.html'), source: joined(['admin', 'src']) },
+];
 
 function matchAll(text, pattern) {
   return [...text.matchAll(pattern)].map((match) => match[1]);
 }
 
 test('jede id, die das JavaScript sucht, steht im HTML', () => {
-  const present = new Set(matchAll(html, /\bid="([^"]+)"/g));
+  for (const page of PAGES) {
+    const present = new Set(matchAll(page.html, /\bid="([^"]+)"/g));
 
-  const wanted = new Set([
-    ...matchAll(allSource, /\$\('([^']+)'\)/g),
-    ...matchAll(allSource, /getElementById\('([^']+)'\)/g),
-  ]);
+    const wanted = new Set([
+      ...matchAll(page.source, /\$\('([^']+)'\)/g),
+      ...matchAll(page.source, /getElementById\('([^']+)'\)/g),
+    ]);
 
-  const missing = [...wanted].filter((id) => !present.has(id)).sort();
-  assert.deepEqual(missing, [], `im HTML fehlt: ${missing.join(', ')}`);
+    const missing = [...wanted].filter((id) => !present.has(id)).sort();
+    assert.deepEqual(missing, [], `${page.name}: im HTML fehlt ${missing.join(', ')}`);
+  }
 });
 
 test('jede id im HTML kommt genau einmal vor', () => {
-  const ids = matchAll(html, /\bid="([^"]+)"/g);
-  const seen = new Set();
-  const doubled = ids.filter((id) => (seen.has(id) ? true : (seen.add(id), false)));
-  assert.deepEqual(doubled, [], `doppelt vergeben: ${doubled.join(', ')}`);
+  for (const page of PAGES) {
+    const ids = matchAll(page.html, /\bid="([^"]+)"/g);
+    const seen = new Set();
+    const doubled = ids.filter((id) => (seen.has(id) ? true : (seen.add(id), false)));
+    assert.deepEqual(doubled, [], `${page.name}: doppelt vergeben ${doubled.join(', ')}`);
+  }
+});
+
+test('die Versionsnummer steht in LIESMICH.txt genauso wie im Spiel', () => {
+  // Zwei Stellen, die niemand gleichzeitig im Kopf hat. Wer die eine hochzählt
+  // und die andere vergisst, liefert eine ZIP aus, die sich selbst falsch
+  // benennt – und beim Fehlersuchen ist genau das die Zahl, nach der man fragt.
+  const liesmich = read('LIESMICH.txt');
+  const first = liesmich.split('\n', 1)[0];
+  assert.ok(
+    first.includes(VERSION),
+    `LIESMICH.txt beginnt mit "${first}", das Spiel ist aber Version ${VERSION}`,
+  );
+});
+
+test('der Admin-Bereich fragt nur Elemente ab, die es auch gibt', () => {
+  // Zusätzlich zu den ids: die Reiter werden über data-tab gefunden, und ein
+  // Tippfehler dort bliebe sonst still.
+  const adminHtml = read('admin', 'index.html');
+  const tabs = new Set(matchAll(adminHtml, /data-tab="([^"]+)"/g));
+  const panels = new Set(matchAll(adminHtml, /\bid="tab-([^"]+)"/g));
+  assert.deepEqual([...tabs].sort(), [...panels].sort(), 'Reiter und Tafeln passen nicht zusammen');
 });
 
 /** Alle Schlüssel, die irgendwo genannt werden – im HTML wie im JavaScript. */

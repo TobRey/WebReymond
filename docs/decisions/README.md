@@ -22,5 +22,6 @@ als „ersetzt durch“ markiert.
 | [0011](0011-mogli-ohne-build-schritt.md) | Mogli als eigenständiger Ordner ohne Build-Schritt | akzeptiert |
 | [0012](0012-ein-knopf-steuerung.md) | Mogli wird ein Ein-Knopf-Spiel, und der Turm folgt der Sprungbahn | akzeptiert |
 | [0013](0013-mogli-fuellt-den-bildschirm.md) | Mogli ist eine Seite, die aus nichts als dem Spiel besteht | akzeptiert |
+| [0014](0014-admin-und-eigene-grafik.md) | Eigene Grafik über einen Admin-Bereich, ohne Datenbank | akzeptiert |
 
 Format je Datei: Kontext → Entscheidung → Begründung → Alternativen → Konsequenzen → Wiedervorlage.

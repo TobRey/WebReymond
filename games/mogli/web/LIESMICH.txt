@@ -1,4 +1,4 @@
-Mogli - Tempelflucht 1.0.0
+Mogli - Tempelflucht 2.0.0
 ==========================
 
 Ein Jump'n'Run fuer den Browser. Ein Knopf, immer nach oben.
@@ -37,7 +37,9 @@ SO WIRD GESPIELT
   3. Tippen springt. Immer gleich hoch. Es gibt keinen Doppelsprung.
   4. Laeuft er am Boden gegen eine Wand, dreht er von selbst um.
   5. Rutscht er an einer Wand ab, stoesst ihn ein Tipp weg - und ab da laeuft
-     er in die andere Richtung. Das ist der Kern des Spiels.
+     er in die andere Richtung. Das ist der Kern des Spiels. Es gibt genau
+     EINEN Wandsprung je Flugphase; zurueck bekommst du ihn beim Landen und
+     wenn dich eine Ranke hochreisst.
   6. Smaragde geben Punkte. Ranken reissen ihn ein gutes Stueck nach oben.
   7. Von unten steigt die Glut. Wer stehen bleibt, wird geholt.
 
@@ -48,6 +50,27 @@ SO WIRD GESPIELT
   wie das Fenster, es gibt nichts zu scrollen, und beim Start geht es von
   allein ins Vollbild. Die Bestenliste steht im Menue und nach jedem Lauf im
   Ergebnis - sie liegt ueber dem Spiel, nie darunter.
+
+EIGENE GRAFIK EINSETZEN
+
+  Unter /admin kannst du eigene Bilder einsetzen, ohne Code anzufassen:
+  die Figur (acht Bewegungen mit je fuenf Bildern, 32x32 PNG), die Kacheln
+  (16x16 PNG) und den Hintergrund. Zugangscode ist 6713.
+
+  WICHTIG, BITTE EINMALIG AENDERN:
+    - In admin.php die Zeile ADMIN_CODE auf ein laengeres Wort setzen.
+      Vier Ziffern sind 10 000 Moeglichkeiten. Es gibt zwar eine Bremse
+      (fuenf Versuche je zehn Minuten), aber ein laengeres Wort ist der
+      einzige wirkliche Schutz. Die Zeile nimmt jede Zeichenkette.
+    - In admin.php die Zeile ADMIN_SALT auf beliebigen Zufallstext setzen.
+
+  Im Reiter "Vorschau" spielt ein Automat dein Spiel mit deinen Bildern.
+  Kommt er nicht mehr vom Fleck, ist der Turm mit deinen Kollisionskaesten
+  nicht mehr besteigbar - dann lieber nochmal nachbessern.
+
+  Ohne PHP geht es auch: dort bleibt alles in deinem Browser, und der Knopf
+  "Als Datei laden" gibt eine assets.json heraus, die du selbst nach data/
+  hochlaedst.
 
 WELTWEITE BESTENLISTE
 
@@ -89,7 +112,10 @@ DATEIEN
   index.html        die Seite
   style.css         Gestaltung
   score.php         Bestenliste (optional)
-  data/             wird von score.php angelegt, gehoert nicht ins Backup
+  admin.php         Admin-Bereich (optional), hier ADMIN_CODE aendern
+  assets.php        gibt die eigene Grafik an das Spiel heraus
+  admin/            die Oberflaeche unter /admin
+  data/             wird angelegt, gehoert nicht ins Backup
   src/              der Spielcode
 
   Sprache umschalten: oben rechts, DE oder EN. Die Wahl wird gemerkt.
@@ -126,12 +152,32 @@ HOW TO PLAY
   3. Tapping jumps. Always the same height. There is no double jump.
   4. If he runs into a wall on the ground, he turns around by himself.
   5. When he slides down a wall, a tap pushes him off - and from then on he
-     runs the other way. That is the heart of the game.
+     runs the other way. That is the heart of the game. You get exactly ONE
+     wall jump per airtime; it comes back when you land and when a vine
+     yanks you up.
   6. Emeralds score points. Vines yank him a good way upward.
   7. The ember rises from below. Stand still and it takes you.
 
   On a computer: Space jumps, P pauses, R restarts, M mutes, F is fullscreen.
   Gamepads are supported.
+
+YOUR OWN GRAPHICS
+
+  At /admin you can replace the sprites, tiles and background without
+  touching any code: the character (eight animations, five 32x32 PNG frames
+  each), the tiles (16x16 PNG) and the background. The access code is 6713.
+
+  IMPORTANT, PLEASE CHANGE ONCE:
+    - Set ADMIN_CODE in admin.php to a longer word. Four digits are 10 000
+      combinations. There is a brake (five attempts per ten minutes), but a
+      longer word is the only real protection. The line takes any string.
+    - Set ADMIN_SALT in admin.php to any random text.
+
+  The "Vorschau" tab runs a bot through your game with your images. If it
+  cannot get anywhere, your collision boxes made the tower unclimbable.
+
+  No PHP? Everything stays in your browser, and "Als Datei laden" gives you
+  an assets.json to upload to data/ yourself.
 
 WORLDWIDE LEADERBOARD
 
