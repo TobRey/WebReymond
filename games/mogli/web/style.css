@@ -1,0 +1,666 @@
+/*
+ * Mogli – Tempelflucht. Oberfläche rund um das Spielfeld.
+ *
+ * Alle Farben stehen als --hc-* hier oben; in den Regeln darunter und in den
+ * JS-Modulen kommen keine losen Hex-Werte vor. Die Spielgrafik selbst hat ihre
+ * eigene, gleichwertige Quelle in src/render/palette.js.
+ */
+
+:root {
+  --hc-bg: #050a09;
+  --hc-surface: #0d1a16;
+  --hc-surface-2: #14261f;
+  --hc-border: #1d3a2c;
+  --hc-text: #dbe8cf;
+  --hc-muted: #8fa383;
+  --hc-accent: #3fe3a8;
+  --hc-accent-strong: #14a072;
+  --hc-primary: #2b5a3d;
+  --hc-primary-hover: #46874f;
+  --hc-warn: #f5c53a;
+  --hc-danger: #d9330f;
+  --hc-gold: #f5c53a;
+
+  --hc-radius: 10px;
+  --hc-gap: 16px;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: var(--hc-bg);
+  color: var(--hc-text);
+  font-family: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Menlo, Consolas, monospace;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/*
+ * Nichts markiert sich beim Langdrücken.
+ *
+ * Das Spiel hat genau einen Knopf, und der ist die ganze Spielfläche. Ein
+ * gehaltener Finger würde sonst die blaue Textmarkierung, die Lupe und auf iOS
+ * das Kontextmenü auslösen – mitten im Sprung. Die vier Eigenschaften schalten
+ * genau das ab; das Eingabefeld für den Namen nimmt sich weiter unten wieder
+ * aus.
+ */
+html,
+body {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+.shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--hc-gap);
+  display: flex;
+  flex-direction: column;
+  gap: var(--hc-gap);
+  min-height: 100vh;
+}
+
+/* --- Kopfzeile ----------------------------------------------------------- */
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hc-gap);
+  flex-wrap: wrap;
+}
+
+.brand {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.brand__name {
+  font-size: 20px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hc-accent);
+}
+
+.brand__sub {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hc-muted);
+}
+
+.bar__tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.langswitch {
+  display: inline-flex;
+  border: 1px solid var(--hc-border);
+  border-radius: var(--hc-radius);
+  overflow: hidden;
+}
+
+.langswitch__btn,
+.iconbtn {
+  font: inherit;
+  color: var(--hc-muted);
+  background: var(--hc-surface);
+  border: 0;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.langswitch__btn + .langswitch__btn {
+  border-left: 1px solid var(--hc-border);
+}
+
+.langswitch__btn[aria-pressed='true'] {
+  background: var(--hc-primary);
+  color: var(--hc-text);
+}
+
+.iconbtn {
+  border: 1px solid var(--hc-border);
+  border-radius: var(--hc-radius);
+}
+
+.langswitch__btn:hover,
+.iconbtn:hover {
+  color: var(--hc-text);
+}
+
+/* Fokusrahmen bleiben sichtbar – Tastaturbedienung ist hier kein Nachgedanke. */
+:focus-visible {
+  outline: 2px solid var(--hc-accent);
+  outline-offset: 2px;
+}
+
+/* --- Aufteilung ---------------------------------------------------------- */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 300px);
+  gap: var(--hc-gap);
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* --- Spielfeld ----------------------------------------------------------- */
+
+/* stagewrap spannt den verfügbaren Platz auf; engine/canvas.js misst genau
+   diesen Kasten und wählt daraus den grössten ganzzahligen Faktor. */
+.stagewrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: min(78vh, 760px);
+}
+
+/* stage umschliesst den Canvas passgenau – der Rahmen sitzt damit immer
+   direkt am Bild und nicht um eine halbleere Fläche herum. */
+.stage {
+  position: relative;
+  width: fit-content;
+  background: var(--hc-bg);
+  border: 1px solid var(--hc-border);
+  border-radius: var(--hc-radius);
+  overflow: hidden;
+  /* Die ganze Fläche ist der Sprungknopf: kein Scrollen, kein Zoomen, kein
+     Doppeltipp-Vergrössern. */
+  touch-action: none;
+  cursor: pointer;
+}
+
+#screen {
+  display: block;
+  /* Gürtel und Hosenträger: die eigentliche Schärfe kommt aus der
+     ganzzahligen Skalierung in engine/canvas.js. */
+  image-rendering: pixelated;
+  image-rendering: -webkit-optimize-contrast;
+}
+
+/* --- Vollbild ------------------------------------------------------------ */
+
+/*
+ * Im Vollbild bleibt nur das Spiel. Kopfzeile, Seitenspalte und Fusszeile
+ * verschwinden, das Spielfeld nimmt die volle Höhe – auf dem Handy ist das
+ * der Unterschied zwischen "Webseite mit Spiel" und "Spiel".
+ */
+:fullscreen .bar,
+:fullscreen .side,
+:fullscreen .foot {
+  display: none;
+}
+
+:fullscreen .shell {
+  padding: 0;
+  max-width: none;
+  height: 100vh;
+}
+
+:fullscreen .layout {
+  grid-template-columns: minmax(0, 1fr);
+  height: 100%;
+}
+
+:fullscreen .stagewrap {
+  height: 100vh;
+}
+
+:fullscreen .stage {
+  border: 0;
+  border-radius: 0;
+}
+
+/* --- Anzeige im Spiel ---------------------------------------------------- */
+
+.hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 8px 10px 14px;
+  pointer-events: none;
+  font-size: 12px;
+  text-shadow: 0 1px 0 rgb(0 0 0 / 85%);
+  /* Ein weicher Schleier nach unten. Ohne ihn steht die Anzeige direkt auf dem
+     bemoosten Stein und ist genau dann unlesbar, wenn es darauf ankommt. */
+  background: linear-gradient(rgb(5 10 9 / 85%) 40%, rgb(5 10 9 / 0%));
+}
+
+.hud__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hud__row--dim {
+  color: var(--hc-muted);
+}
+
+.hud__label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--hc-muted);
+}
+
+.hud__value {
+  color: var(--hc-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.hud__value--gem {
+  color: var(--hc-accent);
+}
+
+.pressure {
+  margin-top: 6px;
+  height: 4px;
+  background: rgb(255 255 255 / 12%);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pressure i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--hc-warn), var(--hc-danger));
+  transition: width 120ms linear;
+}
+
+.taphint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 22px;
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hc-text);
+  text-shadow: 0 1px 0 rgb(0 0 0 / 85%);
+  pointer-events: none;
+  animation: taphint 1.4s ease-in-out infinite;
+}
+
+.taphint[hidden] {
+  display: none;
+}
+
+@keyframes taphint {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* --- Einblendungen ------------------------------------------------------- */
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  /* Dunkel genug, dass die Texte klar lesbar bleiben, hell genug, dass man
+     den kletternden Automaten dahinter noch erkennt. */
+  background: rgb(5 10 9 / 78%);
+  backdrop-filter: blur(1px);
+}
+
+.overlay[hidden] {
+  display: none;
+}
+
+.panel {
+  width: 100%;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: center;
+}
+
+.panel[hidden] {
+  display: none;
+}
+
+.panel__title {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.panel__tag {
+  margin: 0 0 4px;
+  color: var(--hc-muted);
+  font-size: 13px;
+}
+
+.panel__best {
+  margin: 0;
+  color: var(--hc-gold);
+  font-size: 13px;
+}
+
+.panel__best[hidden] {
+  display: none;
+}
+
+.panel__status {
+  margin: 0;
+  min-height: 1.5em;
+  font-size: 12px;
+  color: var(--hc-muted);
+}
+
+/* --- Story --------------------------------------------------------------- */
+
+.panel--story {
+  max-width: 320px;
+  gap: 14px;
+}
+
+.story {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.story__portrait {
+  flex: 0 0 auto;
+  width: 72px;
+  height: 72px;
+  image-rendering: pixelated;
+  image-rendering: -webkit-optimize-contrast;
+  background: var(--hc-surface-2);
+  border: 1px solid var(--hc-border);
+  border-radius: var(--hc-radius);
+}
+
+.story__body {
+  min-width: 0;
+}
+
+.story__who {
+  margin: 0 0 4px;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hc-accent);
+}
+
+.story__text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.story__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* --- Formular und Knöpfe ------------------------------------------------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
+.field__label {
+  font-size: 12px;
+  color: var(--hc-muted);
+}
+
+.field input {
+  font: inherit;
+  padding: 8px 10px;
+  color: var(--hc-text);
+  background: var(--hc-surface);
+  border: 1px solid var(--hc-border);
+  border-radius: var(--hc-radius);
+  /* Ausnahme zur globalen Regel: hier muss man markieren können. */
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.btn {
+  font: inherit;
+  padding: 10px 14px;
+  border-radius: var(--hc-radius);
+  border: 1px solid var(--hc-border);
+  background: var(--hc-surface-2);
+  color: var(--hc-text);
+  cursor: pointer;
+}
+
+.btn:hover {
+  border-color: var(--hc-accent-strong);
+}
+
+.btn--primary {
+  background: var(--hc-primary);
+  border-color: var(--hc-primary);
+}
+
+.btn--primary:hover {
+  background: var(--hc-primary-hover);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--hc-muted);
+}
+
+.btn--small {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.result {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.result__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.result__row dt {
+  color: var(--hc-muted);
+}
+
+.result__row dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.result__row--total {
+  padding-top: 4px;
+  border-top: 1px solid var(--hc-border);
+  font-size: 15px;
+  color: var(--hc-accent);
+}
+
+/* --- Seitenspalte -------------------------------------------------------- */
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hc-gap);
+}
+
+.card {
+  background: var(--hc-surface);
+  border: 1px solid var(--hc-border);
+  border-radius: var(--hc-radius);
+  padding: 14px;
+}
+
+.card__title {
+  margin: 0 0 10px;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hc-muted);
+}
+
+.card__hint,
+.card__note {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: var(--hc-muted);
+}
+
+.card__hint[hidden] {
+  display: none;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.badge__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--hc-muted);
+}
+
+.badge--server .badge__dot {
+  background: var(--hc-accent);
+}
+
+.badge--local .badge__dot {
+  background: var(--hc-warn);
+}
+
+.board {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 260px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+
+.board li {
+  display: grid;
+  grid-template-columns: 2.2em minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.board li:nth-child(odd) {
+  background: rgb(255 255 255 / 3%);
+}
+
+/* Die Leermeldung ist kein Ranglisteneintrag und darf nicht in dessen
+   Dreispaltenraster gequetscht werden. */
+.board li.board__empty {
+  display: block;
+  color: var(--hc-muted);
+  font-size: 12px;
+  background: none;
+}
+
+.board__rank {
+  color: var(--hc-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.board__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board__score {
+  color: var(--hc-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.keys {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.keys__row dt {
+  color: var(--hc-text);
+}
+
+.keys__row dd {
+  margin: 0;
+  color: var(--hc-muted);
+}
+
+/* --- Fusszeile ----------------------------------------------------------- */
+
+.foot {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--hc-muted);
+  margin-top: auto;
+}
+
+/* --- Rücksicht auf Bewegungsempfindlichkeit ------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  .pressure i {
+    transition: none;
+  }
+
+  .taphint {
+    animation: none;
+    opacity: 0.9;
+  }
+}

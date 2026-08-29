@@ -24,7 +24,7 @@ mit einem eigenen CMS namens **backendHeaven** und einem visuellen Website-Build
 | [docs/branding-domains.md](docs/branding-domains.md) | Domainprüfung, Namensalternativen, Markenrisiko |
 | [docs/phase-2-entwicklungsumgebung.md](docs/phase-2-entwicklungsumgebung.md) | Windows-11-Anleitung: WSL2, Node, pnpm, Git, Docker, VS Code |
 | [docs/decisions/](docs/decisions/) | Kurze Begründungen der wichtigsten Technikentscheidungen (ADRs) |
-| [games/heavenclimb/](games/heavenclimb/README.md) | HeavenClimb – Jump'n'Run als eigenständige ZIP-Datei, ohne Build und ohne Datenbank |
+| [games/mogli/](games/mogli/README.md) | Mogli – Jump'n'Run als eigenständige ZIP-Datei, ohne Build und ohne Datenbank |
 
 ## Lokal starten
 
@@ -59,8 +59,8 @@ Beenden mit **Strg + C**, danach `pnpm db:down`.
 | `pnpm lint` | Code-Regeln prüfen |
 | `pnpm build` | Produktionsbuild wie in der CI |
 | `pnpm format` | Einheitliche Formatierung |
-| `pnpm game:dev` | HeavenClimb lokal starten (<http://127.0.0.1:8137>, braucht PHP) |
-| `pnpm game:zip` | HeavenClimb als ZIP-Datei zum Hochladen bauen |
+| `pnpm game:dev` | Mogli lokal starten (<http://127.0.0.1:8137>, braucht PHP) |
+| `pnpm game:zip` | Mogli als ZIP-Datei zum Hochladen bauen |
 | `pnpm db:migrate` | Datenbankänderung erzeugen und einspielen |
 | `pnpm db:deploy` | Migrationen auf einem Server einspielen |
 | `pnpm db:studio` | Datenbank im Browser ansehen |

@@ -41,7 +41,7 @@ export default tseslint.config(
     },
   },
   {
-    // games/heavenclimb ist reines Browser-JavaScript ohne Build-Schritt und
+    // games/mogli ist reines Browser-JavaScript ohne Build-Schritt und
     // damit ohne Bundler, der die Umgebung kennt. Das Paket `globals` ist im
     // Monorepo nicht vorhanden, deshalb stehen die benötigten Namen hier
     // direkt. Der Ordner wird bewusst NICHT ignoriert – geprüft werden soll er.

@@ -62,7 +62,7 @@ desktop.ini
 # --- Von Prisma erzeugter Client (wird beim Installieren neu gebaut) ---
 apps/api/src/generated/
 
-# --- HeavenClimb: von score.php zur Laufzeit angelegte Bestenliste ---
+# --- Mogli: von score.php zur Laufzeit angelegte Bestenliste ---
 # Die .htaccess in data/ gehört ins Repository, die Spielstände nicht.
 games/*/web/data/*
 !games/*/web/data/.htaccess

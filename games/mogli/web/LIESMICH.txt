@@ -1,0 +1,158 @@
+Mogli - Tempelflucht 1.0.0
+==========================
+
+Ein Jump'n'Run fuer den Browser. Ein Knopf, immer nach oben.
+A browser platformer. One button, always upward.
+
+
+DEUTSCH
+-------
+
+INSTALLIEREN
+
+  1. Diese ZIP-Datei auf deinem Webspace entpacken, zum Beispiel nach
+     /public_html/mogli/
+  2. Im Browser aufrufen: https://deine-domain.tld/mogli/
+
+  Mehr ist nicht noetig. Es gibt keine Datenbank, keine Installation, keine
+  Konfiguration.
+
+WICHTIG: NICHT PER DOPPELKLICK OEFFNEN
+
+  Das Spiel besteht aus JavaScript-Modulen. Browser laden die aus
+  Sicherheitsgruenden nicht ueber file:// - ein Doppelklick auf index.html
+  zeigt eine leere Seite. Es braucht immer einen Webserver. Zum Ausprobieren
+  auf dem eigenen Rechner genuegt im entpackten Ordner:
+
+      php -S localhost:8000
+      python3 -m http.server 8000
+
+SO WIRD GESPIELT
+
+  Es gibt genau einen Knopf: die Spielflaeche selbst. Tippen oder klicken.
+
+  1. Mogli steht still, bis du das erste Mal tippst. Erst dann laeuft er los,
+     und erst dann steigt die Glut. Du bestimmst, wann es losgeht.
+  2. Er laeuft von allein. Es gibt keine Richtungstaste.
+  3. Tippen springt. Immer gleich hoch. Es gibt keinen Doppelsprung.
+  4. Laeuft er am Boden gegen eine Wand, dreht er von selbst um.
+  5. Rutscht er an einer Wand ab, stoesst ihn ein Tipp weg - und ab da laeuft
+     er in die andere Richtung. Das ist der Kern des Spiels.
+  6. Smaragde geben Punkte. Ranken reissen ihn ein gutes Stueck nach oben.
+  7. Von unten steigt die Glut. Wer stehen bleibt, wird geholt.
+
+  Am Rechner geht auch: Leertaste springen, P Pause, R neu starten,
+  M Ton an/aus, F Vollbild. Gamepads werden unterstuetzt.
+
+WELTWEITE BESTENLISTE
+
+  Liegt score.php mit auf dem Server und ist PHP aktiv, tragen sich alle
+  Spielenden in eine gemeinsame Bestenliste ein. Gespeichert wird in einer
+  einfachen Datei unter data/scores.json - keine Datenbank noetig.
+
+  Zu tun:
+    - Das Verzeichnis data/ muss fuer PHP beschreibbar sein:
+          chmod 755 data
+      Manche Hoster verlangen 775 oder einen bestimmten Besitzer.
+    - In score.php ganz oben RATE_SALT auf einen beliebigen eigenen Zufallstext
+      aendern. Er sorgt dafuer, dass IP-Adressen nur als Hashwert gespeichert
+      werden.
+
+  Kein PHP vorhanden oder data/ nicht beschreibbar? Dann laeuft das Spiel
+  trotzdem vollstaendig. Die Bestenliste schaltet automatisch auf "Nur auf
+  diesem Geraet" um und speichert im Browser. Im Spiel steht sichtbar, welcher
+  Modus gerade laeuft.
+
+  Bei nginx statt Apache greift die mitgelieferte data/.htaccess nicht. Dort
+  gehoert in die Serverkonfiguration:
+
+      location ~ /data/ { deny all; return 404; }
+
+  Wer die Punktestaende lieber ganz ausserhalb des Webverzeichnisses ablegt,
+  setzt in score.php die Konstante DATA_DIR auf einen absoluten Pfad.
+
+EHRLICH GESAGT
+
+  Die Punkte werden im Browser der Spielenden berechnet. Wer will, kann mit
+  einem einzigen Kommandozeilenaufruf eine erfundene Zahl schicken. score.php
+  weist unsinnige Werte ab, begrenzt die Eintraege pro IP und laesst keine
+  HTML-Zeichen in Namen zu - aber gegen jemanden, der es wirklich darauf
+  anlegt, hilft das nicht. Die Liste ist zum Spass da, nicht als Urkunde.
+
+DATEIEN
+
+  index.html        die Seite
+  style.css         Gestaltung
+  score.php         Bestenliste (optional)
+  data/             wird von score.php angelegt, gehoert nicht ins Backup
+  src/              der Spielcode
+
+  Sprache umschalten: oben rechts, DE oder EN. Die Wahl wird gemerkt.
+
+
+ENGLISH
+-------
+
+INSTALL
+
+  1. Unzip this archive into your webspace, e.g. /public_html/mogli/
+  2. Open https://your-domain.tld/mogli/ in a browser.
+
+  That is all. No database, no installation, no configuration.
+
+IMPORTANT: DO NOT OPEN BY DOUBLE-CLICKING
+
+  The game uses JavaScript modules, which browsers refuse to load over
+  file:// for security reasons - double-clicking index.html shows a blank
+  page. A web server is always required. To try it locally, run inside the
+  unpacked folder:
+
+      php -S localhost:8000
+      python3 -m http.server 8000
+
+HOW TO PLAY
+
+  There is exactly one button: the playfield itself. Tap or click.
+
+  1. Mowgli stands still until you tap for the first time. Only then does he
+     start running, and only then does the ember start rising. You decide when
+     it begins.
+  2. He runs by himself. There is no direction key.
+  3. Tapping jumps. Always the same height. There is no double jump.
+  4. If he runs into a wall on the ground, he turns around by himself.
+  5. When he slides down a wall, a tap pushes him off - and from then on he
+     runs the other way. That is the heart of the game.
+  6. Emeralds score points. Vines yank him a good way upward.
+  7. The ember rises from below. Stand still and it takes you.
+
+  On a computer: Space jumps, P pauses, R restarts, M mutes, F is fullscreen.
+  Gamepads are supported.
+
+WORLDWIDE LEADERBOARD
+
+  If score.php is uploaded and PHP is enabled, all players share one
+  leaderboard. It is stored in a plain file at data/scores.json - no database.
+
+  To do:
+    - data/ must be writable by PHP:  chmod 755 data
+      Some hosts require 775 or a specific owner.
+    - Change RATE_SALT at the top of score.php to any random text of your own.
+      It keeps IP addresses stored as hashes only.
+
+  No PHP, or data/ not writable? The game still runs completely. The
+  leaderboard falls back to "This device only" and stores scores in the
+  browser. The game shows which mode is active.
+
+  On nginx the bundled data/.htaccess has no effect. Add to your server config:
+
+      location ~ /data/ { deny all; return 404; }
+
+  To keep scores outside the web root entirely, set the DATA_DIR constant in
+  score.php to an absolute path.
+
+HONESTLY
+
+  Scores are computed in the player's browser. Anyone can send a made-up
+  number with a single command-line call. score.php rejects implausible
+  values, rate-limits per IP and strips HTML from names - but none of that
+  stops someone determined. The list is for fun, not for records.

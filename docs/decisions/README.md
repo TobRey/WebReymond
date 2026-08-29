@@ -19,6 +19,7 @@ als „ersetzt durch“ markiert.
 | [0008](0008-stripe-zuerst.md) | Stripe als erster Zahlungsanbieter | akzeptiert |
 | [0009](0009-backendheaven-mandantenfaehig.md) | backendHeaven mandantenfähig statt Installation je Kunde | akzeptiert |
 | [0010](0010-design-tokens-und-tailwind.md) | Design-Tokens als einzige Quelle, Tailwind nur als Werkzeug | akzeptiert |
-| [0011](0011-heavenclimb-ohne-build-schritt.md) | HeavenClimb als eigenständiger Ordner ohne Build-Schritt | akzeptiert |
+| [0011](0011-mogli-ohne-build-schritt.md) | Mogli als eigenständiger Ordner ohne Build-Schritt | akzeptiert |
+| [0012](0012-ein-knopf-steuerung.md) | Mogli wird ein Ein-Knopf-Spiel, und der Turm folgt der Sprungbahn | akzeptiert |
 
 Format je Datei: Kontext → Entscheidung → Begründung → Alternativen → Konsequenzen → Wiedervorlage.
