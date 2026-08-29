@@ -44,6 +44,7 @@ nicht laden – die Seite bliebe leer. Es braucht immer einen Webserver.
 ```
 web/                     genau dieser Baum landet in der ZIP-Datei
   index.html             Seite, Menüs, Story-Tafeln, Fänger für Startfehler
+  pruefung.html          prüft den Server, wenn das Spiel nicht anläuft
   style.css              Gestaltung, --hc-* als einzige Farbquelle des Rahmens
   .htaccess              kein Zwischenspeicher für HTML, MIME-Typ für .js
   score.php              Bestenliste: flache JSON-Datei, kein SQL
@@ -159,6 +160,14 @@ fertig geladen, ohne dass sich das Spiel als bedienbar gemeldet hat, erscheint d
 allein. In `boot()`
 wird deshalb erst verdrahtet und dann verziert: eine kaputte Kleinigkeit kostet höchstens sich
 selbst. Näheres in [0015](../../docs/decisions/0015-startfehler-werden-sichtbar.md).
+
+**Die Prüfseite.** `pruefung.html` gehört nicht zum Spiel: sie prüft den Server vom Gerät des
+Nutzers aus und sagt im Klartext, was nicht stimmt – ausgelieferte Fassung, jede JS-Datei auf
+Erreichbarkeit, Vollständigkeit und MIME-Typ (sie folgt dem Modulbaum aus `main.js`, es gibt
+keine fest eingetragene Dateiliste), eingehängte Fremdskripte, PHP, und zuletzt ein echter
+`import()`. Sie ist in altem JavaScript geschrieben und lädt nichts nach, weil sie sonst genau
+den Fall nicht melden könnte, für den es sie gibt; `test/dom.test.mjs` hält das fest. Der
+Meldungsstreifen sagt, was im Browser schiefging – die Prüfseite, was am Server.
 
 **Der Automat.** `game/bot.js` spielt das Spiel selbst. Hinter den Menüs klettert er im
 Hintergrund, damit der Bildschirm nicht tot ist; in den Tests zeigt er, dass die erzeugte

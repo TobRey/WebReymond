@@ -119,6 +119,37 @@ test('der Meldungsstreifen ist im HTML vollständig angelegt', () => {
   assert.match(read('style.css'), /\.crash\[hidden\]\s*\{\s*display:\s*none/);
 });
 
+test('die Pruefseite bleibt in altem JavaScript', () => {
+  // pruefung.html gibt es, damit sie auch dort noch laeuft, wo das Spiel selbst
+  // schon an der ersten Zeile scheitert - ein zu alter Browser, ein Server, der
+  // Module verweigert. Schleicht sich hier moderne Schreibweise ein, faellt die
+  // Seite genau in dem Fall aus, fuer den es sie gibt: sie wuerde stumm bleiben
+  // und man stuende wieder vor "es passiert nichts".
+  const seite = read('pruefung.html');
+  const script = seite.slice(seite.indexOf('<script>'), seite.lastIndexOf('</script>'));
+  assert.ok(script.length > 2000, 'das Skript in pruefung.html wurde nicht gefunden');
+
+  const verboten = [
+    [/=>/, 'Pfeilfunktion'],
+    [/\b(const|let)\s/, 'const/let'],
+    [/`/, 'Vorlagenzeichenkette'],
+    [/\?\./, 'optionale Verkettung'],
+    [/\?\?/, 'Nullish-Operator'],
+    [/\bfetch\s*\(/, 'fetch (XMLHttpRequest benutzen)'],
+    [/\bclass\s+\w/, 'class'],
+  ];
+  for (const [muster, name] of verboten) {
+    assert.ok(
+      !muster.test(script),
+      `pruefung.html benutzt ${name} - das muss altes JavaScript bleiben`,
+    );
+  }
+
+  // Und sie darf nichts nachladen: sonst haengt die Fehlersuche an einem
+  // fremden Server, der womoeglich gerade das Problem ist.
+  assert.ok(!/src\s*=\s*["']https?:/.test(seite), 'pruefung.html laedt etwas von aussen nach');
+});
+
 test('der Admin-Bereich fragt nur Elemente ab, die es auch gibt', () => {
   // Zusätzlich zu den ids: die Reiter werden über data-tab gefunden, und ein
   // Tippfehler dort bliebe sonst still.

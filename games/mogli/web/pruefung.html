@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mogli – Prüfung</title>
+    <!--
+      Diese Seite gehört nicht zum Spiel. Sie beantwortet eine einzige Frage:
+      Warum startet Mogli auf DIESEM Server in DIESEM Browser nicht?
+
+      Sie ist bewusst in altem JavaScript geschrieben (var, function, XMLHttpRequest)
+      und lädt nichts nach. Damit läuft sie auch dort, wo das Spiel selbst schon an
+      der ersten Zeile scheitern würde – sonst könnte sie genau den Fall nicht
+      melden, für den es sie gibt.
+
+      Aufrufen:  https://deine-domain.tld/mogli/pruefung.html
+      Dann den ganzen Text abfotografieren.
+    -->
+    <style>
+      body {
+        margin: 0;
+        padding: 14px;
+        background: #0d1a16;
+        color: #dbe8cf;
+        font:
+          15px/1.5 ui-monospace,
+          Menlo,
+          Consolas,
+          monospace;
+        -webkit-text-size-adjust: 100%;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 19px;
+        color: #3fe3a8;
+      }
+      h2 {
+        margin: 22px 0 6px;
+        font-size: 15px;
+        color: #8fa383;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      p {
+        margin: 0 0 10px;
+      }
+      .row {
+        margin: 0 0 3px;
+        overflow-wrap: anywhere;
+      }
+      .ok::before {
+        content: 'OK   ';
+        color: #3fe3a8;
+      }
+      .bad::before {
+        content: 'FEHLER ';
+        color: #ff6a4d;
+      }
+      .warn::before {
+        content: 'ACHTUNG ';
+        color: #f5c53a;
+      }
+      .bad {
+        color: #ffb9a8;
+      }
+      .warn {
+        color: #f7dfa0;
+      }
+      #urteil {
+        margin: 12px 0 0;
+        padding: 12px;
+        border: 2px solid #1d3a2c;
+        border-radius: 10px;
+        background: #14261f;
+      }
+      #urteil.schlecht {
+        border-color: #d9330f;
+        background: #2a0b06;
+      }
+      #urteil p {
+        margin: 0 0 8px;
+      }
+      #urteil p:last-child {
+        margin: 0;
+      }
+      .gross {
+        font-size: 17px;
+        font-weight: 700;
+      }
+      #kopieren {
+        display: block;
+        width: 100%;
+        margin: 12px 0 0;
+        padding: 14px;
+        border: 1px solid #3fe3a8;
+        border-radius: 10px;
+        background: #14261f;
+        color: #3fe3a8;
+        font: inherit;
+        font-size: 16px;
+      }
+      #kopieren[hidden] {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Mogli – Prüfung</h1>
+    <p style="color: #8fa383; margin-bottom: 0">
+      Alles abfotografieren und schicken. Diese Datei danach wieder löschen.
+    </p>
+    <div id="urteil"><p>Läuft …</p></div>
+    <button type="button" id="kopieren" hidden>Ganzen Bericht kopieren</button>
+    <div id="raus"></div>
+
+    <script>
+      /* eslint-disable */
+      var raus = document.getElementById('raus');
+      var urteil = document.getElementById('urteil');
+      var probleme = [];
+      var basis = location.href.replace(/pruefung\.html.*$/, '');
+
+      function zeile(art, text) {
+        var p = document.createElement('p');
+        p.className = 'row ' + art;
+        p.textContent = text;
+        raus.appendChild(p);
+        if (art === 'bad' || art === 'warn') probleme.push(text);
+      }
+      function titel(text) {
+        var h = document.createElement('h2');
+        h.textContent = text;
+        raus.appendChild(h);
+      }
+
+      /** Ein GET, ohne Zwischenspeicher. Ruft fertig(status, typ, text, kopf) auf. */
+      function hol(pfad, fertig) {
+        var x = new XMLHttpRequest();
+        var url = basis + pfad + (pfad.indexOf('?') < 0 ? '?' : '&') + 'p=' + new Date().getTime();
+        try {
+          x.open('GET', url, true);
+        } catch (e) {
+          fertig(0, '', '', '');
+          return;
+        }
+        x.onreadystatechange = function () {
+          if (x.readyState !== 4) return;
+          var typ = '';
+          var kopf = '';
+          try {
+            typ = x.getResponseHeader('Content-Type') || '';
+            kopf = x.getAllResponseHeaders() || '';
+          } catch (e) {}
+          fertig(x.status, typ, x.responseText || '', kopf);
+        };
+        x.onerror = function () {
+          fertig(0, '', '', '');
+        };
+        try {
+          x.send(null);
+        } catch (e) {
+          fertig(0, '', '', '');
+        }
+      }
+
+      // Nur diese Typen führt ein Browser als Modul aus. Alles andere wird
+      // stillschweigend verweigert – ohne Fehlermeldung, ohne leere Seite.
+      var JS_OK =
+        /^(text\/javascript|application\/javascript|application\/x-javascript|text\/ecmascript|application\/ecmascript)\b/i;
+
+      // -----------------------------------------------------------------
+      // 1. Gerät
+      // -----------------------------------------------------------------
+      titel('Gerät');
+      zeile('', navigator.userAgent);
+      zeile(
+        '',
+        'Bildschirm ' +
+          screen.width +
+          '×' +
+          screen.height +
+          ', Fenster ' +
+          window.innerWidth +
+          '×' +
+          window.innerHeight +
+          ', Faktor ' +
+          (window.devicePixelRatio || 1),
+      );
+      zeile('', 'Adresse: ' + basis);
+
+      // Kann dieser Browser überhaupt ES-Module?
+      var kannModule = 'noModule' in document.createElement('script');
+      zeile(
+        kannModule ? 'ok' : 'bad',
+        kannModule
+          ? 'Browser kann ES-Module'
+          : 'Browser kann KEINE ES-Module – zu alt für das Spiel',
+      );
+
+      // Speicher (Safari im privaten Modus wirft hier)
+      var speicher = 'nein';
+      try {
+        localStorage.setItem('__p', '1');
+        localStorage.removeItem('__p');
+        speicher = 'ja';
+      } catch (e) {
+        speicher = 'nein (' + e.name + ')';
+      }
+      zeile('', 'Speicher nutzbar: ' + speicher);
+
+      // -----------------------------------------------------------------
+      // 2. index.html
+      // -----------------------------------------------------------------
+      hol('index.html', function (status, typ, text, kopf) {
+        titel('index.html');
+        if (status !== 200) {
+          zeile('bad', 'index.html antwortet mit ' + (status || 'keine Antwort'));
+          weiter([]);
+          return;
+        }
+        zeile(
+          'ok',
+          'index.html: ' + status + ', ' + text.length + ' Zeichen, Typ ' + (typ || '(keiner)'),
+        );
+
+        var server = kopf.match(/^server:\s*(.*)$/im);
+        if (server) zeile('', 'Server: ' + server[1]);
+        if (/cf-ray|cloudflare/i.test(kopf)) {
+          zeile(
+            'warn',
+            'Cloudflare davor. Rocket Loader dort ausschalten – er zerlegt Modul-Skripte.',
+          );
+        }
+
+        // Welche Fassung liegt wirklich auf dem Server?
+        var v = text.match(/src\/main\.js\?v=([0-9.]+)/);
+        if (v) zeile('ok', 'Fassung auf dem Server: ' + v[1]);
+        else
+          zeile(
+            'bad',
+            'index.html ist ÄLTER als 2.0.1 (kein ?v= an der Modul-Adresse). Es liegt nicht die neue Datei dort.',
+          );
+
+        if (text.indexOf('id="crash"') < 0)
+          zeile(
+            'bad',
+            'Der Meldungsstreifen fehlt in index.html – das ist nicht die Fassung 2.0.1.',
+          );
+
+        // Fremde Skripte: manche Webspaces hängen Werbung oder Statistik an.
+        var skripte = text.match(/<script[^>]*>/gi) || [];
+        zeile('', 'Skript-Tags in index.html: ' + skripte.length);
+        var fremd = 0;
+        for (var i = 0; i < skripte.length; i += 1) {
+          var s = skripte[i];
+          var src = s.match(/src\s*=\s*["']([^"']+)["']/i);
+          if (src && src[1].indexOf('src/main.js') < 0) {
+            zeile('warn', 'Fremdes Skript eingefügt: ' + src[1]);
+            fremd += 1;
+          }
+        }
+        if (fremd === 0) zeile('ok', 'Keine fremden Skripte eingefügt');
+
+        // Der Modulbaum: aus main.js heraus alles verfolgen, was importiert wird.
+        pruefeModule();
+      });
+
+      // -----------------------------------------------------------------
+      // 3. Jede JS-Datei einzeln: erreichbar? richtiger Typ?
+      // -----------------------------------------------------------------
+      function pruefeModule() {
+        titel('Die JavaScript-Dateien');
+        var offen = ['src/main.js'];
+        var gesehen = { 'src/main.js': true };
+        var geprueft = 0;
+        var schlecht = 0;
+
+        function normiere(von, ziel) {
+          var teile = von.split('/');
+          teile.pop();
+          var stueck = ziel.split('/');
+          for (var i = 0; i < stueck.length; i += 1) {
+            if (stueck[i] === '.' || stueck[i] === '') continue;
+            if (stueck[i] === '..') teile.pop();
+            else teile.push(stueck[i]);
+          }
+          return teile.join('/');
+        }
+
+        function naechste() {
+          if (offen.length === 0) {
+            zeile(
+              schlecht === 0 ? 'ok' : 'bad',
+              geprueft + ' Dateien geprüft, ' + schlecht + ' davon nicht in Ordnung',
+            );
+            pruefePhp();
+            return;
+          }
+          var pfad = offen.shift();
+          hol(pfad, function (status, typ, text) {
+            geprueft += 1;
+            if (status !== 200) {
+              zeile('bad', pfad + ' → ' + (status || 'keine Antwort'));
+              schlecht += 1;
+            } else if (!JS_OK.test(typ)) {
+              zeile(
+                'bad',
+                pfad +
+                  ' → Typ "' +
+                  (typ || '(keiner)') +
+                  '". Der Browser führt das NICHT aus. In der .htaccess: AddType text/javascript .js',
+              );
+              schlecht += 1;
+            } else if (text.length < 40) {
+              zeile('bad', pfad + ' → nur ' + text.length + ' Zeichen, unvollständig hochgeladen');
+              schlecht += 1;
+            } else if (/^\s*<(!doctype|html)/i.test(text)) {
+              zeile('bad', pfad + ' → der Server liefert eine HTML-Seite statt der Datei');
+              schlecht += 1;
+            } else {
+              // Weiterverfolgen, was diese Datei importiert.
+              var r = /from\s+['"](\.[^'"]+)['"]/g;
+              var m;
+              while ((m = r.exec(text)) !== null) {
+                var ziel = normiere(pfad, m[1]);
+                if (!gesehen[ziel]) {
+                  gesehen[ziel] = true;
+                  offen.push(ziel);
+                }
+              }
+            }
+            naechste();
+          });
+        }
+        naechste();
+      }
+
+      // -----------------------------------------------------------------
+      // 4. PHP – und die wichtigere Frage: wird der Quelltext ausgeliefert?
+      // -----------------------------------------------------------------
+      function pruefePhp() {
+        titel('PHP');
+        hol('score.php?top=1', function (status, typ, text) {
+          if (status === 200 && text.indexOf('<?php') >= 0) {
+            zeile(
+              'bad',
+              'score.php wird als Text ausgeliefert statt ausgeführt – auf diesem Server läuft kein PHP. Wenn admin.php ebenso offenliegt, steht dein Zugangscode für alle lesbar im Netz.',
+            );
+          } else if (status === 200) {
+            zeile('ok', 'score.php läuft (weltweite Bestenliste aktiv)');
+          } else {
+            zeile(
+              'warn',
+              'score.php antwortet mit ' +
+                (status || 'nichts') +
+                ' – Bestenliste bleibt auf diesem Gerät. Für das Spiel selbst kein Problem.',
+            );
+          }
+          hol('admin.php', function (s2, t2, x2) {
+            if (s2 === 200 && x2.indexOf('<?php') >= 0)
+              zeile(
+                'bad',
+                'admin.php liegt als lesbarer Quelltext im Netz – bitte sofort löschen.',
+              );
+            versuchImport();
+          });
+        });
+      }
+
+      // -----------------------------------------------------------------
+      // 5. Der eigentliche Beweis: lässt sich ein Modul wirklich ausführen?
+      // -----------------------------------------------------------------
+      function versuchImport() {
+        titel('Modul wirklich ausführen');
+        if (!kannModule) {
+          zeile('bad', 'Übersprungen – dieser Browser kann keine Module.');
+          fertig();
+          return;
+        }
+        // Eine Datei ohne Nebenwirkungen: sie zieht den halben Spielcode mit,
+        // startet aber nichts. Scheitert sie, steht der Grund gleich hier.
+        var s = document.createElement('script');
+        s.type = 'module';
+        s.textContent =
+          "import('" +
+          basis +
+          "src/game/constants.js').then(function (m) {" +
+          "  window.__ergebnis = 'ok ' + Object.keys(m).length + ' Werte geladen';" +
+          '}).catch(function (e) {' +
+          "  window.__ergebnis = 'FEHLER ' + (e && e.message ? e.message : e);" +
+          '});';
+        document.body.appendChild(s);
+        var runden = 0;
+        var uhr = setInterval(function () {
+          runden += 1;
+          if (window.__ergebnis) {
+            clearInterval(uhr);
+            if (window.__ergebnis.indexOf('ok') === 0)
+              zeile('ok', 'Spielcode ausführbar: ' + window.__ergebnis);
+            else zeile('bad', 'Spielcode nicht ausführbar: ' + window.__ergebnis);
+            fertig();
+          } else if (runden > 60) {
+            clearInterval(uhr);
+            zeile('bad', 'Spielcode nicht ausführbar: keine Antwort nach 6 Sekunden.');
+            fertig();
+          }
+        }, 100);
+      }
+
+      function weiter() {
+        fertig();
+      }
+
+      function bericht() {
+        var teile = [];
+        var alle = document.querySelectorAll('#raus h2, #raus p');
+        for (var i = 0; i < alle.length; i += 1) {
+          var e = alle[i];
+          var vor = '';
+          if (e.tagName === 'H2') vor = '\n## ';
+          else if (e.className.indexOf('bad') >= 0) vor = 'FEHLER  ';
+          else if (e.className.indexOf('warn') >= 0) vor = 'ACHTUNG ';
+          else if (e.className.indexOf('ok') >= 0) vor = 'OK      ';
+          else vor = '        ';
+          teile.push(vor + e.textContent);
+        }
+        return 'Mogli-Pruefung ' + new Date().toISOString() + '\n' + teile.join('\n');
+      }
+
+      function fertig() {
+        var knopf = document.getElementById('kopieren');
+        knopf.hidden = false;
+        knopf.onclick = function () {
+          var text = bericht();
+          // navigator.clipboard gibt es erst ab iOS 13.4 – deshalb der alte Weg
+          // als Rückfall. Genau diese Seite muss auch auf altem Zeug laufen.
+          var fertigMelden = function () {
+            knopf.textContent = 'Kopiert – jetzt einfügen und schicken';
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(fertigMelden, altKopieren);
+          } else {
+            altKopieren();
+          }
+          function altKopieren() {
+            var f = document.createElement('textarea');
+            f.value = text;
+            f.style.position = 'fixed';
+            f.style.top = '0';
+            f.style.opacity = '0';
+            document.body.appendChild(f);
+            f.focus();
+            f.setSelectionRange(0, text.length);
+            try {
+              document.execCommand('copy');
+              fertigMelden();
+            } catch (e) {
+              knopf.textContent = 'Kopieren ging nicht – bitte abfotografieren';
+            }
+            document.body.removeChild(f);
+          }
+        };
+        urteil.innerHTML = '';
+        var p = document.createElement('p');
+        p.className = 'gross';
+        if (probleme.length === 0) {
+          p.textContent = 'Kein Fehler gefunden.';
+          urteil.appendChild(p);
+          var q = document.createElement('p');
+          q.textContent =
+            'Server und Dateien sind in Ordnung. Dann liegt es am Browser: index.html einmal hart neu laden (Einstellungen › Safari › Verlauf und Websitedaten löschen), oder das Spiel einmal in einem privaten Tab öffnen. Bleibt es dabei, bitte den roten Streifen auf der Spielseite abfotografieren.';
+          urteil.appendChild(q);
+        } else {
+          urteil.className = 'schlecht';
+          p.textContent = probleme.length + ' Sache(n) gefunden:';
+          urteil.appendChild(p);
+          for (var i = 0; i < probleme.length; i += 1) {
+            var z = document.createElement('p');
+            z.textContent = '• ' + probleme[i];
+            urteil.appendChild(z);
+          }
+        }
+      }
+    </script>
+  </body>
+</html>

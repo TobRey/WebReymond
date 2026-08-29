@@ -1,4 +1,4 @@
-Mogli - Tempelflucht 2.0.1
+Mogli - Tempelflucht 2.0.2
 ==========================
 
 Ein Jump'n'Run fuer den Browser. Ein Knopf, immer nach oben.
@@ -138,6 +138,28 @@ NEUE FASSUNG HOCHGELADEN UND ES SIEHT AUS WIE VORHER?
   dein Hoster keine eigenen .htaccess-Regeln. Dann diese eine Datei loeschen -
   das Spiel laeuft auch ohne sie.
 
+  GEHT ES IMMER NOCH NICHT? DIE PRUEFSEITE FRAGEN
+
+  Im Paket liegt pruefung.html. Sie gehoert nicht zum Spiel und macht nur eines:
+  sie prueft deinen Server von deinem Geraet aus durch und sagt im Klartext, was
+  nicht stimmt.
+
+      https://deine-domain.tld/mogli/pruefung.html
+
+  Sie findet unter anderem: eine veraltete index.html auf dem Server, fehlende
+  oder halb hochgeladene Dateien, einen falschen Datei-Typ fuer .js (dann fuehrt
+  kein Browser das Spiel aus, ohne das zu sagen), fremde Skripte, die dein
+  Hoster einhaengt, und ob PHP laeuft.
+
+  Unten ist ein Knopf "Ganzen Bericht kopieren". Den Text einfach einfuegen und
+  schicken - das sagt mehr als jede Beschreibung.
+
+  Wenn schon pruefung.html nicht laedt (Internal Server Error): dann ist die
+  .htaccess schuld, siehe oben. Loeschen, nochmal versuchen.
+
+  Die Pruefseite danach wieder loeschen. Sie verraet nichts Geheimes, aber sie
+  gehoert nicht auf eine Seite, die andere benutzen.
+
   Geht es trotzdem nicht, erscheint jetzt oben ein roter Streifen mit der
   Fehlermeldung. Diesen Text abfotografieren - darin steht, welche Datei fehlt
   oder wo es klemmt.
@@ -145,6 +167,7 @@ NEUE FASSUNG HOCHGELADEN UND ES SIEHT AUS WIE VORHER?
 DATEIEN
 
   index.html        die Seite
+  pruefung.html     prueft den Server, wenn etwas nicht laeuft; danach loeschen
   style.css         Gestaltung
   .htaccess         Servereinstellungen fuer Apache (verhindert alte
                     Zwischenspeicher-Staende); ohne sie laeuft es auch
@@ -266,6 +289,28 @@ UPLOADED A NEW VERSION AND IT LOOKS THE SAME?
   Server showing "Internal Server Error" after the upload? Then your host does
   not allow custom .htaccess rules. Just delete that one file - the game runs
   without it.
+
+  STILL NOT WORKING? ASK THE CHECK PAGE
+
+  The package contains pruefung.html. It is not part of the game and does one
+  thing only: it checks your server from your own device and says in plain words
+  what is wrong.
+
+      https://your-domain.tld/mogli/pruefung.html
+
+  It finds, among others: an outdated index.html on the server, missing or
+  half-uploaded files, a wrong file type for .js (no browser executes the game
+  then, and none of them says so), foreign scripts injected by your host, and
+  whether PHP runs.
+
+  There is a "Ganzen Bericht kopieren" button at the top - paste that text and
+  send it. It says more than any description.
+
+  If pruefung.html itself does not load (Internal Server Error), the .htaccess is
+  to blame, see above. Delete it and try again.
+
+  Delete the check page afterwards. It gives away nothing secret, but it does not
+  belong on a page other people use.
 
   If it still fails, a red bar now appears at the top with the error message.
   Photograph that text - it says which file is missing or where it breaks.

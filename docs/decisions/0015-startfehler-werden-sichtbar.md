@@ -59,6 +59,14 @@ Vier Dinge, in dieser Reihenfolge nach Wichtigkeit:
    kein Browser ein ES-Modul aus, ohne das zu sagen), und die Versionsnummer an der
    Modul-Adresse: `src/main.js?v=2.0.1`. Ein Test hält diese Zahl mit `version.js` zusammen.
 
+5. **Eine Prüfseite, `pruefung.html`.** Nachgereicht, weil Punkt 1 bis 4 den Fehler nicht
+   behoben haben und ich die betroffene Seite von hier aus nicht erreichen kann. Sie prüft den
+   Server vom Gerät des Nutzers aus: Fassung der ausgelieferten `index.html`, jede JS-Datei
+   einzeln auf Erreichbarkeit, Vollständigkeit und MIME-Typ (dem Modulbaum aus `main.js`
+   folgend, ohne fest eingetragene Dateiliste), eingehängte Fremdskripte, PHP, und zum Schluss
+   ein echter `import()`. Sie ist bewusst in altem JavaScript geschrieben und lädt nichts nach –
+   sonst könnte sie genau den Fall nicht melden, für den es sie gibt. Ein Test hält das fest.
+
 ## Begründung
 
 Punkt 2 bis 4 beheben drei benennbare Ursachen. Punkt 1 ist trotzdem der wichtigste, weil er
@@ -66,6 +74,11 @@ als einziger auch die vierte behebt, die niemand kennt: er macht aus „es passi
 Meldung, die man abfotografieren und schicken kann.
 
 Der Streifen kostet nichts, solange alles läuft – ein verstecktes `div` und zwei Zuhörer.
+
+Punkt 5 kam dazu, als sich zeigte, dass der Streifen allein nicht reicht: er meldet nur, was im
+Browser passiert. Liegt der Fehler beim Server – falscher MIME-Typ, halb hochgeladene Datei,
+eine alte `index.html` –, dann sieht der Browser gar keinen Fehler, sondern nur nichts. Die
+Prüfseite fragt deshalb den Server selbst.
 
 ## Alternativen
 
