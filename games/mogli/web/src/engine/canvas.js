@@ -11,7 +11,7 @@
 // CSS-Grösse darf dabei ruhig gebrochen sein; der Browser bildet sie 1:1 auf
 // Gerätepixel ab.
 
-import { VIEW_H, VIEW_W, setViewHeight } from '../game/constants.js';
+import { TILE, VIEW_H, VIEW_H_MIN, VIEW_W, setViewHeight } from '../game/constants.js';
 
 /** Der Puffer, in den das Spiel zeichnet: VIEW_W × VIEW_H. */
 export function createBuffer() {
@@ -33,16 +33,41 @@ export function resizeBuffer(buffer) {
 }
 
 /**
- * Wählt die Bildhöhe, die zum Seitenverhältnis der Fläche passt, und meldet,
- * ob sie sich geändert hat. Nur dann müssen Puffer und Hintergrundebenen neu
- * gebaut werden.
+ * Wählt die Bildhöhe und meldet, ob sie sich geändert hat. Nur dann müssen
+ * Puffer und Hintergrundebenen neu gebaut werden.
+ *
+ * Nicht einfach das Seitenverhältnis übernehmen: entscheidend ist der
+ * GANZZAHLIGE Vergrösserungsfaktor. Ein Bild im exakten Verhältnis des
+ * Bildschirms nützt nichts, wenn danach 4.57 auf 4 abgeschnitten wird und
+ * unten ein Balken bleibt. Deshalb wird der Faktor zuerst bestimmt und die
+ * Höhe dann so gewählt, dass Höhe × Faktor die Fläche möglichst genau ausfüllt.
+ *
+ * Abgerundet wird auf ganze Kacheln, nie aufgerundet – eine Kachel zu viel,
+ * und der Faktor fiele um eins, was schlagartig ein Viertel des Bildes kostet.
  */
 export function chooseViewHeight(area) {
   const box = area.getBoundingClientRect();
   if (box.width <= 0 || box.height <= 0) return { height: VIEW_H, changed: false };
+
+  const dpr = window.devicePixelRatio || 1;
+  const deviceW = box.width * dpr;
+  const deviceH = box.height * dpr;
+
+  // Von dem Faktor, den die Breite hergibt, nach unten gehen, bis auch eine
+  // erlaubte Höhe hineinpasst. Im Querformat ist das nötig: dort gäbe die
+  // Breite einen Faktor her, für den das Bild gar nicht hoch genug sein darf.
+  let height = VIEW_H_MIN;
+  for (let scale = Math.max(1, Math.floor(deviceW / VIEW_W)); scale >= 1; scale -= 1) {
+    const fits = Math.floor(deviceH / scale / TILE) * TILE;
+    if (fits >= VIEW_H_MIN || scale === 1) {
+      height = fits;
+      break;
+    }
+  }
+
   const before = VIEW_H;
-  const height = setViewHeight((VIEW_W * box.height) / box.width);
-  return { height, changed: height !== before };
+  const chosen = setViewHeight(height);
+  return { height: chosen, changed: chosen !== before };
 }
 
 /**

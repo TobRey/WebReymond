@@ -18,7 +18,7 @@ import { createWorld, emptyInput } from '../web/src/game/world.js';
 import { botInput, createBot } from '../web/src/game/bot.js';
 
 const SEEDS = [104729, 611953, 1299709, 15485863];
-const HEIGHTS = [VIEW_H_MIN, 320, 416, VIEW_H_MAX];
+const HEIGHTS = [VIEW_H_MIN, 432, 528, VIEW_H_MAX];
 
 /** Spielt einen Lauf mit dem Automaten und meldet, wie er ausgegangen ist. */
 function run(seed) {
@@ -54,9 +54,9 @@ test('derselbe Lauf endet bei jeder Bildhöhe gleich', () => {
 test('setViewHeight rundet auf ganze Kacheln und bleibt in den Grenzen', () => {
   assert.equal(setViewHeight(10), VIEW_H_MIN);
   assert.equal(setViewHeight(9999), VIEW_H_MAX);
-  assert.equal(setViewHeight(300), 304); // 18.75 Kacheln -> 19
-  assert.equal(setViewHeight(311), 304); // 19.4 Kacheln -> 19
-  assert.equal(setViewHeight(313), 320); // 19.6 Kacheln -> 20
+  assert.equal(setViewHeight(400), 400); // 25 Kacheln, geht glatt auf
+  assert.equal(setViewHeight(407), 400); // 25.4 Kacheln -> 25
+  assert.equal(setViewHeight(409), 416); // 25.6 Kacheln -> 26
   for (let wanted = VIEW_H_MIN - 40; wanted <= VIEW_H_MAX + 40; wanted += 7) {
     const height = setViewHeight(wanted);
     assert.equal(height % 16, 0, `${height} ist kein Vielfaches der Kachelgrösse`);

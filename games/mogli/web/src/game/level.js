@@ -33,7 +33,7 @@ import { createRng } from './rng.js';
 const CHUNK_TILES = GRID_W * CHUNK_ROWS;
 
 /** Breite des Startabsatzes in Kacheln. */
-const START_WIDTH = 5;
+const START_WIDTH = 6;
 
 function clamp(value, min, max) {
   return value < min ? min : value > max ? max : value;

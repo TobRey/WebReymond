@@ -58,6 +58,17 @@ export function createPlayer(startX, startY) {
     landTimer: 0,
     /** Zählt Wandsprünge – nur für die Anzeige und die Tests. */
     wallJumps: 0,
+    /**
+     * Je Flugphase gibt es genau einen Wandsprung. Zurückgesetzt wird das beim
+     * Landen und beim Rankenzug – eine Ranke reisst Mogli hoch, das ist eine
+     * neue Flugphase.
+     *
+     * Der Grund: ohne diese Grenze kann man sich zwischen zwei gegenüber
+     * liegenden Wänden beliebig weit hochhangeln, ohne je einen Absatz zu
+     * treffen. Damit wäre der Turm – die Form, um die sich das ganze Spiel
+     * dreht – nur noch Kulisse.
+     */
+    wallJumpUsed: false,
   };
 }
 
@@ -137,7 +148,7 @@ export function updatePlayer(player, input, level, events) {
       player.onGround = false;
       setAnim(player, 'jump');
       events.push('jump');
-    } else if (player.wallCoyote > 0) {
+    } else if (player.wallCoyote > 0 && !player.wallJumpUsed) {
       const away = -player.wallCoyoteSide;
       body.vy = PHYS.wallJumpVy;
       body.vx = away * PHYS.wallJumpVx;
@@ -148,6 +159,7 @@ export function updatePlayer(player, input, level, events) {
       player.jumpBuffer = 0;
       player.sliding = false;
       player.wallJumps += 1;
+      player.wallJumpUsed = true;
       setAnim(player, 'jump');
       events.push('wallJump');
     }
@@ -183,6 +195,9 @@ export function updatePlayer(player, input, level, events) {
 
   if (hit.onGround) {
     player.coyote = PHYS.coyoteTicks;
+    // Boden unter den Füssen: die Flugphase ist vorbei, der Wandsprung ist
+    // wieder da.
+    player.wallJumpUsed = false;
     if (!wasOnGround) {
       player.landTimer = 8;
       events.push('land');
@@ -221,6 +236,9 @@ export function updatePlayer(player, input, level, events) {
       player.vine = PHYS.vineTicks;
       player.vinesUsed += 1;
       player.sliding = false;
+      // Die Ranke reisst ihn hoch: das ist eine neue Flugphase, also gibt es
+      // oben wieder einen Wandsprung.
+      player.wallJumpUsed = false;
       setAnim(player, 'vine');
       events.push('vine');
     }

@@ -14,8 +14,8 @@ export const TILE = 16;
 /**
  * Interne Auflösung: Hochformat, weil das Spiel nach oben geht.
  *
- * Die Breite liegt fest – der Schacht ist zwölf Kacheln breit, daran hängt die
- * gesamte Levelgeometrie. Die HÖHE dagegen richtet sich nach dem Gerät.
+ * Die Breite liegt fest – der Schacht ist sechzehn Kacheln breit, daran hängt
+ * die gesamte Levelgeometrie. Die HÖHE dagegen richtet sich nach dem Gerät.
  *
  * Grund: Handys sind sehr viel höher als breit (ein iPhone hat 0.46), ein
  * festes 3:4-Bild liesse dort oben und unten je ein Drittel schwarz. Beim
@@ -23,9 +23,9 @@ export const TILE = 16;
  * Vielfaches der Kachelgrösse gerundet. Mehr Höhe zeigt nur mehr Schacht über
  * Mogli – das Spiel wird davon nicht leichter, denn die Gefahr kommt von unten.
  */
-export const VIEW_W = 192; // 12 Kacheln, unveränderlich
-export const VIEW_H_MIN = 256; // 16 Kacheln
-export const VIEW_H_MAX = 448; // 28 Kacheln
+export const VIEW_W = 256; // 16 Kacheln, unveränderlich
+export const VIEW_H_MIN = 336; // 21 Kacheln
+export const VIEW_H_MAX = 640; // 40 Kacheln
 export let VIEW_H = VIEW_H_MIN;
 
 /**
@@ -40,7 +40,7 @@ export function setViewHeight(wanted) {
 }
 
 /** Breite der Spielwelt in Kacheln. Die Kamera bewegt sich nur vertikal. */
-export const GRID_W = 12;
+export const GRID_W = 16;
 
 /**
  * Kantenlänge eines Figurenbildes. Grösser als eine Kachel – Haare, Arme und
@@ -95,26 +95,36 @@ export const PHYS = {
   // So hängt alles am Zeitpunkt und nichts an der Haltedauer.
   //
   // Die Höhe ist nicht frei gewählt, sondern aus der Form des Turms
-  // hergeleitet. Der nächste Absatz liegt 48 px höher, und Mogli muss über
-  // dessen Unterkante sein, BEVOR er sie waagerecht erreicht – sonst stösst er
-  // sich den Kopf. Mit diesen Werten steht er nach 8 Ticks über der Kante und
-  // bleibt bis Tick 28 oben; in diesen 20 Ticks legt er bei Lauftempo rund
-  // 64 px zurück, also genau die grösste vorkommende Lücke.
-  jumpVel: -7.6, // gemessener Scheitel 69 px = 4.3 Kacheln
+  // hergeleitet. Der nächste Absatz liegt 64 px höher (4 Kacheln), und Mogli
+  // muss über dessen Unterkante sein, BEVOR er sie waagerecht erreicht – sonst
+  // stösst er sich den Kopf.
+  //
+  // Diese Werte sind NICHT gerechnet, sondern gesucht: /tmp-Suchlauf hat mit
+  // der echten Physik jede vorkommende Kombination aus Absatzbreiten und Lücke
+  // durchgespielt. jumpVel −8.2 bei Lauftempo 4.0 und Lücken von 5–6 Kacheln
+  // ist der Satz, der alle 22 Fälle schafft und dabei den kürzesten Takt hat:
+  // 42 Ticks je Absatz. Heute waren es 39 Ticks – aber für nur 3 Kacheln
+  // Höhengewinn statt 4. Unterm Strich klettert Mogli also 24 % schneller.
+  //
+  // Der Beweis liegt nicht hier, sondern in test/level.test.mjs: er spielt
+  // dieselben Fälle bei jedem Testlauf erneut durch.
+  jumpVel: -8.2,
   maxAirJumps: 0,
 
   // --- Laufen --------------------------------------------------------------
   // Mogli läuft von allein. Es gibt keine Richtungstaste; die Richtung dreht
   // sich am Wandsprung und wenn er am Boden gegen eine Wand läuft.
-  runMax: 3.2, // 192 px/s – das Spiel soll treiben
+  runMax: 4.0, // 240 px/s – das Spiel soll treiben
   groundAccel: 0.9, // schnell auf Tempo
   airAccel: 0.55,
-  maxVx: 4.6, // Klemme, damit Wandsprungketten nicht eskalieren
+  maxVx: 5.4, // Klemme, damit Wandsprungketten nicht eskalieren
 
   // --- Wand ----------------------------------------------------------------
+  // Mit dem grösseren Absatzabstand muss auch der Abstoss weiter tragen; die
+  // Werte sind im selben Verhältnis wie Sprung und Lauftempo mitgewachsen.
   wallSlideMaxFall: 2.2, // 132 px/s statt 504
-  wallJumpVx: 3.2,
-  wallJumpVy: -6.8,
+  wallJumpVx: 3.8,
+  wallJumpVy: -7.4,
   wallJumpLockout: 8, // Ticks, in denen der Abstoss die Laufrichtung dominiert
 
   // --- Nachsicht -----------------------------------------------------------
@@ -149,7 +159,7 @@ export const GEN = {
    * linken und an der rechten Wand. Mogli läuft von allein zum offenen Ende,
    * springt hinüber, läuft drüben in die Wand, dreht und springt zurück.
    */
-  minDy: 3,
+  minDy: 4,
 
   /**
    * Die waagerechte Lücke zwischen zwei Absätzen, in Kacheln – die einzige
@@ -157,21 +167,20 @@ export const GEN = {
    *
    * Nach unten begrenzt, weil Mogli sonst unter die Unterkante des Zielabsatzes
    * gerät, bevor er hoch genug ist, und sich den Kopf stösst. Nach oben
-   * begrenzt durch die Flugzeit: in den 20 Ticks über der Kante schafft er bei
-   * Lauftempo rund 64 px, also vier Kacheln.
+   * begrenzt durch die Flugzeit.
    */
-  minGapX: 3,
-  maxGapX: 4,
+  minGapX: 5,
+  maxGapX: 6,
   /** Ab dieser Schwierigkeit kommt auch die grosse Lücke vor. */
   wideGapFrom: 0.4,
 
   /**
    * Die Breite eines Absatzes ist KEINE freie Zahl: sie ergibt sich aus
-   * 10 − Lücke − Breite des vorigen Absatzes. Die beiden Werte hier sind nur
-   * die Klemmen, falls diese Rechnung aus dem Rahmen läuft.
+   * (GRID_W − 2) − Lücke − Breite des vorigen Absatzes. Die beiden Werte hier
+   * sind nur die Klemmen, falls diese Rechnung aus dem Rahmen läuft.
    */
   minLedgeW: 2,
-  maxLedgeW: 5,
+  maxLedgeW: 8,
 
   /** Höhe, ab der die Schwierigkeit ihr Maximum erreicht hat, in Pixeln. */
   fullDifficultyPx: 6000,

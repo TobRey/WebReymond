@@ -179,7 +179,7 @@ test('jede vorkommende Lücke ist mit der echten Physik überspringbar', () => {
         events,
       );
       if (jumped && player.onGround && player.body.y < -TILE * 2) return true;
-      if (player.body.y > 260) return false;
+      if (player.body.y > 300) return false;
     }
     return false;
   };

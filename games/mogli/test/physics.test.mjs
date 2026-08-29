@@ -166,6 +166,76 @@ test('der Wandsprung dreht die Laufrichtung um', () => {
   assert.equal(player.wallJumps, 1);
 });
 
+// Zwei gegenüber liegende Wände ohne Boden dazwischen: der Aufbau, mit dem man
+// sich früher beliebig weit hochhangeln konnte.
+const shaft = {
+  tileAt: (col) => (col <= 5 || col >= 9 ? T.WALL : T.EMPTY),
+  setTile() {},
+  touchCrumble() {},
+};
+
+test('es gibt nur einen Wandsprung je Flugphase', () => {
+  // Dauerfeuer auf den Knopf, mitten im Schacht, ohne je den Boden zu berühren.
+  const player = createPlayer(100, -400);
+  const events = [];
+  for (let tick = 0; tick < 240; tick += 1) {
+    updatePlayer(player, input({ jump: true, jumpPressed: true }), shaft, events);
+  }
+  assert.equal(
+    player.wallJumps,
+    1,
+    `${player.wallJumps} Wandsprünge ohne Bodenberührung – es darf genau einer sein`,
+  );
+  assert.ok(player.wallJumpUsed, 'der Wandsprung muss als verbraucht gelten');
+});
+
+/**
+ * Bringt einen Spieler im Schacht so weit, dass sein Wandsprung verbraucht ist.
+ * Danach steht er ohne Boden unter sich in der Luft.
+ */
+function spentWallJump() {
+  const player = createPlayer(100, -400);
+  const events = [];
+  for (let tick = 0; tick < 240; tick += 1) {
+    updatePlayer(player, input({ jump: true, jumpPressed: true }), shaft, events);
+  }
+  assert.equal(player.wallJumps, 1, 'Vorbedingung: genau ein Wandsprung ist gefallen');
+  assert.ok(player.wallJumpUsed, 'Vorbedingung: er ist verbraucht');
+  return { player, events };
+}
+
+test('Landen gibt den Wandsprung zurück', () => {
+  const { player, events } = spentWallJump();
+  // Einen festen Boden dicht unter seine Füsse legen. Die Zeile wird EINMAL
+  // bestimmt – hinge sie an der laufenden Position, fiele der Boden mit.
+  const floorRow = Math.floor((player.body.y + player.body.h) / TILE) + 2;
+  const ground = {
+    tileAt: (col, row) => (row >= floorRow ? T.STONE : T.EMPTY),
+    setTile() {},
+    touchCrumble() {},
+  };
+  for (let tick = 0; tick < 40 && !player.onGround; tick += 1) {
+    updatePlayer(player, input(), ground, events);
+  }
+  assert.ok(player.onGround, 'er muss gelandet sein');
+  assert.equal(player.wallJumpUsed, false, 'nach der Landung ist der Wandsprung wieder frei');
+});
+
+test('die Ranke gibt den Wandsprung zurück', () => {
+  const { player, events } = spentWallJump();
+  // Eine Ranke genau dort, wo er gerade ist.
+  const row = Math.floor(player.body.y / TILE);
+  const col = Math.floor(player.body.x / TILE);
+  const withVine = {
+    tileAt: (c, r) => (c === col && r === row ? T.VINE : T.EMPTY),
+    setTile() {},
+    touchCrumble() {},
+  };
+  updatePlayer(player, input(), withVine, events);
+  assert.ok(events.includes('vine'), 'die Ranke muss ausgelöst haben');
+  assert.equal(player.wallJumpUsed, false, 'der Rankenzug beginnt eine neue Flugphase');
+});
+
 test('am Boden gegen eine Wand: er dreht von selbst um', () => {
   const { player, events } = run(() => input(), { ticks: 60, level: wall, x: 100 });
   assert.ok(events.includes('turn'), 'das Umdrehen muss gemeldet werden');

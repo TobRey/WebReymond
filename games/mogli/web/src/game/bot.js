@@ -9,8 +9,10 @@
 // Bei einem Ein-Knopf-Spiel ist ein Automat erfreulich kurz: er muss nur
 // entscheiden, WANN getippt wird. Zwei Regeln genügen:
 //
-//   - An der Wand rutschend: sofort tippen. Der Wandsprung dreht die
-//     Laufrichtung und ist die einzige Art, dort wieder wegzukommen.
+//   - An der Wand rutschend und der Wandsprung ist noch frei: sofort tippen.
+//     Der Wandsprung dreht die Laufrichtung und ist die einzige Art, dort
+//     wieder wegzukommen. Ist er schon verbraucht, hilft Tippen nicht mehr –
+//     dann fällt er und wartet auf den Boden.
 //   - Am Boden, wenn zwei Kacheln voraus kein Grund mehr ist: tippen. Das ist
 //     die Kante des Absatzes, und genau dort springt auch ein Mensch.
 //
@@ -49,8 +51,10 @@ export function botInput(bot, world, out) {
     // Vor dem ersten Tipp steht alles still – auch der Automat muss ihn geben.
     want = true;
   } else if (player.sliding) {
-    // An der Wand: abstossen, sonst rutscht er der Gefahr entgegen.
-    want = true;
+    // An der Wand: abstossen, sonst rutscht er der Gefahr entgegen. Es gibt
+    // aber nur einen Wandsprung je Flugphase; ist er weg, wäre Tippen nur ein
+    // sinnlos verbrauchter Sprungpuffer.
+    want = !player.wallJumpUsed;
   } else if (player.onGround) {
     // Kante voraus? Dann springen.
     const probeX = player.facing > 0 ? body.x + body.w + LOOKAHEAD : body.x - LOOKAHEAD;

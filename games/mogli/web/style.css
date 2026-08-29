@@ -79,7 +79,15 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--hc-bg);
+  /*
+   * Der Schacht ist 16 Kacheln breit und wird ganzzahlig vergrössert; auf
+   * manchen Geräten bleibt seitlich ein schmaler Rand. Statt ihn schwarz zu
+   * lassen, ist er der dunkle Rahmen, den das Vorbild um die ganze Anlage hat:
+   * aussen tiefes Grün, nach innen auslaufend.
+   */
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 50%, var(--hc-surface) 0%, var(--hc-bg) 70%),
+    var(--hc-bg);
   overflow: hidden;
   /* Kein Wischen, kein Zoomen, keine 300-ms-Wartezeit auf einen Doppeltipp:
      die Fläche ist ein Knopf, sonst nichts. Die Einblendung darüber nimmt
