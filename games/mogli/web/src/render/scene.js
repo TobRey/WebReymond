@@ -48,8 +48,23 @@ function slotForTile(tile, col, row, level, frame) {
       const progress = level.crumbleProgress(col, row);
       return SLOT.CRUMBLE_0 + Math.min(2, Math.floor(progress * 3));
     }
-    case T.WALL:
+    case T.WALL: {
+      // Der Schmuck kommt in festen Abständen, nicht zufällig: so entsteht der
+      // Rhythmus einer gebauten Anlage statt eines Rauschens. Die Abstände sind
+      // teilerfremd (7, 11, 5), damit sich das Muster erst nach 385 Zeilen
+      // wiederholt – niemand klettert so weit, ohne dass die Glut ihn holt.
+      //
+      // Gerechnet wird mit einer Zeilennummer, die nach oben WÄCHST. `row` wird
+      // beim Klettern negativ; ein Rest von einer negativen Zahl ist in
+      // JavaScript negativ und träfe die Fälle unten nie.
+      const r = -row;
+      if (r > 0) {
+        if (r % 7 === 0) return (frame >> 4) & 1 ? SLOT.WALL_TORCH_1 : SLOT.WALL_TORCH_0;
+        if (r % 11 === 0) return SLOT.WALL_IDOL;
+        if (r % 5 === 0) return SLOT.WALL_CRYSTAL;
+      }
       return row % 2 === 0 ? SLOT.WALL_A : SLOT.WALL_B;
+    }
     case T.SPIKE:
       return SLOT.SPIKE;
     case T.LEAF:

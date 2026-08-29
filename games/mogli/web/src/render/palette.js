@@ -7,7 +7,7 @@
 // und in style.css als --hc-*. In allen anderen Dateien des Spiels stehen
 // keine Hex-Werte.
 //
-// 32 Farben statt der üblichen 16, und zwar in geschlossenen Abstufungsreihen:
+// 44 Farben statt der üblichen 16, und zwar in geschlossenen Abstufungsreihen:
 // jede Oberfläche hat Schatten, Grundton, Licht und Glanz. Genau das trennt
 // den Eindruck einer 8-Bit-Konsole von dem einer 32-Bit-Konsole – nicht mehr
 // Pixel, sondern mehr Zwischentöne auf denselben Pixeln.
@@ -65,6 +65,35 @@ export const PALETTE = {
 
   // Glanzlicht
   v: '#ffffff',
+
+  // --- Ab hier die Erweiterung auf 48 Farben ------------------------------
+  // Die Vorlage lebt von Dingen, für die es bisher keine Töne gab: violette
+  // Kristalle in den Wandnischen, Wasserfälle, gebleichter Knochen und ein
+  // wärmerer Stein für die Stellen, auf die Fackellicht fällt.
+
+  // Kristall (violett) – der einzige kalte Farbstich im ganzen Bild und
+  // deshalb sofort als "hier ist etwas" lesbar.
+  w: '#3b1d5c',
+  x: '#6b2fa0',
+  y: '#a961e8',
+  z: '#e2c2ff',
+
+  // Warmer Stein: dieselbe Reihe wie a–c, aber ins Goldene gezogen. Damit
+  // bekommt eine Fackel eine Umgebung, statt nur ein heller Fleck zu sein.
+  A: '#4a3a1e',
+  B: '#7d6636',
+  C: '#a89055',
+
+  // Wasser
+  D: '#0f2f3d',
+  E: '#2a7d8f',
+  F: '#7fd4e0',
+
+  // Tiefstes Laub, dunkler als 3 – der Grund, vor dem alles andere steht.
+  G: '#122a1e',
+
+  // Knochen: Dornen und die Zähne der Götzen.
+  H: '#d8d2b4',
 };
 
 /** Farben ausserhalb des Kachelrasters: Hintergrund, Wasser, Glut, Anzeige. */

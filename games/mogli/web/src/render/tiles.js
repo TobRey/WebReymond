@@ -27,9 +27,19 @@ export const SLOT = {
   LEAF: 10,
   EMERALD_0: 11, // vier Bilder
   VINE_0: 15, // zwei Bilder
+
+  // Wandschmuck. Das sind KEINE eigenen Kachelarten – die Wand bleibt für die
+  // Physik überall dieselbe. Es sind nur andere Bilder derselben Wand, die
+  // scene.js nach Zeilennummer auswählt. So bekommt der Schacht den Rhythmus
+  // der Vorlage (Fackel, Götze, Kristallnische), ohne dass sich am Spiel
+  // irgendetwas ändert.
+  WALL_TORCH_0: 17, // zwei Bilder, die Flamme flackert
+  WALL_TORCH_1: 18,
+  WALL_IDOL: 19,
+  WALL_CRYSTAL: 20,
 };
 
-const SLOT_COUNT = 17;
+const SLOT_COUNT = 21;
 
 // Feste Sprenkelmuster – kein Zufall zur Laufzeit, damit dieselbe Kachel
 // immer gleich aussieht.
@@ -158,6 +168,110 @@ function wall(ctx, ox, oy, variant) {
   ctx.fillRect(ox + (variant === 0 ? 13 : 3), oy + 4, 1, 5);
 }
 
+/**
+ * Fackel in einer Wandhalterung. Zwei Bilder, damit die Flamme lebt.
+ *
+ * Die Flamme wirft Licht auf den Stein ringsum – dafür sind die warmen
+ * Steintöne A–C in der Palette. Ohne diesen Lichthof wäre die Fackel nur ein
+ * gelber Fleck, der vor der Wand klebt, statt in ihr zu stecken.
+ */
+function torch(ctx, ox, oy, variant) {
+  wall(ctx, ox, oy, 0);
+
+  // Lichthof: der Stein um die Flamme wird wärmer.
+  ctx.fillStyle = PALETTE.A;
+  ctx.fillRect(ox + 3, oy + 1, 10, 12);
+  ctx.fillStyle = PALETTE.B;
+  ctx.fillRect(ox + 4, oy + 2, 8, 10);
+  ctx.fillStyle = PALETTE.C;
+  ctx.fillRect(ox + 5, oy + 3, 6, 7);
+
+  // Halterung
+  ctx.fillStyle = PALETTE[8];
+  ctx.fillRect(ox + 6, oy + 9, 4, 5);
+  ctx.fillStyle = PALETTE[9];
+  ctx.fillRect(ox + 6, oy + 9, 4, 1);
+  ctx.fillRect(ox + 7, oy + 10, 1, 4);
+
+  // Flamme: aussen dunkel, innen weiss – so liest sie sich als Licht.
+  const tall = variant === 0 ? 0 : 1;
+  ctx.fillStyle = PALETTE.n;
+  ctx.fillRect(ox + 5, oy + 4 - tall, 6, 6 + tall);
+  ctx.fillStyle = PALETTE.o;
+  ctx.fillRect(ox + 6, oy + 4 - tall, 4, 5 + tall);
+  ctx.fillStyle = PALETTE.p;
+  ctx.fillRect(ox + 7, oy + 5 - tall, 2, 4 + tall);
+  ctx.fillStyle = PALETTE.q;
+  ctx.fillRect(ox + 7 + tall, oy + 6 - tall, 1, 2);
+}
+
+/**
+ * Götzenkopf im Mauerwerk. Vier Augen wären ein Gesicht zu viel – zwei
+ * leuchtende Punkte und ein Zahnrand genügen, damit man auf 16 × 16 Pixeln
+ * "da schaut etwas" liest.
+ */
+function idol(ctx, ox, oy) {
+  wall(ctx, ox, oy, 1);
+
+  // Nische
+  ctx.fillStyle = PALETTE[8];
+  ctx.fillRect(ox + 2, oy + 2, 12, 12);
+  ctx.fillStyle = PALETTE[9];
+  ctx.fillRect(ox + 3, oy + 3, 10, 10);
+  ctx.fillStyle = PALETTE.a;
+  ctx.fillRect(ox + 3, oy + 3, 10, 1);
+  ctx.fillRect(ox + 3, oy + 3, 1, 10);
+
+  // Stirn und Wangen
+  ctx.fillStyle = PALETTE.b;
+  ctx.fillRect(ox + 4, oy + 4, 8, 3);
+  ctx.fillStyle = PALETTE[9];
+  ctx.fillRect(ox + 4, oy + 7, 8, 1);
+
+  // Augen
+  ctx.fillStyle = PALETTE.o;
+  ctx.fillRect(ox + 5, oy + 5, 2, 2);
+  ctx.fillRect(ox + 9, oy + 5, 2, 2);
+  ctx.fillStyle = PALETTE.p;
+  ctx.fillRect(ox + 5, oy + 5, 1, 1);
+  ctx.fillRect(ox + 9, oy + 5, 1, 1);
+
+  // Zähne
+  ctx.fillStyle = PALETTE.H;
+  for (let x = 0; x < 4; x += 1) ctx.fillRect(ox + 5 + x * 2, oy + 9, 1, 2);
+  ctx.fillStyle = PALETTE[8];
+  ctx.fillRect(ox + 4, oy + 11, 8, 1);
+
+  // Bewuchs kriecht über den Rand – der Tempel ist verlassen.
+  ctx.fillStyle = PALETTE.d;
+  ctx.fillRect(ox + 2, oy + 2, 5, 1);
+  ctx.fillRect(ox + 2, oy + 2, 1, 4);
+  ctx.fillStyle = PALETTE[4];
+  ctx.fillRect(ox + 11, oy + 12, 3, 1);
+}
+
+/** Violette Kristalle in einer Wandnische – der einzige kalte Ton im Bild. */
+function crystalWall(ctx, ox, oy) {
+  wall(ctx, ox, oy, 0);
+
+  ctx.fillStyle = PALETTE[8];
+  ctx.fillRect(ox + 3, oy + 4, 10, 10);
+
+  const shard = (cx, cy, h) => {
+    for (let dy = 0; dy < h; dy += 1) {
+      const half = Math.max(0, Math.round(((h - dy) / h) * 2));
+      ctx.fillStyle = dy < h / 3 ? PALETTE.y : dy < (h * 2) / 3 ? PALETTE.x : PALETTE.w;
+      ctx.fillRect(ox + cx - half, oy + cy + dy, half * 2 + 1, 1);
+    }
+    ctx.fillStyle = PALETTE.z;
+    ctx.fillRect(ox + cx, oy + cy + 1, 1, 2);
+  };
+
+  shard(6, 5, 8);
+  shard(10, 7, 6);
+  shard(8, 9, 4);
+}
+
 /** Dornen: gebleichte Knochenspitzen auf einem Moossockel. */
 function spike(ctx, ox, oy) {
   ctx.fillStyle = PALETTE.d;
@@ -280,6 +394,10 @@ export function buildTileSheet() {
 
   wall(ctx, SLOT.WALL_A * TILE_SIZE, 0, 0);
   wall(ctx, SLOT.WALL_B * TILE_SIZE, 0, 1);
+  torch(ctx, SLOT.WALL_TORCH_0 * TILE_SIZE, 0, 0);
+  torch(ctx, SLOT.WALL_TORCH_1 * TILE_SIZE, 0, 1);
+  idol(ctx, SLOT.WALL_IDOL * TILE_SIZE, 0);
+  crystalWall(ctx, SLOT.WALL_CRYSTAL * TILE_SIZE, 0);
   spike(ctx, SLOT.SPIKE * TILE_SIZE, 0);
   leaf(ctx, SLOT.LEAF * TILE_SIZE, 0);
   for (let frame = 0; frame < 4; frame += 1) {

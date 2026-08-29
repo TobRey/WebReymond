@@ -48,26 +48,47 @@ function layerCanvas() {
   return { canvas, ctx };
 }
 
+/**
+ * Wie viele Objekte eine Ebene bekommt.
+ *
+ * Feste Anzahlen gehen hier nicht: die Bildhöhe richtet sich nach dem Gerät,
+ * und dieselben 22 Laubkronen, die ein kurzes Bild füllen, verlieren sich in
+ * einem 640 px hohen. Die Zahlen unten sind für die kleinste Fläche gedacht
+ * und wachsen mit ihr mit.
+ */
+function count(perSmallestScreen) {
+  const area = (VIEW_W * VIEW_H) / (256 * 336);
+  return Math.max(1, Math.round(perSmallestScreen * area));
+}
+
 /** Ganz hinten: verfallene Stufenpyramiden und ein paar Lichtpunkte. */
 function buildFar() {
   const { canvas, ctx } = layerCanvas();
   const rng = createRng(0x7e11);
 
-  for (let i = 0; i < 5; i += 1) {
+  for (let i = 0; i < count(7); i += 1) {
     const baseY = rng.int(20, VIEW_H - 40);
-    const w = rng.int(40, 76);
+    const w = rng.int(40, 96);
     const x = rng.int(-10, VIEW_W - w + 10);
-    const steps = rng.int(4, 7);
+    const steps = rng.int(4, 8);
     for (let s = 0; s < steps; s += 1) {
       const sw = w - s * Math.round(w / (steps * 1.6));
       if (sw <= 4) break;
+      const sx = x + (w - sw) / 2;
       ctx.fillStyle = COLORS.farCanopy;
-      ctx.fillRect(x + (w - sw) / 2, baseY - s * 5, sw, 5);
+      ctx.fillRect(sx, baseY - s * 5, sw, 5);
+      // Eine Kante Licht auf jeder Stufe: erst dadurch liest man Stufen und
+      // nicht einen Klotz.
+      ctx.fillStyle = PALETTE[3];
+      ctx.fillRect(sx, baseY - s * 5, sw, 1);
     }
+    // Ein Türsturz in der Mitte – die Silhouette bekommt einen Zweck.
+    ctx.fillStyle = COLORS.hazeLow;
+    ctx.fillRect(x + w / 2 - 4, baseY - 8, 8, 8);
   }
 
   // Ferne Lichter im Dunst: Fackeln, die man nie erreicht.
-  for (let i = 0; i < 7; i += 1) {
+  for (let i = 0; i < count(9); i += 1) {
     const x = rng.int(4, VIEW_W - 4);
     const y = rng.int(4, VIEW_H - 4);
     ctx.globalAlpha = 0.35;
@@ -142,29 +163,62 @@ function buildMid() {
   const { canvas, ctx } = layerCanvas();
   const rng = createRng(0x3a44);
 
-  for (let i = 0; i < 3; i += 1) {
+  for (let i = 0; i < count(4); i += 1) {
     waterfall(
       ctx,
       rng.int(14, VIEW_W - 26),
       rng.int(-10, VIEW_H - 70),
-      rng.int(46, 92),
-      rng.int(5, 9),
+      rng.int(46, 110),
+      rng.int(5, 11),
       rng,
     );
   }
 
-  for (let i = 0; i < 22; i += 1) {
+  for (let i = 0; i < count(30); i += 1) {
     foliage(
       ctx,
       rng.int(-6, VIEW_W + 6),
       rng.int(0, VIEW_H),
-      rng.int(9, 18),
+      rng.int(9, 20),
       rng,
       COLORS.midCanopy,
       PALETTE[3],
     );
   }
+
+  // Palmwedel: die Silhouette, an der man einen Dschungel auf einen Blick
+  // erkennt. Ein Stamm, davon fächerförmig gebogene Wedel.
+  for (let i = 0; i < count(5); i += 1) {
+    palm(ctx, rng.int(6, VIEW_W - 6), rng.int(24, VIEW_H - 6), rng.int(14, 24), rng);
+  }
   return canvas;
+}
+
+/** Ein Palmwedel-Büschel auf kurzem Stamm. */
+function palm(ctx, x, baseY, size, rng) {
+  ctx.fillStyle = COLORS.farCanopy;
+  ctx.fillRect(x - 1, baseY - size, 3, size);
+
+  const fronds = rng.int(5, 7);
+  for (let f = 0; f < fronds; f += 1) {
+    // Wedel gleichmässig um die Krone verteilt, leicht gestört.
+    const angle = (f / fronds) * Math.PI * 2 + rng.range(-0.2, 0.2);
+    const len = size * rng.range(0.7, 1.2);
+    const dirX = Math.cos(angle);
+    const dirY = Math.sin(angle) * 0.55;
+    for (let s = 0; s < len; s += 1) {
+      const t = s / len;
+      // Der Wedel hängt zum Ende hin durch.
+      const px = Math.round(x + dirX * s);
+      const py = Math.round(baseY - size + dirY * s + t * t * size * 0.45);
+      ctx.fillStyle = t < 0.5 ? COLORS.midCanopy : COLORS.farCanopy;
+      ctx.fillRect(px, py, 2, 2);
+      if (s % 3 === 0 && t > 0.2) {
+        ctx.fillRect(px, py - 2, 1, 2);
+        ctx.fillRect(px, py + 2, 1, 2);
+      }
+    }
+  }
 }
 
 /** Vordergrund: Farnwedel an den Rändern und Ranken, die von oben hängen. */
@@ -174,10 +228,10 @@ function buildNear() {
 
   // Hängende Ranken – das Merkmal, das einen Ort sofort nach Dschungel
   // aussehen lässt.
-  for (let i = 0; i < 9; i += 1) {
+  for (let i = 0; i < count(14); i += 1) {
     const x = rng.int(2, VIEW_W - 3);
     const top = rng.int(0, VIEW_H - 30);
-    const len = rng.int(18, 54);
+    const len = rng.int(18, 70);
     ctx.fillStyle = COLORS.nearCanopy;
     for (let y = 0; y < len; y += 1) {
       const wobble = Math.round(Math.sin(y * 0.18 + i) * 1.4);
@@ -189,10 +243,10 @@ function buildNear() {
     }
   }
 
-  for (let i = 0; i < 12; i += 1) {
+  for (let i = 0; i < count(18); i += 1) {
     const fromLeft = i % 2 === 0;
     const y = rng.int(0, VIEW_H);
-    const len = rng.int(18, 42);
+    const len = rng.int(18, 52);
     const x = fromLeft ? 0 : VIEW_W - len;
 
     ctx.fillStyle = COLORS.nearCanopy;

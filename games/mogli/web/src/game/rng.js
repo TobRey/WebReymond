@@ -9,6 +9,7 @@
 /**
  * @param {number} seed Ganzzahliger Startwert.
  * @returns {{ next: () => number, int: (min: number, max: number) => number,
+ *   range: (min: number, max: number) => number,
  *   pick: <T>(items: T[]) => T, chance: (p: number) => boolean, fork: () => any }}
  */
 export function createRng(seed) {
@@ -29,6 +30,11 @@ export function createRng(seed) {
     return min + Math.floor(next() * (max - min + 1));
   }
 
+  /** Gleitkomma in [min, max). Für Winkel und Längen in der Grafik. */
+  function range(min, max) {
+    return min + next() * (max - min);
+  }
+
   function pick(items) {
     return items[int(0, items.length - 1)];
   }
@@ -42,7 +48,7 @@ export function createRng(seed) {
     return createRng((state ^ 0x9e3779b9) >>> 0);
   }
 
-  return { next, int, pick, chance, fork };
+  return { next, int, range, pick, chance, fork };
 }
 
 /** Startwert aus einer beliebigen Zeichenkette (FNV-1a). */
