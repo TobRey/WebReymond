@@ -10,15 +10,23 @@
 import { PHYS, T, TILE } from './constants.js';
 import { approach, moveAndCollide, overlappingTiles, wallSide } from './physics.js';
 
-/** Reihenfolge und Länge der Animationen. `hold` = letztes Bild stehen lassen. */
+/**
+ * Reihenfolge und Länge der Animationen. `hold` = letztes Bild stehen lassen.
+ *
+ * Jede Bewegung hat genau FÜNF Bilder. Das ist keine gestalterische Marotte,
+ * sondern die Absprache mit dem Admin-Bereich: dort gibt es je Bewegung fünf
+ * Plätze. Mitgelieferte und selbst eingesetzte Grafik haben damit dieselbe
+ * Form, und es braucht keinen Sonderfall für "diese Bewegung hat nur zwei
+ * Bilder". Das Tempo unterscheidet die Bewegungen, nicht die Anzahl.
+ */
 export const ANIMATIONS = {
-  idle: { frames: 4, ticksPerFrame: 9, loop: true },
-  run: { frames: 8, ticksPerFrame: 4, loop: true },
-  jump: { frames: 2, ticksPerFrame: 6, loop: false, hold: true },
-  fall: { frames: 2, ticksPerFrame: 7, loop: true },
-  wallslide: { frames: 2, ticksPerFrame: 6, loop: true },
-  land: { frames: 2, ticksPerFrame: 4, loop: false, next: 'idle' },
-  vine: { frames: 3, ticksPerFrame: 4, loop: true },
+  idle: { frames: 5, ticksPerFrame: 10, loop: true },
+  run: { frames: 5, ticksPerFrame: 4, loop: true },
+  jump: { frames: 5, ticksPerFrame: 5, loop: false, hold: true },
+  fall: { frames: 5, ticksPerFrame: 6, loop: true },
+  wallslide: { frames: 5, ticksPerFrame: 6, loop: true },
+  land: { frames: 5, ticksPerFrame: 3, loop: false, next: 'idle' },
+  vine: { frames: 5, ticksPerFrame: 3, loop: true },
   death: { frames: 5, ticksPerFrame: 7, loop: false, hold: true },
 };
 

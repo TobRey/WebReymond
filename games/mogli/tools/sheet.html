@@ -1,0 +1,58 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Mogli – alle Einzelbilder</title>
+<!--
+  Zeigt jedes Einzelbild aus render/frames.js in dreifacher Vergrösserung.
+  Gehört bewusst NICHT nach web/ – dort läge es in der ausgelieferten ZIP.
+
+      php -S 127.0.0.1:8137 -t games/mogli
+      http://127.0.0.1:8137/tools/sheet.html
+-->
+<style>
+  body {
+    background: #14261f;
+    margin: 0;
+    padding: 12px;
+    font: 12px monospace;
+    color: #dbe8cf;
+  }
+  canvas {
+    image-rendering: pixelated;
+    display: block;
+    margin: 2px 0 10px;
+    background: #0d1a16;
+  }
+</style>
+<div id="out"></div>
+<script type="module">
+  import { FRAMES, FRAME_SIZE } from '../web/src/render/frames.js';
+  import { PALETTE } from '../web/src/render/palette.js';
+
+  const out = document.getElementById('out');
+  const SCALE = 3;
+
+  for (const [name, frames] of Object.entries(FRAMES)) {
+    const label = document.createElement('div');
+    label.textContent = `${name} (${frames.length})`;
+    out.append(label);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = FRAME_SIZE * frames.length * SCALE;
+    canvas.height = FRAME_SIZE * SCALE;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+
+    frames.forEach((rows, index) => {
+      rows.forEach((row, y) => {
+        for (let x = 0; x < row.length; x += 1) {
+          const key = row[x];
+          if (key === '.') continue;
+          // Magenta fällt auf: so sieht man einen falschen Palettenschlüssel.
+          ctx.fillStyle = PALETTE[key] ?? '#ff00ff';
+          ctx.fillRect((index * FRAME_SIZE + x) * SCALE, y * SCALE, SCALE, SCALE);
+        }
+      });
+    });
+    out.append(canvas);
+  }
+</script>

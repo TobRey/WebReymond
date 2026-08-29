@@ -1,5 +1,9 @@
-// Die Pixeldaten sind von Hand gesetzte Zeichenketten. Ein verrutschtes
-// Zeichen fiele im Browser nur als schiefes Bild auf – hier fällt es sofort auf.
+// Die Pixeldaten sind Zeichenketten. Ein verrutschtes Zeichen fiele im Browser
+// nur als schiefes Bild auf – hier fällt es sofort auf.
+//
+// Mogli wird von tools/make-frames.mjs erzeugt, die Wesen der Vorgeschichte
+// stehen von Hand in creatures.js. Geprüft wird beides gleich streng: ein
+// Werkzeug kann genauso danebenliegen wie eine Hand, nur gleichmässiger.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,7 +13,7 @@ import { CREATURES, CREATURE_SIZE } from '../web/src/render/creatures.js';
 import { PALETTE } from '../web/src/render/palette.js';
 import { ANIMATIONS } from '../web/src/game/player.js';
 
-test('jedes Einzelbild ist genau 24 × 24 Zeichen gross', () => {
+test('jedes Einzelbild ist genau 32 × 32 Zeichen gross', () => {
   for (const [name, frames] of Object.entries(FRAMES)) {
     frames.forEach((rows, index) => {
       assert.equal(rows.length, FRAME_SIZE, `${name}[${index}] hat ${rows.length} Zeilen`);

@@ -43,10 +43,15 @@ export function setViewHeight(wanted) {
 export const GRID_W = 16;
 
 /**
- * Kantenlänge eines Figurenbildes. Grösser als eine Kachel – Haare, Arme und
- * Beine ragen über die Trefferfläche hinaus, das gibt der Figur Silhouette.
+ * Kantenlänge eines Figurenbildes: genau zwei Kacheln. Deutlich grösser als
+ * die Trefferfläche – Haare, Arme und Beine ragen darüber hinaus, das gibt der
+ * Figur Silhouette.
+ *
+ * 32 statt 24, seit der Schacht 16 statt 12 Kacheln breit ist: sonst wäre
+ * Mogli auf dem Bildschirm ein Drittel kleiner geworden, weil der ganzzahlige
+ * Vergrösserungsfaktor mit der Bildbreite fällt.
  */
-export const FRAME = 24;
+export const FRAME = 32;
 
 /** Höhe eines Abschnitts in Kacheln. Erzeugt und verworfen wird abschnittsweise. */
 export const CHUNK_ROWS = 16;
@@ -144,13 +149,19 @@ export const PHYS = {
   vineDrag: 0.82,
 
   // --- Körper --------------------------------------------------------------
-  // Die Trefferfläche ist deutlich kleiner als das 24×24-Bild: schmal, damit
+  // Die Trefferfläche ist deutlich kleiner als das 32×32-Bild: schmal, damit
   // man durch Lücken passt, und oben stark angeschnitten, damit Haare und
-  // erhobene Arme nicht an Decken hängen bleiben.
-  hitboxW: 10,
-  hitboxH: 16,
-  hitboxOffX: 7,
-  hitboxOffY: 8,
+  // erhobene Arme nicht an Decken hängen bleiben. Die Füsse stehen auf der
+  // Unterkante des Bildes, deshalb hitboxOffY = 32 − hitboxH.
+  //
+  // Die Höhe ist nach oben begrenzt durch den Absatzabstand: bei 4 Kacheln
+  // (64 px) bleiben mit 20 px Körper noch 44 px Kopffreiheit. Ob das reicht,
+  // entscheidet nicht diese Zahl, sondern test/level.test.mjs – er spielt jede
+  // vorkommende Sprungkombination mit genau dieser Trefferfläche durch.
+  hitboxW: 12,
+  hitboxH: 20,
+  hitboxOffX: 10,
+  hitboxOffY: 12,
 };
 
 export const GEN = {
