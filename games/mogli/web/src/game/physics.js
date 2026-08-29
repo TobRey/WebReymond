@@ -6,6 +6,7 @@
 // Kachelzeile = floor(y / TILE); beides darf negativ sein.
 
 import { TILE, T, isSolid } from './constants.js';
+import { tileBox } from './tilebox.js';
 
 // Winziger Abzug an der oberen Kante, damit ein bündiges Anliegen (Unterkante
 // exakt auf der Kachelgrenze) nicht schon als Überlappung zählt. Bewusst
@@ -17,6 +18,39 @@ const EPS = 1e-4;
 /** Kachelbereich, den [min, max) überdeckt. */
 function tileSpan(min, max) {
   return [Math.floor(min / TILE), Math.floor((max - EPS) / TILE)];
+}
+
+/**
+ * Der feste Bereich einer Zelle in Weltkoordinaten – oder null, wenn dort
+ * nichts Festes ist.
+ *
+ * Voreingestellt ist die ganze Zelle; nur ein eingesetztes Kachelpaket kann
+ * das ändern (siehe tilebox.js). Deshalb rechnet diese Datei ohne Paket exakt
+ * so wie vorher.
+ */
+function solidRect(level, col, row) {
+  const tile = level.tileAt(col, row);
+  if (!isSolid(tile)) return null;
+  const box = tileBox(tile);
+  return { x: col * TILE + box.x, y: row * TILE + box.y, w: box.w, h: box.h, tile };
+}
+
+/** Nur von oben tragend (Blatt): dieselbe Form, andere Bedingung. */
+function platformRect(level, col, row) {
+  const tile = level.tileAt(col, row);
+  if (tile !== T.LEAF) return null;
+  const box = tileBox(tile);
+  return { x: col * TILE + box.x, y: row * TILE + box.y, w: box.w, h: box.h, tile };
+}
+
+/** Überlappen sich Körper und Rechteck echt (nicht nur bündig)? */
+function overlaps(body, rect) {
+  return (
+    body.x + body.w > rect.x + EPS &&
+    body.x < rect.x + rect.w - EPS &&
+    body.y + body.h > rect.y + EPS &&
+    body.y < rect.y + rect.h - EPS
+  );
 }
 
 /**
@@ -55,31 +89,38 @@ export function moveAndCollide(body, level) {
   return result;
 }
 
+// Beide Achsen prüfen ALLE Zellen, die der Körper nach dem Schritt überdeckt,
+// und nicht nur die Zelle unter der vorderen Kante.
+//
+// Das ist der Preis für einstellbare Kachelkästen: ist der feste Bereich einer
+// Zelle nach innen gerückt, kann der Körper mitten in der Zelle stehen, ohne
+// sie zu berühren – und umgekehrt kann er eine Zelle berühren, in der seine
+// Vorderkante noch gar nicht liegt. Gesucht wird in Bewegungsrichtung, damit
+// bei mehreren Treffern der nächstliegende gewinnt.
+
 function moveX(body, level, dx, result) {
   if (dx === 0) return;
   body.x += dx;
 
   const [row0, row1] = tileSpan(body.y, body.y + body.h);
+  const [col0, col1] = tileSpan(body.x, body.x + body.w);
+  const from = dx > 0 ? col0 : col1;
+  const to = dx > 0 ? col1 : col0;
+  const step = dx > 0 ? 1 : -1;
 
-  if (dx > 0) {
-    const col = Math.floor((body.x + body.w - EPS) / TILE);
+  for (let col = from; dx > 0 ? col <= to : col >= to; col += step) {
     for (let row = row0; row <= row1; row += 1) {
-      if (isSolid(level.tileAt(col, row))) {
-        body.x = col * TILE - body.w;
-        body.vx = 0;
+      const rect = solidRect(level, col, row);
+      if (rect === null || !overlaps(body, rect)) continue;
+      if (dx > 0) {
+        body.x = rect.x - body.w;
         result.hitRight = true;
-        return;
-      }
-    }
-  } else {
-    const col = Math.floor(body.x / TILE);
-    for (let row = row0; row <= row1; row += 1) {
-      if (isSolid(level.tileAt(col, row))) {
-        body.x = (col + 1) * TILE;
-        body.vx = 0;
+      } else {
+        body.x = rect.x + rect.w;
         result.hitLeft = true;
-        return;
       }
+      body.vx = 0;
+      return;
     }
   }
 }
@@ -90,35 +131,34 @@ function moveY(body, level, dy, result) {
   body.y += dy;
 
   const [col0, col1] = tileSpan(body.x, body.x + body.w);
+  const [row0, row1] = tileSpan(body.y, body.y + body.h);
+  const from = dy > 0 ? row0 : row1;
+  const to = dy > 0 ? row1 : row0;
+  const step = dy > 0 ? 1 : -1;
 
-  if (dy > 0) {
-    const row = Math.floor((body.y + body.h - EPS) / TILE);
+  for (let row = from; dy > 0 ? row <= to : row >= to; row += step) {
     for (let col = col0; col <= col1; col += 1) {
-      const tile = level.tileAt(col, row);
-      const blocking =
-        isSolid(tile) ||
+      let rect = solidRect(level, col, row);
+      if (dy > 0 && rect === null) {
         // Blattplattform: trägt nur von oben. Von unten springt man hindurch,
         // was den Zickzack an manchen Stellen abkürzt.
-        (tile === T.LEAF && bottomBefore <= row * TILE);
-      if (blocking) {
-        body.y = row * TILE - body.h;
-        body.vy = 0;
+        const leaf = platformRect(level, col, row);
+        if (leaf !== null && bottomBefore <= leaf.y) rect = leaf;
+      }
+      if (rect === null || !overlaps(body, rect)) continue;
+
+      if (dy > 0) {
+        body.y = rect.y - body.h;
         result.onGround = true;
-        result.groundTile = tile;
+        result.groundTile = rect.tile;
         result.groundCol = col;
         result.groundRow = row;
-        return;
-      }
-    }
-  } else {
-    const row = Math.floor(body.y / TILE);
-    for (let col = col0; col <= col1; col += 1) {
-      if (isSolid(level.tileAt(col, row))) {
-        body.y = (row + 1) * TILE;
-        body.vy = 0;
+      } else {
+        body.y = rect.y + rect.h;
         result.hitTop = true;
-        return;
       }
+      body.vy = 0;
+      return;
     }
   }
 }
@@ -134,14 +174,22 @@ export function wallSide(body, level) {
   const bottom = body.y + body.h - 3;
   const rows = tileSpan(top, bottom);
 
-  const leftCol = Math.floor((body.x - 1) / TILE);
-  const rightCol = Math.floor((body.x + body.w) / TILE);
+  // Ein Pixel breite Fühler links und rechts neben dem Körper.
+  const feeler = (x) => ({ x, y: top, w: 1, h: Math.max(1, bottom - top) });
+  const left = feeler(body.x - 1);
+  const right = feeler(body.x + body.w);
 
-  for (let row = rows[0]; row <= rows[1]; row += 1) {
-    if (isSolid(level.tileAt(leftCol, row))) return -1;
-  }
-  for (let row = rows[0]; row <= rows[1]; row += 1) {
-    if (isSolid(level.tileAt(rightCol, row))) return 1;
+  for (const [probe, side] of [
+    [left, -1],
+    [right, 1],
+  ]) {
+    const [col0, col1] = tileSpan(probe.x, probe.x + probe.w);
+    for (let col = col0; col <= col1; col += 1) {
+      for (let row = rows[0]; row <= rows[1]; row += 1) {
+        const rect = solidRect(level, col, row);
+        if (rect !== null && overlaps(probe, rect)) return side;
+      }
+    }
   }
   return 0;
 }

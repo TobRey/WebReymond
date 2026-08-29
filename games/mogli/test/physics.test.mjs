@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 
 import { GEN, PHYS, T, TILE } from '../web/src/game/constants.js';
 import { createPlayer, updatePlayer } from '../web/src/game/player.js';
+import { resetTileBoxes, setTileBox, tileBox } from '../web/src/game/tilebox.js';
 
 const START_Y = -PHYS.hitboxH;
 
@@ -278,6 +279,51 @@ test('ein schneller Fall durchschlägt keinen einzelnen Boden', () => {
   }
   assert.equal(belowFloor, false, 'der Körper darf nie unter die Bodenoberkante geraten');
   assert.equal(player.onGround, true);
+});
+
+test('aus jeder Fallhöhe kommt er exakt auf der Kachelkante zu stehen', () => {
+  // Der Beweis, dass die Kollision nicht "irgendwo in der Nähe" anhält. Ein
+  // halber Pixel Versatz reicht, damit der Körper im nächsten Tick wieder als
+  // fliegend gilt und die Landeanimation flackert.
+  for (let drop = 40; drop <= 600; drop += 3) {
+    const player = createPlayer(100, -drop);
+    player.onGround = false;
+    for (let tick = 0; tick < 300; tick += 1) updatePlayer(player, input(), flat, []);
+    const feet = player.body.y + player.body.h;
+    assert.ok(Math.abs(feet) < 1e-6, `aus ${drop} px: Füsse bei ${feet} statt 0`);
+  }
+});
+
+test('ein eingezeichneter Kachelkasten verschiebt die Standfläche', () => {
+  // Das ist die Zusage an den Admin-Bereich: wer den Kasten einer Kachel
+  // enger zeichnet, steht danach wirklich dort und nicht auf der Zellkante.
+  try {
+    setTileBox(T.STONE, { x: 0, y: 6, w: TILE, h: TILE - 6 });
+
+    const player = createPlayer(100, -120);
+    player.onGround = false;
+    for (let tick = 0; tick < 300; tick += 1) updatePlayer(player, input(), flat, []);
+
+    const feet = player.body.y + player.body.h;
+    assert.ok(
+      Math.abs(feet - 6) < 1e-6,
+      `Füsse bei ${feet} – erwartet 6, also auf der Oberkante des Kastens`,
+    );
+  } finally {
+    // Sonst nimmt der nächste Test den verstellten Kasten mit.
+    resetTileBoxes();
+  }
+});
+
+test('die Wand lässt sich nicht verschmälern', () => {
+  // An Wänden wird gerutscht und abgesprungen. Ein schmalerer Kasten würde den
+  // Schacht unpassierbar machen, deshalb wird der Versuch still verworfen.
+  try {
+    setTileBox(T.WALL, { x: 6, y: 0, w: 4, h: TILE });
+    assert.deepEqual(tileBox(T.WALL), { x: 0, y: 0, w: TILE, h: TILE });
+  } finally {
+    resetTileBoxes();
+  }
 });
 
 test('Dornen töten', () => {
