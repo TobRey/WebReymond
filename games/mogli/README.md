@@ -43,8 +43,9 @@ nicht laden – die Seite bliebe leer. Es braucht immer einen Webserver.
 
 ```
 web/                     genau dieser Baum landet in der ZIP-Datei
-  index.html             Seite, Menüs, Story-Tafeln
+  index.html             Seite, Menüs, Story-Tafeln, Fänger für Startfehler
   style.css              Gestaltung, --hc-* als einzige Farbquelle des Rahmens
+  .htaccess              kein Zwischenspeicher für HTML, MIME-Typ für .js
   score.php              Bestenliste: flache JSON-Datei, kein SQL
   admin.php              Admin-Bereich: Anmeldung, Grafikpaket schreiben
   assets.php             gibt das Grafikpaket an das Spiel heraus
@@ -55,7 +56,8 @@ web/                     genau dieser Baum landet in der ZIP-Datei
     main.js              Verdrahtung: Szenen, Story, Menüs, Ereignisse
     version.js           einzige Quelle der Versionsnummer
     i18n.js              de/en-Kataloge, data-i18n im HTML
-    engine/              Schleife, Eingabe, Canvas-Skalierung, Ton, Speicher
+    engine/              Schleife, Eingabe, Canvas-Skalierung, Ton, Speicher,
+                         Meldungsstreifen für Fehler beim Start
     game/                Physik, Levelgenerator, Glut, Story-Ablauf, Automat
     render/              Mogli, Wesen, Kacheln, Hintergrund, Szene, Anzeige
     net/                 Bestenliste und Grafikpaket: die geteilten Prüfregeln
@@ -146,6 +148,17 @@ Monitor.
 Sprache und Ton liegen als Einblendung darüber, nicht darunter. Es gibt nichts zu scrollen, an
 dem man auf dem Handy vorbeikommen könnte, und keine Steuerungstafel – der einzige Knopf ist
 der Bildschirm selbst, und ein Hinweis beim Start sagt das einmal.
+
+**Ein Startfehler steht auf dem Bildschirm.** Das Menü ist statisches HTML – es sieht auch dann
+normal aus, wenn `boot()` nie durchgelaufen ist, und ein toter Startknopf ist von einem
+Startfehler nicht zu unterscheiden. Genau so wurde ein Fehler gemeldet, und genau deshalb war
+er aus der Ferne nicht zu finden. Jetzt sammelt ein kurzes Skript **in `index.html`** ab der
+ersten Zeile jeden Fehler ein (ein Modul, das gar nicht ausgeführt wird, kann sich nicht selbst
+beschweren), `engine/crash.js` übernimmt die Sammlung, sobald es läuft, und ist die Seite
+fertig geladen, ohne dass sich das Spiel als bedienbar gemeldet hat, erscheint der Streifen von
+allein. In `boot()`
+wird deshalb erst verdrahtet und dann verziert: eine kaputte Kleinigkeit kostet höchstens sich
+selbst. Näheres in [0015](../../docs/decisions/0015-startfehler-werden-sichtbar.md).
 
 **Der Automat.** `game/bot.js` spielt das Spiel selbst. Hinter den Menüs klettert er im
 Hintergrund, damit der Bildschirm nicht tot ist; in den Tests zeigt er, dass die erzeugte

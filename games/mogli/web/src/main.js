@@ -33,6 +33,7 @@ import {
   updateParticles,
 } from './render/particles.js';
 import { applyTranslations, getLang, initialLang, onLangChange, setLang, t } from './i18n.js';
+import { guarded, ready, report, watchForErrors } from './engine/crash.js';
 import { readString, writeString } from './engine/storage.js';
 import {
   fetchTop,
@@ -44,9 +45,33 @@ import {
 } from './net/scores.js';
 import { sanitizeName } from './net/scoreRules.js';
 
+// Ganz oben, vor allem anderen: von hier an landet jeder Fehler sichtbar auf
+// dem Bildschirm statt in einer Konsole, die auf einem Handy niemand sieht.
+watchForErrors();
+
 const NAME_KEY = 'mogli.name';
 
-const $ = (id) => document.getElementById(id);
+/**
+ * Holt ein Element und merkt sich, wenn es fehlt.
+ *
+ * Das passiert genau dann, wenn index.html und main.js aus verschiedenen
+ * Ständen kommen – auf einem Webspace der Normalfall, sobald der Browser die
+ * eine Datei aus dem Zwischenspeicher nimmt und die andere frisch lädt.
+ * Früher lief das Spiel dann in einen TypeError und blieb stumm im Menü
+ * stehen, was wie ein kaputter Startknopf aussah.
+ *
+ * Statt null kommt ein loses Ersatzstück zurück. Es nimmt Zuweisungen und
+ * Zuhörer entgegen und tut sonst nichts: die fehlende Kleinigkeit fehlt dann
+ * wirklich, aber sie reisst den Start nicht mehr mit. Was fehlt, steht
+ * gleich darunter im Meldungsstreifen.
+ */
+const missing = [];
+const $ = (id) => {
+  const element = document.getElementById(id);
+  if (element !== null) return element;
+  missing.push(id);
+  return document.createElement('input');
+};
 
 const dom = {
   stage: $('stage'),
@@ -78,6 +103,13 @@ const dom = {
   full: $('full'),
   version: $('version'),
 };
+
+if (missing.length > 0) {
+  report(
+    `HTML und JavaScript passen nicht zusammen – es fehlt: ${missing.join(', ')}. ` +
+      'Bitte alle Dateien neu hochladen und die Seite hart neu laden.',
+  );
+}
 
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -526,10 +558,24 @@ function isFullscreen() {
   return document.fullscreenElement !== null && document.fullscreenElement !== undefined;
 }
 
+/**
+ * Ein abgelehntes Vollbild ist kein Grund, irgendetwas abzubrechen – aber der
+ * Rückgabewert ist nicht überall ein Promise. Das alte webkitRequestFullscreen
+ * (Safari auf iPad und Mac, ältere Android-WebViews) gibt undefined zurück;
+ * ein .catch() darauf wirft einen TypeError, und zwar in der zweiten Zeile von
+ * startGame(). Ergebnis wäre genau das gemeldete Bild: Startknopf gedrückt,
+ * nichts passiert.
+ */
+function ignoreRejection(result) {
+  if (result !== null && typeof result === 'object' && typeof result.catch === 'function') {
+    result.catch(() => {});
+  }
+}
+
 function enterFullscreen() {
   const root = document.documentElement;
   const request = root.requestFullscreen ?? root.webkitRequestFullscreen;
-  if (typeof request === 'function') request.call(root).catch(() => {});
+  if (typeof request === 'function') ignoreRejection(request.call(root));
 }
 
 /**
@@ -550,7 +596,7 @@ function toggleFullscreen() {
     enterFullscreen();
   } else {
     const exit = document.exitFullscreen ?? document.webkitExitFullscreen;
-    if (typeof exit === 'function') exit.call(document).catch(() => {});
+    if (typeof exit === 'function') ignoreRejection(exit.call(document));
   }
 }
 
@@ -654,31 +700,55 @@ function fitToStage() {
   render();
 }
 
+/**
+ * REIHENFOLGE: erst verdrahten, dann verzieren.
+ *
+ * Vorher standen hier drei Verzierungen ganz oben (Name eintragen, Rekord
+ * anzeigen, Vollbildknopf ein- oder ausblenden). Warf eine davon – etwa weil
+ * der Browser eine ältere index.html im Zwischenspeicher hatte, in der ein
+ * Element noch fehlte –, dann wurde kein einziger Knopf mehr verdrahtet. Das
+ * Menü ist statisches HTML und stand trotzdem tadellos da. Genau das war der
+ * gemeldete Fehler: „Auf Starten klicken, es passiert nichts."
+ *
+ * Deshalb: alles, was auf einen Tipp reagiert, zuerst. Alles Weitere danach
+ * und jeder Block für sich abgesichert, damit eine kaputte Kleinigkeit
+ * höchstens sich selbst kostet und nicht das ganze Spiel.
+ */
 function boot() {
-  setLang(initialLang());
-  applyTranslations(document);
-
-  dom.name.value = readString(NAME_KEY, '') ?? '';
-  dom.overPersonal.textContent = String(best);
-  dom.full.hidden = !fullscreenSupported();
-
-  bindLanguage();
-  bindButtons();
-  bindVisibility();
-  // Alles Sprachabhängige einmal setzen – setLang() oben lief, bevor der
-  // Zuhörer dafür überhaupt angemeldet war.
-  refreshLanguage();
-
+  guarded('Knöpfe', bindButtons);
   // Die gesamte Spielfläche ist der Sprungknopf – ausser dort, wo gerade eine
   // Einblendung liegt. Es gibt keine Knöpfe mehr.
-  input.bindTapArea(dom.stage, dom.overlay);
+  guarded('Tippfläche', () => input.bindTapArea(dom.stage, dom.overlay));
+  guarded('Sprachwahl', bindLanguage);
+  guarded('Sichtbarkeit', bindVisibility);
+  guarded('Ton', () => {
+    // Beim ersten Druck den Ton freischalten (Autoplay-Regel der Browser).
+    window.addEventListener('keydown', () => audio.unlock(), { once: true });
+    window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
+  });
 
-  // Beim ersten Druck den Ton freischalten (Autoplay-Regel der Browser).
-  window.addEventListener('keydown', () => audio.unlock(), { once: true });
-  window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
+  // Ab hier ist das Menü bedienbar. Der Wachhund in index.html, der sonst kurz
+  // nach dem Laden „konnte nicht geladen werden" meldet, darf jetzt schweigen.
+  ready();
 
-  resizeNow = fitToStage;
-  watchResize(fitToStage);
+  guarded('Sprache', () => {
+    setLang(initialLang());
+    applyTranslations(document);
+    // Alles Sprachabhängige einmal setzen: onLangChange hängt zwar schon dran,
+    // aber setLang meldet sich nur, wenn sich die Sprache wirklich ändert.
+    refreshLanguage();
+  });
+
+  guarded('Menütexte', () => {
+    dom.name.value = readString(NAME_KEY, '') ?? '';
+    dom.overPersonal.textContent = String(best);
+    dom.full.hidden = !fullscreenSupported();
+  });
+
+  guarded('Bildgrösse', () => {
+    resizeNow = fitToStage;
+    watchResize(fitToStage);
+  });
 
   toMenu();
   loop.start();
@@ -698,4 +768,4 @@ function boot() {
   });
 }
 
-boot();
+guarded('Start', boot);

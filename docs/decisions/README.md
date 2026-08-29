@@ -23,5 +23,6 @@ als „ersetzt durch“ markiert.
 | [0012](0012-ein-knopf-steuerung.md) | Mogli wird ein Ein-Knopf-Spiel, und der Turm folgt der Sprungbahn | akzeptiert |
 | [0013](0013-mogli-fuellt-den-bildschirm.md) | Mogli ist eine Seite, die aus nichts als dem Spiel besteht | akzeptiert |
 | [0014](0014-admin-und-eigene-grafik.md) | Eigene Grafik über einen Admin-Bereich, ohne Datenbank | akzeptiert |
+| [0015](0015-startfehler-werden-sichtbar.md) | Ein Startfehler steht auf dem Bildschirm, nicht in der Konsole | akzeptiert |
 
 Format je Datei: Kontext → Entscheidung → Begründung → Alternativen → Konsequenzen → Wiedervorlage.

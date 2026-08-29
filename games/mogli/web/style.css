@@ -589,6 +589,74 @@ body {
   color: var(--hc-muted);
 }
 
+/* --- Meldungsstreifen ----------------------------------------------------
+ *
+ * Sichtbar nur, wenn beim Start etwas schiefgegangen ist. Er liegt über allem
+ * und ist absichtlich laut: der Menübildschirm darunter ist statisches HTML
+ * und sähe sonst völlig normal aus, obwohl kein Knopf verdrahtet wurde.
+ *
+ * Die erste Regel ist die wichtigste. `display` schlägt `[hidden]`, und die
+ * gleiche Falle hat hier schon einmal zugeschlagen (die alten Tippflächen,
+ * später die Anmeldekarte im Admin-Bereich): ohne sie wäre der Streifen immer
+ * zu sehen.
+ */
+
+.crash[hidden] {
+  display: none;
+}
+
+.crash {
+  position: fixed;
+  z-index: 100;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: block;
+  padding: calc(10px + env(safe-area-inset-top)) 12px 12px;
+  border-bottom: 2px solid var(--hc-danger);
+  background: #2a0b06;
+  color: #ffe9e3;
+  /* Auswählbar – der ganze Zweck ist, dass man den Text abschicken kann. */
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.crash__head {
+  margin: 0 0 6px;
+  color: var(--hc-danger);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.crash__line {
+  margin: 0 0 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.crash__hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #f0c3b7;
+}
+
+.crash__btn {
+  margin-top: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--hc-danger);
+  border-radius: var(--hc-radius);
+  background: #4a1309;
+  color: #ffe9e3;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
 /* --- Rücksicht auf Bewegungsempfindlichkeit ------------------------------ */
 
 @media (prefers-reduced-motion: reduce) {

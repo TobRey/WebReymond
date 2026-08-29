@@ -1,0 +1,54 @@
+# Mogli – Servereinstellungen für Apache.
+#
+# Diese Datei ist nicht nötig, damit das Spiel läuft. Sie verhindert einen
+# Fehler, der von aussen aussieht wie ein kaputtes Spiel: der Browser hat noch
+# eine ältere index.html oder ein älteres src/main.js im Zwischenspeicher, die
+# beiden passen nicht mehr zusammen, und das Spiel bleibt stumm im Menü stehen.
+#
+# Bei nginx gehört stattdessen in die Serverkonfiguration:
+#
+#   location = /index.html { add_header Cache-Control "no-cache"; }
+#   location ~* \.js$      { types { text/javascript js; } expires 7d; }
+#
+# Wer weder das eine noch das andere setzen kann: es geht auch ohne. Die
+# Modul-Adresse in index.html trägt die Versionsnummer (src/main.js?v=…), damit
+# eine neue index.html nie ein altes main.js erwischt.
+#
+# ZEIGT DIE SEITE PLÖTZLICH "Internal Server Error"?
+# Dann erlaubt dein Hoster keine eigenen .htaccess-Regeln (AllowOverride).
+# In dem Fall diese Datei einfach löschen – das Spiel läuft auch ohne sie.
+
+# --- 1. index.html nie zwischenspeichern -----------------------------------
+# Sie ist winzig und legt fest, welche Fassung aller anderen Dateien geladen
+# wird. Wird sie zwischengespeichert, bleibt eine neu hochgeladene Fassung
+# tage- bis wochenlang unsichtbar.
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
+# --- 2. Richtiger Typ für ES-Module ----------------------------------------
+# Liefert der Server .js mit einem anderen Typ als text/javascript aus, weigert
+# sich jeder Browser, ein <script type="module"> auszuführen – ohne sichtbaren
+# Fehler. Manche Billig-Webspaces tun genau das. Denselben Grund haben .json
+# (die Bestenliste) und .css.
+<IfModule mod_mime.c>
+  AddType text/javascript .js
+  AddType application/json .json
+  AddType text/css .css
+</IfModule>
+
+# --- 3. Zeichensatz ---------------------------------------------------------
+# Ohne das erscheinen Umlaute in den Texten als Fragezeichen.
+AddDefaultCharset UTF-8
+
+# --- 4. Alles ausser HTML darf zwischengespeichert werden -------------------
+# Grafik und Code ändern sich selten, und die Modul-Adresse trägt die Version.
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/javascript "access plus 7 days"
+  ExpiresByType text/css "access plus 7 days"
+  ExpiresByType image/png "access plus 30 days"
+  ExpiresByType text/html "access plus 0 seconds"
+</IfModule>

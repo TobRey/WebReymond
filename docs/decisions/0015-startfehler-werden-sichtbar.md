@@ -1,0 +1,92 @@
+# 0015 – Ein Fehler beim Start muss auf dem Bildschirm stehen, nicht in der Konsole
+
+**Status:** akzeptiert (August 2026)
+**Ergänzt** [0013](0013-mogli-fuellt-den-bildschirm.md) – die bildschirmfüllende Seite bleibt
+unverändert; hier geht es darum, was passiert, wenn sie nicht anläuft.
+
+## Kontext
+
+Gemeldet wurde ein Satz: „Wenn ich auf Starten klicke, passiert nichts." iPhone, Safari,
+eigener Webspace. Kein Absturz, keine Meldung, keine Fehlerseite. Das Menü stand da wie
+immer.
+
+Genau das ist die Falle. **Das Menü ist statisches HTML.** Es steht auch dann tadellos da,
+wenn kein einziger Knopf verdrahtet wurde – wenn das JavaScript also nie durchgelaufen ist.
+Ein Fehler beim Start und ein kaputter Startknopf sehen von aussen identisch aus, und auf
+einem Handy gibt es keine Konsole, in der der Unterschied stünde.
+
+Ich habe den Startpfad Zeile für Zeile durchgesehen und **konnte die Ursache nicht bestimmen.**
+Drei Kandidaten liessen sich benennen und beheben (unten), aber welcher davon auf jenem Gerät
+zuschlug – oder ob es ein vierter war – war von hier aus nicht zu entscheiden. Das ist der
+eigentliche Mangel: nicht der einzelne Fehler, sondern dass er sich nicht melden konnte.
+
+Der wahrscheinlichste Auslöser ist ohnehin keiner, den man im Code findet: auf einem Webspace,
+auf den dieselbe Adresse mehrfach neu bespielt wurde, hat der Browser leicht eine ältere
+`index.html` und ein neueres `src/main.js` gleichzeitig im Zwischenspeicher. Die beiden passen
+dann nicht zusammen, `getElementById` gibt `null`, der erste Zugriff darauf wirft – und der
+Rest von `boot()` läuft nie.
+
+## Entscheidung
+
+Vier Dinge, in dieser Reihenfolge nach Wichtigkeit:
+
+1. **Ein Meldungsstreifen** ganz oben in `index.html`, unsichtbar, solange nichts schiefgeht.
+   Er zeigt Meldung, Datei und Zeile, ist auswählbar und sagt in einem Satz, was zu tun ist.
+   Gesammelt wird ab der ersten Zeile – von einem kurzen Skript **direkt in `index.html`**,
+   nicht aus einem Modul: ein Modul, das gar nicht erst ausgeführt wird, kann sich unmöglich
+   selbst darüber beschweren. Ist die Seite fertig geladen und das Spiel meldet sich trotzdem
+   nicht als bedienbar, zeigt der Streifen, was er hat – notfalls den Satz „Das Spiel wurde
+   nicht ausgeführt". Gewartet wird dabei auf `load` und nicht auf eine feste Frist: sonst
+   schlüge der Streifen bei langsamer Verbindung an, während in Wahrheit nur noch geladen
+   wird.
+
+2. **In `boot()` erst verdrahten, dann verzieren.** Vorher standen drei Verzierungen ganz oben
+   (Name eintragen, Rekord anzeigen, Vollbildknopf ein- oder ausblenden). Warf eine davon,
+   wurde kein einziger Knopf mehr verdrahtet. Jetzt laufen `bindButtons()`, die Tippfläche,
+   die Sprachwahl und die Sichtbarkeit zuerst, alles Weitere danach und jeder Block für sich
+   abgesichert. Zusätzlich gibt `$()` statt `null` ein loses Ersatzstück zurück und schreibt
+   die fehlende `id` in den Streifen: die Kleinigkeit fehlt dann wirklich, aber sie reisst den
+   Start nicht mehr mit.
+
+3. **`.catch()` auf etwas, das kein Promise ist.** `webkitRequestFullscreen` (Safari auf iPad
+   und Mac, ältere Android-WebViews) gibt `undefined` zurück. Das `.catch()` darauf warf einen
+   TypeError – in der zweiten Zeile von `startGame()`, also bevor überhaupt etwas passierte.
+   Auf dem iPhone selbst schlägt das nicht zu (dort gibt es kein Element-Vollbild), auf iPad
+   und Mac schon.
+
+4. **Gegen alte Stände im Zwischenspeicher:** eine `.htaccess` im Hauptordner (kein
+   Zwischenspeicher für `index.html`, richtiger MIME-Typ für `.js` – bei falschem Typ führt
+   kein Browser ein ES-Modul aus, ohne das zu sagen), und die Versionsnummer an der
+   Modul-Adresse: `src/main.js?v=2.0.1`. Ein Test hält diese Zahl mit `version.js` zusammen.
+
+## Begründung
+
+Punkt 2 bis 4 beheben drei benennbare Ursachen. Punkt 1 ist trotzdem der wichtigste, weil er
+als einziger auch die vierte behebt, die niemand kennt: er macht aus „es passiert nichts" eine
+Meldung, die man abfotografieren und schicken kann.
+
+Der Streifen kostet nichts, solange alles läuft – ein verstecktes `div` und zwei Zuhörer.
+
+## Alternativen
+
+- **Nur die drei Fehler beheben.** Naheliegend, aber es wäre geraten gewesen: keiner davon war
+  auf dem gemeldeten Gerät nachweisbar. Beim nächsten Mal stünde man wieder am selben Punkt.
+- **Eine Fehlerbericht-Adresse, die automatisch sendet.** Wäre bequemer, verlangt aber einen
+  Endpunkt, Zustimmung und eine Datenschutzerklärung. Für ein Spiel ohne Datenbank zu viel.
+- **`console.error` und gut.** Genau das war der Zustand vorher.
+
+## Konsequenzen
+
+- Ein Startfehler ist ab jetzt aus der Ferne diagnostizierbar, ohne das Gerät in der Hand zu
+  haben.
+- Ein fehlendes Element macht das Spiel nicht mehr unbedienbar, sondern nur unvollständig.
+- Der Preis: zwei Stellen, die den Streifen zeichnen (das Skript in `index.html` und
+  `engine/crash.js`). Das ist unvermeidlich – die eine muss ohne die andere auskommen.
+- Zwei neue Tests: die Version in der Modul-Adresse muss zu `version.js` passen, und der
+  Streifen muss samt seiner `display: none`-Regel im HTML und CSS vorhanden sein.
+
+## Wiedervorlage
+
+Sobald eine Meldung vom Gerät vorliegt. Zeigt sie eine Ursache, die hier nicht steht, gehört
+sie nachgetragen. Bleibt der Streifen ein Jahr lang bei allen leer, kann der Wachhund
+raus – der Rest bleibt.

@@ -1,3 +1,3 @@
 // Einzige Quelle der Versionsnummer: das Spiel zeigt sie an, das Packskript
 // benennt die ZIP-Datei danach.
-export const VERSION = '2.0.0';
+export const VERSION = '2.0.1';

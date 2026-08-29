@@ -24,6 +24,101 @@
   </head>
   <body>
     <!--
+      Der Meldungsstreifen. Er ist leer und unsichtbar, solange nichts schiefgeht.
+
+      Er steht VOR allem anderen im Dokument, damit er auch dann noch da ist,
+      wenn das Spiel selbst nie startet: der Menübildschirm darunter ist
+      statisches HTML und sähe sonst völlig normal aus, obwohl kein einziger
+      Knopf verdrahtet wurde.
+    -->
+    <div class="crash" id="crash" hidden>
+      <p class="crash__head">Mogli konnte nicht starten</p>
+      <div class="crash__list"></div>
+      <p class="crash__hint">
+        Bitte diesen Text abschreiben oder abfotografieren und schicken. Meist hilft schon: alle
+        Dateien neu hochladen und dann hier neu laden.
+      </p>
+      <button type="button" class="crash__btn" id="crashReload">Neu laden</button>
+    </div>
+
+    <!--
+      Der Fänger. Er steht bewusst hier drin und nicht in einem Modul.
+
+      Ein Modul, das gar nicht erst ausgeführt wird – Datei fehlt, unvollständig
+      hochgeladen, vom Server mit falschem Typ ausgeliefert, ein Syntaxfehler –,
+      kann sich unmöglich selbst darüber beschweren. Genau dieser Fall sieht auf
+      dem Bildschirm aus wie ein kaputter Startknopf: das Menü darunter ist
+      statisches HTML und steht ganz normal da.
+
+      Also sammelt dieses Skript ab der ersten Zeile alles ein. Ist die Seite
+      fertig geladen und das Spiel meldet sich trotzdem nicht als bedienbar,
+      zeigt es selbst, was es hat. Läuft alles, war es nie zu sehen.
+    -->
+    <script>
+      window.mogliBoot = {
+        ok: false,
+        errors: [],
+        note: function (text) {
+          this.errors.push(String(text));
+          if (typeof this.onError === 'function') this.onError(String(text));
+        },
+      };
+      window.addEventListener(
+        'error',
+        function (event) {
+          var target = event.target;
+          if (target && target !== window && target.src) {
+            window.mogliBoot.note('Datei nicht ladbar: ' + String(target.src).split('/').pop());
+            return;
+          }
+          var file = event.filename ? String(event.filename).split('/').pop() : '';
+          window.mogliBoot.note(
+            event.message + (file ? ' (' + file + ':' + event.lineno + ')' : ''),
+          );
+        },
+        true,
+      );
+      window.addEventListener('unhandledrejection', function (event) {
+        window.mogliBoot.note(event.reason);
+      });
+      // „Neu laden" muss auch dann gehen, wenn kein einziges Modul lief – also
+      // hier. location.reload() holte die Seite oft aus demselben
+      // Zwischenspeicher, der das Problem verursacht hat; eine neue Adresse
+      // kann der Browser nicht zwischengespeichert haben.
+      document.getElementById('crashReload').addEventListener('click', function () {
+        window.location.href = window.location.pathname + '?neu=' + Date.now();
+      });
+      // Der Wachhund. Er wartet auf 'load' und nicht auf eine feste Frist ab
+      // dem Seitenanfang: sonst schlägt er bei langsamer Verbindung an, während
+      // in Wahrheit nur noch geladen wird. Nach 'load' ist alles da, was kommen
+      // sollte – wenn sich das Spiel dann anderthalb Sekunden später immer noch
+      // nicht gemeldet hat, ist wirklich etwas kaputt.
+      window.addEventListener('load', function () {
+        window.setTimeout(check, 1500);
+      });
+      function check() {
+        if (window.mogliBoot.ok) return;
+        var box = document.getElementById('crash');
+        var list = box.querySelector('.crash__list');
+        var lines = window.mogliBoot.errors.slice(0, 4);
+        if (lines.length === 0) {
+          lines = [
+            'Das Spiel wurde nicht ausgeführt. Meist fehlt der Ordner "src" auf dem ' +
+              'Webspace, ist unvollständig hochgeladen, oder der Server liefert .js-Dateien ' +
+              'mit falschem Typ aus.',
+          ];
+        }
+        for (var i = 0; i < lines.length; i += 1) {
+          var line = document.createElement('p');
+          line.className = 'crash__line';
+          line.textContent = lines[i];
+          list.appendChild(line);
+        }
+        box.hidden = false;
+      }
+    </script>
+
+    <!--
       Das Spiel füllt den Bildschirm, sonst ist hier nichts. Alles andere –
       Bestenliste, Sprache, Ton – lebt in den Einblendungen darüber. So gibt es
       auf dem Handy keine Seite, an der man vorbeiscrollen kann.
@@ -183,6 +278,6 @@
       </p>
     </noscript>
 
-    <script type="module" src="src/main.js"></script>
+    <script type="module" src="src/main.js?v=2.0.1"></script>
   </body>
 </html>

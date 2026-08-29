@@ -1,4 +1,4 @@
-Mogli - Tempelflucht 2.0.0
+Mogli - Tempelflucht 2.0.1
 ==========================
 
 Ein Jump'n'Run fuer den Browser. Ein Knopf, immer nach oben.
@@ -107,10 +107,47 @@ EHRLICH GESAGT
   HTML-Zeichen in Namen zu - aber gegen jemanden, der es wirklich darauf
   anlegt, hilft das nicht. Die Liste ist zum Spass da, nicht als Urkunde.
 
+NEUE FASSUNG HOCHGELADEN UND ES SIEHT AUS WIE VORHER?
+
+  Oder schlimmer: das Menue steht da, aber auf "Los geht's" passiert nichts.
+
+  Das ist fast immer der Zwischenspeicher des Browsers. Er hat die alte
+  index.html behalten und laedt dazu neuen Code - oder umgekehrt. Die beiden
+  passen dann nicht zusammen, und das Spiel bleibt stumm im Menue stehen.
+
+  Zu tun:
+    1. Wirklich ALLE Dateien ersetzen, nicht nur die geaenderten. Besonders
+       index.html und den ganzen Ordner src/.
+    2. Die Seite hart neu laden:
+         iPhone/iPad:  Einstellungen > Safari > Verlauf und Websitedaten
+                       loeschen. Oder die Seite einmal in einem privaten Tab
+                       oeffnen.
+         Android:      im Menue der Seite auf "Neu laden" lange druecken.
+         Windows/Linux: Strg + Umschalt + R
+         Mac:          Cmd + Umschalt + R
+    3. Notfalls die Adresse mit einem Anhaengsel aufrufen:
+         https://deine-domain.tld/mogli/?neu=1
+
+  Damit das gar nicht erst passiert, liegt eine .htaccess im Hauptordner. Sie
+  sagt Apache, dass index.html nicht zwischengespeichert werden darf, und setzt
+  fuer .js-Dateien den richtigen Typ - bei falschem Typ fuehrt kein Browser die
+  Module aus, ohne einen Fehler zu zeigen. Bei nginx stehen die entsprechenden
+  Zeilen als Kommentar in derselben Datei.
+
+  Zeigt der Server nach dem Hochladen "Internal Server Error"? Dann erlaubt
+  dein Hoster keine eigenen .htaccess-Regeln. Dann diese eine Datei loeschen -
+  das Spiel laeuft auch ohne sie.
+
+  Geht es trotzdem nicht, erscheint jetzt oben ein roter Streifen mit der
+  Fehlermeldung. Diesen Text abfotografieren - darin steht, welche Datei fehlt
+  oder wo es klemmt.
+
 DATEIEN
 
   index.html        die Seite
   style.css         Gestaltung
+  .htaccess         Servereinstellungen fuer Apache (verhindert alte
+                    Zwischenspeicher-Staende); ohne sie laeuft es auch
   score.php         Bestenliste (optional)
   admin.php         Admin-Bereich (optional), hier ADMIN_CODE aendern
   assets.php        gibt die eigene Grafik an das Spiel heraus
@@ -200,6 +237,38 @@ WORLDWIDE LEADERBOARD
 
   To keep scores outside the web root entirely, set the DATA_DIR constant in
   score.php to an absolute path.
+
+UPLOADED A NEW VERSION AND IT LOOKS THE SAME?
+
+  Or worse: the menu is there, but tapping "Los geht's" does nothing.
+
+  That is almost always the browser cache. It kept the old index.html and
+  loaded new code alongside it - or the other way round. The two no longer
+  match, and the game sits silently in the menu.
+
+  To do:
+    1. Replace ALL files, not just the changed ones. Especially index.html
+       and the whole src/ folder.
+    2. Hard-reload the page:
+         iPhone/iPad:  Settings > Safari > Clear History and Website Data.
+                       Or open the page once in a private tab.
+         Android:      long-press "Reload" in the page menu.
+         Windows/Linux: Ctrl + Shift + R
+         Mac:          Cmd + Shift + R
+    3. If all else fails, call the address with a suffix:
+         https://your-domain.tld/mogli/?neu=1
+
+  To stop this happening at all, an .htaccess sits in the main folder. It tells
+  Apache not to cache index.html, and sets the correct type for .js files - with
+  the wrong type no browser executes the modules, and none of them says so. The
+  nginx equivalent is a comment in the same file.
+
+  Server showing "Internal Server Error" after the upload? Then your host does
+  not allow custom .htaccess rules. Just delete that one file - the game runs
+  without it.
+
+  If it still fails, a red bar now appears at the top with the error message.
+  Photograph that text - it says which file is missing or where it breaks.
 
 HONESTLY
 

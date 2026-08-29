@@ -92,6 +92,33 @@ test('die Versionsnummer steht in LIESMICH.txt genauso wie im Spiel', () => {
   );
 });
 
+test('die Modul-Adresse in index.html trägt dieselbe Version', () => {
+  // src/main.js?v=… ist die Notbremse gegen einen Browser-Zwischenspeicher, in
+  // dem eine neue index.html auf ein altes main.js trifft. Bleibt die Zahl beim
+  // Hochzählen stehen, tut die Notbremse still gar nichts mehr – und der
+  // Fehler, den sie verhindern soll, sieht aus wie ein kaputter Startknopf.
+  const found = html.match(/src="src\/main\.js\?v=([^"]+)"/);
+  assert.ok(found !== null, 'index.html lädt src/main.js ohne ?v=Version');
+  assert.equal(
+    found[1],
+    VERSION,
+    `index.html lädt main.js?v=${found[1]}, das Spiel ist aber Version ${VERSION}`,
+  );
+});
+
+test('der Meldungsstreifen ist im HTML vollständig angelegt', () => {
+  // Er ist die einzige Möglichkeit, von einem fremden Handy zu erfahren, warum
+  // das Spiel nicht startet. Fällt eine seiner Klassen aus dem HTML, schreibt
+  // der Fänger ins Leere und man steht wieder vor „es passiert nichts".
+  for (const needle of ['id="crash"', 'crash__list', 'crash__line', 'id="crashReload"']) {
+    assert.ok(html.includes(needle), `index.html fehlt ${needle}`);
+  }
+  // Und das Gegenstück: ohne diese Regel schlägt `display` das `hidden`, und
+  // der Streifen stünde bei jedem Start da. Genau diese Falle hat hier schon
+  // zweimal zugeschlagen.
+  assert.match(read('style.css'), /\.crash\[hidden\]\s*\{\s*display:\s*none/);
+});
+
 test('der Admin-Bereich fragt nur Elemente ab, die es auch gibt', () => {
   // Zusätzlich zu den ids: die Reiter werden über data-tab gefunden, und ein
   // Tippfehler dort bliebe sonst still.
