@@ -1,0 +1,527 @@
+/*
+ * Der Admin-Bereich ist ein Werkzeug, kein Spiel.
+ *
+ * Deshalb gilt hier fast nichts von dem, was die Spielseite ausmacht: hier
+ * darf gescrollt werden, es gibt Beschriftungen, Text ist markierbar, und die
+ * Seite ist so lang, wie sie sein muss. Die Farben sind dieselben, damit man
+ * merkt, dass es zusammengehört.
+ */
+
+:root {
+  --hc-bg: #050a09;
+  --hc-surface: #0d1a16;
+  --hc-surface-2: #14261f;
+  --hc-border: #1d3a2c;
+  --hc-text: #dbe8cf;
+  --hc-muted: #8fa383;
+  --hc-accent: #3fe3a8;
+  --hc-primary: #2b5a3d;
+  --hc-primary-hover: #46874f;
+  --hc-warn: #f5c53a;
+  --hc-danger: #d9330f;
+
+  --hc-radius: 10px;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--hc-bg);
+  color: var(--hc-text);
+  font-family: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Menlo, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+h1 {
+  font-size: 16px;
+  margin: 0;
+  letter-spacing: 0.06em;
+}
+
+h2 {
+  font-size: 15px;
+  margin: 0 0 8px;
+}
+
+h3 {
+  font-size: 13px;
+  margin: 0 0 6px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hc-muted);
+}
+
+/* --- Kopf ---------------------------------------------------------------- */
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hc-border);
+  background: var(--hc-surface);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.top__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mode {
+  font-size: 12px;
+  color: var(--hc-muted);
+}
+
+.mode--local {
+  color: var(--hc-warn);
+}
+
+/* --- Anmeldung ----------------------------------------------------------- */
+
+.gate {
+  display: flex;
+  justify-content: center;
+  padding: 40px 16px;
+}
+
+/* Ohne diese Zeile bliebe die Anmeldung nach dem Anmelden stehen: eine
+   Anzeigeart im Stylesheet sticht das hidden-Attribut aus. */
+.gate[hidden],
+.work[hidden],
+.preview[hidden] {
+  display: none;
+}
+
+.gate__card {
+  width: 100%;
+  max-width: 360px;
+}
+
+/* --- Bausteine ----------------------------------------------------------- */
+
+.card {
+  background: var(--hc-surface);
+  border: 1px solid var(--hc-border);
+  border-radius: var(--hc-radius);
+  padding: 14px;
+  margin: 0 0 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 10px;
+}
+
+.field__label {
+  font-size: 12px;
+  color: var(--hc-muted);
+}
+
+input[type='text'],
+input[type='password'],
+input[type='number'] {
+  font: inherit;
+  padding: 9px 11px;
+  color: var(--hc-text);
+  background: var(--hc-surface-2);
+  border: 1px solid var(--hc-border);
+  border-radius: 8px;
+  width: 100%;
+}
+
+.btn {
+  font: inherit;
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--hc-border);
+  background: var(--hc-surface-2);
+  color: var(--hc-text);
+  cursor: pointer;
+  min-height: 40px;
+}
+
+.btn:hover {
+  border-color: var(--hc-accent);
+}
+
+.btn--primary {
+  background: var(--hc-primary);
+  border-color: var(--hc-primary);
+}
+
+.btn--primary:hover {
+  background: var(--hc-primary-hover);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--hc-muted);
+}
+
+.btn[hidden] {
+  display: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--hc-accent);
+  outline-offset: 2px;
+}
+
+.lead {
+  margin: 0 0 10px;
+}
+
+.note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--hc-muted);
+}
+
+.status {
+  margin: 8px 0 0;
+  min-height: 1.4em;
+  font-size: 12px;
+  color: var(--hc-muted);
+}
+
+.status--good {
+  color: var(--hc-accent);
+}
+
+.status--bad {
+  color: var(--hc-danger);
+}
+
+.warn {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--hc-warn);
+}
+
+.warn[hidden] {
+  display: none;
+}
+
+/* --- Reiter -------------------------------------------------------------- */
+
+.work {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 16px;
+}
+
+.tab {
+  font: inherit;
+  padding: 8px 14px;
+  border: 1px solid var(--hc-border);
+  border-radius: 8px;
+  background: var(--hc-surface);
+  color: var(--hc-muted);
+  cursor: pointer;
+}
+
+.tab[aria-pressed='true'] {
+  background: var(--hc-primary);
+  color: var(--hc-text);
+  border-color: var(--hc-primary);
+}
+
+.panel[hidden] {
+  display: none;
+}
+
+/* --- Figur --------------------------------------------------------------- */
+
+.anims {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 0 14px;
+}
+
+.anim {
+  background: var(--hc-surface);
+  border: 1px solid var(--hc-border);
+  border-radius: var(--hc-radius);
+  padding: 12px;
+}
+
+.anim__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 10px;
+}
+
+.anim__name {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 13px;
+}
+
+.anim__play {
+  image-rendering: pixelated;
+  width: 64px;
+  height: 64px;
+  background: var(--hc-surface-2);
+  border: 1px solid var(--hc-border);
+  border-radius: 6px;
+}
+
+.slots {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+/* Ein Bildplatz: Vorschau, darunter der Dateiknopf. */
+.slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.slot__view {
+  image-rendering: pixelated;
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--hc-surface-2);
+  border: 1px dashed var(--hc-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.slot__view--filled {
+  border-style: solid;
+  border-color: var(--hc-accent);
+}
+
+.slot__view--drop {
+  border-color: var(--hc-accent);
+  background: var(--hc-primary);
+}
+
+.slot__clear {
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--hc-muted);
+  cursor: pointer;
+}
+
+.slot__clear:hover {
+  color: var(--hc-danger);
+}
+
+.slot input[type='file'] {
+  display: none;
+}
+
+/* --- Kasten aufziehen ---------------------------------------------------- */
+
+.boxedit {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.boxedit canvas {
+  image-rendering: pixelated;
+  width: 192px;
+  height: 192px;
+  background: var(--hc-surface-2);
+  border: 1px solid var(--hc-border);
+  border-radius: 6px;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.boxedit__side {
+  flex: 1 1 200px;
+  min-width: 180px;
+}
+
+.numbers {
+  margin: 0 0 8px;
+  font-variant-numeric: tabular-nums;
+  color: var(--hc-accent);
+}
+
+/* --- Kacheln ------------------------------------------------------------- */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.tile {
+  background: var(--hc-surface);
+  border: 1px solid var(--hc-border);
+  border-radius: var(--hc-radius);
+  padding: 10px;
+}
+
+.tile__name {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  margin: 0 0 8px;
+  color: var(--hc-muted);
+}
+
+.tile__row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.tile__view {
+  image-rendering: pixelated;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 auto;
+  background: var(--hc-surface-2);
+  border: 1px dashed var(--hc-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.tile__view--filled {
+  border-style: solid;
+  border-color: var(--hc-accent);
+}
+
+.tile__box {
+  image-rendering: pixelated;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 auto;
+  background: var(--hc-surface-2);
+  border: 1px solid var(--hc-border);
+  border-radius: 6px;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.tile__box--fixed {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.tile input[type='file'] {
+  display: none;
+}
+
+.tile__hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--hc-muted);
+}
+
+/* --- Hintergrund --------------------------------------------------------- */
+
+.layers {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.layer {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: var(--hc-surface);
+  border: 1px solid var(--hc-border);
+  border-radius: var(--hc-radius);
+  padding: 10px;
+}
+
+.layer__view {
+  image-rendering: pixelated;
+  width: 64px;
+  height: 96px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  background: var(--hc-surface-2);
+  border: 1px solid var(--hc-border);
+  border-radius: 6px;
+}
+
+.layer__side {
+  flex: 1;
+  min-width: 0;
+}
+
+.layer__side .field {
+  margin: 0 0 6px;
+}
+
+/* --- Vorschau ------------------------------------------------------------ */
+
+.preview {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.preview canvas {
+  image-rendering: pixelated;
+  width: 256px;
+  height: 336px;
+  background: var(--hc-bg);
+  border: 1px solid var(--hc-border);
+  border-radius: 6px;
+}
+
+.preview__side {
+  flex: 1 1 220px;
+  min-width: 200px;
+}
+
+/* --- Speichern ----------------------------------------------------------- */
+
+.save {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 20px;
+  padding: 12px 0;
+  border-top: 1px solid var(--hc-border);
+  background: var(--hc-bg);
+}
+
+.save .status {
+  margin: 0;
+  flex: 1 1 100%;
+}

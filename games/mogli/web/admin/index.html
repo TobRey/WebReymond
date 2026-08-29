@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Mogli – Grafik einsetzen</title>
+    <link rel="stylesheet" href="admin.css" />
+  </head>
+  <body>
+    <!--
+      Der Admin-Bereich ist ein Werkzeug, kein Spiel: hier darf gescrollt
+      werden, hier gibt es Beschriftungen, und die Spielseite selbst verweist
+      bewusst nicht hierher.
+    -->
+    <header class="top">
+      <h1>Mogli · Grafik einsetzen</h1>
+      <div class="top__right">
+        <span class="mode" id="mode"></span>
+        <button type="button" class="btn btn--ghost" id="btnSignOut" hidden>Abmelden</button>
+      </div>
+    </header>
+
+    <!-- Anmeldung -->
+    <main class="gate" id="gate">
+      <form class="card gate__card" id="loginForm">
+        <h2>Zugang</h2>
+        <label class="field">
+          <span class="field__label">Code</span>
+          <input
+            type="password"
+            id="code"
+            inputmode="numeric"
+            autocomplete="current-password"
+            required
+          />
+        </label>
+        <button type="submit" class="btn btn--primary">Anmelden</button>
+        <p class="status" id="loginStatus"></p>
+        <p class="note">
+          Fünf Versuche je zehn Minuten. Danach ist für zehn Minuten Ruhe – auch für dich, das ist
+          der Preis dafür, dass niemand den Code durchprobieren kann.
+        </p>
+      </form>
+    </main>
+
+    <!-- Werkzeug -->
+    <main class="work" id="work" hidden>
+      <nav class="tabs" id="tabs">
+        <button type="button" class="tab" data-tab="figur" aria-pressed="true">Figur</button>
+        <button type="button" class="tab" data-tab="kacheln" aria-pressed="false">Kacheln</button>
+        <button type="button" class="tab" data-tab="hintergrund" aria-pressed="false">
+          Hintergrund
+        </button>
+        <button type="button" class="tab" data-tab="vorschau" aria-pressed="false">Vorschau</button>
+      </nav>
+
+      <!-- ---------------------------------------------------------------- -->
+      <section class="panel" id="tab-figur">
+        <p class="lead">
+          Acht Bewegungen, je fünf Bilder. Erwartet werden PNG-Dateien mit
+          <strong>32 × 32</strong> Pixeln. Leere Plätze behalten die mitgelieferte Grafik – du musst
+          nicht alles ersetzen.
+        </p>
+        <div class="anims" id="anims"></div>
+
+        <div class="card">
+          <h3>Trefferfläche</h3>
+          <p class="note">
+            Das Rechteck, das Mogli für die Physik wirklich ist. Ziehe es über dem Bild auf. Kleiner
+            heisst: er passt durch engere Lücken und bleibt seltener hängen.
+          </p>
+          <div class="boxedit">
+            <canvas id="hitCanvas" width="32" height="32"></canvas>
+            <div class="boxedit__side">
+              <p class="numbers" id="hitNumbers"></p>
+              <button type="button" class="btn btn--ghost" id="hitReset">Zurücksetzen</button>
+              <p class="warn" id="hitWarn" hidden></p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------------------------------------------------------------- -->
+      <section class="panel" id="tab-kacheln" hidden>
+        <p class="lead">
+          Ein Platz je Kachel, PNG mit <strong>16 × 16</strong> Pixeln. Der Kasten daneben sagt, wo
+          die Kachel fest ist – so steht man auf der Graskante und nicht drei Pixel darüber.
+        </p>
+        <p class="note">
+          Was eine Kachel <em>bedeutet</em> (fest, nur von oben tragend, tödlich), lässt sich nicht
+          ändern: daran hängt der Beweis, dass jeder Turm besteigbar ist. An Wänden liegt auch der
+          Kasten fest – dort wird abgesprungen.
+        </p>
+        <div class="tiles" id="tiles"></div>
+      </section>
+
+      <!-- ---------------------------------------------------------------- -->
+      <section class="panel" id="tab-hintergrund" hidden>
+        <p class="lead">
+          Bis zu vier Ebenen, von hinten nach vorn. Breite
+          <strong>256</strong> Pixel, Höhe frei – die Ebene wiederholt sich senkrecht. Das Tempo
+          sagt, wie schnell sie beim Klettern mitwandert: 0 steht still, 1 läuft mit dem Turm mit.
+        </p>
+        <p class="note">
+          Ein eigener Hintergrund ersetzt alle drei mitgelieferten Ebenen zusammen. Sie sind
+          aufeinander abgestimmt; eine fremde dazwischen sähe aus wie ein Fehler.
+        </p>
+        <div class="layers" id="layers"></div>
+        <button type="button" class="btn" id="addLayer">Ebene hinzufügen</button>
+      </section>
+
+      <!-- ---------------------------------------------------------------- -->
+      <section class="panel" id="tab-vorschau" hidden>
+        <p class="lead">
+          Das echte Spiel mit deiner noch nicht gespeicherten Grafik. Der Automat spielt selbst – er
+          zeigt, ob der Turm mit deinen Kästen noch besteigbar ist.
+        </p>
+        <div class="preview">
+          <canvas id="previewCanvas" width="256" height="336"></canvas>
+          <div class="preview__side">
+            <button type="button" class="btn" id="btnBot">Automat 30 s laufen lassen</button>
+            <p class="status" id="botStatus"></p>
+            <p class="note">
+              Der Automat spielt bewusst mittelmässig. Kommt <em>er</em> nicht vom Fleck, kommt auch
+              niemand sonst.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------------------------------------------------------------- -->
+      <footer class="save">
+        <button type="button" class="btn btn--primary" id="btnSave">Speichern</button>
+        <button type="button" class="btn" id="btnDownload">Als Datei laden</button>
+        <button type="button" class="btn btn--ghost" id="btnClear">Alles zurücksetzen</button>
+        <p class="status" id="saveStatus"></p>
+      </footer>
+    </main>
+
+    <noscript>
+      <p style="padding: 1rem">Der Admin-Bereich braucht JavaScript.</p>
+    </noscript>
+
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>
