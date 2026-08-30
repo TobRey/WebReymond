@@ -1,4 +1,4 @@
-Mogli - Tempelflucht 2.0.3
+Mogli - Tempelflucht 2.1.0
 ==========================
 
 Ein Jump'n'Run fuer den Browser. Ein Knopf, immer nach oben.
@@ -54,8 +54,23 @@ SO WIRD GESPIELT
 EIGENE GRAFIK EINSETZEN
 
   Unter /admin kannst du eigene Bilder einsetzen, ohne Code anzufassen:
-  die Figur (acht Bewegungen mit je fuenf Bildern, 32x32 PNG), die Kacheln
+  die Figur (acht Bewegungen mit je fuenf Bildern, 32x32), die Kacheln
   (16x16 PNG) und den Hintergrund. Zugangscode ist 6713.
+
+  AM SCHNELLSTEN MIT GIF
+
+  Neben jeder Bewegung sitzt ein GIF-Knopf. Ein animiertes GIF dort hineinlegen
+  fuellt alle fuenf Plaetze auf einmal - kein Einzelnes-Bild-Exportieren, keine
+  vertauschte Reihenfolge. Das GIF muss 32x32 gross sein.
+
+    - mehr als fuenf Bilder: fuenf davon werden nach ihrer Laufzeit im GIF
+      ausgewaehlt, ein lange stehendes Bild bekommt also mehr Plaetze
+    - weniger als fuenf: sie werden auf die fuenf Plaetze verteilt, keines
+      faellt weg
+    - was passiert ist, steht danach als Meldung da
+
+  Das GIF wird dabei im Browser zerlegt; auf den Server gehen weiterhin nur
+  die fuenf einzelnen PNG. Einzelne Plaetze nehmen wie bisher PNG.
 
   WICHTIG, BITTE EINMALIG AENDERN:
     - In admin.php die Zeile ADMIN_CODE auf ein laengeres Wort setzen.
@@ -229,8 +244,22 @@ HOW TO PLAY
 YOUR OWN GRAPHICS
 
   At /admin you can replace the sprites, tiles and background without
-  touching any code: the character (eight animations, five 32x32 PNG frames
-  each), the tiles (16x16 PNG) and the background. The access code is 6713.
+  touching any code: the character (eight animations, five 32x32 frames each),
+  the tiles (16x16 PNG) and the background. The access code is 6713.
+
+  QUICKEST WAY: A GIF
+
+  Next to every animation there is a GIF button. Drop an animated GIF there and
+  it fills all five slots at once - no exporting single frames, no mixed-up
+  order. The GIF must be 32x32.
+
+    - more than five frames: five are picked by how long each one is shown, so
+      a frame that rests gets more slots
+    - fewer than five: they are spread over the five slots, none is dropped
+    - what happened is reported right afterwards
+
+  The GIF is taken apart in the browser; only the five separate PNGs are sent
+  to the server. Single slots still take PNG.
 
   IMPORTANT, PLEASE CHANGE ONCE:
     - Set ADMIN_CODE in admin.php to a longer word. Four digits are 10 000

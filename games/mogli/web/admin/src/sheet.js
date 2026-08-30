@@ -1,9 +1,11 @@
-// PNG-Dateien einlesen und anzeigen.
+// Bilddateien einlesen und anzeigen.
 //
 // Warum die Grösse geprüft wird, statt einfach zu skalieren: ein auf 32 × 32
 // heruntergerechnetes Foto ist kein Pixelbild, sondern Matsch. Wer 64 × 64
 // hochlädt, hat sich vermutlich vertan – das gehört gesagt, nicht stillschweigend
-// ausgebügelt.
+// ausgebügelt. Für GIF gilt dasselbe.
+
+import { decodeGif, pickEvenlyInTime } from '../../src/render/gif.js';
 
 /**
  * Liest eine Datei als Daten-URL.
@@ -29,6 +31,47 @@ export function loadImage(dataUrl) {
 }
 
 /**
+ * Zerlegt eine GIF-Datei in genau `anzahl` PNG-Bilder.
+ *
+ * Der Weg ist absichtlich kurz: das GIF wird hier zerlegt und als die schon
+ * bekannten Einzelbilder abgelegt. Damit ändert sich nichts am Paketformat,
+ * nichts an admin.php und nichts am Spiel – ein GIF ist eine bequemere Art,
+ * dieselben fünf Bilder einzugeben, mehr nicht. Auf dem Server kommt
+ * weiterhin ausschliesslich PNG an.
+ *
+ * @param {File} file
+ * @param {{size: number, count: number}} erwartet
+ * @returns {Promise<{dataUrls: string[], frameCount: number, width: number, height: number}>}
+ */
+export async function acceptGif(file, erwartet) {
+  const puffer = new Uint8Array(await file.arrayBuffer());
+  const gif = decodeGif(puffer);
+
+  if (gif.width !== erwartet.size || gif.height !== erwartet.size) {
+    throw new Error(
+      `Das GIF ist ${gif.width} × ${gif.height}. Gebraucht werden ${erwartet.size} × ${erwartet.size} – ` +
+        'kleinrechnen würde die Pixelkanten zerstören.',
+    );
+  }
+
+  const gewaehlt = pickEvenlyInTime(gif.frames, erwartet.count);
+  const canvas = document.createElement('canvas');
+  canvas.width = gif.width;
+  canvas.height = gif.height;
+  const ctx = canvas.getContext('2d');
+
+  const dataUrls = [];
+  for (const index of gewaehlt) {
+    const bild = ctx.createImageData(gif.width, gif.height);
+    bild.data.set(gif.frames[index].pixels);
+    ctx.putImageData(bild, 0, 0);
+    dataUrls.push(canvas.toDataURL('image/png'));
+  }
+
+  return { dataUrls, frameCount: gif.frames.length, width: gif.width, height: gif.height };
+}
+
+/**
  * Nimmt eine Datei entgegen und gibt Daten-URL plus Masse zurück.
  *
  * @param {File} file
@@ -36,6 +79,11 @@ export function loadImage(dataUrl) {
  * @returns {Promise<{dataUrl: string, width: number, height: number}>}
  */
 export async function acceptImage(file, expect = {}) {
+  if (file.type.includes('gif') || /\.gif$/i.test(file.name)) {
+    // Ein GIF auf einem EINZELNEN Platz ist fast immer ein Missverständnis:
+    // gemeint war die ganze Bewegung. Dorthin zeigen, statt nur abzulehnen.
+    throw new Error('Ein GIF gehört auf den GIF-Knopf neben der Bewegung – er füllt alle fünf.');
+  }
   if (!file.type.includes('png')) {
     throw new Error('Nur PNG-Dateien. Andere Formate haben keine sauberen Pixelkanten.');
   }

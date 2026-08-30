@@ -525,3 +525,43 @@ input[type='number'] {
   margin: 0;
   flex: 1 1 100%;
 }
+
+/* Die GIF-Fläche neben jeder Bewegung. -------------------------------------
+ *
+ * Sie soll auffallen, ohne den Blick von den fünf Plätzen zu ziehen: das GIF
+ * ist die Abkürzung, die Einzelbilder bleiben der genaue Weg.
+ */
+.gifwrap {
+  margin-left: auto;
+}
+
+.gifdrop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 1px dashed var(--hc-accent-strong);
+  border-radius: 8px;
+  background: var(--hc-surface-2);
+  color: var(--hc-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.gifdrop b {
+  color: var(--hc-accent);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+}
+
+.gifdrop span {
+  color: var(--hc-muted);
+  font-size: 10px;
+}
+
+.gifdrop:hover,
+.gifdrop.slot__view--drop {
+  border-style: solid;
+  border-color: var(--hc-accent);
+}

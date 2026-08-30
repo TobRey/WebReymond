@@ -15,7 +15,7 @@ import {
 import { PHYS } from '../../src/game/constants.js';
 import { ANIMATIONS } from '../../src/game/player.js';
 import * as store from './store.js';
-import { acceptImage, bindFileArea, loadImage, showImage } from './sheet.js';
+import { acceptGif, acceptImage, bindFileArea, loadImage, showImage } from './sheet.js';
 import { bindBoxEditor, drawBox } from './hitbox.js';
 import * as preview from './preview.js';
 
@@ -62,6 +62,16 @@ let pack = { version: 1 };
 
 /** Dekodierte Bilder zum Anzeigen. Nicht Teil des Pakets. */
 const shown = { frames: {}, tiles: {}, layers: [] };
+
+/**
+ * Je Bildplatz die Funktion, die ihn neu zeichnet.
+ *
+ * Nötig, seit ein GIF fünf Plätze auf einmal füllt: die Anzeige einfach neu
+ * aufzubauen wäre kürzer, würde aber bei jedem GIF eine weitere
+ * requestAnimationFrame-Schleife je Bewegung starten - die alten laufen
+ * weiter, niemand hält sie an.
+ */
+const slotRefresh = {};
 
 // ---------------------------------------------------------------------------
 // Kleine Helfer am Paket
@@ -160,7 +170,7 @@ function buildAnimations() {
     play.className = 'anim__play';
     play.width = LIMITS.frameSize;
     play.height = LIMITS.frameSize;
-    head.append(label, play);
+    head.append(label, buildGifDrop(name), play);
 
     const slots = document.createElement('div');
     slots.className = 'slots';
@@ -174,6 +184,69 @@ function buildAnimations() {
 
     startPlayback(name, play);
   }
+}
+
+/**
+ * Die Fläche für „ein GIF für die ganze Bewegung".
+ *
+ * Sie sitzt bewusst neben der Bewegung und nicht auf einem der fünf Plätze:
+ * ein GIF füllt alle fünf auf einmal, und wo etwas fünf Felder ändert, soll
+ * man nicht auf ein einzelnes Feld zielen müssen.
+ */
+function buildGifDrop(name) {
+  // Der Dateiwähler steht NEBEN dem Knopf, nicht darin: bindFileArea ruft bei
+  // einem Klick input.click(), und ein Klick auf ein Kind blubbert zurück zum
+  // Knopf - das wäre eine Schleife ohne Ende.
+  const wrap = document.createElement('div');
+  wrap.className = 'gifwrap';
+
+  const drop = document.createElement('button');
+  drop.type = 'button';
+  drop.className = 'gifdrop';
+  const kopf = document.createElement('b');
+  kopf.textContent = 'GIF';
+  const unten = document.createElement('span');
+  unten.textContent = 'alle 5 auf einmal';
+  drop.append(kopf, unten);
+
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/gif,.gif';
+  input.hidden = true;
+
+  bindFileArea(drop, input, async (file) => {
+    try {
+      const { dataUrls, frameCount } = await acceptGif(file, {
+        size: LIMITS.frameSize,
+        count: LIMITS.framesPerAnimation,
+      });
+
+      const liste = frameList(name);
+      shown.frames[name] ??= new Array(LIMITS.framesPerAnimation).fill(null);
+      for (let i = 0; i < dataUrls.length; i += 1) {
+        liste[i] = dataUrls[i];
+        shown.frames[name][i] = await loadImage(dataUrls[i]);
+      }
+      for (const auffrischen of slotRefresh[name] ?? []) auffrischen();
+      refreshHitbox();
+
+      // Was mit den Bildern passiert ist, gehört gesagt: bei mehr als fünf
+      // wurde ausgewählt, bei weniger gedehnt. Wer das nicht liest, wundert
+      // sich später über eine Bewegung, die er so nicht gezeichnet hat.
+      const hinweis =
+        frameCount === LIMITS.framesPerAnimation
+          ? `${frameCount} Bilder übernommen`
+          : frameCount > LIMITS.framesPerAnimation
+            ? `${frameCount} Bilder im GIF – fünf davon nach Laufzeit ausgewählt`
+            : `${frameCount} Bilder im GIF – auf fünf Plätze verteilt, keines fehlt`;
+      status(dom.saveStatus, `${name}: ${hinweis}. Noch nicht gespeichert.`);
+    } catch (error) {
+      status(dom.saveStatus, `${name}: ${error.message}`, 'bad');
+    }
+  });
+
+  wrap.append(drop, input);
+  return wrap;
 }
 
 function buildSlot(name, index) {
@@ -200,6 +273,8 @@ function buildSlot(name, index) {
     showImage(view, image);
     view.classList.toggle('slot__view--filled', image !== null);
   };
+  slotRefresh[name] ??= [];
+  slotRefresh[name][index] = refresh;
 
   bindFileArea(view, input, async (file) => {
     try {

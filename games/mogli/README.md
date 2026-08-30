@@ -60,7 +60,8 @@ web/                     genau dieser Baum landet in der ZIP-Datei
     engine/              Schleife, Eingabe, Canvas-Skalierung, Ton, Speicher,
                          Meldungsstreifen für Fehler beim Start
     game/                Physik, Levelgenerator, Glut, Story-Ablauf, Automat
-    render/              Mogli, Wesen, Kacheln, Hintergrund, Szene, Anzeige
+    render/              Mogli, Wesen, Kacheln, Hintergrund, Szene, Anzeige,
+                         GIF-Leser für den Admin-Bereich
     net/                 Bestenliste und Grafikpaket: die geteilten Prüfregeln
 test/                    node --test, läuft ohne Browser
 tools/
@@ -160,6 +161,20 @@ fertig geladen, ohne dass sich das Spiel als bedienbar gemeldet hat, erscheint d
 allein. In `boot()`
 wird deshalb erst verdrahtet und dann verziert: eine kaputte Kleinigkeit kostet höchstens sich
 selbst. Näheres in [0015](../../docs/decisions/0015-startfehler-werden-sichtbar.md).
+
+**Ein GIF statt fünf Dateien.** Neben jeder Bewegung im Admin-Bereich nimmt eine Fläche ein
+animiertes GIF und füllt alle fünf Plätze auf einmal. Zerlegt wird es im Browser
+(`render/gif.js`) und als die schon bekannten fünf PNG abgelegt – Paketformat, `admin.php` und
+Spiel bleiben unverändert. Hat das GIF mehr als fünf Bilder, entscheidet die **Laufzeit** je
+Bild, welche fünf es werden; hat es weniger, werden sie verteilt und keines fällt weg. Beide
+Regeln stehen in [0016](../../docs/decisions/0016-gif-statt-fuenf-dateien.md), samt der Fälle,
+an denen die jeweils andere Regel scheitert.
+
+Der Leser ist selbstgeschrieben, weil kein Browser die Bilder eines GIF einzeln herausgibt und
+`ImageDecoder` auf iOS fehlt. Weil ein eigener Leser, geprüft an eigenen Testdateien, nichts
+beweist, hält `tools/gif-gegenprobe.mjs` beide gegen **Chromiums eigenen `ImageDecoder`** und
+vergleicht Pixel für Pixel – verschränkte Zeilen, Teilbilder, Durchsichtigkeit, beide
+Räum-Verfahren, lange LZW-Ketten.
 
 **Die Version hängt an jeder Modul-Adresse.** `index.html` enthält eine `importmap`, erzeugt von
 `tools/make-importmap.mjs`. Vorher trug nur `main.js` ein `?v=`; die 31 Dateien darunter wurden

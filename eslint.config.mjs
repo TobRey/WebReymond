@@ -85,6 +85,12 @@ export default tseslint.config(
         console: 'readonly',
         process: 'readonly',
         Buffer: 'readonly',
+        // Node 22 bringt diese von sich aus mit; die Gegenprobe gegen
+        // Chromium spricht damit CDP, ohne eine Abhängigkeit zu brauchen.
+        fetch: 'readonly',
+        WebSocket: 'readonly',
+        TextEncoder: 'readonly',
+        setTimeout: 'readonly',
       },
     },
     rules: {

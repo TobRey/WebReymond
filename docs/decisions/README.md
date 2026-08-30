@@ -24,5 +24,6 @@ als „ersetzt durch“ markiert.
 | [0013](0013-mogli-fuellt-den-bildschirm.md) | Mogli ist eine Seite, die aus nichts als dem Spiel besteht | akzeptiert |
 | [0014](0014-admin-und-eigene-grafik.md) | Eigene Grafik über einen Admin-Bereich, ohne Datenbank | akzeptiert |
 | [0015](0015-startfehler-werden-sichtbar.md) | Ein Startfehler steht auf dem Bildschirm, nicht in der Konsole | akzeptiert |
+| [0016](0016-gif-statt-fuenf-dateien.md) | Ein GIF darf die fünf Einzelbilder einer Bewegung ersetzen | akzeptiert |
 
 Format je Datei: Kontext → Entscheidung → Begründung → Alternativen → Konsequenzen → Wiedervorlage.
