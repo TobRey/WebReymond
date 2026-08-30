@@ -1,4 +1,4 @@
-Mogli - Tempelflucht 2.2.0
+Mogli - Tempelflucht 2.2.1
 ==========================
 
 Ein Jump'n'Run fuer den Browser. Ein Knopf, immer nach oben.
@@ -64,7 +64,7 @@ EIGENE GRAFIK EINSETZEN
 
     - Figur  -> 32 x 32
     - Kachel -> 16 x 16
-    - Ebene  -> Breite des Spiels, Hoehe nach Seitenverhaeltnis
+    - Ebene  -> so gross, dass sie den Bildschirm deckt
 
   Das Seitenverhaeltnis bleibt dabei erhalten - ein breites Bild wird nicht zum
   Quadrat gezerrt, sondern eingepasst. Ob dabei geglaettet wird, entscheidet
@@ -76,6 +76,16 @@ EIGENE GRAFIK EINSETZEN
   Ein sehr hohes Bild als Hintergrundebene wird mittig beschnitten und
   notfalls weiter verkleinert - nicht aus Prinzip, sondern damit das ganze
   Paket noch durch den PHP-Upload deines Webspace passt.
+
+  HINTERGRUND: DAS TEMPO ENTSCHEIDET ALLES
+
+    Tempo 0     Das Bild steht still. Es fuellt den ganzen Bildschirm und wird
+                mittig beschnitten, wo das Seitenverhaeltnis nicht passt. Das
+                ist die Einstellung fuer ein Hintergrundbild.
+    Tempo > 0   Die Ebene laeuft beim Klettern mit. Sie wird auf die Breite des
+                Spiels gezogen und untereinander wiederholt; ihre Hoehe sagt,
+                nach welcher Strecke sich das Muster wiederholt. 1 wandert
+                genauso schnell wie der Turm.
 
   AM SCHNELLSTEN MIT GIF
 
@@ -274,7 +284,7 @@ YOUR OWN GRAPHICS
 
     - character -> 32 x 32
     - tile      -> 16 x 16
-    - layer     -> game width, height follows the aspect ratio
+    - layer     -> large enough to cover the screen
 
   The aspect ratio is kept: a wide image is fitted, not squashed into a square.
   Whether it gets smoothed decides itself: if the ratio divides evenly
@@ -285,6 +295,15 @@ YOUR OWN GRAPHICS
   A very tall background layer is cropped from the middle and shrunk further if
   needed - not on principle, but so the whole package still fits through your
   webspace's PHP upload.
+
+  BACKGROUND: THE SPEED DECIDES EVERYTHING
+
+    Speed 0     The image stands still. It fills the whole screen and is
+                cropped from the middle where the aspect ratio does not match.
+                This is the setting for a backdrop.
+    Speed > 0   The layer scrolls while climbing. It is stretched to the game
+                width and repeated vertically; its height says after what
+                distance the pattern repeats. 1 moves with the tower.
 
   QUICKEST WAY: A GIF
 

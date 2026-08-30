@@ -231,13 +231,14 @@ export async function acceptLayer(file, ziel) {
   // abzulehnen. Für den, der sie einsetzt, gibt es damit keine Grenze mehr,
   // gegen die er laufen könnte.
   let maxHoehe = ziel.maxHeight;
-  let mass = layerSize(srcW, srcH, ziel.width, maxHoehe);
+  const masse = (h) => layerSize(srcW, srcH, { ...ziel, maxHeight: h });
+  let mass = masse(maxHoehe);
   let dataUrl = zeichneEbene(quelle, srcW, mass);
   let verkleinert = false;
 
   while (dataUrlBytes(dataUrl) > ziel.maxBytes && mass.height > 64) {
     maxHoehe = Math.max(64, Math.floor(mass.height * 0.75));
-    mass = layerSize(srcW, srcH, ziel.width, maxHoehe);
+    mass = masse(maxHoehe);
     dataUrl = zeichneEbene(quelle, srcW, mass);
     verkleinert = true;
   }
@@ -248,6 +249,7 @@ export async function acceptLayer(file, ziel) {
     dataUrl,
     width: srcW,
     height: srcH,
+    zielBreite: mass.width,
     zielHoehe: mass.height,
     beschnitten: mass.crop.h !== srcH,
     verkleinert,

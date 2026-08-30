@@ -7,6 +7,11 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const webDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'web');
 
 import {
   ANIMATION_NAMES,
@@ -143,6 +148,57 @@ test('zu grosse Bilder werden abgewiesen', () => {
   const result = validatePack({ version: 1, tiles: { STONE_A: { image: huge } } });
   assert.equal(result.ok, false);
   assert.equal(result.error, 'image_too_large');
+});
+
+test('eine Hintergrundebene hat ihre eigene, groessere Grenze', () => {
+  // Sie deckt den ganzen Bildschirm und wiegt darum mehr als ein 32x32-Sprite.
+  // Mit der Sprite-Grenze musste jede Ebene so weit verkleinert werden, dass
+  // sie den Bildschirm nicht mehr fuellte - genau der gemeldete Fehler.
+  assert.ok(LIMITS.maxLayerBytes > LIMITS.maxImageBytes);
+
+  const gerade = `data:image/png;base64,iVBORw0KGgoAAAANSUhEUg${'A'.repeat(
+    Math.floor(LIMITS.maxImageBytes * 1.5),
+  )}`;
+  const erlaubt = validatePack({
+    version: 1,
+    background: { layers: [{ image: gerade, speed: 0 }] },
+  });
+  assert.equal(erlaubt.ok, true, `${erlaubt.error}: eine grosse Ebene muss durchgehen`);
+
+  // Aber unbegrenzt ist sie nicht.
+  const zuviel = `data:image/png;base64,iVBORw0KGgoAAAANSUhEUg${'A'.repeat(
+    LIMITS.maxLayerBytes * 2,
+  )}`;
+  const abgelehnt = validatePack({
+    version: 1,
+    background: { layers: [{ image: zuviel, speed: 0 }] },
+  });
+  assert.equal(abgelehnt.ok, false);
+  assert.equal(abgelehnt.error, 'image_too_large');
+
+  // Und die grosse Grenze gilt NICHT fuer Sprites und Kacheln.
+  const alsKachel = validatePack({ version: 1, tiles: { STONE_A: { image: gerade } } });
+  assert.equal(alsKachel.ok, false, 'ein Sprite darf die Ebenen-Grenze nicht ausnutzen');
+});
+
+test('admin.php und assetRules.js nennen dieselben Zahlen', () => {
+  // Massgeblich ist die Pruefung im Server; die im Browser ist die freundliche
+  // Vorpruefung. Laufen die Zahlen auseinander, lehnt der Server etwas ab, das
+  // die Oberflaeche gerade noch durchgewinkt hat - und niemand versteht warum.
+  const php = readFileSync(join(webDir, 'admin.php'), 'utf8');
+  const zahl = (name) => {
+    const treffer = php.match(new RegExp(`const\\s+${name}\\s*=\\s*([^;]+);`));
+    assert.ok(treffer !== null, `${name} steht nicht in admin.php`);
+    // Formen wie "5 * 1024 * 1024" ausrechnen, ohne eval.
+    return treffer[1]
+      .split('*')
+      .map((teil) => Number(teil.trim()))
+      .reduce((a, b) => a * b, 1);
+  };
+
+  assert.equal(zahl('MAX_PACK_BYTES'), LIMITS.maxPackBytes, 'MAX_PACK_BYTES');
+  assert.equal(zahl('MAX_IMAGE_BYTES'), LIMITS.maxImageBytes, 'MAX_IMAGE_BYTES');
+  assert.equal(zahl('MAX_LAYER_BYTES'), LIMITS.maxLayerBytes, 'MAX_LAYER_BYTES');
 });
 
 test('unbekannte Felder werden nicht durchgereicht', () => {

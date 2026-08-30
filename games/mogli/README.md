@@ -173,6 +173,14 @@ in [0017](../../docs/decisions/0017-keine-massvorgaben-im-admin.md).
 Dateien werden mit `createImageBitmap` geöffnet, nicht über eine Daten-URL: base64 bläht um ein
 Drittel auf, und ein Handyfoto brachte den Browser damit zum Stehen.
 
+**Das Tempo einer Hintergrundebene entscheidet, wie sie gezeichnet wird.** Tempo 0 heisst
+stehendes Bild: es füllt den Bildschirm und wird mittig beschnitten. Über 0 heisst mitlaufend:
+auf Spielbreite gezogen und untereinander wiederholt. Der Grund für die Unterscheidung war ein
+gemeldeter Fehler – ein Foto stand „nur oben im Bild". Die Zeichenschleife lief nur nach oben und
+liess alles frei, was höher lag als die Ebene selbst; bei den mitgelieferten Ebenen kann das
+nicht auffallen, weil die immer bildhoch sind. `test/background.test.mjs` rechnet für jede
+Kombination aus Bildhöhe, Ebenenhöhe und Tempo nach, ob eine Zeile ohne Bild bleibt.
+
 **Ein GIF statt fünf Dateien.** Neben jeder Bewegung im Admin-Bereich nimmt eine Fläche ein
 animiertes GIF und füllt alle fünf Plätze auf einmal. Zerlegt wird es im Browser
 (`render/gif.js`) und als die schon bekannten fünf PNG abgelegt – Paketformat, `admin.php` und

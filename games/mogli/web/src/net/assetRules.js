@@ -69,8 +69,27 @@ export const LIMITS = {
 
   /** Ein einzelnes Bild, in Bytes nach dem Dekodieren. */
   maxImageBytes: 256 * 1024,
-  /** Das ganze Paket als JSON, in Bytes. */
-  maxPackBytes: 4 * 1024 * 1024,
+
+  /**
+   * Eine Hintergrundebene darf mehr wiegen als ein Sprite.
+   *
+   * Nicht aus Grosszügigkeit: eine Ebene, die einen 256 x 640 grossen
+   * Bildschirm füllen soll, ist gut zwanzigmal so gross wie ein 32 x 32
+   * grosses Bild, und ein fotoähnlicher Hintergrund lässt sich als PNG kaum
+   * zusammendrücken. Mit der Sprite-Grenze musste jede Ebene so weit
+   * verkleinert werden, dass sie den Bildschirm nicht mehr deckte - genau der
+   * Fehler, der gemeldet wurde.
+   */
+  maxLayerBytes: 768 * 1024,
+
+  /**
+   * Das ganze Paket als JSON, in Bytes.
+   *
+   * Es geht als EIN POST an admin.php. Ein gewöhnlicher Webspace nimmt acht
+   * Megabyte an (post_max_size); fünf lassen genug Luft, auch wenn der Hoster
+   * knauserig eingestellt ist.
+   */
+  maxPackBytes: 5 * 1024 * 1024,
 
   /** Die Trefferfläche darf nicht beliebig klein oder gross werden. */
   minHitbox: 4,
@@ -257,7 +276,7 @@ export function validatePack(input) {
           return { ok: false, error: 'invalid_layer' };
         }
         if (!isPngDataUrl(layer.image)) return { ok: false, error: 'not_a_png', detail: 'layer' };
-        if (dataUrlBytes(layer.image) > LIMITS.maxImageBytes) {
+        if (dataUrlBytes(layer.image) > LIMITS.maxLayerBytes) {
           return { ok: false, error: 'image_too_large', detail: 'layer' };
         }
         const speed = Number(layer.speed);

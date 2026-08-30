@@ -51,8 +51,11 @@ const ADMIN_SALT = 'bitte-aendern-in-etwas-zufaelliges';
 /** Dieselbe Ablage wie die Bestenliste. */
 const DATA_DIR = __DIR__ . '/data';
 
-const MAX_PACK_BYTES   = 4 * 1024 * 1024;  // deckt sich mit LIMITS in assetRules.js
+const MAX_PACK_BYTES   = 5 * 1024 * 1024;  // deckt sich mit LIMITS in assetRules.js
 const MAX_IMAGE_BYTES  = 256 * 1024;
+// Eine Hintergrundebene deckt den ganzen Bildschirm und wiegt entsprechend
+// mehr als ein 32x32-Sprite. Deckt sich mit maxLayerBytes in assetRules.js.
+const MAX_LAYER_BYTES  = 768 * 1024;
 const FRAMES_PER_ANIM  = 5;
 const MAX_BG_LAYERS    = 4;
 const MIN_HITBOX       = 4;
@@ -281,12 +284,12 @@ function dataUrlBytes(string $value): int
     return intdiv(strlen($base64) * 3, 4) - $padding;
 }
 
-function checkImage(mixed $value, string $where): string
+function checkImage(mixed $value, string $where, int $maxBytes = MAX_IMAGE_BYTES): string
 {
     if (!isPngDataUrl($value)) {
         fail(400, 'not_a_png', $where);
     }
-    if (dataUrlBytes($value) > MAX_IMAGE_BYTES) {
+    if (dataUrlBytes($value) > $maxBytes) {
         fail(400, 'image_too_large', $where);
     }
     return $value;
@@ -424,7 +427,7 @@ function cleanPack(mixed $input): array
                 fail(400, 'invalid_speed');
             }
             $clean[] = [
-                'image' => checkImage($layer['image'] ?? null, 'layer'),
+                'image' => checkImage($layer['image'] ?? null, 'layer', MAX_LAYER_BYTES),
                 'speed' => round((float) $speed, 2),
             ];
         }

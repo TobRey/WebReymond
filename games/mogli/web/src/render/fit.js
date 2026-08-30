@@ -33,29 +33,53 @@ export function containRect(srcW, srcH, dstW, dstH) {
 }
 
 /**
- * Die Masse für eine Hintergrundebene: Breite fest, Höhe im Verhältnis.
+ * Die Masse für eine Hintergrundebene.
  *
- * Die Ebene wird im Spiel über die volle Breite gezogen und untereinander
- * wiederholt – die Höhe bestimmt also, nach welcher Strecke sich das Muster
- * wiederholt, und darf beliebig sein. Nach oben gibt es trotzdem eine Grenze,
- * sonst wird aus einem Handyfoto eine Datei, die kein Webspace mehr annimmt.
- * Was darüber liegt, wird mittig beschnitten statt gestaucht: ein gestauchter
- * Hintergrund sieht falsch aus, ein Ausschnitt nur anders.
+ * Sie muss zwei Aufgaben können, und die zweite ist die, an der die erste
+ * Fassung gescheitert ist:
+ *
+ *   - mitlaufend (Tempo > 0): sie wird auf die Breite des Spiels gezogen und
+ *     untereinander wiederholt.
+ *   - stehend (Tempo 0): sie füllt den ganzen Bildschirm.
+ *
+ * Für das Füllen reicht "auf Spielbreite bringen" nicht. Ein Foto im
+ * Verhältnis 1:2 ist bei 256 Pixeln Breite nur 534 hoch, der Bildschirm aber
+ * bis zu 640 - es müsste zur Laufzeit vergrössert werden und würde weich.
+ * Deshalb wird hier schon so gerechnet, dass das Bild den höchsten möglichen
+ * Bildschirm deckt: vergrössert wird nie, nur verkleinert.
+ *
+ * Für ein breites Bild führt dieselbe Rechnung ins Absurde - ein 16:9-Foto
+ * müsste 1139 Pixel breit werden, um 640 hoch zu sein, und davon sähe man ein
+ * Viertel. Deshalb die Breitengrenze: darüber bleibt es beim Einpassen in die
+ * Breite, und der Rest ist beim Füllen eben etwas weicher.
  *
  * @returns {{width: number, height: number, crop: {y: number, h: number}}}
  */
-export function layerSize(srcW, srcH, dstW, maxH) {
+export function layerSize(srcW, srcH, ziel) {
+  const { width: dstW, coverHeight, maxHeight: maxH, maxWidth: maxW = dstW * 2 } = ziel;
   if (srcW <= 0 || srcH <= 0) return { width: dstW, height: dstW, crop: { y: 0, h: srcH } };
 
-  const volleHoehe = Math.max(1, Math.round((srcH * dstW) / srcW));
+  // So gross, dass sowohl die Breite als auch der höchste Bildschirm gedeckt
+  // sind. coverHeight ist die Bildschirmhöhe, maxH die Grenze der Ablage -
+  // die beiden zu verwechseln macht aus jedem Bild eine unnötig grosse Datei.
+  let faktor = Math.max(dstW / srcW, coverHeight / srcH);
+  // Aber nie breiter als erlaubt, und nie vergrössert.
+  faktor = Math.min(faktor, maxW / srcW, 1);
+  // Die Breite des Spiels ist das Mindeste, sonst wäre die Ebene schmaler als
+  // der Schacht - auch dann, wenn die Quelle winzig ist.
+  faktor = Math.max(faktor, dstW / srcW);
+
+  const width = Math.max(1, Math.round(srcW * faktor));
+  const volleHoehe = Math.max(1, Math.round(srcH * faktor));
   if (volleHoehe <= maxH) {
-    return { width: dstW, height: volleHoehe, crop: { y: 0, h: srcH } };
+    return { width, height: volleHoehe, crop: { y: 0, h: srcH } };
   }
 
-  // Zu hoch: mittig so viel herausschneiden, dass es gerade passt.
-  const behalten = Math.max(1, Math.round((maxH * srcW) / dstW));
+  // Zu hoch: mittig so viel herausschneiden, dass es gerade passt. Gestaucht
+  // sähe der Hintergrund falsch aus, ein Ausschnitt nur anders.
+  const behalten = Math.max(1, Math.round((maxH * srcW) / width));
   return {
-    width: dstW,
+    width,
     height: maxH,
     crop: { y: Math.round((srcH - behalten) / 2), h: behalten },
   };

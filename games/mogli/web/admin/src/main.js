@@ -12,7 +12,7 @@ import {
   TILE_NAMES,
   validatePack,
 } from '../../src/net/assetRules.js';
-import { PHYS, VIEW_W } from '../../src/game/constants.js';
+import { PHYS, VIEW_H_MAX, VIEW_W } from '../../src/game/constants.js';
 import { ANIMATIONS } from '../../src/game/player.js';
 import * as store from './store.js';
 import {
@@ -547,17 +547,21 @@ function bindAddLayer() {
       // welcher Strecke sich die Ebene beim Klettern wiederholt.
       const ebene = await acceptLayer(file, {
         width: VIEW_W,
+        // Der höchste Bildschirm, den es gibt: so gross muss die Ebene sein,
+        // damit ein stehender Hintergrund ihn füllt, ohne vergrössert zu
+        // werden.
+        coverHeight: VIEW_H_MAX,
         maxHeight: LIMITS.maxLayerHeight,
-        maxBytes: LIMITS.maxImageBytes,
+        maxBytes: LIMITS.maxLayerBytes,
       });
       pack.background ??= { layers: [] };
       pack.background.layers.push({ image: ebene.dataUrl, speed: 0.3 });
       buildLayers();
-      const gleich = ebene.width === VIEW_W && ebene.height === ebene.zielHoehe;
+      const gleich = ebene.width === ebene.zielBreite && ebene.height === ebene.zielHoehe;
       const wie =
         (gleich
           ? `${ebene.width} × ${ebene.height} übernommen`
-          : `${ebene.width} × ${ebene.height} umgerechnet auf ${VIEW_W} × ${ebene.zielHoehe}`) +
+          : `${ebene.width} × ${ebene.height} umgerechnet auf ${ebene.zielBreite} × ${ebene.zielHoehe}`) +
         (ebene.beschnitten ? ', mittig beschnitten' : '') +
         (ebene.verkleinert ? ', weiter verkleinert damit es ins Paket passt' : '') +
         ` (${Math.round(ebene.bytes / 1024)} kB)`;

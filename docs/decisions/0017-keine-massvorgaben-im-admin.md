@@ -49,6 +49,34 @@ bei einem 1920 × 1080 grossen Bild kam schlicht keine Antwort mehr. Behoben mit
 `createImageBitmap`, das die Datei direkt entgegennimmt; ohne diese Änderung wäre ein Handyfoto
 unbenutzbar geblieben, also genau der Fall, für den es die ganze Änderung gibt.
 
+## Nachtrag: das Tempo entscheidet, wie eine Ebene benutzt wird
+
+Gemeldet wurde danach: ein eingesetztes Foto „ist nur oben im Bild und deckt nicht alles ab".
+Zwei Ursachen, beide meine:
+
+**Die Zeichenschleife lief nur nach oben.** `tiled()` malte die Ebene an ihrer Position und
+einmal darüber – das genügt, solange jede Ebene mindestens bildhoch ist, und die mitgelieferten
+sind es. Ein Foto im Verhältnis 1:2 wird bei 256 Pixeln Breite aber nur 534 hoch, der Bildschirm
+ist bis zu 640. Ab Zeile 534 blieb alles leer. `test/background.test.mjs` rechnet jetzt für jede
+Kombination aus Bildhöhe, Ebenenhöhe und Tempo nach, ob eine Zeile ohne Bild bleibt – und meldet
+gegen den alten Code genau „ab Zeile 534 ist nichts gezeichnet".
+
+**Ein stehender Hintergrund ist keine mitlaufende Ebene.** Tempo 0 heisst: bewegt sich nicht. Sie
+zu wiederholen ergäbe keinen Sinn, sondern nur eine Naht quer durchs Bild. Deshalb füllt eine
+Ebene mit Tempo 0 den Bildschirm und wird mittig beschnitten, wo das Seitenverhältnis nicht
+passt; alles über 0 wird wie bisher gekachelt. Das braucht kein neues Feld im Paketformat – das
+Tempo *ist* die Angabe.
+
+Damit ein stehender Hintergrund dabei nicht vergrössert werden muss, wird er schon beim
+Hochladen so gerechnet, dass er den höchsten möglichen Bildschirm deckt (307 × 640 für das
+gemeldete Bild), und nicht mehr nur auf die Breite gebracht.
+
+Dafür brauchte es eine eigene Bytegrenze: 476 kB für dieses Bild, gegen 256 kB für ein Sprite.
+Mit der Sprite-Grenze verkleinerte sich jede Ebene so weit, bis sie den Bildschirm wieder nicht
+mehr deckte – die Verkleinerungsschleife von oben arbeitete also gegen den Zweck. Ebenen haben
+jetzt `maxLayerBytes` (768 kB), das Paket insgesamt 5 MB; beide Zahlen stehen doppelt, in
+`assetRules.js` und in `admin.php`, und ein Test hält sie zusammen – der fehlte bis jetzt.
+
 ## Alternativen
 
 - **Beim Ablehnen bleiben und nur besser erklären.** Ehrlicher gegenüber der Bildqualität,

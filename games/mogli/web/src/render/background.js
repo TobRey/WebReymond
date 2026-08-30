@@ -292,20 +292,53 @@ export function buildBackground() {
 }
 
 /**
- * Zeichnet eine Ebene zweimal übereinander, damit sie beim Scrollen nie endet.
+ * Zeichnet eine Ebene so oft untereinander, dass sie den Bildschirm füllt.
  *
- * Die Höhe kommt aus der Ebene selbst, nicht aus VIEW_H: eine eingesetzte
- * Ebene darf beliebig hoch sein, und mit VIEW_H als Sprungweite hätte sie
- * Lücken oder Doppelungen.
+ * HIER STAND EIN FEHLER
+ * Vorher lief die Schleife nur nach oben: sie malte die Ebene an ihrer
+ * Position und einmal darüber. Solange jede Ebene mindestens so hoch war wie
+ * das Bild, fiel das nicht auf. Setzt man aber ein eigenes Bild ein, das
+ * niedriger ist – ein Foto im Verhältnis 1:2 wird bei 256 Pixeln Breite 534
+ * hoch, der Bildschirm ist bis zu 640 –, dann blieb unten ein Streifen leer.
+ * Gemeldet wurde das als „ist nur oben im Bild und deckt nicht alles ab".
+ *
+ * Jetzt wird von der ersten Kachel oberhalb des Bildes bis unter den unteren
+ * Rand gemalt. Die Breite wird dabei aufs Bild gezogen und die Höhe im
+ * Verhältnis mitgenommen, damit eine Ebene, die nicht genau 256 breit ist,
+ * nicht gestaucht wird.
  */
 function tiled(ctx, canvas, offset, alpha) {
-  const height = canvas.height || VIEW_H;
+  const breite = canvas.width || VIEW_W;
+  const hoehe = Math.max(1, Math.round((canvas.height || VIEW_H) * (VIEW_W / breite)));
+
   // Positiver Rest, auch bei negativen Versätzen.
-  const y = ((offset % height) + height) % height;
+  const y = ((offset % hoehe) + hoehe) % hoehe;
+  let oben = Math.round(y);
+  while (oben > 0) oben -= hoehe;
+
   ctx.globalAlpha = alpha;
-  for (let top = Math.round(y); top > -height; top -= height) {
-    ctx.drawImage(canvas, 0, top, VIEW_W, height);
+  for (let top = oben; top < VIEW_H; top += hoehe) {
+    ctx.drawImage(canvas, 0, top, VIEW_W, hoehe);
   }
+  ctx.globalAlpha = 1;
+}
+
+/**
+ * Zeichnet eine Ebene einmal, formatfüllend – der stehende Hintergrund.
+ *
+ * Eine Ebene mit Tempo 0 bewegt sich nicht; sie zu wiederholen ergäbe keinen
+ * Sinn, sondern nur eine sichtbare Naht quer durchs Bild. Sie wird deshalb so
+ * vergrössert, dass sie den Bildschirm ganz ausfüllt, und mittig beschnitten.
+ * Das Seitenverhältnis eines Handys ist nicht das eines Fotos – irgendetwas
+ * muss weichen, und ein Rand fällt mehr auf als ein fehlender Streifen am
+ * Bildrand.
+ */
+function cover(ctx, canvas, alpha) {
+  const faktor = Math.max(VIEW_W / canvas.width, VIEW_H / canvas.height);
+  const w = canvas.width * faktor;
+  const h = canvas.height * faktor;
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(canvas, Math.round((VIEW_W - w) / 2), Math.round((VIEW_H - h) / 2), w, h);
   ctx.globalAlpha = 1;
 }
 
@@ -326,6 +359,9 @@ export function drawBackground(ctx, bg, cameraY, heightPx) {
   // cameraY wird beim Klettern negativ, deshalb das Minus: die Ebenen sollen
   // nach unten wandern, wenn man steigt.
   for (const layer of bg.layers) {
-    tiled(ctx, layer.canvas, -cameraY * layer.speed, layer.alpha ?? 1);
+    // Tempo 0 heisst: steht still. Dann ist es ein Hintergrundbild und keine
+    // mitlaufende Ebene - es füllt den Bildschirm, statt sich zu wiederholen.
+    if (layer.speed === 0) cover(ctx, layer.canvas, layer.alpha ?? 1);
+    else tiled(ctx, layer.canvas, -cameraY * layer.speed, layer.alpha ?? 1);
   }
 }
