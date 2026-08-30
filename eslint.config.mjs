@@ -56,6 +56,8 @@ export default tseslint.config(
         AbortController: 'readonly',
         Node: 'readonly',
         Image: 'readonly',
+        createImageBitmap: 'readonly',
+        DataTransfer: 'readonly',
         FileReader: 'readonly',
         fetch: 'readonly',
         FormData: 'readonly',

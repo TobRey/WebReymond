@@ -61,7 +61,7 @@ web/                     genau dieser Baum landet in der ZIP-Datei
                          Meldungsstreifen für Fehler beim Start
     game/                Physik, Levelgenerator, Glut, Story-Ablauf, Automat
     render/              Mogli, Wesen, Kacheln, Hintergrund, Szene, Anzeige,
-                         GIF-Leser für den Admin-Bereich
+                         GIF-Leser und Bildumrechnung für den Admin-Bereich
     net/                 Bestenliste und Grafikpaket: die geteilten Prüfregeln
 test/                    node --test, läuft ohne Browser
 tools/
@@ -161,6 +161,17 @@ fertig geladen, ohne dass sich das Spiel als bedienbar gemeldet hat, erscheint d
 allein. In `boot()`
 wird deshalb erst verdrahtet und dann verziert: eine kaputte Kleinigkeit kostet höchstens sich
 selbst. Näheres in [0015](../../docs/decisions/0015-startfehler-werden-sichtbar.md).
+
+**Keine Massvorgaben im Admin-Bereich.** Jedes Format, das der Browser lesen kann, und jede
+Grösse; umgerechnet wird beim Hochladen (`render/fit.js`), abgelegt wird wie immer ein PNG in der
+Zielgrösse. Das Seitenverhältnis bleibt erhalten, und geglättet wird nur, wenn das Verhältnis
+krumm aufgeht – bei 64 → 32 bleibt Pixelart scharf, bei 100 → 32 fielen sonst ganze Zeilen weg.
+Eine Hintergrundebene verkleinert sich notfalls weiter, bis sie ins Paket passt: das geht als ein
+POST an `admin.php`, und auf einem gewöhnlichen Webspace ist bei acht Megabyte Schluss. Näheres
+in [0017](../../docs/decisions/0017-keine-massvorgaben-im-admin.md).
+
+Dateien werden mit `createImageBitmap` geöffnet, nicht über eine Daten-URL: base64 bläht um ein
+Drittel auf, und ein Handyfoto brachte den Browser damit zum Stehen.
 
 **Ein GIF statt fünf Dateien.** Neben jeder Bewegung im Admin-Bereich nimmt eine Fläche ein
 animiertes GIF und füllt alle fünf Plätze auf einmal. Zerlegt wird es im Browser

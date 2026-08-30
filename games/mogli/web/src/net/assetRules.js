@@ -57,6 +57,16 @@ export const LIMITS = {
   tileSize: 16,
   backgroundLayers: 4,
 
+  /**
+   * Wie hoch eine Hintergrundebene werden darf.
+   *
+   * Die Höhe bestimmt, nach welcher Strecke sich die Ebene beim Klettern
+   * wiederholt - beliebig sein darf sie trotzdem nicht, sonst wird aus einem
+   * Handyfoto eine Datei, die kein Webspace mehr annimmt. Der Admin-Bereich
+   * rechnet alles darüber herunter, statt es abzulehnen.
+   */
+  maxLayerHeight: 1024,
+
   /** Ein einzelnes Bild, in Bytes nach dem Dekodieren. */
   maxImageBytes: 256 * 1024,
   /** Das ganze Paket als JSON, in Bytes. */

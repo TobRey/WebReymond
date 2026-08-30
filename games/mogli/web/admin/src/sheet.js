@@ -1,23 +1,86 @@
-// Bilddateien einlesen und anzeigen.
+// Bilddateien einlesen, umrechnen und anzeigen.
 //
-// Warum die Grösse geprüft wird, statt einfach zu skalieren: ein auf 32 × 32
-// heruntergerechnetes Foto ist kein Pixelbild, sondern Matsch. Wer 64 × 64
-// hochlädt, hat sich vermutlich vertan – das gehört gesagt, nicht stillschweigend
-// ausgebügelt. Für GIF gilt dasselbe.
+// HIER STAND EINMAL DAS GEGENTEIL
+// Ursprünglich wurde jede Datei abgelehnt, die nicht schon genau 32 × 32 oder
+// 16 × 16 gross war – mit dem Argument, ein heruntergerechnetes Foto sei kein
+// Pixelbild, sondern Matsch. Das Argument stimmt immer noch. Trotzdem war die
+// Regel falsch: wer Grafik einsetzen will, soll zeichnen und nicht Masse
+// abzählen, und ein grob umgerechnetes Bild ist allemal besser als eine
+// Absage. Jetzt geht jede Grösse und jedes Format, das der Browser lesen kann.
+//
+// Wie umgerechnet wird, steht in ../../src/render/fit.js. Kurz: Seitenverhältnis
+// bleibt erhalten, und ob geglättet wird, hängt davon ab, ob das Verhältnis
+// glatt aufgeht (Pixelart scharf lassen) oder nicht (Foto glätten).
+//
+// Herausgegeben wird immer ein PNG in der Zielgrösse. Damit bleibt es dabei,
+// dass auf dem Server ausschliesslich PNG ankommt – die Prüfung dort ändert
+// sich durch all das nicht.
 
 import { decodeGif, pickEvenlyInTime } from '../../src/render/gif.js';
+import { containRect, layerSize, scaleMode } from '../../src/render/fit.js';
+import { dataUrlBytes } from '../../src/net/assetRules.js';
 
 /**
- * Liest eine Datei als Daten-URL.
- * @returns {Promise<string>}
+ * Öffnet eine Bilddatei, ohne sie durch base64 zu schleifen.
+ *
+ * Der naheliegende Weg wäre FileReader → Daten-URL → Image. Er funktioniert
+ * bei kleinen Dateien und bringt den Browser bei grossen zum Stehen: base64
+ * bläht jede Datei um ein Drittel auf, und ein Handyfoto mit sieben Megabyte
+ * wird so zu einer Zeichenkette von zehn. Genau daran ist der erste Versuch
+ * hängengeblieben, als ein 1920 × 1080 grosses Bild eingesetzt wurde.
+ *
+ * createImageBitmap nimmt die Datei direkt entgegen. Wo es das nicht gibt,
+ * tut es eine Objekt-Adresse – auch die kopiert nichts.
+ *
+ * @returns {Promise<{quelle: CanvasImageSource, breite: number, hoehe: number,
+ *   schliessen: () => void}>}
  */
-export function readAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.addEventListener('load', () => resolve(String(reader.result)), { once: true });
-    reader.addEventListener('error', () => reject(new Error('Datei nicht lesbar')), { once: true });
-    reader.readAsDataURL(file);
-  });
+async function oeffneBild(file) {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file);
+      return {
+        quelle: bitmap,
+        breite: bitmap.width,
+        hoehe: bitmap.height,
+        schliessen: () => bitmap.close?.(),
+      };
+    } catch {
+      // Manche Formate kennt createImageBitmap nicht – dann der Weg darunter.
+    }
+  }
+
+  const url = URL.createObjectURL(file);
+  try {
+    const image = await loadImage(url);
+    return {
+      quelle: image,
+      breite: image.naturalWidth,
+      hoehe: image.naturalHeight,
+      schliessen: () => URL.revokeObjectURL(url),
+    };
+  } catch (error) {
+    URL.revokeObjectURL(url);
+    throw error;
+  }
+}
+
+/** Ein GIF als Leinwand mit seinem ersten Bild. */
+function ersteGifSeite(bytes) {
+  const gif = decodeGif(bytes);
+  const canvas = document.createElement('canvas');
+  canvas.width = gif.width;
+  canvas.height = gif.height;
+  const ctx = canvas.getContext('2d');
+  const bild = ctx.createImageData(gif.width, gif.height);
+  bild.data.set(gif.frames[0].pixels);
+  ctx.putImageData(bild, 0, 0);
+  return { canvas, frameCount: gif.frames.length };
+}
+
+/** Ob eine Datei ein GIF ist – Typ oder Endung, je nachdem was da ist. */
+export function istGif(file) {
+  return file.type.includes('gif') || /\.gif$/i.test(file.name);
 }
 
 /** Lädt eine Daten-URL als Bild. */
@@ -43,66 +106,165 @@ export function loadImage(dataUrl) {
  * @param {{size: number, count: number}} erwartet
  * @returns {Promise<{dataUrls: string[], frameCount: number, width: number, height: number}>}
  */
-export async function acceptGif(file, erwartet) {
-  const puffer = new Uint8Array(await file.arrayBuffer());
-  const gif = decodeGif(puffer);
+export async function acceptGif(file, ziel) {
+  const gif = decodeGif(new Uint8Array(await file.arrayBuffer()));
+  const gewaehlt = pickEvenlyInTime(gif.frames, ziel.count);
 
-  if (gif.width !== erwartet.size || gif.height !== erwartet.size) {
-    throw new Error(
-      `Das GIF ist ${gif.width} × ${gif.height}. Gebraucht werden ${erwartet.size} × ${erwartet.size} – ` +
-        'kleinrechnen würde die Pixelkanten zerstören.',
-    );
-  }
-
-  const gewaehlt = pickEvenlyInTime(gif.frames, erwartet.count);
-  const canvas = document.createElement('canvas');
-  canvas.width = gif.width;
-  canvas.height = gif.height;
-  const ctx = canvas.getContext('2d');
+  // Erst jedes gewählte Bild in Originalgrösse auf eine Leinwand, dann von
+  // dort auf die Zielgrösse. Der Umweg ist nötig, weil die GIF-Bilder als
+  // rohe Punktdaten vorliegen und drawImage kein Feld von Zahlen annimmt.
+  const roh = document.createElement('canvas');
+  roh.width = gif.width;
+  roh.height = gif.height;
+  const rohCtx = roh.getContext('2d');
 
   const dataUrls = [];
   for (const index of gewaehlt) {
-    const bild = ctx.createImageData(gif.width, gif.height);
+    const bild = rohCtx.createImageData(gif.width, gif.height);
     bild.data.set(gif.frames[index].pixels);
-    ctx.putImageData(bild, 0, 0);
-    dataUrls.push(canvas.toDataURL('image/png'));
+    rohCtx.putImageData(bild, 0, 0);
+    dataUrls.push(fitToPng(roh, gif.width, gif.height, ziel.size, ziel.size));
   }
 
-  return { dataUrls, frameCount: gif.frames.length, width: gif.width, height: gif.height };
+  return {
+    dataUrls,
+    frameCount: gif.frames.length,
+    width: gif.width,
+    height: gif.height,
+  };
 }
 
 /**
- * Nimmt eine Datei entgegen und gibt Daten-URL plus Masse zurück.
+ * Rechnet eine Quelle auf ein festes Feld um und gibt ein PNG zurück.
+ *
+ * @param {CanvasImageSource} quelle
+ * @returns {string} Daten-URL
+ */
+export function fitToPng(quelle, srcW, srcH, breite, hoehe) {
+  const canvas = document.createElement('canvas');
+  canvas.width = breite;
+  canvas.height = hoehe;
+  const ctx = canvas.getContext('2d');
+
+  const rect = containRect(srcW, srcH, breite, hoehe);
+  ctx.imageSmoothingEnabled = scaleMode(srcW, srcH, rect.w, rect.h) === 'weich';
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(quelle, 0, 0, srcW, srcH, rect.x, rect.y, rect.w, rect.h);
+  return canvas.toDataURL('image/png');
+}
+
+/**
+ * Nimmt eine beliebige Bilddatei und gibt sie in der Zielgrösse zurück.
+ *
+ * Ein GIF wird über den eigenen Leser geöffnet und sein erstes Bild benutzt –
+ * der Browser gibt bei einem animierten GIF sonst je nach Zufall irgendeines
+ * heraus, und "irgendeines" ist keine Antwort, die man einem Nutzer zumuten
+ * kann.
  *
  * @param {File} file
- * @param {{width?: number, height?: number}} [expect] erwartete Masse
- * @returns {Promise<{dataUrl: string, width: number, height: number}>}
+ * @param {{width: number, height: number}} ziel
+ * @returns {Promise<{dataUrl: string, width: number, height: number, frameCount: number}>}
+ *   width/height sind die Masse der QUELLE, damit die Anzeige sagen kann,
+ *   was umgerechnet wurde.
  */
-export async function acceptImage(file, expect = {}) {
-  if (file.type.includes('gif') || /\.gif$/i.test(file.name)) {
-    // Ein GIF auf einem EINZELNEN Platz ist fast immer ein Missverständnis:
-    // gemeint war die ganze Bewegung. Dorthin zeigen, statt nur abzulehnen.
-    throw new Error('Ein GIF gehört auf den GIF-Knopf neben der Bewegung – er füllt alle fünf.');
-  }
-  if (!file.type.includes('png')) {
-    throw new Error('Nur PNG-Dateien. Andere Formate haben keine sauberen Pixelkanten.');
-  }
-
-  const dataUrl = await readAsDataUrl(file);
-  const image = await loadImage(dataUrl);
-
-  if (expect.width !== undefined && image.naturalWidth !== expect.width) {
-    throw new Error(
-      `${image.naturalWidth} × ${image.naturalHeight} – erwartet sind ${expect.width} Pixel Breite.`,
-    );
-  }
-  if (expect.height !== undefined && image.naturalHeight !== expect.height) {
-    throw new Error(
-      `${image.naturalWidth} × ${image.naturalHeight} – erwartet sind ${expect.height} Pixel Höhe.`,
-    );
+export async function acceptImage(file, ziel) {
+  if (istGif(file)) {
+    const { canvas, frameCount } = ersteGifSeite(new Uint8Array(await file.arrayBuffer()));
+    return {
+      dataUrl: fitToPng(canvas, canvas.width, canvas.height, ziel.width, ziel.height),
+      width: canvas.width,
+      height: canvas.height,
+      frameCount,
+    };
   }
 
-  return { dataUrl, width: image.naturalWidth, height: image.naturalHeight };
+  const bild = await oeffneBild(file);
+  try {
+    return {
+      dataUrl: fitToPng(bild.quelle, bild.breite, bild.hoehe, ziel.width, ziel.height),
+      width: bild.breite,
+      height: bild.hoehe,
+      frameCount: 1,
+    };
+  } finally {
+    bild.schliessen();
+  }
+}
+
+/**
+ * Wie acceptImage, aber für eine Hintergrundebene: die Breite liegt fest, die
+ * Höhe folgt dem Seitenverhältnis. Sie bestimmt, nach welcher Strecke sich die
+ * Ebene beim Klettern wiederholt.
+ *
+ * @param {File} file
+ * @param {{width: number, maxHeight: number}} ziel
+ */
+export async function acceptLayer(file, ziel) {
+  let quelle;
+  let srcW;
+  let srcH;
+  let schliessen = () => {};
+
+  if (istGif(file)) {
+    const seite = ersteGifSeite(new Uint8Array(await file.arrayBuffer()));
+    quelle = seite.canvas;
+    srcW = seite.canvas.width;
+    srcH = seite.canvas.height;
+  } else {
+    const bild = await oeffneBild(file);
+    quelle = bild.quelle;
+    srcW = bild.breite;
+    srcH = bild.hoehe;
+    schliessen = bild.schliessen;
+  }
+
+  // Verkleinern, bis es passt.
+  //
+  // Ein Foto von 800 × 3000 ergibt als Ebene 256 × 960 - und das sind 667 kB,
+  // mehr als ein einzelnes Bild im Paket haben darf. Die Grenze anzuheben wäre
+  // die naheliegende Antwort und die schlechtere: das ganze Paket geht als ein
+  // POST an admin.php, und auf einem gewöhnlichen Webspace ist bei acht
+  // Megabyte Schluss. Ein Paket, das der Server annimmt, ist mehr wert als
+  // zweihundert Pixel mehr Höhe.
+  //
+  // Also wird die Höhe schrittweise zurückgenommen, statt die Datei
+  // abzulehnen. Für den, der sie einsetzt, gibt es damit keine Grenze mehr,
+  // gegen die er laufen könnte.
+  let maxHoehe = ziel.maxHeight;
+  let mass = layerSize(srcW, srcH, ziel.width, maxHoehe);
+  let dataUrl = zeichneEbene(quelle, srcW, mass);
+  let verkleinert = false;
+
+  while (dataUrlBytes(dataUrl) > ziel.maxBytes && mass.height > 64) {
+    maxHoehe = Math.max(64, Math.floor(mass.height * 0.75));
+    mass = layerSize(srcW, srcH, ziel.width, maxHoehe);
+    dataUrl = zeichneEbene(quelle, srcW, mass);
+    verkleinert = true;
+  }
+
+  schliessen();
+
+  return {
+    dataUrl,
+    width: srcW,
+    height: srcH,
+    zielHoehe: mass.height,
+    beschnitten: mass.crop.h !== srcH,
+    verkleinert,
+    bytes: dataUrlBytes(dataUrl),
+  };
+}
+
+/** Zeichnet die Ebene in der berechneten Grösse und gibt ein PNG zurück. */
+function zeichneEbene(quelle, srcW, mass) {
+  const canvas = document.createElement('canvas');
+  canvas.width = mass.width;
+  canvas.height = mass.height;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = scaleMode(srcW, mass.crop.h, mass.width, mass.height) === 'weich';
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(quelle, 0, mass.crop.y, srcW, mass.crop.h, 0, 0, mass.width, mass.height);
+  return canvas.toDataURL('image/png');
 }
 
 /**

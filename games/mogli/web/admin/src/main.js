@@ -12,10 +12,17 @@ import {
   TILE_NAMES,
   validatePack,
 } from '../../src/net/assetRules.js';
-import { PHYS } from '../../src/game/constants.js';
+import { PHYS, VIEW_W } from '../../src/game/constants.js';
 import { ANIMATIONS } from '../../src/game/player.js';
 import * as store from './store.js';
-import { acceptGif, acceptImage, bindFileArea, loadImage, showImage } from './sheet.js';
+import {
+  acceptGif,
+  acceptImage,
+  acceptLayer,
+  bindFileArea,
+  loadImage,
+  showImage,
+} from './sheet.js';
 import { bindBoxEditor, drawBox } from './hitbox.js';
 import * as preview from './preview.js';
 
@@ -193,6 +200,15 @@ function buildAnimations() {
  * ein GIF füllt alle fünf auf einmal, und wo etwas fünf Felder ändert, soll
  * man nicht auf ein einzelnes Feld zielen müssen.
  */
+/** Ein einzelnes Bild für alle fünf Plätze – der Fall "kein GIF eingeworfen". */
+async function alleGleich(file) {
+  const bild = await acceptImage(file, { width: LIMITS.frameSize, height: LIMITS.frameSize });
+  return {
+    dataUrls: new Array(LIMITS.framesPerAnimation).fill(bild.dataUrl),
+    frameCount: 1,
+  };
+}
+
 function buildGifDrop(name) {
   // Der Dateiwähler steht NEBEN dem Knopf, nicht darin: bindFileArea ruft bei
   // einem Klick input.click(), und ein Klick auf ein Kind blubbert zurück zum
@@ -211,15 +227,18 @@ function buildGifDrop(name) {
 
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = 'image/gif,.gif';
+  // Auch hier keine Vorauswahl: was kein GIF ist, landet unten in allen fünf
+  // Plätzen. Eine Datei abzulehnen, weil sie in der falschen Fläche gelandet
+  // ist, hilft niemandem.
+  input.accept = 'image/*';
   input.hidden = true;
 
   bindFileArea(drop, input, async (file) => {
     try {
-      const { dataUrls, frameCount } = await acceptGif(file, {
-        size: LIMITS.frameSize,
-        count: LIMITS.framesPerAnimation,
-      });
+      const istGif = file.type.includes('gif') || /\.gif$/i.test(file.name);
+      const { dataUrls, frameCount } = istGif
+        ? await acceptGif(file, { size: LIMITS.frameSize, count: LIMITS.framesPerAnimation })
+        : await alleGleich(file);
 
       const liste = frameList(name);
       shown.frames[name] ??= new Array(LIMITS.framesPerAnimation).fill(null);
@@ -233,8 +252,9 @@ function buildGifDrop(name) {
       // Was mit den Bildern passiert ist, gehört gesagt: bei mehr als fünf
       // wurde ausgewählt, bei weniger gedehnt. Wer das nicht liest, wundert
       // sich später über eine Bewegung, die er so nicht gezeichnet hat.
-      const hinweis =
-        frameCount === LIMITS.framesPerAnimation
+      const hinweis = !istGif
+        ? 'kein GIF – dasselbe Bild in alle fünf Plätze'
+        : frameCount === LIMITS.framesPerAnimation
           ? `${frameCount} Bilder übernommen`
           : frameCount > LIMITS.framesPerAnimation
             ? `${frameCount} Bilder im GIF – fünf davon nach Laufzeit ausgewählt`
@@ -249,6 +269,24 @@ function buildGifDrop(name) {
   return wrap;
 }
 
+/**
+ * Sagt in einem Halbsatz, was mit der Datei passiert ist.
+ *
+ * Stillschweigend umzurechnen wäre der bequeme Weg und der falsche: wer ein
+ * 200 × 200 grosses Bild einsetzt und ein 32 × 32 grosses zurückbekommt, soll
+ * das lesen und nicht raten.
+ */
+function umgerechnet(bild, ziel) {
+  const teile = [];
+  if (bild.frameCount > 1) teile.push(`GIF mit ${bild.frameCount} Bildern, erstes genommen`);
+  teile.push(
+    bild.width === ziel && bild.height === ziel
+      ? 'eingesetzt'
+      : `${bild.width} × ${bild.height} umgerechnet auf ${ziel} × ${ziel}`,
+  );
+  return `${teile.join(', ')}. Noch nicht gespeichert.`;
+}
+
 function buildSlot(name, index) {
   const slot = document.createElement('div');
   slot.className = 'slot';
@@ -261,7 +299,7 @@ function buildSlot(name, index) {
 
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = 'image/png';
+  input.accept = 'image/*';
 
   const clear = document.createElement('button');
   clear.type = 'button';
@@ -278,15 +316,15 @@ function buildSlot(name, index) {
 
   bindFileArea(view, input, async (file) => {
     try {
-      const { dataUrl } = await acceptImage(file, {
+      const bild = await acceptImage(file, {
         width: LIMITS.frameSize,
         height: LIMITS.frameSize,
       });
-      frameList(name)[index] = dataUrl;
+      frameList(name)[index] = bild.dataUrl;
       shown.frames[name] ??= new Array(LIMITS.framesPerAnimation).fill(null);
-      shown.frames[name][index] = await loadImage(dataUrl);
+      shown.frames[name][index] = await loadImage(bild.dataUrl);
       refresh();
-      status(dom.saveStatus, `${name} ${index + 1} eingesetzt – noch nicht gespeichert.`);
+      status(dom.saveStatus, `${name} ${index + 1}: ${umgerechnet(bild, LIMITS.frameSize)}`);
     } catch (error) {
       status(dom.saveStatus, `${name} ${index + 1}: ${error.message}`, 'bad');
     }
@@ -383,7 +421,7 @@ function buildTiles() {
 
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/png';
+    input.accept = 'image/*';
 
     const hint = document.createElement('p');
     hint.className = 'tile__hint';
@@ -401,14 +439,14 @@ function buildTiles() {
 
     bindFileArea(view, input, async (file) => {
       try {
-        const { dataUrl } = await acceptImage(file, {
+        const bild = await acceptImage(file, {
           width: LIMITS.tileSize,
           height: LIMITS.tileSize,
         });
-        tileEntry(name).image = dataUrl;
-        shown.tiles[name] = await loadImage(dataUrl);
+        tileEntry(name).image = bild.dataUrl;
+        shown.tiles[name] = await loadImage(bild.dataUrl);
         refresh();
-        status(dom.saveStatus, `${name} eingesetzt – noch nicht gespeichert.`);
+        status(dom.saveStatus, `${name}: ${umgerechnet(bild, LIMITS.tileSize)}`);
       } catch (error) {
         status(dom.saveStatus, `${name}: ${error.message}`, 'bad');
       }
@@ -495,7 +533,7 @@ function buildLayers() {
 function bindAddLayer() {
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = 'image/png';
+  input.accept = 'image/*';
   input.style.display = 'none';
   document.body.append(input);
 
@@ -505,13 +543,25 @@ function bindAddLayer() {
     input.value = '';
     if (!file) return;
     try {
-      // Nur die Breite ist vorgeschrieben: die Höhe bestimmt, wie lang es
-      // dauert, bis sich die Ebene wiederholt.
-      const { dataUrl } = await acceptImage(file, { width: 256 });
+      // Die Breite liegt fest, die Höhe folgt dem Bild: sie bestimmt, nach
+      // welcher Strecke sich die Ebene beim Klettern wiederholt.
+      const ebene = await acceptLayer(file, {
+        width: VIEW_W,
+        maxHeight: LIMITS.maxLayerHeight,
+        maxBytes: LIMITS.maxImageBytes,
+      });
       pack.background ??= { layers: [] };
-      pack.background.layers.push({ image: dataUrl, speed: 0.3 });
+      pack.background.layers.push({ image: ebene.dataUrl, speed: 0.3 });
       buildLayers();
-      status(dom.saveStatus, 'Ebene hinzugefügt – noch nicht gespeichert.');
+      const gleich = ebene.width === VIEW_W && ebene.height === ebene.zielHoehe;
+      const wie =
+        (gleich
+          ? `${ebene.width} × ${ebene.height} übernommen`
+          : `${ebene.width} × ${ebene.height} umgerechnet auf ${VIEW_W} × ${ebene.zielHoehe}`) +
+        (ebene.beschnitten ? ', mittig beschnitten' : '') +
+        (ebene.verkleinert ? ', weiter verkleinert damit es ins Paket passt' : '') +
+        ` (${Math.round(ebene.bytes / 1024)} kB)`;
+      status(dom.saveStatus, `Ebene: ${wie}. Noch nicht gespeichert.`);
     } catch (error) {
       status(dom.saveStatus, `Ebene: ${error.message}`, 'bad');
     }

@@ -1,4 +1,4 @@
-Mogli - Tempelflucht 2.1.1
+Mogli - Tempelflucht 2.2.0
 ==========================
 
 Ein Jump'n'Run fuer den Browser. Ein Knopf, immer nach oben.
@@ -54,8 +54,28 @@ SO WIRD GESPIELT
 EIGENE GRAFIK EINSETZEN
 
   Unter /admin kannst du eigene Bilder einsetzen, ohne Code anzufassen:
-  die Figur (acht Bewegungen mit je fuenf Bildern, 32x32), die Kacheln
-  (16x16 PNG) und den Hintergrund. Zugangscode ist 6713.
+  die Figur (acht Bewegungen mit je fuenf Bildern), die Kacheln und den
+  Hintergrund. Zugangscode ist 6713.
+
+  GROESSE UND FORMAT SIND EGAL
+
+  Du musst nichts zurechtschneiden. PNG, JPEG, WebP, GIF - was der Browser
+  lesen kann, geht, und in jeder Groesse. Der Admin-Bereich rechnet um:
+
+    - Figur  -> 32 x 32
+    - Kachel -> 16 x 16
+    - Ebene  -> Breite des Spiels, Hoehe nach Seitenverhaeltnis
+
+  Das Seitenverhaeltnis bleibt dabei erhalten - ein breites Bild wird nicht zum
+  Quadrat gezerrt, sondern eingepasst. Ob dabei geglaettet wird, entscheidet
+  sich von selbst: geht das Verhaeltnis glatt auf (64 -> 32), bleiben die
+  Pixelkanten scharf; geht es krumm auf (100 -> 32), wird geglaettet, weil
+  sonst ganze Zeilen wegfielen. Nach jedem Einsetzen steht unten, was passiert
+  ist.
+
+  Ein sehr hohes Bild als Hintergrundebene wird mittig beschnitten und
+  notfalls weiter verkleinert - nicht aus Prinzip, sondern damit das ganze
+  Paket noch durch den PHP-Upload deines Webspace passt.
 
   AM SCHNELLSTEN MIT GIF
 
@@ -244,8 +264,27 @@ HOW TO PLAY
 YOUR OWN GRAPHICS
 
   At /admin you can replace the sprites, tiles and background without
-  touching any code: the character (eight animations, five 32x32 frames each),
-  the tiles (16x16 PNG) and the background. The access code is 6713.
+  touching any code: the character (eight animations, five frames each), the
+  tiles and the background. The access code is 6713.
+
+  SIZE AND FORMAT DO NOT MATTER
+
+  Nothing needs cropping first. PNG, JPEG, WebP, GIF - whatever the browser can
+  read, at any size. The admin area converts:
+
+    - character -> 32 x 32
+    - tile      -> 16 x 16
+    - layer     -> game width, height follows the aspect ratio
+
+  The aspect ratio is kept: a wide image is fitted, not squashed into a square.
+  Whether it gets smoothed decides itself: if the ratio divides evenly
+  (64 -> 32) the pixel edges stay crisp; if it does not (100 -> 32) it is
+  smoothed, because otherwise whole rows would drop out. After each upload a
+  line says what happened.
+
+  A very tall background layer is cropped from the middle and shrunk further if
+  needed - not on principle, but so the whole package still fits through your
+  webspace's PHP upload.
 
   QUICKEST WAY: A GIF
 
