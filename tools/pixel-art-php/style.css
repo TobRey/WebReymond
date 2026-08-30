@@ -1,0 +1,191 @@
+/* Bewusst schlicht und ohne fremde Schriften: Die Seite lädt überall sofort. */
+
+:root {
+  --hintergrund: #ffffff;
+  --flaeche: #f6f7f9;
+  --rand: #e2e5ea;
+  --text: #14161a;
+  --text-leise: #5c6472;
+  --akzent: #2f5fd8;
+  --fehler: #b3261e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --hintergrund: #14161a;
+    --flaeche: #1d2026;
+    --rand: #2c313a;
+    --text: #f2f4f7;
+    --text-leise: #a3abb8;
+    --akzent: #7ba2ff;
+    --fehler: #ff8a80;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--hintergrund);
+  color: var(--text);
+  font:
+    16px/1.5 system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+}
+
+main {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 4rem;
+}
+
+h1 {
+  font-size: 1.9rem;
+  margin: 0 0 0.5rem;
+}
+
+h2 {
+  font-size: 1.25rem;
+  margin: 0 0 0.25rem;
+}
+
+h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-leise);
+  margin: 0 0 0.5rem;
+}
+
+.intro {
+  color: var(--text-leise);
+  max-width: 40rem;
+  margin: 0 0 2rem;
+}
+
+.feld {
+  margin-bottom: 1.25rem;
+  max-width: 32rem;
+}
+
+.feld.schmal {
+  max-width: 16rem;
+}
+
+label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--rand);
+  border-radius: 0.5rem;
+  background: var(--hintergrund);
+  color: var(--text);
+  font: inherit;
+}
+
+input:focus,
+select:focus,
+.knopf:focus-visible {
+  outline: 2px solid var(--akzent);
+  outline-offset: 2px;
+}
+
+.hinweis {
+  color: var(--text-leise);
+  font-size: 0.85rem;
+  margin: 0.35rem 0 0;
+}
+
+.knopf {
+  border: 1px solid var(--akzent);
+  background: var(--akzent);
+  color: #ffffff;
+  border-radius: 0.5rem;
+  padding: 0.6rem 1.1rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.knopf.zweit {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--rand);
+}
+
+.knopf[disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.knopfreihe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.status {
+  min-height: 1.5rem;
+  margin: 1rem 0 0;
+  color: var(--text-leise);
+}
+
+.status.fehler {
+  color: var(--fehler);
+}
+
+section {
+  border-top: 1px solid var(--rand);
+  margin-top: 2.5rem;
+  padding-top: 2rem;
+}
+
+.vorschauen {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 40rem) {
+  .vorschauen {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.bühne {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 16rem;
+  padding: 1rem;
+  border: 1px solid var(--rand);
+  border-radius: 0.75rem;
+  background: var(--flaeche);
+  color: var(--text-leise);
+  font-size: 0.9rem;
+}
+
+.bühne img {
+  max-height: 24rem;
+  width: auto;
+  image-rendering: pixelated;
+}
+
+.link {
+  display: inline-block;
+  margin-top: 0.75rem;
+  color: var(--akzent);
+  font-size: 0.9rem;
+}

@@ -1,0 +1,73 @@
+PIXEL-FIGUR ERSTELLEN – zum Hochladen auf GoDaddy & Co.
+=======================================================
+
+In drei Schritten fertig:
+
+1. Diese ZIP-Datei in cPanel unter "Dateimanager" in den Ordner public_html
+   hochladen und dort mit "Extract" entpacken. Es entsteht der Ordner
+   pixel-art.
+
+2. Die Datei config.php im Dateimanager mit "Edit" öffnen und in der ersten
+   Zeile den Schlüssel eintragen:
+
+       $ANTHROPIC_API_KEY = 'sk-ant-...';
+
+   Den Schlüssel gibt es unter console.anthropic.com. Dort muss Guthaben
+   aufgeladen sein, sonst zeichnet Claude nicht.
+
+   Gleich darunter kann ein Passwort für die Seite stehen:
+
+       $SITE_PASSWORT = 'meinwort';
+
+   Bleibt es leer, darf jeder, der die Adresse kennt, Figuren erzeugen – und
+   jede Figur kostet dich Geld. Ein Wort genügt.
+
+3. Fertig. Die Seite läuft unter:
+
+       https://deine-domain.de/pixel-art/
+
+
+So wird sie bedient
+-------------------
+Figur beschreiben, Grösse wählen (Standard 32 × 64 Pixel), "Figur zeichnen".
+Danach eine Bewegung anklicken: Laufen, Stehen, Springen oder Winken. Die
+Bilder entstehen einzeln – man sieht beim Warten, wie die Animation wächst.
+Am Ende steht unter jedem Bild ein Link zum Herunterladen als GIF.
+
+Ein Bild dauert etwa 20 bis 60 Sekunden, eine Animation entsprechend
+sechs- bis achtmal so lange. Das Fenster dabei offen lassen.
+
+
+Was gehört wohin
+----------------
+index.html    die Seite
+style.css     das Aussehen
+app.js        die Bedienung
+gif.js        baut das GIF im Browser zusammen
+api.php       spricht mit Claude – nur diese Datei kennt den Schlüssel
+config.php    deine Einstellungen (die einzige Datei, die du anfasst)
+.htaccess     sperrt config.php für Besucher
+.user.ini     erlaubt längere Laufzeiten für das Zeichnen
+
+
+Wenn etwas nicht geht
+---------------------
+Seite zeigt "Noch kein Schlüssel eingetragen"
+    In der config.php fehlt der Schlüssel oder er steht nicht in den
+    Anführungszeichen.
+
+Fehler 500 direkt nach dem Hochladen
+    Lösche die Datei .htaccess. Manche Server erlauben sie nicht. Der
+    Schlüssel bleibt trotzdem geschützt, weil PHP-Dateien nie im Klartext
+    ausgeliefert werden.
+
+"Claude weist den Schlüssel zurück"
+    Der Schlüssel ist falsch abgetippt oder gelöscht worden.
+
+"Der Server erreicht Claude nicht"
+    Das Hosting-Paket lässt keine Verbindungen nach aussen zu. Das kommt bei
+    ganz einfachen Paketen vor; der Support kann es freischalten.
+
+Seite bleibt bei "Bild 3 von 8" hängen
+    Der Server hat abgebrochen, weil das Zeichnen zu lange gedauert hat.
+    In der config.php $AUFWAND auf 'low' stellen – dann geht es schneller.

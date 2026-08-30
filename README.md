@@ -80,6 +80,14 @@ Wie es funktioniert:
   läuft alles andere normal weiter und nur dieses Werkzeug meldet, dass es
   nicht eingerichtet ist.
 
+### Fassung zum Hochladen (ohne Node)
+
+Unter `tools/pixel-art-php/` liegt dasselbe Werkzeug noch einmal als
+eigenständige Seite für einfaches Webhosting (GoDaddy, cPanel & Co.):
+hochladen, entpacken, in `config.php` den Schlüssel eintragen, fertig. Statt
+Next.js und Fastify genügen dort HTML, etwas JavaScript und eine einzige
+PHP-Datei, die den Schlüssel hütet. Anleitung: `tools/pixel-art-php/LIESMICH.txt`.
+
 ## Aufbau des Repositories
 
 ```

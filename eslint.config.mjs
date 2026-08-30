@@ -15,6 +15,9 @@ export default tseslint.config(
       '**/src/generated/**',
       '**/*.config.js',
       '**/*.config.mjs',
+      // Eigenständige Fassung für einfaches Webhosting: reines Browser-JS
+      // ohne TypeScript-Projekt, hat mit dem Monorepo nichts zu tun.
+      'tools/pixel-art-php/**',
     ],
   },
   js.configs.recommended,

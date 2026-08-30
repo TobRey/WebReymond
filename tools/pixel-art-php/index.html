@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pixel-Figur erstellen</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Pixel-Figur erstellen</h1>
+      <p class="intro">
+        Beschreibe eine Figur, wähle die Grösse und lass sie zeichnen. Danach ein Klick auf eine
+        Bewegung – daraus entsteht ein GIF.
+      </p>
+
+      <div id="passwortbereich" class="feld" hidden>
+        <label for="passwort">Passwort</label>
+        <input id="passwort" type="password" autocomplete="current-password" />
+        <p class="hinweis">Diese Seite ist mit einem Passwort geschützt.</p>
+      </div>
+
+      <div class="feld">
+        <label for="beschreibung">Beschreibung der Figur</label>
+        <input
+          id="beschreibung"
+          type="text"
+          maxlength="300"
+          autocomplete="off"
+          placeholder="Ritter in blauer Rüstung mit rotem Umhang"
+        />
+        <p class="hinweis">Kurz und deutlich, zum Beispiel Beruf, Kleidung und Farben.</p>
+      </div>
+
+      <div class="feld schmal">
+        <label for="groesse">Grösse</label>
+        <select id="groesse"></select>
+      </div>
+
+      <button id="zeichnen" class="knopf">Figur zeichnen</button>
+
+      <p id="status" class="status" role="status"></p>
+
+      <section>
+        <h2>Animation</h2>
+        <p id="animationshinweis" class="hinweis">
+          Zuerst eine Figur zeichnen lassen – danach lässt sie sich bewegen.
+        </p>
+        <div id="animationen" class="knopfreihe"></div>
+      </section>
+
+      <section class="vorschauen">
+        <div>
+          <h3>Figur</h3>
+          <div class="bühne">
+            <img id="figurbild" alt="Figur" hidden /><span id="figurleer">Noch keine Figur.</span>
+          </div>
+          <a id="figurdownload" class="link" download="figur.gif" hidden>Als GIF herunterladen</a>
+        </div>
+        <div>
+          <h3>Animation</h3>
+          <div class="bühne">
+            <img id="animationsbild" alt="Animation" hidden /><span id="animationsleer"
+              >Noch keine Animation.</span
+            >
+          </div>
+          <a id="animationsdownload" class="link" download="animation.gif" hidden
+            >Als GIF herunterladen</a
+          >
+        </div>
+      </section>
+    </main>
+
+    <script src="gif.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
