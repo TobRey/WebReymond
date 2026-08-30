@@ -189,3 +189,12 @@ section {
   color: var(--akzent);
   font-size: 0.9rem;
 }
+
+.oder {
+  color: var(--text-leise);
+  font-size: 0.9rem;
+}
+
+.knopfreihe {
+  align-items: center;
+}

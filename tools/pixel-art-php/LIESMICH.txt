@@ -34,6 +34,18 @@ Danach eine Bewegung anklicken: Laufen, Stehen, Springen oder Winken. Die
 Bilder entstehen einzeln – man sieht beim Warten, wie die Animation wächst.
 Am Ende steht unter jedem Bild ein Link zum Herunterladen als GIF.
 
+Statt zeichnen zu lassen, kann man auch eine eigene Figur hochladen
+("Eigenes Bild hochladen"). Das kostet nichts und dauert keine Sekunde: Das
+Bild wird im Browser umgerechnet, der Server sieht es nicht. Ist es
+Pixel-Art – auch stark vergrössert exportiert –, wird sie Punkt für Punkt
+übernommen: dieselben Pixel, dieselben Farben. Die passende Rastergrösse
+stellt sich dabei von selbst ein.
+
+Bei der Animation bleibt die Farbpalette der Figur fest verdrahtet: Claude
+darf keine Farbe ergänzen und keine ändern, und jede Zeile, die die Bewegung
+nicht betrifft, soll unverändert bleiben. Die Haltung zeichnet Claude neu –
+kleine Abweichungen an Armen und Beinen gehören also dazu.
+
 Ein Bild dauert etwa 20 bis 60 Sekunden, eine Animation entsprechend
 sechs- bis achtmal so lange. Das Fenster dabei offen lassen.
 
@@ -43,6 +55,7 @@ Was gehört wohin
 index.html    die Seite
 style.css     das Aussehen
 app.js        die Bedienung
+bild.js       macht aus einem hochgeladenen Bild ein Raster
 gif.js        baut das GIF im Browser zusammen
 api.php       spricht mit Claude – nur diese Datei kennt den Schlüssel
 config.php    deine Einstellungen (die einzige Datei, die du anfasst)

@@ -70,6 +70,12 @@ Unter `/de/pixel-art` beschreibt man eine Figur, wählt die Grösse (Standard
 Stehen, Springen, Winken – erzeugt daraus sechs bis acht Bilder und daraus ein
 GIF.
 
+Statt zeichnen zu lassen, kann man auch eine eigene Figur hochladen. Das
+läuft ganz im Browser und kostet nichts. Ist das Bild Pixel-Art – auch stark
+vergrössert exportiert –, erkennt das Werkzeug das ursprüngliche Raster und
+übernimmt es Punkt für Punkt. Für die Animation ist die Palette danach fest:
+Claude darf keine Farbe ergänzen und keine ändern, nur die Haltung.
+
 Wie es funktioniert:
 
 - Claude liefert die Figur nicht als Bild, sondern als Raster aus Zeichen plus

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button, Input } from '@webheaven/ui';
 import {
@@ -12,6 +12,7 @@ import {
 } from '@webheaven/shared';
 import { api } from '@/lib/api';
 import { spriteToGif } from '@/lib/pixel';
+import { bestSize, imageToSprite, loadImage } from '@/lib/sprite-import';
 import { FormMessage } from './FormMessage';
 
 /**
@@ -41,6 +42,7 @@ export function PixelArtStudio() {
   const [animation, setAnimation] = useState<Result | null>(null);
   const [pending, setPending] = useState<'character' | AnimationId | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const dateiFeld = useRef<HTMLInputElement>(null);
 
   // Ein Blob bleibt im Speicher, bis er freigegeben wird. Beim Austauschen
   // und beim Verlassen der Seite geben wir das alte Bild deshalb frei.
@@ -72,6 +74,33 @@ export function PixelArtStudio() {
     setCharacter(toResult(result.data));
   }
 
+  /**
+   * Eigenes Bild übernehmen.
+   *
+   * Das läuft ganz im Browser: keine Anfrage, keine Kosten. Aus dem Bild
+   * wird dasselbe Zeichenraster, das sonst Claude liefert – ab da ist der
+   * Weg zur Animation derselbe.
+   */
+  async function ladeEigenesBild(datei: File) {
+    setError(null);
+
+    try {
+      const bild = await loadImage(datei);
+
+      // Die Grösse, die am besten zum Seitenverhältnis passt: sonst steht
+      // eine quadratische Figur verloren in einem hohen Raster.
+      const passend = bestSize(bild, SPRITE_SIZES);
+      const index = SPRITE_SIZES.indexOf(passend);
+      setSizeIndex(index);
+
+      const sprite = imageToSprite(bild, passend.width, passend.height);
+      setAnimation(null);
+      setCharacter(toResult(sprite));
+    } catch {
+      setError(t('errors.image'));
+    }
+  }
+
   async function createAnimation(id: AnimationId) {
     if (!character) return;
 
@@ -79,7 +108,8 @@ export function PixelArtStudio() {
     setError(null);
 
     const result = await api.pixelAnimation({
-      prompt: prompt.trim(),
+      // Bei einem hochgeladenen Bild ist die Beschreibung freiwillig.
+      prompt: prompt.trim() || t('uploadedFallback'),
       animation: id,
       base: character.sprite,
     });
@@ -131,11 +161,29 @@ export function PixelArtStudio() {
           </select>
         </div>
 
-        <div>
+        <div className="flex flex-wrap items-center gap-3">
           <Button onClick={() => void createCharacter()} disabled={!canCreate}>
             {pending === 'character' ? t('creating') : t('create')}
           </Button>
+          <span className="text-sm text-content-muted">{t('or')}</span>
+          <Button variant="secondary" disabled={busy} onClick={() => dateiFeld.current?.click()}>
+            {t('upload')}
+          </Button>
+          <input
+            ref={dateiFeld}
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            onChange={(event) => {
+              const datei = event.target.files?.[0];
+              // Zurücksetzen, damit dieselbe Datei erneut gewählt werden kann.
+              event.target.value = '';
+              if (datei) void ladeEigenesBild(datei);
+            }}
+          />
         </div>
+
+        <p className="max-w-2xl text-sm text-content-muted">{t('uploadHint')}</p>
 
         {error ? <FormMessage kind="error">{error}</FormMessage> : null}
       </section>

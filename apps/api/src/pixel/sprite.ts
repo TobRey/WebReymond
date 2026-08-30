@@ -35,7 +35,19 @@ export interface SpriteGenerator {
   animation(input: { prompt: string; animation: AnimationId; base: Sprite }): Promise<Sprite>;
 }
 
-function systemPrompt(width: number, height: number, frameCount: number): string {
+function systemPrompt(
+  width: number,
+  height: number,
+  frameCount: number,
+  palette?: SpritePalette,
+): string {
+  const paletteRegel = palette
+    ? [
+        '- Use ONLY these palette keys and colours, unchanged: ' + JSON.stringify(palette),
+        '- Do not invent new keys and do not change a single colour.',
+      ]
+    : ['- Palette keys are single characters, colours are #rrggbb. Use at most 16 colours.'];
+
   return [
     'You are a pixel art artist. You answer with JSON and nothing else.',
     '',
@@ -46,7 +58,7 @@ function systemPrompt(width: number, height: number, frameCount: number): string
     `- Exactly ${frameCount} frame(s).`,
     `- Every frame has exactly ${height} strings, every string exactly ${width} characters.`,
     `- Every character is either "${TRANSPARENT_KEY}" (transparent) or a key of the palette.`,
-    '- Palette keys are single characters, colours are #rrggbb. Use at most 16 colours.',
+    ...paletteRegel,
     '- Draw a readable silhouette first: dark outline, one base tone and one shadow tone per material.',
     '- Keep the figure inside the canvas and leave a one pixel margin.',
     '- No text, no frame numbers, no background - the background stays transparent.',
@@ -73,10 +85,15 @@ function animationPrompt(input: {
     JSON.stringify({ palette: input.base.palette, frame: baseFrame }),
     '',
     `Animate this character: ${ANIMATION_BRIEFS[input.animation]}.`,
-    `Return ${input.frameCount} frames of the SAME character - same palette, same proportions,`,
-    'same colours. Only the pose changes.',
-    'The animation is a loop: frame 1 must follow smoothly after the last frame.',
-    'Keep the feet on the same baseline unless the movement lifts them.',
+    `Return ${input.frameCount} frames of this character.`,
+    '',
+    "This is someone else's character. You are not redesigning it, you are moving it:",
+    '- Copy the character pixel by pixel. Every row that the movement does not touch',
+    '  must be identical to the grid above, character for character.',
+    '- Do not change the outline, the shading, the face, the clothing or the size.',
+    '- Move only the body parts that the pose needs, and only by a few pixels.',
+    '- The animation is a loop: frame 1 must follow smoothly after the last frame.',
+    '- Keep the feet on the same baseline unless the movement lifts them.',
   ].join('\n');
 }
 
@@ -108,12 +125,17 @@ export function extractJson(text: string): unknown {
  */
 export function normalizeSprite(
   value: unknown,
-  options: { width: number; height: number; frameCount: number },
+  options: { width: number; height: number; frameCount: number; palette?: SpritePalette },
 ): Sprite {
   const { width, height, frameCount } = options;
   const raw = value as { palette?: unknown; frames?: unknown };
 
-  const palette: SpritePalette = spritePaletteSchema.parse(normalizePalette(raw.palette));
+  // Ist eine Palette vorgegeben, gilt genau diese. Erfindet das Modell eine
+  // Farbe dazu, wäre das eine Änderung an der Figur – und die ist nicht
+  // gewollt, wenn die Figur schon existiert.
+  const palette: SpritePalette = options.palette
+    ? options.palette
+    : spritePaletteSchema.parse(normalizePalette(raw.palette));
   if (!Array.isArray(raw.frames) || raw.frames.length === 0) {
     throw new SpriteGenerationError('Antwort enthält keine Bilder.');
   }
@@ -191,13 +213,13 @@ export function createSpriteGenerator(apiKey: string): SpriteGenerator {
 
     async animation({ prompt, animation, base }) {
       const frameCount = framesForAnimation(animation);
-      const { width, height } = base;
+      const { width, height, palette } = base;
       const text = await ask(
         client,
-        systemPrompt(width, height, frameCount),
+        systemPrompt(width, height, frameCount, palette),
         animationPrompt({ prompt, animation, base, frameCount }),
       );
-      return normalizeSprite(extractJson(text), { width, height, frameCount });
+      return normalizeSprite(extractJson(text), { width, height, frameCount, palette });
     },
   };
 }

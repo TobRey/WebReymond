@@ -75,6 +75,19 @@ describe('normalizeSprite', () => {
     expect(sprite.palette).toEqual({ a: '#ff0000' });
   });
 
+  it('lässt eine vorgegebene Palette unangetastet', () => {
+    const fest = { a: '#ff0000', b: '#00ff00' };
+    const sprite = normalizeSprite(
+      // Das Modell erfindet eine Farbe dazu und benutzt sie auch.
+      { palette: { a: '#123456', z: '#ffffff' }, frames: [['abza']] },
+      { ...options, palette: fest },
+    );
+
+    expect(sprite.palette).toEqual(fest);
+    // Die erfundene Farbe wird durchsichtig, statt die Figur zu verändern.
+    expect(sprite.frames[0]?.[0]).toBe('ab.a');
+  });
+
   it('meldet einen Fehler ohne Palette oder ohne Bilder', () => {
     expect(() => normalizeSprite({ frames: [['aaaa']] }, options)).toThrow(SpriteGenerationError);
     expect(() => normalizeSprite({ palette: { a: '#ff0000' } }, options)).toThrow(

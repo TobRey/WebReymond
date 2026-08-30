@@ -108,6 +108,10 @@
     "sizeLabel": "Grösse",
     "sizeDefault": "(Standard)",
     "create": "Figur zeichnen",
+    "or": "oder",
+    "upload": "Eigenes Bild hochladen",
+    "uploadHint": "Ein eigenes Bild wird im Browser auf das Raster verkleinert – bei Pixel-Art bleibt es dabei unverändert. Für die Animation bleiben Farben und Aussehen der Figur erhalten, nur die Haltung ändert sich.",
+    "uploadedFallback": "die abgebildete Figur",
     "creating": "Wird gezeichnet …",
     "animationsTitle": "Animation",
     "animationsHint": "Die Bewegung zeigt dieselbe Figur. In Klammern steht die Anzahl der Bilder.",
@@ -127,7 +131,8 @@
       "network": "Keine Verbindung zum Server. Bitte später erneut versuchen.",
       "rateLimited": "Zu viele Anfragen in kurzer Zeit. Bitte einen Moment warten.",
       "unavailable": "Das Werkzeug ist auf diesem Server nicht eingerichtet.",
-      "generic": "Das hat leider nicht geklappt. Bitte noch einmal versuchen."
+      "generic": "Das hat leider nicht geklappt. Bitte noch einmal versuchen.",
+      "image": "Dieses Bild lässt sich nicht verwenden. Bitte ein PNG, JPG oder GIF wählen."
     }
   }
 }

@@ -119,9 +119,18 @@ function limit_frei($proStunde)
 }
 
 /** Die Regeln, an die sich das Modell halten muss – für jedes Bild dieselben. */
-function system_text($breite, $hoehe)
+function system_text($breite, $hoehe, $palette = null)
 {
-    return implode("\n", [
+    // Gibt es die Figur schon, gilt ihre Palette. Eine neue Farbe wäre eine
+    // Änderung an der Figur – und die ist nicht gewollt.
+    $palettenregel = $palette === null
+        ? ['- Palette keys are single characters, colours are #rrggbb. Use at most 16 colours.']
+        : [
+            '- Use ONLY these palette keys and colours, unchanged: ' . json_encode($palette),
+            '- Do not invent new keys and do not change a single colour.',
+        ];
+
+    return implode("\n", array_merge([
         'You are a pixel art artist. You answer with JSON and nothing else.',
         '',
         'Answer shape:',
@@ -131,12 +140,12 @@ function system_text($breite, $hoehe)
         '- Exactly one frame.',
         '- The frame has exactly ' . $hoehe . ' strings, every string exactly ' . $breite . ' characters.',
         '- Every character is either "." (transparent) or a key of the palette.',
-        '- Palette keys are single characters, colours are #rrggbb. Use at most 16 colours.',
+    ], $palettenregel, [
         '- Draw a readable silhouette first: dark outline, one base tone and one shadow tone per material.',
         '- Keep the figure inside the canvas and leave a one pixel margin.',
         '- No text, no frame numbers, no background - the background stays transparent.',
         '- Output raw JSON, no markdown fences, no explanation.',
-    ]);
+    ]));
 }
 
 /** Claude fragen und den Text der Antwort zurückgeben. */
@@ -242,14 +251,16 @@ function json_ausschneiden($text)
  * All das darf kein Fehler sein, den der Besucher zu sehen bekommt. Was fehlt,
  * wird durchsichtig.
  */
-function raster_saeubern($daten, $breite, $hoehe, $grundPalette)
+function raster_saeubern($daten, $breite, $hoehe, $festePalette)
 {
     if (!is_array($daten)) {
         return null;
     }
 
-    $palette = is_array($grundPalette) ? $grundPalette : [];
-    if (isset($daten['palette']) && is_array($daten['palette'])) {
+    // Ist eine Palette vorgegeben, gilt genau diese: Farben, die das Modell
+    // dazu erfindet, würden die Figur verändern.
+    $palette = is_array($festePalette) ? $festePalette : [];
+    if (!is_array($festePalette) && isset($daten['palette']) && is_array($daten['palette'])) {
         foreach ($daten['palette'] as $taste => $farbe) {
             $taste = (string) $taste;
             // Der Punkt ist für "durchsichtig" reserviert.
@@ -396,11 +407,22 @@ if ($aktion === 'bild') {
         '',
         'Draw frame ' . ($nummer + 1) . ' of ' . count($haltungen) . ' of an animation of this character.',
         'Pose for this frame: ' . $haltungen[$nummer] . '.',
-        'It is the SAME character: same palette keys, same colours, same proportions, same size.',
-        'Only the pose changes. Keep the feet on the same baseline unless the movement lifts them.',
+        '',
+        'This is someone else\'s character. You are not redesigning it, you are moving it:',
+        '- Copy the character pixel by pixel. Every row that the movement does not touch',
+        '  must be identical to the grid above, character for character.',
+        '- Do not change the outline, the shading, the face, the clothing or the size.',
+        '- Move only the body parts that the pose needs, and only by a few pixels.',
+        '- Keep the feet on the same baseline unless the movement lifts them.',
     ]);
 
-    $text = modell_fragen(system_text($breite, $hoehe), $frage, $ANTHROPIC_API_KEY, $MODELL, $AUFWAND);
+    $text = modell_fragen(
+        system_text($breite, $hoehe, $basis['palette']),
+        $frage,
+        $ANTHROPIC_API_KEY,
+        $MODELL,
+        $AUFWAND
+    );
     $bild = raster_saeubern(json_ausschneiden($text), $breite, $hoehe, $basis['palette']);
 
     if ($bild === null) {

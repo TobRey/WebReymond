@@ -37,7 +37,18 @@
         <select id="groesse"></select>
       </div>
 
-      <button id="zeichnen" class="knopf">Figur zeichnen</button>
+      <div class="knopfreihe">
+        <button id="zeichnen" class="knopf">Figur zeichnen</button>
+        <span class="oder">oder</span>
+        <button id="hochladen" class="knopf zweit">Eigenes Bild hochladen</button>
+        <input id="datei" type="file" accept="image/*" hidden />
+      </div>
+
+      <p class="hinweis">
+        Ein eigenes Bild wird im Browser auf das Raster verkleinert – bei Pixel-Art bleibt es dabei
+        unverändert. Für die Animation bleiben Farben und Aussehen der Figur erhalten, nur die
+        Haltung ändert sich.
+      </p>
 
       <p id="status" class="status" role="status"></p>
 
@@ -72,6 +83,7 @@
     </main>
 
     <script src="gif.js"></script>
+    <script src="bild.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

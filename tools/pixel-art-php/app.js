@@ -140,6 +140,42 @@ async function figurZeichnen() {
   knoepfeSperren(false);
 }
 
+/**
+ * Eigenes Bild übernehmen.
+ *
+ * Läuft ganz im Browser: keine Anfrage, keine Kosten. Aus dem Bild wird
+ * dasselbe Raster, das sonst Claude liefert – ab da ist der Weg derselbe.
+ */
+async function eigenesBild(datei) {
+  status('Das Bild wird übernommen …');
+
+  try {
+    var bild = await bildLaden(datei);
+
+    // Die Grösse, die am besten zum Seitenverhältnis passt: sonst steht eine
+    // quadratische Figur verloren in einem hohen Raster.
+    var masse = besteGroesse(bild, zustand.groessen);
+    el('groesse').value = String(zustand.groessen.indexOf(masse));
+
+    var raster = bildZuRaster(bild, masse.breite, masse.hoehe);
+    zustand.figur = { palette: raster.palette, bild: raster.bild, masse: masse };
+
+    anzeigen('figur', raster.palette, [raster.bild], masse.breite, masse.hoehe);
+    el('animationshinweis').textContent =
+      'Die Bewegung zeigt dieselbe Figur. In Klammern steht die Anzahl der Bilder.';
+    knoepfeSperren(false);
+    status(
+      'Bild übernommen (' +
+        masse.breite +
+        ' × ' +
+        masse.hoehe +
+        '). Jetzt eine Bewegung auswählen.',
+    );
+  } catch (fehler) {
+    status('Dieses Bild lässt sich nicht verwenden. Bitte ein PNG, JPG oder GIF wählen.', true);
+  }
+}
+
 async function animationZeichnen(id, anzahl) {
   if (!zustand.figur) return;
 
@@ -161,7 +197,7 @@ async function animationZeichnen(id, anzahl) {
         aktion: 'bild',
         animation: id,
         nummer: i,
-        beschreibung: beschreibung(),
+        beschreibung: beschreibung() || 'die abgebildete Figur',
         breite: masse.breite,
         hoehe: masse.hoehe,
         palette: zustand.figur.palette,
@@ -232,6 +268,15 @@ async function starten() {
   }
 
   el('zeichnen').addEventListener('click', figurZeichnen);
+  el('hochladen').addEventListener('click', function () {
+    el('datei').click();
+  });
+  el('datei').addEventListener('change', function (ereignis) {
+    var datei = ereignis.target.files[0];
+    // Zurücksetzen, damit dieselbe Datei erneut gewählt werden kann.
+    ereignis.target.value = '';
+    if (datei) eigenesBild(datei);
+  });
   el('beschreibung').addEventListener('keydown', function (ereignis) {
     if (ereignis.key === 'Enter' && !zustand.beschaeftigt) figurZeichnen();
   });
