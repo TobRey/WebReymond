@@ -1,0 +1,197 @@
+<?php
+
+declare(strict_types=1);
+
+namespace WebAtze\Http;
+
+use WebAtze\Build\{FtpDeployer, ImageStore, Theme};
+use WebAtze\Core\{Audit, Config, Crypto, Db, Jobs, Logger, Request, Response, Session, View};
+use WebAtze\Domain\Brief;
+
+/**
+ * Das Formular für eine neue Kundenwebsite.
+ *
+ * Nach dem Absenden wird nur ein Auftrag angelegt – die Website entsteht
+ * danach im Hintergrund. So bleibt die Seite bedienbar, auch wenn das
+ * Erzeugen mehrere Minuten dauert.
+ */
+final class CreateController
+{
+    public function form(Request $request): Response
+    {
+        return $this->render($request, [], []);
+    }
+
+    public function submit(Request $request): Response
+    {
+        $input = $request->all();
+        $check = Brief::validate($input);
+
+        if (!$check['ok']) {
+            // Passwörter nie zurück ins Formular schreiben.
+            $values = Brief::withoutSecrets($check['data']);
+            return $this->render($request, $values, $check['errors']);
+        }
+
+        $brief = $check['data'];
+
+        try {
+            $projectId = Db::transaction(function () use ($brief, $request): int {
+                $slug = $this->uniqueSlug($brief['company_name']);
+
+                $theme = Theme::build([
+                    'primary' => $brief['color_primary'],
+                    'secondary' => $brief['color_secondary'],
+                    'accent' => $brief['color_accent'],
+                ], $brief['style']);
+
+                $id = Db::insert('projects', [
+                    'slug' => $slug,
+                    'name' => $brief['company_name'],
+                    'status' => 'building',
+                    'brief' => Brief::withoutSecrets($brief),
+                    'theme' => $theme,
+                    'locale' => explode(',', $brief['locales'])[0] ?: 'de',
+                    'locales' => $brief['locales'],
+                    'domain' => $brief['domain'],
+                    'wants_admin' => $brief['wants_admin'] ? 1 : 0,
+                    'admin_username' => $brief['wants_admin'] ? $brief['admin_username'] : '',
+                    'admin_password_hash' => $brief['wants_admin']
+                        ? Crypto::hashPassword($brief['admin_password'])
+                        : '',
+                    // Schlüssel, mit dem sich das Kundenbackend später beim
+                    // Assistenten meldet. Der API-Schlüssel bleibt hier.
+                    'assistant_token' => random_token(24),
+                    'preview_token' => '',
+                    'created_at' => Db::now(),
+                    'updated_at' => Db::now(),
+                ]);
+
+                // Logo, falls hochgeladen
+                $this->storeLogo($request, $id, $slug);
+
+                // FTP-Zugang, falls angegeben
+                if ($brief['ftp_host'] !== '' && $brief['ftp_username'] !== '') {
+                    FtpDeployer::saveTarget($id, [
+                        'protocol' => $brief['ftp_protocol'],
+                        'host' => $brief['ftp_host'],
+                        'port' => $brief['ftp_port'],
+                        'username' => $brief['ftp_username'],
+                        'password' => $brief['ftp_password'],
+                        'path' => $brief['ftp_path'],
+                    ]);
+                }
+
+                // Domainumzug vormerken
+                if ($brief['domain'] !== '' && $brief['domain_mode'] !== 'none') {
+                    Db::insert('domain_transfers', [
+                        'project_id' => $id,
+                        'domain' => $brief['domain'],
+                        'mode' => $brief['domain_mode'],
+                        'registrar' => $brief['registrar'],
+                        'current_step' => 0,
+                        'steps' => [],
+                        'checks' => [],
+                        'created_at' => Db::now(),
+                        'updated_at' => Db::now(),
+                    ]);
+                }
+
+                return $id;
+            });
+        } catch (\Throwable $e) {
+            $id = Logger::exception($e);
+            Session::flash('error', 'Das Projekt konnte nicht angelegt werden (Kennnummer ' . $id . ').');
+            return $this->render($request, Brief::withoutSecrets($brief), []);
+        }
+
+        $jobId = Jobs::enqueue('generate', [], $projectId);
+
+        Audit::log('project.created', $brief['company_name'], [
+            'id' => $projectId,
+            'umfang' => $brief['scope'],
+            'mit_backend' => $brief['wants_admin'],
+        ], $request);
+
+        // Nicht auf den nächsten Cron-Lauf warten.
+        Jobs::nudge();
+
+        return Response::redirect($this->base() . '/projekt/' . $projectId)->noCache()->noIndex();
+    }
+
+    // ------------------------------------------------------------------
+
+    private function render(Request $request, array $values, array $errors): Response
+    {
+        $providers = require APP_DIR . '/Support/providers.php';
+
+        $content = View::partial('admin/create', [
+            'values' => $values,
+            'errors' => $errors,
+            'providers' => $providers,
+        ]);
+
+        return Response::html(View::partial('layouts/admin', [
+            'title' => 'Neue Website',
+            'content' => $content,
+        ]))->noCache()->noIndex();
+    }
+
+    /** Aus dem Firmennamen eine freie Kennung machen. */
+    private function uniqueSlug(string $name): string
+    {
+        $base = str_slug($name, 60);
+        $slug = $base;
+        $suffix = 2;
+
+        while (Db::value('SELECT 1 FROM projects WHERE slug = :s', ['s' => $slug])) {
+            $slug = $base . '-' . $suffix;
+            $suffix++;
+
+            if ($suffix > 200) {
+                $slug = $base . '-' . bin2hex(random_bytes(3));
+                break;
+            }
+        }
+
+        return $slug;
+    }
+
+    private function storeLogo(Request $request, int $projectId, string $slug): void
+    {
+        $file = $request->file('logo');
+        if ($file === null) {
+            return;
+        }
+
+        if ((int) ($file['size'] ?? 0) > 4_000_000) {
+            Session::flash('warning', 'Das Logo war grösser als 4 MB und wurde nicht übernommen.');
+            return;
+        }
+
+        $dir = ensure_dir(STORAGE_DIR . '/projects/' . $slug . '/assets');
+        $result = ImageStore::storeUpload($file, $dir);
+
+        if ($result === null) {
+            Session::flash('warning', 'Das Logo konnte nicht gelesen werden. Es wurde nicht übernommen.');
+            return;
+        }
+
+        Db::insert('project_assets', [
+            'project_id' => $projectId,
+            'kind' => 'logo',
+            'path' => $result['name'],
+            'original_name' => mb_substr((string) ($file['name'] ?? ''), 0, 200),
+            'alt' => 'Logo',
+            'width' => $result['width'],
+            'height' => $result['height'],
+            'bytes' => $result['bytes'],
+            'created_at' => Db::now(),
+        ]);
+    }
+
+    private function base(): string
+    {
+        return '/' . trim((string) Config::get('create_path', 'create'), '/');
+    }
+}

@@ -4,7 +4,7 @@ use WebAtze\Templates\Renderer as R;
 $items = R::items($c);
 $numbered = str_contains($classes, 'numbered');
 ?>
-<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="process">
+<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="process" data-section-id="<?= (int) $sectionDbId ?>">
     <div class="s-shell">
         <?= R::head($c) ?>
 

@@ -13,7 +13,7 @@ $address = R::value($c, 'address', (string) ($ctx['address'] ?? ''));
 $hours = R::value($c, 'hours');
 $mapQuery = R::value($c, 'map_query', $address);
 ?>
-<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="contact">
+<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="contact" data-section-id="<?= (int) $sectionDbId ?>">
     <div class="s-shell s-contact__inner s-inner">
 
         <div class="s-contact__info">

@@ -155,6 +155,7 @@ final class Routes
             $r->post($base . '/projekt/{id}/ftp/testen', 'DeployController@testTarget');
             $r->post($base . '/projekt/{id}/domain', 'DomainController@save');
             $r->post($base . '/projekt/{id}/domain/pruefen', 'DomainController@check');
+            $r->post($base . '/projekt/{id}/domain/schritt', 'DomainController@step');
 
             $r->post($base . '/anfragen/{id}/status', 'LeadController@setStatus');
             $r->post($base . '/referenzen/{id}', 'ShowcaseController@update');

@@ -4,7 +4,7 @@ use WebAtze\Templates\Renderer as R;
 $items = R::items($c);
 $captions = str_contains($classes, 'captions');
 ?>
-<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="gallery">
+<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="gallery" data-section-id="<?= (int) $sectionDbId ?>">
     <div class="s-shell">
         <?= R::head($c) ?>
 

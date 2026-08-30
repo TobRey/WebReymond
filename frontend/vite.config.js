@@ -73,6 +73,7 @@ export default defineConfig({
       input: {
         main: resolve(import.meta.dirname, 'src/main.js'),
         admin: resolve(import.meta.dirname, 'src/admin/admin.js'),
+        editor: resolve(import.meta.dirname, 'src/editor/editor.js'),
       },
       output: {
         entryFileNames: '[name]-[hash].js',

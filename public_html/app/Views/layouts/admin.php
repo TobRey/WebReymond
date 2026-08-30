@@ -34,7 +34,11 @@ $nav = [
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow, noarchive">
-    <meta name="referrer" content="no-referrer">
+    <?php /* "same-origin" statt "no-referrer": Die geheime Adresse verlässt
+             diese Seite trotzdem nie. "no-referrer" hingegen lässt Browser
+             bei jedem Formular "Origin: null" senden – dann scheitert die
+             Herkunftsprüfung und keine einzige Schaltfläche funktioniert. */ ?>
+    <meta name="referrer" content="same-origin">
     <title><?= e($title) ?> · Verwaltung</title>
     <meta name="theme-color" content="#06060f">
     <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">

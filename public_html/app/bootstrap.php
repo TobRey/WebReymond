@@ -36,12 +36,14 @@ spl_autoload_register(static function (string $class): void {
         return;
     }
 
-    // Mitgelieferte Bibliotheken (phpseclib) unter app/vendor/
-    $vendor = APP_DIR . '/vendor/' . str_replace('\\', '/', $class) . '.php';
-    if (is_file($vendor)) {
-        require $vendor;
-    }
 });
+
+// Mitgelieferte Bibliothek für SFTP (phpseclib, reines PHP – läuft ohne
+// zusätzliche PHP-Erweiterung auf jedem Hosting). Sie liegt fertig im
+// Paket; auf dem Server muss nichts nachinstalliert werden.
+if (is_file(APP_DIR . '/vendor/autoload.php')) {
+    require APP_DIR . '/vendor/autoload.php';
+}
 
 require APP_DIR . '/Support/helpers.php';
 

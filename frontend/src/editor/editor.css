@@ -1,0 +1,323 @@
+/**
+ * Der Bearbeitungsbalken in der Vorschau.
+ *
+ * Er liegt über der Kundenwebsite und darf deren Aussehen mit keinem
+ * Pixel beeinflussen. Deshalb: eigener Namensraum (wae-), eigene
+ * Variablen, keine Regel, die auf die Seite darunter wirkt.
+ */
+
+.wae {
+  --wae-bg: #0b0b18;
+  --wae-surface: #15162a;
+  --wae-surface-2: #1d1f36;
+  --wae-border: rgb(255 255 255 / 0.14);
+  --wae-text: #eceefb;
+  --wae-muted: #9fa1bd;
+  --wae-accent: #8b85ff;
+  --wae-teal: #2fe0dc;
+  --wae-danger: #fb7185;
+  --wae-success: #34d399;
+  --wae-radius: 0.7rem;
+
+  position: fixed;
+  z-index: 2147483000;
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--wae-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.wae *, .wae *::before, .wae *::after { box-sizing: border-box; }
+
+/* ------------------------------------------------------------------ */
+/* Leiste am oberen Rand                                               */
+/* ------------------------------------------------------------------ */
+
+.wae-bar {
+  inset-block-start: 0;
+  inset-inline: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.9rem;
+  background: color-mix(in srgb, var(--wae-bg) 92%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-block-end: 1px solid var(--wae-border);
+  box-shadow: 0 8px 30px -12px rgb(0 0 0 / 0.6);
+}
+
+/* Damit die Leiste die Website nicht überdeckt */
+html.wae-active { padding-block-start: 3rem !important; }
+
+.wae-bar__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.wae-bar__dot {
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 50%;
+  background: var(--wae-teal);
+}
+
+.wae-bar__name {
+  color: var(--wae-muted);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-inline-size: 16rem;
+}
+
+.wae-bar__spacer { flex: 1; }
+
+.wae-bar__hint {
+  color: var(--wae-muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+@media (max-width: 48rem) {
+  .wae-bar__hint, .wae-bar__name { display: none; }
+}
+
+.wae-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--wae-border);
+  border-radius: 999rem;
+  background: var(--wae-surface);
+  color: var(--wae-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.wae-btn:hover { background: var(--wae-surface-2); border-color: var(--wae-accent); }
+.wae-btn:active { transform: translateY(1px); }
+.wae-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+.wae-btn--primary {
+  background: var(--wae-accent);
+  border-color: transparent;
+  color: #0b0b18;
+}
+.wae-btn--primary:hover { background: #a29dff; }
+.wae-btn--danger { color: var(--wae-danger); }
+.wae-btn--sm { padding: 0.25rem 0.6rem; font-size: 12px; }
+
+/* ------------------------------------------------------------------ */
+/* Markierung der Abschnitte                                           */
+/* ------------------------------------------------------------------ */
+
+html.wae-picking [data-section-id] { cursor: pointer; }
+
+html.wae-picking [data-section-id]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 999;
+  pointer-events: none;
+  outline: 2px dashed transparent;
+  outline-offset: -6px;
+  background: transparent;
+  transition: outline-color 150ms ease, background-color 150ms ease;
+}
+
+html.wae-picking [data-section-id]:hover::after {
+  outline-color: var(--wae-accent, #8b85ff);
+  background: rgb(139 133 255 / 0.06);
+}
+
+html.wae-picking [data-section-id].wae-selected::after {
+  outline: 2px solid #2fe0dc;
+  background: rgb(47 224 220 / 0.07);
+}
+
+/* Kennzeichnung am Abschnitt */
+.wae-tag {
+  position: absolute;
+  z-index: 1000;
+  inset-block-start: 0.5rem;
+  inset-inline-start: 0.5rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 0.4rem;
+  background: #15162a;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  color: #9fa1bd;
+  font: 600 11px/1.6 ui-sans-serif, system-ui, sans-serif;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+html.wae-picking [data-section-id]:hover > .wae-tag,
+html.wae-picking [data-section-id].wae-selected > .wae-tag { opacity: 1; }
+
+/* ------------------------------------------------------------------ */
+/* Werkzeugtafel                                                       */
+/* ------------------------------------------------------------------ */
+
+.wae-panel {
+  inset-block: 3rem 0;
+  inset-inline-end: 0;
+  inline-size: min(26rem, 100vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--wae-bg);
+  border-inline-start: 1px solid var(--wae-border);
+  box-shadow: -20px 0 60px -30px rgb(0 0 0 / 0.8);
+  transform: translateX(100%);
+  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.wae-panel.is-open { transform: none; }
+
+.wae-panel__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border-block-end: 1px solid var(--wae-border);
+}
+
+.wae-panel__title { font-size: 15px; font-weight: 700; margin: 0; }
+.wae-panel__sub { color: var(--wae-muted); font-size: 12.5px; margin: 0.15rem 0 0; }
+.wae-panel__close { margin-inline-start: auto; }
+
+.wae-panel__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.wae-group { display: flex; flex-direction: column; gap: 0.55rem; }
+
+.wae-group__title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wae-muted);
+  margin: 0;
+}
+
+.wae-field { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.wae-textarea, .wae-input, .wae-select {
+  inline-size: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--wae-border);
+  border-radius: 0.5rem;
+  background: var(--wae-surface);
+  color: var(--wae-text);
+  font: inherit;
+  font-size: 13.5px;
+  resize: vertical;
+}
+
+.wae-textarea { min-block-size: 6.5rem; }
+.wae-textarea:focus, .wae-input:focus, .wae-select:focus {
+  outline: none;
+  border-color: var(--wae-accent);
+  box-shadow: 0 0 0 3px rgb(139 133 255 / 0.18);
+}
+.wae-textarea::placeholder { color: #6b6d8a; }
+
+.wae-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+/* Vorlagenauswahl */
+.wae-variants { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+
+.wae-variant {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--wae-border);
+  border-radius: 0.5rem;
+  background: var(--wae-surface);
+  color: var(--wae-muted);
+  font: inherit;
+  font-size: 12px;
+  text-align: start;
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease;
+}
+
+.wae-variant:hover { border-color: var(--wae-accent); color: var(--wae-text); }
+.wae-variant.is-current { border-color: var(--wae-teal); color: var(--wae-text); background: var(--wae-surface-2); }
+
+/* Ansichtsgrössen */
+.wae-modes { display: flex; gap: 0.35rem; }
+.wae-mode {
+  flex: 1;
+  padding: 0.4rem;
+  border: 1px solid var(--wae-border);
+  border-radius: 0.45rem;
+  background: var(--wae-surface);
+  color: var(--wae-muted);
+  font: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer;
+}
+.wae-mode.is-active { background: var(--wae-accent); color: #0b0b18; border-color: transparent; }
+
+/* Änderungsprotokoll */
+.wae-log { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.wae-log__item {
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--wae-border);
+  border-radius: 0.5rem;
+  background: var(--wae-surface);
+  font-size: 12.5px;
+}
+
+.wae-log__who { display: block; font-weight: 600; color: var(--wae-teal); margin-block-end: 0.15rem; }
+.wae-log__what { color: var(--wae-muted); }
+.wae-log__when { display: block; margin-block-start: 0.3rem; color: #6b6d8a; font-size: 11.5px; }
+
+/* Meldungen */
+.wae-note {
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.5rem;
+  border-inline-start: 3px solid var(--wae-accent);
+  background: var(--wae-surface);
+  font-size: 12.5px;
+  color: var(--wae-muted);
+}
+.wae-note--ok { border-inline-start-color: var(--wae-success); }
+.wae-note--error { border-inline-start-color: var(--wae-danger); color: #ffc9d1; }
+.wae-note strong { color: var(--wae-text); display: block; margin-block-end: 0.15rem; }
+
+.wae-spin {
+  display: inline-block;
+  inline-size: 0.85rem; block-size: 0.85rem;
+  border: 2px solid rgb(255 255 255 / 0.25);
+  border-block-start-color: currentColor;
+  border-radius: 50%;
+  animation: wae-spin 0.7s linear infinite;
+  vertical-align: -0.15em;
+}
+@keyframes wae-spin { to { transform: rotate(360deg); } }
+
+/* Ansichtsbreiten in der Vorschau */
+html.wae-mode-tablet body { max-inline-size: 820px; margin-inline: auto; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12); }
+html.wae-mode-mobile body { max-inline-size: 400px; margin-inline: auto; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12); }
+
+@media (prefers-reduced-motion: reduce) {
+  .wae-panel { transition: none; }
+}

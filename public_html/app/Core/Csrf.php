@@ -51,6 +51,15 @@ final class Csrf
     public static function sameOrigin(Request $request): bool
     {
         $origin = $request->header('Origin');
+
+        // "null" ist keine Herkunft, sondern die Auskunft, dass der Browser
+        // sie nicht nennen will (etwa bei einer strengen Referrer-Richtlinie
+        // oder aus einem abgeschotteten Rahmen). Dann entscheidet das Token –
+        // so wie auch dann, wenn gar nichts mitgeschickt wird.
+        if ($origin === 'null') {
+            $origin = '';
+        }
+
         if ($origin === '') {
             $referer = $request->header('Referer');
             if ($referer === '') {

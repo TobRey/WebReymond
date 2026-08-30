@@ -6,7 +6,7 @@ $hasMedia = !str_contains($classes, 'no-media');
 $withContact = str_contains($classes, 'with-contact');
 $withBio = str_contains($classes, 'with-bio');
 ?>
-<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="team">
+<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="team" data-section-id="<?= (int) $sectionDbId ?>">
     <div class="s-shell">
         <?= R::head($c) ?>
 

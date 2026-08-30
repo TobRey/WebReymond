@@ -6,7 +6,7 @@ $nav = $ctx['nav'] ?? [];
 $brand = R::value($c, 'brand', (string) ($ctx['brand'] ?? ''));
 $logo = $ctx['logo'] ?? null;
 ?>
-<header class="<?= e($classes) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="header">
+<header class="<?= e($classes) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="header" data-section-id="<?= (int) $sectionDbId ?>">
     <div class="s-shell s-header__inner s-inner">
         <a class="s-header__brand" href="<?= e($ctx['home'] ?? '/') ?>">
             <?php if (is_array($logo) && ($logo['src'] ?? '') !== ''): ?>

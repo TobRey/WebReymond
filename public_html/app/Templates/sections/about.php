@@ -4,7 +4,7 @@ use WebAtze\Templates\Renderer as R;
 $highlights = R::items($c, 'highlights');
 $hasMedia = !str_contains($classes, 'no-media');
 ?>
-<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="about">
+<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="about" data-section-id="<?= (int) $sectionDbId ?>">
     <div class="s-shell s-about__inner s-inner">
         <?php if ($hasMedia): ?>
             <div class="s-about__media s-media">

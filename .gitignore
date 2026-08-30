@@ -1,6 +1,12 @@
 # Konfiguration mit echten Zugangsdaten – niemals ins Repository
 public_html/app/config.php
 
+# Die Datenbank des Probelaufs. Sie enthält Testprojekte, Sitzungen und
+# Anmeldeversuche und gehört nirgendwo hin ausser auf den eigenen Rechner.
+public_html/storage/*.sqlite
+public_html/storage/*.sqlite-shm
+public_html/storage/*.sqlite-wal
+
 # Laufzeitdaten
 public_html/storage/projects/*
 public_html/storage/zips/*

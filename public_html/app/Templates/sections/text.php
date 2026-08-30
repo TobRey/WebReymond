@@ -2,7 +2,7 @@
 /** @var array $c @var array $ctx @var string $classes @var string $sectionId @var string $style */
 use WebAtze\Templates\Renderer as R;
 ?>
-<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="text">
+<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="text" data-section-id="<?= (int) $sectionDbId ?>">
     <div class="s-shell s-text__inner s-inner">
         <?php if (R::value($c, 'eyebrow') !== '' || R::value($c, 'title') !== ''): ?>
             <div class="s-text__head">

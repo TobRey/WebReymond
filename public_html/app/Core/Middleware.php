@@ -47,13 +47,24 @@ final class Middleware
             return null;
         }
 
-        if (Csrf::check($request) && Csrf::sameOrigin($request)) {
+        $tokenOk = Csrf::check($request);
+        $originOk = Csrf::sameOrigin($request);
+
+        if ($tokenOk && $originOk) {
             return null;
         }
 
+        // Welche der beiden Prüfungen gegriffen hat, gehört ins Protokoll:
+        // ein abgelaufenes Token ist harmlos, eine fremde Herkunft nicht –
+        // und wenn "app_url" nicht zur echten Adresse passt, scheitert jedes
+        // Formular. Ohne diesen Hinweis sucht man lange.
         Logger::warning('CSRF-Prüfung fehlgeschlagen', [
             'path' => $request->path(),
             'ip' => $request->ip(),
+            'grund' => $tokenOk
+                ? 'Herkunft weicht ab (erwartet ' . $request->baseUrl() . ', gemeldet '
+                  . ($request->header('Origin') ?: $request->header('Referer') ?: 'nichts') . ')'
+                : 'Token fehlt oder ist abgelaufen',
         ]);
 
         if ($request->wantsJson()) {

@@ -1,0 +1,332 @@
+<?php
+/**
+ * Ein einzelnes Projekt.
+ *
+ * Die Seite beantwortet drei Fragen in dieser Reihenfolge: Läuft gerade
+ * etwas? Wie sieht es aus? Und was wurde ursprünglich bestellt.
+ */
+
+use WebAtze\Core\{Config, Csrf};
+use WebAtze\Domain\Brief;
+use WebAtze\Templates\{Catalog, Schema};
+
+/** @var array $project @var array $brief @var array $theme @var array|null $job */
+/** @var array $pages @var array $builds @var array|null $target @var array|null $transfer */
+/** @var int $cost @var string $previewUrl */
+
+$base = '/' . trim((string) Config::get('create_path', 'create'), '/');
+$id = (int) $project['id'];
+
+$statusLabels = [
+    'draft' => ['Entwurf', 'new'],
+    'building' => ['Wird gebaut', 'running'],
+    'ready' => ['Fertig', 'done'],
+    'live' => ['Online', 'done'],
+    'failed' => ['Fehlgeschlagen', 'failed'],
+];
+[$statusLabel, $statusTone] = $statusLabels[(string) $project['status']]
+    ?? [(string) $project['status'], 'waiting'];
+
+$jobLabels = [
+    'generate' => 'Website wird gebaut',
+    'rebuild' => 'Website wird neu gebaut',
+    'deploy' => 'Website wird hochgeladen',
+    'zip' => 'Paket wird geschnürt',
+];
+
+$sectionCount = 0;
+foreach ($pages as $page) {
+    $sectionCount += count($page['sections'] ?? []);
+}
+
+$colours = $theme['colors'] ?? [];
+$latestBuild = $builds[0] ?? null;
+?>
+
+<div class="wa-page-head">
+    <div>
+        <span class="wa-badge wa-badge--<?= e($statusTone) ?>"><?= e($statusLabel) ?></span>
+        <?php if ((string) $project['domain'] !== ''): ?>
+            <span class="wa-page-head__meta"><?= e((string) $project['domain']) ?></span>
+        <?php endif; ?>
+        <span class="wa-page-head__meta">
+            angelegt am <?= e(date('d.m.Y', strtotime((string) $project['created_at']))) ?>
+        </span>
+    </div>
+    <div class="wa-page-head__actions">
+        <?php if ($previewUrl !== ''): ?>
+            <a class="wa-btn wa-btn--primary wa-btn--sm" href="<?= e($previewUrl) ?>" target="_blank" rel="noopener">
+                Vorschau öffnen
+            </a>
+        <?php endif; ?>
+        <a class="wa-btn wa-btn--sm" href="<?= e($base) ?>/projekt/<?= $id ?>/veroeffentlichen">Veröffentlichen</a>
+        <a class="wa-btn wa-btn--sm" href="<?= e($base) ?>/projekt/<?= $id ?>/domain">Domain</a>
+    </div>
+</div>
+
+<?php /* -------------------------------------------------- Laufender Auftrag */ ?>
+<?php if ($job !== null): ?>
+    <section class="wa-panel">
+        <div class="wa-panel__head">
+            <h2 class="wa-panel__title">
+                <?= (string) $job['status'] === 'failed' ? 'Abgebrochen' : 'Läuft gerade' ?>
+            </h2>
+        </div>
+        <div class="wa-job" data-job-watch="<?= (int) $job['id'] ?>"
+             data-job-reload="1">
+            <div class="wa-job__row">
+                <strong><?= e($jobLabels[(string) $job['type']] ?? (string) $job['type']) ?></strong>
+                <span class="wa-job__value" data-job-label><?= (int) $job['progress'] ?>%</span>
+            </div>
+            <div class="wa-progress">
+                <div class="wa-progress__bar" data-job-bar style="--value: <?= (int) $job['progress'] ?>%"></div>
+            </div>
+            <div class="wa-job__row">
+                <span class="wa-job__step" data-job-step><?= e((string) $job['message']) ?></span>
+                <form method="post" action="/api/jobs/<?= (int) $job['id'] ?>/abbrechen"
+                      data-confirm="Diesen Auftrag wirklich abbrechen?">
+                    <?= Csrf::field() ?>
+                    <button type="submit" class="wa-btn wa-btn--quiet wa-btn--sm">Abbrechen</button>
+                </form>
+            </div>
+        </div>
+        <?php if ((string) ($job['error'] ?? '') !== ''): ?>
+            <div class="wa-note wa-note--danger"><div><?= e((string) $job['error']) ?></div></div>
+        <?php endif; ?>
+    </section>
+<?php endif; ?>
+
+<?php /* ------------------------------------------------------ Kurzübersicht */ ?>
+<div class="wa-stats">
+    <div class="wa-stat">
+        <span class="wa-stat__value"><?= count($pages) ?></span>
+        <span class="wa-stat__label"><?= count($pages) === 1 ? 'Seite' : 'Seiten' ?></span>
+    </div>
+    <div class="wa-stat">
+        <span class="wa-stat__value"><?= $sectionCount ?></span>
+        <span class="wa-stat__label">Abschnitte</span>
+    </div>
+    <div class="wa-stat">
+        <span class="wa-stat__value"><?= $latestBuild ? 'v' . (int) $latestBuild['version'] : '–' ?></span>
+        <span class="wa-stat__label">Paket</span>
+    </div>
+    <div class="wa-stat">
+        <span class="wa-stat__value">$<?= number_format($cost / 1e6, 2) ?></span>
+        <span class="wa-stat__label">KI-Kosten</span>
+    </div>
+</div>
+
+<?php /* -------------------------------------------------------------- Seiten */ ?>
+<section class="wa-panel">
+    <div class="wa-panel__head">
+        <h2 class="wa-panel__title">Aufbau der Website</h2>
+        <p class="wa-panel__hint">
+            Jeder Abschnitt lässt sich in der Vorschau anklicken und dort einzeln ändern –
+            am Text, am Bild oder über eine der 20 Vorlagen.
+        </p>
+    </div>
+
+    <?php if ($pages === []): ?>
+        <div class="wa-empty-state">
+            <p>Noch keine Seiten. Sie entstehen, sobald der Auftrag durchgelaufen ist.</p>
+        </div>
+    <?php else: ?>
+        <div class="wa-pagelist">
+            <?php foreach ($pages as $page): ?>
+                <details class="wa-pagelist__item"<?= (int) $page['sort_order'] === 0 ? ' open' : '' ?>>
+                    <summary>
+                        <strong><?= e((string) $page['title']) ?></strong>
+                        <code><?= e((string) $page['path']) ?></code>
+                        <span class="wa-pagelist__count">
+                            <?= count($page['sections']) ?> Abschnitte
+                        </span>
+                    </summary>
+                    <ol class="wa-sectionlist">
+                        <?php foreach ($page['sections'] as $section): ?>
+                            <?php
+                            $type = (string) $section['type'];
+                            $meta = Schema::forType($type);
+                            ?>
+                            <li class="wa-sectionlist__row<?= ((int) $section['hidden'] === 1) ? ' is-hidden' : '' ?>">
+                                <span class="wa-sectionlist__type"><?= e($meta['label'] ?? $type) ?></span>
+                                <span class="wa-sectionlist__variant">
+                                    <?= e(Catalog::label($type, (string) $section['template_key'])) ?>
+                                </span>
+                                <?php if ((int) $section['hidden'] === 1): ?>
+                                    <span class="wa-badge wa-badge--waiting">ausgeblendet</span>
+                                <?php endif; ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ol>
+                </details>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+</section>
+
+<?php /* ------------------------------------------------------------- Pakete */ ?>
+<section class="wa-panel">
+    <div class="wa-panel__head">
+        <h2 class="wa-panel__title">Pakete</h2>
+        <form method="post" action="<?= e($base) ?>/projekt/<?= $id ?>/zip">
+            <?= Csrf::field() ?>
+            <button type="submit" class="wa-btn wa-btn--sm">Neues Paket erstellen</button>
+        </form>
+    </div>
+
+    <?php if ($builds === []): ?>
+        <div class="wa-empty-state">
+            <p>Noch kein Paket. Es entsteht automatisch, sobald die Website fertig gebaut ist.</p>
+        </div>
+    <?php else: ?>
+        <div class="wa-table-wrap">
+            <table class="wa-table">
+                <thead>
+                    <tr><th>Version</th><th>Dateien</th><th>Grösse</th><th>Erstellt</th><th></th></tr>
+                </thead>
+                <tbody>
+                <?php foreach ($builds as $build): ?>
+                    <tr>
+                        <td>v<?= (int) $build['version'] ?></td>
+                        <td><?= (int) $build['files_count'] ?></td>
+                        <td><?= e(format_bytes((int) $build['zip_bytes'])) ?></td>
+                        <td><?= e(date('d.m.Y H:i', strtotime((string) $build['created_at']))) ?></td>
+                        <td class="wa-table__right">
+                            <a class="wa-btn wa-btn--quiet wa-btn--sm"
+                               href="<?= e($base) ?>/projekt/<?= $id ?>/zip/<?= (int) $build['id'] ?>">
+                                Herunterladen
+                            </a>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</section>
+
+<?php /* ------------------------------------------------------------ Bestellt */ ?>
+<section class="wa-panel">
+    <div class="wa-panel__head">
+        <h2 class="wa-panel__title">Was bestellt wurde</h2>
+        <p class="wa-panel__hint">Die Angaben aus dem Formular. Zugangsdaten stehen hier bewusst nicht.</p>
+    </div>
+
+    <?php if ($colours !== []): ?>
+        <div class="wa-swatches">
+            <?php /* Die dritte Wunschfarbe wird im Theme zum Grundton. */ ?>
+            <?php foreach (['primary' => 'Hauptfarbe', 'secondary' => 'Zweitfarbe', 'ink' => 'Grundton'] as $key => $label): ?>
+                <?php if (!isset($colours[$key])) { continue; } ?>
+                <div class="wa-swatch">
+                    <span class="wa-swatch__chip" style="background: <?= e((string) $colours[$key]) ?>"></span>
+                    <span class="wa-swatch__label"><?= e($label) ?></span>
+                    <code><?= e((string) $colours[$key]) ?></code>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+
+    <dl class="wa-facts">
+        <?php
+        $facts = [
+            'Slogan' => (string) ($brief['slogan'] ?? ''),
+            'Branche' => (string) ($brief['industry'] ?? ''),
+            'Was die Firma macht' => (string) ($brief['description'] ?? ''),
+            'Zielgruppe' => (string) ($brief['audience'] ?? ''),
+            'Stil' => Brief::STYLES[$brief['style'] ?? ''] ?? '',
+            'Ansprache' => Brief::TONES[$brief['tone'] ?? ''] ?? '',
+            'Designwünsche' => (string) ($brief['design_notes'] ?? ''),
+            'Umfang' => Brief::SCOPES[$brief['scope'] ?? ''] ?? '',
+            'Alte Website' => (string) ($brief['old_url'] ?? ''),
+            'Gewünschte Seiten' => (string) ($brief['wanted_pages'] ?? ''),
+            'E-Mail' => (string) ($brief['contact_email'] ?? ''),
+            'Telefon' => (string) ($brief['contact_phone'] ?? ''),
+            'Adresse' => (string) ($brief['contact_address'] ?? ''),
+            'Öffnungszeiten' => (string) ($brief['opening_hours'] ?? ''),
+            'Zusatzinfos' => (string) ($brief['extra_notes'] ?? ''),
+        ];
+        foreach ($facts as $label => $value):
+            if (trim($value) === '') { continue; }
+        ?>
+            <dt><?= e($label) ?></dt>
+            <dd><?= nl2br(e($value)) ?></dd>
+        <?php endforeach; ?>
+
+        <dt>Kundenbackend</dt>
+        <dd>
+            <?php if ((int) $project['wants_admin'] === 1): ?>
+                ja, Zugang <code><?= e((string) $project['admin_username']) ?></code>
+                (das Passwort ist nur beim Kunden bekannt)
+            <?php else: ?>
+                nein – die Website ist rein statisch
+            <?php endif; ?>
+        </dd>
+
+        <dt>Datenbank</dt>
+        <dd>
+            <?= Brief::needsDatabase($brief)
+                ? 'ja – die Zusatzinfos beschreiben etwas, das gespeichert werden muss'
+                : 'nein – Inhalte liegen als Dateien, das ist schneller und sicherer' ?>
+        </dd>
+    </dl>
+</section>
+
+<?php /* ----------------------------------------------------- Kurzer Ausblick */ ?>
+<div class="wa-grid-2">
+    <section class="wa-panel">
+        <div class="wa-panel__head"><h2 class="wa-panel__title">Hochladen</h2></div>
+        <?php if ($target !== null): ?>
+            <p class="wa-panel__hint">
+                <?= e(strtoupper((string) $target['protocol'])) ?> auf
+                <code><?= e((string) $target['host']) ?></code>,
+                Verzeichnis <code><?= e((string) $target['remote_path']) ?></code>.
+                <?php if ((string) ($target['last_deployed_at'] ?? '') !== ''): ?>
+                    Zuletzt hochgeladen am
+                    <?= e(date('d.m.Y H:i', strtotime((string) $target['last_deployed_at']))) ?>.
+                <?php endif; ?>
+            </p>
+        <?php else: ?>
+            <p class="wa-panel__hint">Noch kein Zugang hinterlegt.</p>
+        <?php endif; ?>
+        <a class="wa-btn wa-btn--sm" href="<?= e($base) ?>/projekt/<?= $id ?>/veroeffentlichen">
+            Zum Veröffentlichen
+        </a>
+    </section>
+
+    <section class="wa-panel">
+        <div class="wa-panel__head"><h2 class="wa-panel__title">Domain</h2></div>
+        <?php if ($transfer !== null && (string) $transfer['domain'] !== ''): ?>
+            <p class="wa-panel__hint">
+                <code><?= e((string) $transfer['domain']) ?></code> –
+                <?= (string) $transfer['mode'] === 'transfer' ? 'Umzug zum neuen Anbieter' : 'zeigt auf den neuen Server' ?>,
+                Schritt <?= (int) $transfer['current_step'] + 1 ?>.
+            </p>
+        <?php else: ?>
+            <p class="wa-panel__hint">Noch keine Domain hinterlegt.</p>
+        <?php endif; ?>
+        <a class="wa-btn wa-btn--sm" href="<?= e($base) ?>/projekt/<?= $id ?>/domain">Zum Assistenten</a>
+    </section>
+</div>
+
+<?php /* -------------------------------------------------------- Gefahrenzone */ ?>
+<section class="wa-panel wa-panel--danger">
+    <div class="wa-panel__head">
+        <h2 class="wa-panel__title">Neu bauen oder löschen</h2>
+    </div>
+    <p class="wa-panel__hint">
+        Beim Neubau entstehen Struktur und Texte frisch. Alles, was in der Vorschau von Hand
+        geändert wurde, geht dabei verloren – die bisherigen Pakete bleiben erhalten.
+    </p>
+    <div class="wa-form__actions">
+        <form method="post" action="<?= e($base) ?>/projekt/<?= $id ?>/bauen"
+              data-confirm="Website komplett neu bauen? Änderungen in der Vorschau gehen verloren.">
+            <?= Csrf::field() ?>
+            <button type="submit" class="wa-btn">Website neu bauen</button>
+        </form>
+        <form method="post" action="<?= e($base) ?>/projekt/<?= $id ?>/loeschen"
+              data-confirm="Das Projekt „<?= e((string) $project['name']) ?>“ mit allen Seiten, Paketen und Dateien endgültig löschen?">
+            <?= Csrf::field() ?>
+            <button type="submit" class="wa-btn wa-btn--quiet">Projekt löschen</button>
+        </form>
+    </div>
+</section>
