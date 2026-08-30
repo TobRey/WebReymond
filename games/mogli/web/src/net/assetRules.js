@@ -98,6 +98,29 @@ export const LIMITS = {
 /** Kachelnamen, deren Kasten festliegt: an Wänden wird abgesprungen. */
 export const FIXED_BOX_TILES = ['WALL_A', 'WALL_B'];
 
+/**
+ * Die Element-Typen aus game/elements.js – hier als eigene Liste statt als
+ * Import, damit diese Datei weiterhin ohne alles lädt (sie wird von admin.php
+ * gespiegelt und von Tests direkt geladen). Der Abgleichtest hält beide
+ * Listen zusammen.
+ */
+export const ELEMENT_TYPE_NAMES = [
+  'ground',
+  'platform',
+  'crumble',
+  'mover',
+  'spring',
+  'spikes',
+  'emerald',
+  'key',
+  'door',
+  'portal',
+  'walker',
+  'flyer',
+  'checkpoint',
+  'flag',
+];
+
 const PNG_PREFIX = 'data:image/png;base64,';
 
 /**
@@ -291,6 +314,43 @@ export function validatePack(input) {
     }
   }
 
+  // --- Elemente ------------------------------------------------------------
+  if (input.elements !== undefined && input.elements !== null) {
+    if (typeof input.elements !== 'object') return { ok: false, error: 'invalid_elements' };
+    const clean = {};
+    for (const [type, entry] of Object.entries(input.elements)) {
+      if (!ELEMENT_TYPE_NAMES.includes(type)) {
+        return { ok: false, error: 'unknown_element', detail: type };
+      }
+      if (entry === null || typeof entry !== 'object') {
+        return { ok: false, error: 'invalid_element', detail: type };
+      }
+      const out = {};
+      if (entry.image !== undefined && entry.image !== null) {
+        if (!isPngDataUrl(entry.image)) return { ok: false, error: 'not_a_png', detail: type };
+        if (dataUrlBytes(entry.image) > LIMITS.maxImageBytes) {
+          return { ok: false, error: 'image_too_large', detail: type };
+        }
+        out.image = entry.image;
+      }
+      if (entry.box !== undefined && entry.box !== null) {
+        const b = entry.box;
+        // Die Trefferfläche liegt in BILDpixeln; die Bildgrösse kennt nur der
+        // Browser, deshalb hier nur die groben Grenzen.
+        if (
+          ![b.x, b.y, b.w, b.h].every((n) => Number.isInteger(n) && n >= 0 && n <= 4096) ||
+          b.w < 1 ||
+          b.h < 1
+        ) {
+          return { ok: false, error: 'invalid_box', detail: type };
+        }
+        out.box = { x: b.x, y: b.y, w: b.w, h: b.h };
+      }
+      if (Object.keys(out).length > 0) clean[type] = out;
+    }
+    if (Object.keys(clean).length > 0) pack.elements = clean;
+  }
+
   // --- Gesamtgrösse --------------------------------------------------------
   const size = JSON.stringify(pack).length;
   if (size > LIMITS.maxPackBytes) {
@@ -310,6 +370,9 @@ export function packIsEmpty(pack) {
   return (
     pack === null ||
     typeof pack !== 'object' ||
-    (pack.player === undefined && pack.tiles === undefined && pack.background === undefined)
+    (pack.player === undefined &&
+      pack.tiles === undefined &&
+      pack.background === undefined &&
+      pack.elements === undefined)
   );
 }

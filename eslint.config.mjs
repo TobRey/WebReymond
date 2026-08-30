@@ -63,6 +63,7 @@ export default tseslint.config(
         FormData: 'readonly',
         Blob: 'readonly',
         URL: 'readonly',
+        URLSearchParams: 'readonly',
         sessionStorage: 'readonly',
         localStorage: 'readonly',
         setTimeout: 'readonly',

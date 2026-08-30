@@ -5,15 +5,10 @@
 // keinen zweiten Zustand im DOM – sonst laufen die beiden früher oder später
 // auseinander, und man speichert etwas anderes, als man sieht.
 
-import {
-  ANIMATION_NAMES,
-  FIXED_BOX_TILES,
-  LIMITS,
-  TILE_NAMES,
-  validatePack,
-} from '../../src/net/assetRules.js';
+import { ANIMATION_NAMES, LIMITS, validatePack } from '../../src/net/assetRules.js';
 import { PHYS, VIEW_H_MAX, VIEW_W } from '../../src/game/constants.js';
 import { ANIMATIONS } from '../../src/game/player.js';
+import { MAP_LIMITS } from '../../src/net/mapRules.js';
 import * as store from './store.js';
 import {
   acceptGif,
@@ -24,7 +19,8 @@ import {
   showImage,
 } from './sheet.js';
 import { bindBoxEditor, drawBox } from './hitbox.js';
-import * as preview from './preview.js';
+import { buildElementsTab } from './elements.js';
+import { createEditor } from './editor.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -38,16 +34,27 @@ const dom = {
   btnSignOut: $('btnSignOut'),
   tabs: $('tabs'),
   anims: $('anims'),
-  tiles: $('tiles'),
   layers: $('layers'),
   addLayer: $('addLayer'),
   hitCanvas: $('hitCanvas'),
   hitNumbers: $('hitNumbers'),
   hitReset: $('hitReset'),
   hitWarn: $('hitWarn'),
-  previewCanvas: $('previewCanvas'),
-  btnBot: $('btnBot'),
-  botStatus: $('botStatus'),
+  elementList: $('elementList'),
+  editorCanvas: $('editorCanvas'),
+  editorWrap: $('editorWrap'),
+  palette: $('palette'),
+  props: $('props'),
+  mapSelect: $('mapSelect'),
+  mapNew: $('mapNew'),
+  mapRename: $('mapRename'),
+  mapUp: $('mapUp'),
+  mapDown: $('mapDown'),
+  mapDelete: $('mapDelete'),
+  mapCell: $('mapCell'),
+  mapCols: $('mapCols'),
+  mapRows: $('mapRows'),
+  mapTest: $('mapTest'),
   btnSave: $('btnSave'),
   btnDownload: $('btnDownload'),
   btnClear: $('btnClear'),
@@ -62,13 +69,11 @@ const DEFAULT_HITBOX = {
   h: PHYS.hitboxH,
 };
 
-const FULL_TILE_BOX = { x: 0, y: 0, w: LIMITS.tileSize, h: LIMITS.tileSize };
-
 /** Der gesamte Bearbeitungszustand. */
 let pack = { version: 1 };
 
 /** Dekodierte Bilder zum Anzeigen. Nicht Teil des Pakets. */
-const shown = { frames: {}, tiles: {}, layers: [] };
+const shown = { frames: {}, layers: [] };
 
 /**
  * Je Bildplatz die Funktion, die ihn neu zeichnet.
@@ -93,16 +98,6 @@ function frameList(name) {
 
 function hitbox() {
   return pack.player?.hitbox ?? DEFAULT_HITBOX;
-}
-
-function tileEntry(name) {
-  pack.tiles ??= {};
-  pack.tiles[name] ??= {};
-  return pack.tiles[name];
-}
-
-function tileBoxOf(name) {
-  return pack.tiles?.[name]?.box ?? FULL_TILE_BOX;
 }
 
 /** Leere Zweige wieder entfernen, damit nichts Sinnloses gespeichert wird. */
@@ -149,6 +144,14 @@ const ERRORS = {
   too_many_layers: `Höchstens ${LIMITS.backgroundLayers} Ebenen.`,
   invalid_speed: 'Das Tempo muss zwischen 0 und 2 liegen.',
   local_full: 'Der Browserspeicher ist voll.',
+  needs_one_flag: 'Jede Karte braucht genau eine Zielflagge.',
+  too_many_maps: `Höchstens ${MAP_LIMITS.maxMaps} Karten.`,
+  too_many_elements: `Höchstens ${MAP_LIMITS.maxElements} Elemente je Karte.`,
+  element_out_of_bounds: 'Ein Element liegt ausserhalb der Karte.',
+  map_too_large: 'Diese Karte ist zu gross.',
+  maps_too_large: 'Alle Karten zusammen sind zu gross.',
+  invalid_name: 'Der Kartenname fehlt.',
+  unknown_element: 'Unbekanntes Element.',
   no_php: 'Kein PHP erreichbar.',
 };
 
@@ -391,87 +394,6 @@ function refreshHitbox() {
 // Reiter „Kacheln"
 // ---------------------------------------------------------------------------
 
-function buildTiles() {
-  dom.tiles.replaceChildren();
-
-  for (const name of TILE_NAMES) {
-    const fixed = FIXED_BOX_TILES.includes(name);
-
-    const card = document.createElement('div');
-    card.className = 'tile';
-
-    const title = document.createElement('p');
-    title.className = 'tile__name';
-    title.textContent = name;
-
-    const row = document.createElement('div');
-    row.className = 'tile__row';
-
-    const view = document.createElement('canvas');
-    view.className = 'tile__view';
-    view.width = LIMITS.tileSize;
-    view.height = LIMITS.tileSize;
-    view.title = 'Bild einsetzen';
-
-    const boxCanvas = document.createElement('canvas');
-    boxCanvas.className = `tile__box${fixed ? ' tile__box--fixed' : ''}`;
-    boxCanvas.width = LIMITS.tileSize;
-    boxCanvas.height = LIMITS.tileSize;
-    boxCanvas.title = fixed ? 'An Wänden liegt der Kasten fest' : 'Kasten aufziehen';
-
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-
-    const hint = document.createElement('p');
-    hint.className = 'tile__hint';
-
-    const refresh = () => {
-      const image = shown.tiles[name] ?? null;
-      showImage(view, image);
-      view.classList.toggle('tile__view--filled', image !== null);
-      const box = tileBoxOf(name);
-      drawBox(boxCanvas, image, box, { color: fixed ? '#8fa383' : '#3fe3a8' });
-      hint.textContent = fixed
-        ? 'Kasten fest: ganze Kachel'
-        : `x ${box.x} y ${box.y} · ${box.w} × ${box.h}`;
-    };
-
-    bindFileArea(view, input, async (file) => {
-      try {
-        const bild = await acceptImage(file, {
-          width: LIMITS.tileSize,
-          height: LIMITS.tileSize,
-        });
-        tileEntry(name).image = bild.dataUrl;
-        shown.tiles[name] = await loadImage(bild.dataUrl);
-        refresh();
-        status(dom.saveStatus, `${name}: ${umgerechnet(bild, LIMITS.tileSize)}`);
-      } catch (error) {
-        status(dom.saveStatus, `${name}: ${error.message}`, 'bad');
-      }
-    });
-
-    if (!fixed) {
-      bindBoxEditor(
-        boxCanvas,
-        LIMITS.tileSize,
-        () => tileBoxOf(name),
-        (box) => {
-          tileEntry(name).box = box;
-          refresh();
-          status(dom.saveStatus, `${name}: Kasten geändert – noch nicht gespeichert.`);
-        },
-      );
-    }
-
-    row.append(view, boxCanvas);
-    card.append(title, row, input, hint);
-    dom.tiles.append(card);
-    refresh();
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Reiter „Hintergrund"
 // ---------------------------------------------------------------------------
@@ -576,9 +498,9 @@ function bindAddLayer() {
 // Reiter
 // ---------------------------------------------------------------------------
 
-const TAB_IDS = ['figur', 'kacheln', 'hintergrund', 'vorschau'];
+const TAB_IDS = ['figur', 'elemente', 'karten', 'hintergrund'];
 
-async function showTab(wanted) {
+function showTab(wanted) {
   for (const id of TAB_IDS) {
     $(`tab-${id}`).hidden = id !== wanted;
   }
@@ -587,23 +509,7 @@ async function showTab(wanted) {
   }
 
   if (wanted === 'figur') refreshHitbox();
-
-  if (wanted === 'vorschau') {
-    prune();
-    const checked = validatePack(pack);
-    if (!checked.ok) {
-      status(dom.botStatus, explain(checked.error, checked.detail), 'bad');
-      return;
-    }
-    status(dom.botStatus, 'Wird vorbereitet …');
-    await preview.usePack(checked.pack);
-    preview.paint(dom.previewCanvas);
-    status(dom.botStatus, 'Bereit.');
-  } else {
-    // Die Vorschau darf die Spielgrafik nicht dauerhaft verstellen: sie setzt
-    // dieselben Werte wie das Spiel (Trefferfläche, Kachelkästen).
-    preview.release();
-  }
+  if (wanted === 'karten') editor.redraw();
 }
 
 // ---------------------------------------------------------------------------
@@ -617,15 +523,28 @@ async function doSave() {
     status(dom.saveStatus, explain(checked.error, checked.detail), 'bad');
     return;
   }
+  // Ein Knopf speichert ALLES – Grafik und Karten. Zwei Speicherknöpfe
+  // hiessen: einer wird vergessen, und dann spielt die Welt eine Karte,
+  // deren Grafik es nicht gibt (oder umgekehrt).
+  const mapsChecked = editor.validateAll();
+  if (!mapsChecked.ok) {
+    status(
+      dom.saveStatus,
+      `Karte „${mapsChecked.name}": ${explain(mapsChecked.error, mapsChecked.detail)}`,
+      'bad',
+    );
+    return;
+  }
   status(dom.saveStatus, 'Wird gespeichert …');
   try {
     const { bytes } = await store.save(checked.pack);
+    const { count } = await store.saveMaps(editor.getMaps());
     const kb = Math.round(bytes / 1024);
     status(
       dom.saveStatus,
       store.getMode() === 'local'
-        ? `Gespeichert (${kb} kB) – nur in diesem Browser. Für alle Besucher: „Als Datei laden" und die Datei nach data/assets.json hochladen.`
-        : `Gespeichert (${kb} kB). Die Spielseite neu laden.`,
+        ? `Gespeichert (${kb} kB Grafik, ${count} Karten) – nur in diesem Browser. Für alle Besucher: „Als Dateien laden" und beide Dateien nach data/ hochladen.`
+        : `Gespeichert (${kb} kB Grafik, ${count} Karten). Die Spielseite neu laden.`,
       'good',
     );
   } catch (error) {
@@ -636,7 +555,6 @@ async function doSave() {
 async function doClear() {
   pack = { version: 1 };
   shown.frames = {};
-  shown.tiles = {};
   shown.layers = [];
   try {
     await store.clearStored();
@@ -645,7 +563,7 @@ async function doClear() {
     return;
   }
   buildAnimations();
-  buildTiles();
+  buildElementsTab(dom.elementList, elementsHost);
   buildLayers();
   refreshHitbox();
   status(
@@ -678,15 +596,37 @@ async function enter() {
       list.map((url) => (url === null ? null : loadImage(url).catch(() => null))),
     );
   }
-  for (const [name, entry] of Object.entries(pack.tiles ?? {})) {
-    if (entry.image) shown.tiles[name] = await loadImage(entry.image).catch(() => null);
-  }
-
   buildAnimations();
-  buildTiles();
+  buildElementsTab(dom.elementList, elementsHost);
   buildLayers();
   refreshHitbox();
+
+  // Die Karten des Editors.
+  let maps = [];
+  try {
+    maps = await store.loadMaps();
+  } catch (error) {
+    status(dom.saveStatus, explain(error.message), 'bad');
+  }
+  editor.setMaps(maps);
 }
+
+/** Was der Elemente-Reiter vom Rest braucht. */
+const elementsHost = {
+  get: () => pack,
+  status: (text, bad = false) => status(dom.saveStatus, text, bad ? 'bad' : ''),
+};
+
+/** Der Editor. Erst enter() reicht ihm die Karten hinein. */
+const editor = createEditor(dom, {
+  status: (text, bad = false) => status(dom.saveStatus, text, bad ? 'bad' : ''),
+  onDirty: () => status(dom.saveStatus, 'Karte geändert – noch nicht gespeichert.'),
+  beforeTest: () =>
+    status(
+      dom.saveStatus,
+      'Zum Testen bitte erst speichern – das Spiel lädt die GESPEICHERTEN Karten.',
+    ),
+});
 
 function bindEverything() {
   dom.loginForm.addEventListener('submit', async (event) => {
@@ -734,27 +674,6 @@ function bindEverything() {
 
   bindAddLayer();
 
-  dom.btnBot.addEventListener('click', () => {
-    dom.btnBot.disabled = true;
-    preview.runBot(dom.previewCanvas, 30, (metres, running) => {
-      status(
-        dom.botStatus,
-        running ? `Automat läuft … ${metres} m` : `Automat kam ${metres} m weit.`,
-        running ? '' : metres >= 12 ? 'good' : 'bad',
-      );
-      if (!running) {
-        dom.btnBot.disabled = false;
-        if (metres < 12) {
-          status(
-            dom.botStatus,
-            `Automat kam nur ${metres} m weit. Mit diesen Kästen ist der Turm kaum besteigbar – prüfe die Kachelkästen und die Trefferfläche.`,
-            'bad',
-          );
-        }
-      }
-    });
-  });
-
   dom.btnSave.addEventListener('click', doSave);
   dom.btnClear.addEventListener('click', doClear);
   dom.btnDownload.addEventListener('click', () => {
@@ -764,7 +683,18 @@ function bindEverything() {
       status(dom.saveStatus, explain(checked.error, checked.detail), 'bad');
       return;
     }
+    // Beide Dateien: assets.json (Grafik) und maps.json (Karten). Wer ohne
+    // PHP arbeitet, lädt beide nach data/ hoch.
     store.download(checked.pack);
+    const mapsChecked = editor.validateAll();
+    if (mapsChecked.ok) store.downloadMaps(editor.getMaps());
+    else {
+      status(
+        dom.saveStatus,
+        `Karten nicht dabei – „${mapsChecked.name}": ${explain(mapsChecked.error, mapsChecked.detail)}`,
+        'bad',
+      );
+    }
   });
 }
 

@@ -1,8 +1,10 @@
-Mogli - Tempelflucht 2.2.1
-==========================
+Mogli - Dschungellauf 3.0.0
+===========================
 
-Ein Jump'n'Run fuer den Browser. Ein Knopf, immer nach oben.
-A browser platformer. One button, always upward.
+Ein Jump'n'Run fuer den Browser. Renn nach rechts, spring, erreich die Flagge -
+und bau deine eigenen Levels im Karten-Editor.
+A browser platformer. Run right, jump, reach the flag - and build your own
+levels in the map editor.
 
 
 DEUTSCH
@@ -29,136 +31,142 @@ WICHTIG: NICHT PER DOPPELKLICK OEFFNEN
 
 SO WIRD GESPIELT
 
-  Es gibt genau einen Knopf: die Spielflaeche selbst. Tippen oder klicken.
+  Seit Fassung 3.0 laeuft Mogli nicht mehr von allein: du steuerst ihn, wie
+  man ein Jump'n'Run eben steuert.
 
-  1. Mogli steht still, bis du das erste Mal tippst. Erst dann laeuft er los,
-     und erst dann steigt die Glut. Du bestimmst, wann es losgeht.
-  2. Er laeuft von allein. Es gibt keine Richtungstaste.
-  3. Tippen springt. Immer gleich hoch. Es gibt keinen Doppelsprung.
-  4. Laeuft er am Boden gegen eine Wand, dreht er von selbst um.
-  5. Rutscht er an einer Wand ab, stoesst ihn ein Tipp weg - und ab da laeuft
-     er in die andere Richtung. Das ist der Kern des Spiels. Es gibt genau
-     EINEN Wandsprung je Flugphase; zurueck bekommst du ihn beim Landen und
-     wenn dich eine Ranke hochreisst.
-  6. Smaragde geben Punkte. Ranken reissen ihn ein gutes Stueck nach oben.
-  7. Von unten steigt die Glut. Wer stehen bleibt, wird geholt.
+  Handy/Tablet:  links unten zwei Pfeile (laufen), rechts unten der grosse
+                 Knopf (springen). Laenger druecken springt hoeher, kurz
+                 tippen macht einen kleinen Hopser.
+  Tastatur:      Pfeiltasten oder A/D zum Laufen, Leertaste oder Pfeil hoch
+                 zum Springen. Esc pausiert.
+  Gamepad:       Steuerkreuz/Stick zum Laufen, A zum Springen.
 
-  Am Rechner geht auch: Leertaste springen, P Pause, R neu starten,
-  M Ton an/aus, F Vollbild. Gamepads werden unterstuetzt.
+  Die Uhr startet mit deinem ersten Schritt und laeuft bis zur Flagge durch -
+  auch wenn du stirbst. Gezaehlt wird nur die Zeit: je schneller, desto besser.
 
-  Auf dem Handy fuellt das Spiel den Bildschirm: die Seite ist genau so hoch
-  wie das Fenster, es gibt nichts zu scrollen, und beim Start geht es von
-  allein ins Vollbild. Die Bestenliste steht im Menue und nach jedem Lauf im
-  Ergebnis - sie liegt ueber dem Spiel, nie darunter.
+  Was dir unterwegs begegnet:
 
-EIGENE GRAFIK EINSETZEN
+  - Smaragde geben Zeitgutschrift (eingestellt im Editor, ab Werk 1 Sekunde).
+  - Stacheln und Gegner werfen dich zum letzten Checkpoint zurueck (oder zum
+    Start). Auf die meisten Gegner kann man draufspringen.
+  - Federn schleudern dich hoch, broeckelnde Bloecke zerfallen unter dir,
+    bewegliche Plattformen tragen dich mit.
+  - Schluessel oeffnen Tueren, Portale teleportieren dich, die Zielflagge
+    beendet das Level.
 
-  Unter /admin kannst du eigene Bilder einsetzen, ohne Code anzufassen:
-  die Figur (acht Bewegungen mit je fuenf Bildern), die Kacheln und den
-  Hintergrund. Zugangscode ist 6713.
+  Wer ein Level schafft, schaltet das naechste frei.
 
-  GROESSE UND FORMAT SIND EGAL
+LEVELS BAUEN: DER KARTEN-EDITOR
 
-  Du musst nichts zurechtschneiden. PNG, JPEG, WebP, GIF - was der Browser
-  lesen kann, geht, und in jeder Groesse. Der Admin-Bereich rechnet um:
+  Der Admin-Bereich liegt unter
 
-    - Figur  -> 32 x 32
-    - Kachel -> 16 x 16
-    - Ebene  -> so gross, dass sie den Bildschirm deckt
+      https://deine-domain.tld/mogli/admin/
 
-  Das Seitenverhaeltnis bleibt dabei erhalten - ein breites Bild wird nicht zum
-  Quadrat gezerrt, sondern eingepasst. Ob dabei geglaettet wird, entscheidet
-  sich von selbst: geht das Verhaeltnis glatt auf (64 -> 32), bleiben die
-  Pixelkanten scharf; geht es krumm auf (100 -> 32), wird geglaettet, weil
-  sonst ganze Zeilen wegfielen. Nach jedem Einsetzen steht unten, was passiert
-  ist.
+  Zugangscode ab Werk: 6713 (aendern: siehe unten). Dort gibt es vier Reiter:
 
-  Ein sehr hohes Bild als Hintergrundebene wird mittig beschnitten und
-  notfalls weiter verkleinert - nicht aus Prinzip, sondern damit das ganze
-  Paket noch durch den PHP-Upload deines Webspace passt.
+  FIGUR        eigene Bilder fuer Mogli selbst, samt Trefferflaeche
+               (unveraendert aus Fassung 2).
 
-  HINTERGRUND: DAS TEMPO ENTSCHEIDET ALLES
+  ELEMENTE     alles, was auf eine Karte kann. Je Element kannst du ein Bild
+               hochladen (Groesse und Format egal, GIF nimmt das erste Bild)
+               und eine Trefferflaeche einzeichnen - der Ausschnitt des
+               Bildes, der wirklich zaehlt. Leere Plaetze behalten die
+               mitgelieferte Grafik; das Spiel laeuft also auch ganz ohne
+               Uploads.
 
-    Tempo 0     Das Bild steht still. Es fuellt den ganzen Bildschirm und wird
-                mittig beschnitten, wo das Seitenverhaeltnis nicht passt. Das
-                ist die Einstellung fuer ein Hintergrundbild.
-    Tempo > 0   Die Ebene laeuft beim Klettern mit. Sie wird auf die Breite des
-                Spiels gezogen und untereinander wiederholt; ihre Hoehe sagt,
-                nach welcher Strecke sich das Muster wiederholt. 1 wandert
-                genauso schnell wie der Turm.
+  KARTEN       der Editor. Links die Palette, in der Mitte das Raster,
+               rechts die Eigenschaften des gewaehlten Elements.
 
-  AM SCHNELLSTEN MIT GIF
+               - Element in der Palette waehlen, dann ins Raster klicken.
+                 Boden, Plattformen, Broeckelbloecke und Stacheln lassen
+                 sich als Rechteck aufziehen.
+               - Klick auf ein platziertes Element waehlt es aus; dann
+                 kannst du es ziehen, rechts seine Einstellungen aendern
+                 (Tempo, Strecke, Sprungkraft, Ziel-Portal ...) oder mit
+                 Entf loeschen.
+               - Jedes Element hat ausserdem ein Notizfeld - nur fuer dich,
+                 das Spiel liest es nicht.
+               - "Start setzen" bestimmt, wo Mogli erscheint. Jede Karte
+                 braucht genau eine Zielflagge.
+               - Oben: Karten anlegen, umbenennen, ordnen (die Reihenfolge
+                 ist die Levelfolge im Spiel), loeschen; Rastergroesse
+                 (16/32/48 px) und Kartengroesse; "Testen" oeffnet das
+                 Level direkt im Spiel.
 
-  Neben jeder Bewegung sitzt ein GIF-Knopf. Ein animiertes GIF dort hineinlegen
-  fuellt alle fuenf Plaetze auf einmal - kein Einzelnes-Bild-Exportieren, keine
-  vertauschte Reihenfolge. Das GIF muss 32x32 gross sein.
+  HINTERGRUND  eigene Hintergrundebenen mit Tempo (0 = steht still und
+               fuellt den Bildschirm - ein grosses Dschungelbild passt
+               hier direkt).
 
-    - mehr als fuenf Bilder: fuenf davon werden nach ihrer Laufzeit im GIF
-      ausgewaehlt, ein lange stehendes Bild bekommt also mehr Plaetze
-    - weniger als fuenf: sie werden auf die fuenf Plaetze verteilt, keines
-      faellt weg
-    - was passiert ist, steht danach als Meldung da
+  Speichern sichert Grafik UND Karten in einem Schritt. Ohne PHP landet
+  beides nur in deinem Browser; "Als Datei laden" gibt dir assets.json und
+  maps.json zum Hochladen von Hand.
 
-  Das GIF wird dabei im Browser zerlegt; auf den Server gehen weiterhin nur
-  die fuenf einzelnen PNG. Einzelne Plaetze nehmen wie bisher PNG.
+WELCHE BILDER DAS SPIEL GERN HAETTE (SPRITE-WUNSCHLISTE)
 
-  WICHTIG, BITTE EINMALIG AENDERN:
-    - In admin.php die Zeile ADMIN_CODE auf ein laengeres Wort setzen.
-      Vier Ziffern sind 10 000 Moeglichkeiten. Es gibt zwar eine Bremse
-      (fuenf Versuche je zehn Minuten), aber ein laengeres Wort ist der
-      einzige wirkliche Schutz. Die Zeile nimmt jede Zeichenkette.
-    - In admin.php die Zeile ADMIN_SALT auf beliebigen Zufallstext setzen.
+  Alles freiwillig - ohne Uploads spielt sich das Spiel mit der eingebauten
+  Grafik. Alle Groessen erlaubt, GIF erlaubt (es zaehlt das erste Bild).
+  Wichtig: Einzelbilder mit durchsichtigem Hintergrund, keine Sammelblaetter.
+  Ein Blatt mit sechs Bauteilen auf Leuchthintergrund kann das Spiel nicht
+  zerschneiden - bitte als sechs freigestellte Dateien.
 
-  Im Reiter "Vorschau" spielt ein Automat dein Spiel mit deinen Bildern.
-  Kommt er nicht mehr vom Fleck, ist der Turm mit deinen Kollisionskaesten
-  nicht mehr besteigbar - dann lieber nochmal nachbessern.
+  - Boden-Block        kachelbar, z. B. Erde mit Graskante (16 x 16 oder
+                       groesser)
+  - Plattform          schwebend, von unten durchspringbar; gern als
+                       links/Mitte/rechts-Teile oder ein breites Bild
+  - Broeckelblock      rissiger Block
+  - Bewegliche Plattform
+  - Stacheln           16 px hoch, beliebig breit
+  - Feder              gern 2-3 GIF-Bilder
+  - Smaragd
+  - Schluessel
+  - Tuer               zu und offen
+  - Portal             gern GIF
+  - Gegner Laeufer     gern GIF
+  - Gegner Flieger     gern GIF
+  - Checkpoint         aus und an
+  - Zielflagge         gern GIF
+  - Hintergrund        beliebig gross; Tempo 0 fuellt den Bildschirm
 
-  Ohne PHP geht es auch: dort bleibt alles in deinem Browser, und der Knopf
-  "Als Datei laden" gibt eine assets.json heraus, die du selbst nach data/
-  hochlaedst.
+  Element-Bilder sind vorerst Standbilder: von einem GIF nimmt das Spiel das
+  erste Bild. Die mitgelieferten Platzhalter zeigen, wo alles sitzt.
+
+ZUGANGSCODE AENDERN
+
+  In admin.php stehen oben zwei Konstanten:
+
+      ADMIN_CODE  der Zugangscode (ab Werk 6713)
+      ADMIN_SALT  beliebige eigene Zeichenkette; macht die Anmelde-Marke
+                  unerratbar
+
+  Beides mit einem Texteditor aendern, Datei hochladen, fertig.
 
 WELTWEITE BESTENLISTE
 
-  Liegt score.php mit auf dem Server und ist PHP aktiv, tragen sich alle
-  Spielenden in eine gemeinsame Bestenliste ein. Gespeichert wird in einer
-  einfachen Datei unter data/scores.json - keine Datenbank noetig.
+  Jedes Level hat seine eigene Liste, sortiert nach Bestzeit. Der Eintrag
+  passiert automatisch beim Zieleinlauf; der Name kommt aus dem Feld im Menue.
 
-  Zu tun:
-    - Das Verzeichnis data/ muss fuer PHP beschreibbar sein:
-          chmod 755 data
-      Manche Hoster verlangen 775 oder einen bestimmten Besitzer.
-    - In score.php ganz oben RATE_SALT auf einen beliebigen eigenen Zufallstext
-      aendern. Er sorgt dafuer, dass IP-Adressen nur als Hashwert gespeichert
-      werden.
+  Die Liste braucht PHP auf dem Server - das haben praktisch alle Webspaces
+  (GoDaddy, IONOS, Strato ...). Gespeichert wird in data/scores.json neben
+  score.php; der Ordner entsteht von selbst. Klappt das Schreiben nicht
+  (Rechte!), zeigt das Spiel stattdessen eine geraetelokale Liste und sagt
+  das ehrlich dazu.
 
-  Kein PHP vorhanden oder data/ nicht beschreibbar? Dann laeuft das Spiel
-  trotzdem vollstaendig. Die Bestenliste schaltet automatisch auf "Nur auf
-  diesem Geraet" um und speichert im Browser. Im Spiel steht sichtbar, welcher
-  Modus gerade laeuft.
-
-  Bei nginx statt Apache greift die mitgelieferte data/.htaccess nicht. Dort
-  gehoert in die Serverkonfiguration:
-
-      location ~ /data/ { deny all; return 404; }
-
-  Wer die Punktestaende lieber ganz ausserhalb des Webverzeichnisses ablegt,
-  setzt in score.php die Konstante DATA_DIR auf einen absoluten Pfad.
+  Wer mag, setzt in score.php DATA_DIR auf einen Pfad ausserhalb des
+  Webordners.
 
 EHRLICH GESAGT
 
-  Die Punkte werden im Browser der Spielenden berechnet. Wer will, kann mit
-  einem einzigen Kommandozeilenaufruf eine erfundene Zahl schicken. score.php
-  weist unsinnige Werte ab, begrenzt die Eintraege pro IP und laesst keine
-  HTML-Zeichen in Namen zu - aber gegen jemanden, der es wirklich darauf
-  anlegt, hilft das nicht. Die Liste ist zum Spass da, nicht als Urkunde.
+  Die Zeiten werden im Browser der Spielenden gemessen. Wer will, kann mit
+  einem einzigen Kommandozeilenaufruf eine erfundene Zeit schicken. score.php
+  weist unsinnige Werte ab (unter 3 Sekunden, ueber 2 Stunden), begrenzt die
+  Eintraege pro IP und laesst keine HTML-Zeichen in Namen zu - aber gegen
+  jemanden, der es wirklich darauf anlegt, hilft das nicht. Die Liste ist zum
+  Spass da, nicht als Urkunde.
 
 NEUE FASSUNG HOCHGELADEN UND ES SIEHT AUS WIE VORHER?
 
-  Oder schlimmer: das Menue steht da, aber auf "Los geht's" passiert nichts.
-
   Das ist fast immer der Zwischenspeicher des Browsers. Er hat die alte
-  index.html behalten und laedt dazu neuen Code - oder umgekehrt. Die beiden
-  passen dann nicht zusammen, und das Spiel bleibt stumm im Menue stehen.
+  index.html behalten und laedt dazu neuen Code - oder umgekehrt.
 
   Zu tun:
     1. Wirklich ALLE Dateien ersetzen, nicht nur die geaenderten. Besonders
@@ -173,44 +181,27 @@ NEUE FASSUNG HOCHGELADEN UND ES SIEHT AUS WIE VORHER?
     3. Notfalls die Adresse mit einem Anhaengsel aufrufen:
          https://deine-domain.tld/mogli/?neu=1
 
-  Ab Fassung 2.0.3 kann das eigentlich nicht mehr vorkommen: jede Code-Datei
-  wird mit ihrer Versionsnummer angefordert, ein alter Eintrag im
-  Zwischenspeicher wird also gar nicht mehr getroffen. In den Fassungen davor
-  hing die Nummer nur an einer einzigen Datei - das war der Fehler.
+  Seit Fassung 2.0.3 wird jede Code-Datei mit ihrer Versionsnummer
+  angefordert; ein alter Eintrag im Zwischenspeicher wird also gar nicht mehr
+  getroffen.
 
-  Zusaetzlich liegt eine .htaccess im Hauptordner. Sie
-  sagt Apache, dass index.html nicht zwischengespeichert werden darf, und setzt
-  fuer .js-Dateien den richtigen Typ - bei falschem Typ fuehrt kein Browser die
-  Module aus, ohne einen Fehler zu zeigen. Bei nginx stehen die entsprechenden
-  Zeilen als Kommentar in derselben Datei.
-
-  Zeigt der Server nach dem Hochladen "Internal Server Error"? Dann erlaubt
-  dein Hoster keine eigenen .htaccess-Regeln. Dann diese eine Datei loeschen -
-  das Spiel laeuft auch ohne sie.
+  Zusaetzlich liegt eine .htaccess im Hauptordner. Sie sagt Apache, dass
+  index.html nicht zwischengespeichert werden darf, und setzt fuer .js den
+  richtigen Typ. Zeigt der Server nach dem Hochladen "Internal Server Error",
+  erlaubt dein Hoster keine eigenen .htaccess-Regeln - dann diese eine Datei
+  loeschen, das Spiel laeuft auch ohne sie.
 
   GEHT ES IMMER NOCH NICHT? DIE PRUEFSEITE FRAGEN
 
-  Im Paket liegt pruefung.html. Sie gehoert nicht zum Spiel und macht nur eines:
-  sie prueft deinen Server von deinem Geraet aus durch und sagt im Klartext, was
-  nicht stimmt.
+  Im Paket liegt pruefung.html. Sie gehoert nicht zum Spiel und prueft deinen
+  Server von deinem Geraet aus durch:
 
       https://deine-domain.tld/mogli/pruefung.html
 
-  Sie findet unter anderem: eine veraltete index.html auf dem Server, fehlende
-  oder halb hochgeladene Dateien, einen falschen Datei-Typ fuer .js (dann fuehrt
-  kein Browser das Spiel aus, ohne das zu sagen), fremde Skripte, die dein
-  Hoster einhaengt, und ob PHP laeuft.
+  Unten ist ein Knopf "Ganzen Bericht kopieren". Den Text einfach schicken -
+  das sagt mehr als jede Beschreibung. Die Pruefseite danach wieder loeschen.
 
-  Unten ist ein Knopf "Ganzen Bericht kopieren". Den Text einfach einfuegen und
-  schicken - das sagt mehr als jede Beschreibung.
-
-  Wenn schon pruefung.html nicht laedt (Internal Server Error): dann ist die
-  .htaccess schuld, siehe oben. Loeschen, nochmal versuchen.
-
-  Die Pruefseite danach wieder loeschen. Sie verraet nichts Geheimes, aber sie
-  gehoert nicht auf eine Seite, die andere benutzen.
-
-  Geht es trotzdem nicht, erscheint jetzt oben ein roter Streifen mit der
+  Geht es trotzdem nicht, erscheint oben ein roter Streifen mit der
   Fehlermeldung. Diesen Text abfotografieren - darin steht, welche Datei fehlt
   oder wo es klemmt.
 
@@ -218,17 +209,16 @@ DATEIEN
 
   index.html        die Seite
   pruefung.html     prueft den Server, wenn etwas nicht laeuft; danach loeschen
-  style.css         Gestaltung
-  .htaccess         Servereinstellungen fuer Apache (verhindert alte
-                    Zwischenspeicher-Staende); ohne sie laeuft es auch
-  score.php         Bestenliste (optional)
-  admin.php         Admin-Bereich (optional), hier ADMIN_CODE aendern
-  assets.php        gibt die eigene Grafik an das Spiel heraus
-  admin/            die Oberflaeche unter /admin
-  data/             wird angelegt, gehoert nicht ins Backup
-  src/              der Spielcode
-
-  Sprache umschalten: oben rechts, DE oder EN. Die Wahl wird gemerkt.
+  style.css         Aussehen
+  src/              der Spielcode (JavaScript-Module)
+  admin/            der Admin-Bereich (Grafik, Elemente, Karten, Hintergrund)
+  admin.php         nimmt Grafikpaket und Karten an (Zugangscode!)
+  assets.php        liefert das Grafikpaket ans Spiel
+  maps.php          liefert die Karten ans Spiel
+  score.php         nimmt Zeiten an und liefert die Bestenlisten
+  .htaccess         Cache- und Typ-Regeln fuer Apache (darf notfalls weg)
+  data/             entsteht von selbst; Karten, Grafik, Zeiten
+  LIESMICH.txt      diese Datei
 
 
 ENGLISH
@@ -236,185 +226,103 @@ ENGLISH
 
 INSTALL
 
-  1. Unzip this archive into your webspace, e.g. /public_html/mogli/
-  2. Open https://your-domain.tld/mogli/ in a browser.
+  1. Unzip this file onto your web space, e.g. /public_html/mogli/
+  2. Open in a browser: https://your-domain.tld/mogli/
 
   That is all. No database, no installation, no configuration.
 
 IMPORTANT: DO NOT OPEN BY DOUBLE-CLICKING
 
-  The game uses JavaScript modules, which browsers refuse to load over
-  file:// for security reasons - double-clicking index.html shows a blank
-  page. A web server is always required. To try it locally, run inside the
-  unpacked folder:
+  The game is built from JavaScript modules, which browsers refuse to load
+  via file:// - double-clicking index.html shows an empty page. You always
+  need a web server. For a quick local try, run inside the unzipped folder:
 
       php -S localhost:8000
       python3 -m http.server 8000
 
 HOW TO PLAY
 
-  There is exactly one button: the playfield itself. Tap or click.
+  Since version 3.0 Mogli no longer runs on his own - you steer him.
 
-  1. Mowgli stands still until you tap for the first time. Only then does he
-     start running, and only then does the ember start rising. You decide when
-     it begins.
-  2. He runs by himself. There is no direction key.
-  3. Tapping jumps. Always the same height. There is no double jump.
-  4. If he runs into a wall on the ground, he turns around by himself.
-  5. When he slides down a wall, a tap pushes him off - and from then on he
-     runs the other way. That is the heart of the game. You get exactly ONE
-     wall jump per airtime; it comes back when you land and when a vine
-     yanks you up.
-  6. Emeralds score points. Vines yank him a good way upward.
-  7. The ember rises from below. Stand still and it takes you.
+  Phone/tablet:  two arrows bottom left (run), one big button bottom right
+                 (jump). Hold to jump higher, tap for a small hop.
+  Keyboard:      arrow keys or A/D to run, Space or Up to jump, Esc pauses.
+  Gamepad:       d-pad/stick to run, A to jump.
 
-  On a computer: Space jumps, P pauses, R restarts, M mutes, F is fullscreen.
-  Gamepads are supported.
+  The clock starts with your first step and never stops until the flag -
+  deaths included. Only time counts: the faster, the better.
 
-YOUR OWN GRAPHICS
+  On the way: emeralds grant a time bonus; spikes and enemies throw you back
+  to the last checkpoint (most enemies can be stomped); springs launch you,
+  crumbling blocks give way, moving platforms carry you; keys open doors,
+  portals teleport you, the goal flag ends the level. Finishing a level
+  unlocks the next one.
 
-  At /admin you can replace the sprites, tiles and background without
-  touching any code: the character (eight animations, five frames each), the
-  tiles and the background. The access code is 6713.
+BUILDING LEVELS: THE MAP EDITOR
 
-  SIZE AND FORMAT DO NOT MATTER
+  The admin area lives at https://your-domain.tld/mogli/admin/ (access code
+  6713 by default; change ADMIN_CODE in admin.php). Four tabs:
 
-  Nothing needs cropping first. PNG, JPEG, WebP, GIF - whatever the browser can
-  read, at any size. The admin area converts:
+  CHARACTER    custom images for Mogli himself, incl. hitbox.
+  ELEMENTS     everything that can go on a map. Per element you may upload
+               one image (any size or format, GIF takes the first frame) and
+               draw its hitbox - the part of the picture that really counts.
+               Empty slots keep the built-in art.
+  MAPS         the editor: palette on the left, grid in the middle,
+               properties on the right. Pick an element, click the grid;
+               ground, platforms, crumbling blocks and spikes can be dragged
+               out as rectangles. Click a placed element to select, drag or
+               delete it, tune its settings (speed, range, spring power,
+               portal target ...) and leave yourself a note (the game never
+               reads it). "Set start" places Mogli; every map needs exactly
+               one goal flag. The toolbar creates, renames, orders (order =
+               level order in the game) and deletes maps, sets grid and map
+               size, and "Test" opens the level right in the game.
+  BACKGROUND   your own background layers with speed (0 = static, fills the
+               screen - a big jungle picture fits here directly).
 
-    - character -> 32 x 32
-    - tile      -> 16 x 16
-    - layer     -> large enough to cover the screen
+  Save stores graphics AND maps in one step. Without PHP everything stays in
+  your browser; "Download as file" gives you assets.json and maps.json.
 
-  The aspect ratio is kept: a wide image is fitted, not squashed into a square.
-  Whether it gets smoothed decides itself: if the ratio divides evenly
-  (64 -> 32) the pixel edges stay crisp; if it does not (100 -> 32) it is
-  smoothed, because otherwise whole rows would drop out. After each upload a
-  line says what happened.
+SPRITE WISHLIST
 
-  A very tall background layer is cropped from the middle and shrunk further if
-  needed - not on principle, but so the whole package still fits through your
-  webspace's PHP upload.
+  All optional - the game plays fine with its built-in art. Any size, GIF
+  allowed (first frame counts). Important: single images with transparent
+  background, no sprite sheets - the game cannot cut up a sheet of six parts
+  on a glowing background; please export them as six separate files.
 
-  BACKGROUND: THE SPEED DECIDES EVERYTHING
-
-    Speed 0     The image stands still. It fills the whole screen and is
-                cropped from the middle where the aspect ratio does not match.
-                This is the setting for a backdrop.
-    Speed > 0   The layer scrolls while climbing. It is stretched to the game
-                width and repeated vertically; its height says after what
-                distance the pattern repeats. 1 moves with the tower.
-
-  QUICKEST WAY: A GIF
-
-  Next to every animation there is a GIF button. Drop an animated GIF there and
-  it fills all five slots at once - no exporting single frames, no mixed-up
-  order. The GIF must be 32x32.
-
-    - more than five frames: five are picked by how long each one is shown, so
-      a frame that rests gets more slots
-    - fewer than five: they are spread over the five slots, none is dropped
-    - what happened is reported right afterwards
-
-  The GIF is taken apart in the browser; only the five separate PNGs are sent
-  to the server. Single slots still take PNG.
-
-  IMPORTANT, PLEASE CHANGE ONCE:
-    - Set ADMIN_CODE in admin.php to a longer word. Four digits are 10 000
-      combinations. There is a brake (five attempts per ten minutes), but a
-      longer word is the only real protection. The line takes any string.
-    - Set ADMIN_SALT in admin.php to any random text.
-
-  The "Vorschau" tab runs a bot through your game with your images. If it
-  cannot get anywhere, your collision boxes made the tower unclimbable.
-
-  No PHP? Everything stays in your browser, and "Als Datei laden" gives you
-  an assets.json to upload to data/ yourself.
+  Ground block (tileable), platform (floating, one-way), crumbling block,
+  moving platform, spikes (16 px tall, any width), spring (2-3 GIF frames),
+  emerald, key, door (closed and open), portal (GIF), walking enemy (GIF),
+  flying enemy (GIF), checkpoint (off and on), goal flag (GIF), background
+  (any size, speed 0 covers the screen).
 
 WORLDWIDE LEADERBOARD
 
-  If score.php is uploaded and PHP is enabled, all players share one
-  leaderboard. It is stored in a plain file at data/scores.json - no database.
-
-  To do:
-    - data/ must be writable by PHP:  chmod 755 data
-      Some hosts require 775 or a specific owner.
-    - Change RATE_SALT at the top of score.php to any random text of your own.
-      It keeps IP addresses stored as hashes only.
-
-  No PHP, or data/ not writable? The game still runs completely. The
-  leaderboard falls back to "This device only" and stores scores in the
-  browser. The game shows which mode is active.
-
-  On nginx the bundled data/.htaccess has no effect. Add to your server config:
-
-      location ~ /data/ { deny all; return 404; }
-
-  To keep scores outside the web root entirely, set the DATA_DIR constant in
-  score.php to an absolute path.
-
-UPLOADED A NEW VERSION AND IT LOOKS THE SAME?
-
-  Or worse: the menu is there, but tapping "Los geht's" does nothing.
-
-  That is almost always the browser cache. It kept the old index.html and
-  loaded new code alongside it - or the other way round. The two no longer
-  match, and the game sits silently in the menu.
-
-  To do:
-    1. Replace ALL files, not just the changed ones. Especially index.html
-       and the whole src/ folder.
-    2. Hard-reload the page:
-         iPhone/iPad:  Settings > Safari > Clear History and Website Data.
-                       Or open the page once in a private tab.
-         Android:      long-press "Reload" in the page menu.
-         Windows/Linux: Ctrl + Shift + R
-         Mac:          Cmd + Shift + R
-    3. If all else fails, call the address with a suffix:
-         https://your-domain.tld/mogli/?neu=1
-
-  From version 2.0.3 on this should not happen any more: every code file is
-  requested with its version number, so a stale cache entry can no longer be
-  hit. In earlier versions the number was attached to a single file only - that
-  was the bug.
-
-  In addition, an .htaccess sits in the main folder. It tells
-  Apache not to cache index.html, and sets the correct type for .js files - with
-  the wrong type no browser executes the modules, and none of them says so. The
-  nginx equivalent is a comment in the same file.
-
-  Server showing "Internal Server Error" after the upload? Then your host does
-  not allow custom .htaccess rules. Just delete that one file - the game runs
-  without it.
-
-  STILL NOT WORKING? ASK THE CHECK PAGE
-
-  The package contains pruefung.html. It is not part of the game and does one
-  thing only: it checks your server from your own device and says in plain words
-  what is wrong.
-
-      https://your-domain.tld/mogli/pruefung.html
-
-  It finds, among others: an outdated index.html on the server, missing or
-  half-uploaded files, a wrong file type for .js (no browser executes the game
-  then, and none of them says so), foreign scripts injected by your host, and
-  whether PHP runs.
-
-  There is a "Ganzen Bericht kopieren" button at the top - paste that text and
-  send it. It says more than any description.
-
-  If pruefung.html itself does not load (Internal Server Error), the .htaccess is
-  to blame, see above. Delete it and try again.
-
-  Delete the check page afterwards. It gives away nothing secret, but it does not
-  belong on a page other people use.
-
-  If it still fails, a red bar now appears at the top with the error message.
-  Photograph that text - it says which file is missing or where it breaks.
+  Every level has its own list, sorted by best time; entries are submitted
+  automatically when you reach the flag. It needs PHP on the server (nearly
+  every web space has it). Times are stored in data/scores.json next to
+  score.php. If writing fails, the game falls back to a per-device list and
+  says so honestly.
 
 HONESTLY
 
-  Scores are computed in the player's browser. Anyone can send a made-up
-  number with a single command-line call. score.php rejects implausible
-  values, rate-limits per IP and strips HTML from names - but none of that
-  stops someone determined. The list is for fun, not for records.
+  Times are measured in the player's browser. Anyone determined enough can
+  submit a made-up time with a single command line call. score.php rejects
+  nonsense values, rate-limits per IP and strips HTML from names - but the
+  list is for fun, not a certificate.
+
+FILES
+
+  index.html      the page
+  pruefung.html   server self-check; delete after use
+  style.css       looks
+  src/            the game code (JavaScript modules)
+  admin/          the admin area (character, elements, maps, background)
+  admin.php       accepts graphics pack and maps (access code!)
+  assets.php      serves the graphics pack to the game
+  maps.php        serves the maps to the game
+  score.php       accepts times, serves the leaderboards
+  .htaccess       cache and type rules for Apache (safe to delete)
+  data/           created automatically; maps, graphics, times
+  LIESMICH.txt    this file

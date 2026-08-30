@@ -149,22 +149,6 @@ body {
   content: '◆ ';
 }
 
-.pressure {
-  margin-top: 8px;
-  height: 5px;
-  background: rgb(255 255 255 / 12%);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.pressure i {
-  display: block;
-  height: 100%;
-  width: 0;
-  background: linear-gradient(90deg, var(--hc-warn), var(--hc-danger));
-  transition: width 120ms linear;
-}
-
 .taphint {
   position: absolute;
   left: 0;
@@ -657,13 +641,125 @@ body {
   cursor: pointer;
 }
 
+/* --- Levelliste im Menü -------------------------------------------------- */
+
+.panel__title--levels {
+  margin: 14px 0 6px;
+}
+
+.levels {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.level {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--hc-border);
+  border-radius: var(--hc-radius);
+  background: var(--hc-surface-2);
+  color: var(--hc-text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.level:hover:not(:disabled) {
+  border-color: var(--hc-accent-strong);
+}
+
+.level:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.level__name {
+  font-weight: 700;
+}
+
+.level__time {
+  color: var(--hc-accent);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.level__time--none {
+  color: var(--hc-muted);
+}
+
+/* --- Touch-Steuerung ------------------------------------------------------
+ *
+ * Halbtransparent über dem Spielfeld. Nur auf Geräten mit grobem Zeiger –
+ * am Rechner gibt es die Tastatur, und tote Knöpfe im Bild wären nur Deko.
+ * `pointer-events` nur auf den Knöpfen selbst: die Fläche dazwischen bleibt
+ * durchlässig.
+ */
+
+.pad[hidden] {
+  display: none;
+}
+
+.pad {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: none;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 0 14px calc(14px + env(safe-area-inset-bottom));
+  pointer-events: none;
+  z-index: 4;
+}
+
+@media (pointer: coarse) {
+  .pad {
+    display: flex;
+  }
+}
+
+.pad__group {
+  display: flex;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.pad__btn {
+  width: 64px;
+  height: 64px;
+  border: 2px solid rgb(219 232 207 / 35%);
+  border-radius: 50%;
+  background: rgb(13 26 22 / 42%);
+  color: rgb(219 232 207 / 80%);
+  font-size: 26px;
+  line-height: 1;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.pad__btn--jump {
+  width: 78px;
+  height: 78px;
+  font-size: 32px;
+  border-color: rgb(63 227 168 / 45%);
+}
+
+.pad__btn--down {
+  background: rgb(63 227 168 / 30%);
+  border-color: var(--hc-accent);
+  color: #fff;
+}
+
 /* --- Rücksicht auf Bewegungsempfindlichkeit ------------------------------ */
 
 @media (prefers-reduced-motion: reduce) {
-  .pressure i {
-    transition: none;
-  }
-
   .taphint {
     animation: none;
     opacity: 0.9;

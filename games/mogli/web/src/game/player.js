@@ -1,23 +1,20 @@
 // Mogli: Zustandsautomat, Sprunglogik, Animationsauswahl.
 // Kein DOM – die Physiktests fahren diese Datei direkt in Node.
 //
-// Die Steuerung hat genau einen Knopf. Mogli läuft von allein, ein Tippen
-// springt. Die Laufrichtung dreht sich an zwei Stellen und nur dort:
-//   - beim Wandsprung (er stösst sich ab und läuft fortan andersherum)
-//   - wenn er am Boden gegen eine Wand rennt (er dreht einfach um)
-// Alles andere – wohin er läuft, wann er beschleunigt – nimmt ihm das Spiel ab.
+// Seit 3.0 steuert der Spieler selbst: links, rechts, springen. Die
+// Sprunghöhe ist variabel (loslassen kappt den Aufstieg) – das ist die
+// Mario-Absprache, auf die sich jede Karte aus dem Editor verlassen darf.
 
-import { PHYS, T, TILE } from './constants.js';
-import { approach, moveAndCollide, overlappingTiles, wallSide } from './physics.js';
+import { PHYS, T } from './constants.js';
+import { approach, moveAndCollide } from './physics.js';
 
 /**
  * Reihenfolge und Länge der Animationen. `hold` = letztes Bild stehen lassen.
  *
- * Jede Bewegung hat genau FÜNF Bilder. Das ist keine gestalterische Marotte,
- * sondern die Absprache mit dem Admin-Bereich: dort gibt es je Bewegung fünf
- * Plätze. Mitgelieferte und selbst eingesetzte Grafik haben damit dieselbe
- * Form, und es braucht keinen Sonderfall für "diese Bewegung hat nur zwei
- * Bilder". Das Tempo unterscheidet die Bewegungen, nicht die Anzahl.
+ * Jede Bewegung hat genau FÜNF Bilder – die Absprache mit dem Admin-Bereich,
+ * dort gibt es je Bewegung fünf Plätze. `wallslide` und `vine` stammen aus
+ * dem Turm-Spiel; sie bleiben im Paketformat gültig (alte Grafikpakete sollen
+ * nicht brechen), werden aber nicht mehr abgespielt.
  */
 export const ANIMATIONS = {
   idle: { frames: 5, ticksPerFrame: 10, loop: true },
@@ -40,43 +37,24 @@ export function createPlayer(startX, startY) {
       vx: 0,
       vy: 0,
     },
-    /** 1 = nach rechts, -1 = nach links. Dreht sich nur an Wänden. */
+    /** 1 = nach rechts, -1 = nach links. Folgt der letzten Laufeingabe. */
     facing: 1,
-    // Der Spieler startet stehend. Ohne das wäre der allererste Sprung keiner,
-    // weil onGround erst nach der ersten Kollision gesetzt wird.
+    // Der Spieler startet stehend. Ohne das wäre der allererste Sprung
+    // keiner, weil onGround erst nach der ersten Kollision gesetzt wird.
     onGround: true,
-    sliding: false,
-    slideSide: 0,
     coyote: PHYS.coyoteTicks,
-    wallCoyote: 0,
-    wallCoyoteSide: 0,
     jumpBuffer: 0,
-    lockout: 0,
-    /** Restticks des Rankenzugs. > 0 heisst: Schwerkraft ist ausgesetzt. */
-    vine: 0,
+    /** Steigt gerade durch einen gehaltenen Sprung (kappbar). */
+    jumping: false,
     dead: false,
     deadTicks: 0,
     emeralds: 0,
-    vinesUsed: 0,
-    /** Höchster erreichter Punkt (kleinstes y). */
-    bestY: startY,
     anim: 'idle',
     animFrame: 0,
     animTick: 0,
     landTimer: 0,
-    /** Zählt Wandsprünge – nur für die Anzeige und die Tests. */
-    wallJumps: 0,
-    /**
-     * Je Flugphase gibt es genau einen Wandsprung. Zurückgesetzt wird das beim
-     * Landen und beim Rankenzug – eine Ranke reisst Mogli hoch, das ist eine
-     * neue Flugphase.
-     *
-     * Der Grund: ohne diese Grenze kann man sich zwischen zwei gegenüber
-     * liegenden Wänden beliebig weit hochhangeln, ohne je einen Absatz zu
-     * treffen. Damit wäre der Turm – die Form, um die sich das ganze Spiel
-     * dreht – nur noch Kulisse.
-     */
-    wallJumpUsed: false,
+    /** Von einer beweglichen Plattform mitgenommen (je Tick gesetzt). */
+    carriedVx: 0,
   };
 }
 
@@ -105,11 +83,12 @@ function advanceAnim(player) {
 
 /**
  * Ein Logikschritt. Verändert `player` und hängt Ereignisse an `events` an
- * ('jump', 'wallJump', 'turn', 'land', 'emerald', 'vine', 'death').
+ * ('jump', 'land', 'death').
  *
  * @param {ReturnType<typeof createPlayer>} player
- * @param {{jump:boolean, jumpPressed:boolean, jumpReleased:boolean}} input
- * @param {{tileAt:Function,setTile:Function,touchCrumble:Function}} level
+ * @param {{left:boolean,right:boolean,jump:boolean,jumpPressed:boolean,
+ *   jumpReleased:boolean}} input
+ * @param {{tileAt:Function,touchCrumble:Function}} level
  * @param {string[]} events
  */
 export function updatePlayer(player, input, level, events) {
@@ -131,81 +110,53 @@ export function updatePlayer(player, input, level, events) {
   if (input.jumpPressed) player.jumpBuffer = PHYS.jumpBufferTicks;
   else if (player.jumpBuffer > 0) player.jumpBuffer -= 1;
 
-  if (player.lockout > 0) player.lockout -= 1;
-
-  // --- Wandkontakt ---------------------------------------------------------
-  const side = wallSide(body, level);
-  if (side !== 0 && !player.onGround) {
-    player.wallCoyote = PHYS.wallCoyoteTicks;
-    player.wallCoyoteSide = side;
-  } else if (player.wallCoyote > 0) {
-    player.wallCoyote -= 1;
-  }
-
-  player.sliding = !player.onGround && player.vine === 0 && side !== 0 && body.vy > 0;
-  player.slideSide = player.sliding ? side : 0;
+  const move = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+  if (move !== 0) player.facing = move;
 
   // --- Springen ------------------------------------------------------------
-  // Genau ein Knopf, und die Reihenfolge entscheidet: am Boden ein normaler
-  // Sprung, an der Wand ein Wandsprung. Einen dritten Fall gibt es nicht.
-  if (player.jumpBuffer > 0 && player.vine === 0) {
-    if (player.onGround || player.coyote > 0) {
-      body.vy = PHYS.jumpVel;
-      player.coyote = 0;
-      player.jumpBuffer = 0;
-      player.onGround = false;
-      setAnim(player, 'jump');
-      events.push('jump');
-    } else if (player.wallCoyote > 0 && !player.wallJumpUsed) {
-      const away = -player.wallCoyoteSide;
-      body.vy = PHYS.wallJumpVy;
-      body.vx = away * PHYS.wallJumpVx;
-      // Hier und nur hier dreht sich die Laufrichtung im Flug.
-      player.facing = away;
-      player.lockout = PHYS.wallJumpLockout;
-      player.wallCoyote = 0;
-      player.jumpBuffer = 0;
-      player.sliding = false;
-      player.wallJumps += 1;
-      player.wallJumpUsed = true;
-      setAnim(player, 'jump');
-      events.push('wallJump');
-    }
+  if (player.jumpBuffer > 0 && (player.onGround || player.coyote > 0)) {
+    body.vy = PHYS.jumpVel;
+    player.coyote = 0;
+    player.jumpBuffer = 0;
+    player.onGround = false;
+    player.jumping = true;
+    setAnim(player, 'jump');
+    events.push('jump');
   }
 
-  // --- Ranke ---------------------------------------------------------------
-  if (player.vine > 0) {
-    player.vine -= 1;
-    body.vy = PHYS.vineSpeed;
-    // Waagerecht ausbremsen, damit der Zug spürbar senkrecht ist.
-    body.vx *= PHYS.vineDrag;
-    setAnim(player, 'vine');
-  } else {
-    // --- Waagerechte Bewegung: von allein, immer in Blickrichtung ----------
-    const target = player.facing * PHYS.runMax;
-    let accel = player.onGround ? PHYS.groundAccel : PHYS.airAccel;
-    // Kurz nach dem Wandsprung schwächer beschleunigen, damit der Abstoss
-    // spürbar bleibt und nicht sofort auf Lauftempo eingeebnet wird.
-    if (player.lockout > 0) accel *= 0.5;
-    body.vx = approach(body.vx, target, accel, accel);
-    body.vx = Math.max(-PHYS.maxVx, Math.min(PHYS.maxVx, body.vx));
-
-    // --- Schwerkraft ------------------------------------------------------
-    body.vy += body.vy < 0 ? PHYS.gravityUp : PHYS.gravityDown;
-    const fallCap = player.sliding ? PHYS.wallSlideMaxFall : PHYS.maxFallSpeed;
-    if (body.vy > fallCap) body.vy = fallCap;
+  // Variable Sprunghöhe: Loslassen kappt den Aufstieg. Nur den eigenen
+  // Sprung – der Rückstoss einer Feder oder eines Gegners bleibt ungekappt,
+  // sonst fühlt sich die Feder je nach Fingerhaltung verschieden stark an.
+  if (player.jumping && input.jumpReleased && body.vy < PHYS.jumpCutVel) {
+    body.vy = PHYS.jumpCutVel;
   }
+  if (body.vy >= 0) player.jumping = false;
+
+  // --- Waagerechte Bewegung ------------------------------------------------
+  const target = move * PHYS.runMax;
+  const accel = player.onGround ? PHYS.groundAccel : PHYS.airAccel;
+  const decel = player.onGround ? PHYS.groundDecel : PHYS.airDecel;
+  body.vx = approach(body.vx, target, accel, decel);
+  body.vx = Math.max(-PHYS.maxVx, Math.min(PHYS.maxVx, body.vx));
+
+  // --- Schwerkraft ---------------------------------------------------------
+  body.vy += body.vy < 0 ? PHYS.gravityUp : PHYS.gravityDown;
+  if (body.vy > PHYS.maxFallSpeed) body.vy = PHYS.maxFallSpeed;
 
   // --- Bewegen und stossen -------------------------------------------------
+  // Die Mitnahme durch eine bewegliche Plattform ist eine eigene Grösse und
+  // fliesst nicht in vx ein: sie darf weder gebremst noch gekappt werden,
+  // und beim Absprung nimmt man sie als Schwung mit (entities.js setzt sie).
   const wasOnGround = player.onGround;
+  const savedVx = body.vx;
+  body.vx += player.carriedVx;
   const hit = moveAndCollide(body, level);
+  body.vx = body.vx === 0 ? 0 : savedVx;
+  player.carriedVx = 0;
   player.onGround = hit.onGround;
 
   if (hit.onGround) {
     player.coyote = PHYS.coyoteTicks;
-    // Boden unter den Füssen: die Flugphase ist vorbei, der Wandsprung ist
-    // wieder da.
-    player.wallJumpUsed = false;
     if (!wasOnGround) {
       player.landTimer = 8;
       events.push('land');
@@ -215,60 +166,16 @@ export function updatePlayer(player, input, level, events) {
     player.coyote -= 1;
   }
 
-  // Am Boden gegen eine Wand gelaufen: einfach umdrehen. Ohne diese Regel
-  // stünde Mogli für immer an der Wand und drückte dagegen.
-  if (player.onGround) {
-    if (hit.hitRight && player.facing > 0) {
-      player.facing = -1;
-      events.push('turn');
-    } else if (hit.hitLeft && player.facing < 0) {
-      player.facing = 1;
-      events.push('turn');
-    }
-  }
-
+  if (hit.hitTop) player.jumping = false;
   if (player.landTimer > 0) player.landTimer -= 1;
 
-  // --- Kachelwirkungen -----------------------------------------------------
-  for (const cell of overlappingTiles(body, level)) {
-    if (cell.tile === T.SPIKE) {
-      kill(player, events);
-      return;
-    }
-    if (cell.tile === T.EMERALD) {
-      level.setTile(cell.col, cell.row, T.EMPTY);
-      player.emeralds += 1;
-      events.push('emerald');
-    } else if (cell.tile === T.VINE && player.vine === 0) {
-      level.setTile(cell.col, cell.row, T.EMPTY);
-      player.vine = PHYS.vineTicks;
-      player.vinesUsed += 1;
-      player.sliding = false;
-      // Die Ranke reisst ihn hoch: das ist eine neue Flugphase, also gibt es
-      // oben wieder einen Wandsprung.
-      player.wallJumpUsed = false;
-      setAnim(player, 'vine');
-      events.push('vine');
-    }
-  }
-
-  if (body.y < player.bestY) player.bestY = body.y;
-
   // --- Animation -----------------------------------------------------------
-  chooseAnim(player);
+  chooseAnim(player, move);
   advanceAnim(player);
 }
 
-function chooseAnim(player) {
+function chooseAnim(player, move) {
   if (player.dead) return;
-  if (player.vine > 0) {
-    setAnim(player, 'vine');
-    return;
-  }
-  if (player.sliding) {
-    setAnim(player, 'wallslide');
-    return;
-  }
   if (!player.onGround) {
     setAnim(player, player.body.vy < 0 ? 'jump' : 'fall');
     return;
@@ -277,16 +184,10 @@ function chooseAnim(player) {
     setAnim(player, 'land');
     return;
   }
-  setAnim(player, Math.abs(player.body.vx) > 0.3 ? 'run' : 'idle');
+  setAnim(player, move !== 0 || Math.abs(player.body.vx) > 0.3 ? 'run' : 'idle');
 }
 
-/**
- * Ein Tick, in dem nichts passiert: Mogli steht und atmet.
- *
- * Wird vor dem ersten Tipp gefahren. Ohne das liefe er sofort los, und ein
- * neuer Spieler hätte nach dem Start eine Fünftelsekunde bis zum ersten
- * Abgrund – der Lauf wäre vorbei, bevor er begriffen hat, dass er läuft.
- */
+/** Ein Tick, in dem nichts passiert: Mogli steht und atmet (Menü-Vorschau). */
 export function idleTick(player) {
   setAnim(player, 'idle');
   advanceAnim(player);
@@ -296,14 +197,24 @@ export function kill(player, events) {
   if (player.dead) return;
   player.dead = true;
   player.deadTicks = 0;
-  player.vine = 0;
   player.body.vy = -3.4;
   player.body.vx = 0;
   setAnim(player, 'death');
   events.push('death');
 }
 
-/** Erreichte Höhe in Metern. Eine Kachel = ein Meter. */
-export function heightInMetres(player, startY) {
-  return Math.max(0, Math.floor((startY - player.bestY) / TILE));
+/** Zurück ins Leben am Wiedereinstiegspunkt – die Uhr läuft weiter. */
+export function respawn(player, x, y) {
+  player.body.x = x;
+  player.body.y = y;
+  player.body.vx = 0;
+  player.body.vy = 0;
+  player.dead = false;
+  player.deadTicks = 0;
+  player.onGround = false;
+  player.jumping = false;
+  player.coyote = 0;
+  player.jumpBuffer = 0;
+  player.facing = 1;
+  setAnim(player, 'idle');
 }

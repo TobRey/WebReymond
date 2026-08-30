@@ -47,13 +47,13 @@
 
     <!-- Werkzeug -->
     <main class="work" id="work" hidden>
-      <nav class="tabs" id="tabs">
+      <nav class="tabs" id="tabs" aria-label="Bereiche">
         <button type="button" class="tab" data-tab="figur" aria-pressed="true">Figur</button>
-        <button type="button" class="tab" data-tab="kacheln" aria-pressed="false">Kacheln</button>
+        <button type="button" class="tab" data-tab="elemente" aria-pressed="false">Elemente</button>
+        <button type="button" class="tab" data-tab="karten" aria-pressed="false">Karten</button>
         <button type="button" class="tab" data-tab="hintergrund" aria-pressed="false">
           Hintergrund
         </button>
-        <button type="button" class="tab" data-tab="vorschau" aria-pressed="false">Vorschau</button>
       </nav>
 
       <!-- ---------------------------------------------------------------- -->
@@ -94,18 +94,69 @@
       </section>
 
       <!-- ---------------------------------------------------------------- -->
-      <section class="panel" id="tab-kacheln" hidden>
+      <!-- ---------------------------------------------------------------- -->
+      <section class="panel" id="tab-elemente" hidden>
         <p class="lead">
-          Ein Platz je Kachel. Grösse und Format sind auch hier egal, gerechnet wird auf
-          <strong>16 × 16</strong>. Der Kasten daneben sagt, wo die Kachel fest ist – so steht man
-          auf der Graskante und nicht drei Pixel darüber.
+          Alles, was auf eine Karte kann: je Element ein Bild (Grösse und Format egal, GIF nimmt das
+          erste Bild) und eine <strong>Trefferfläche</strong> – der Ausschnitt des Bildes, der
+          wirklich zählt. Leere Plätze behalten die mitgelieferte Grafik.
         </p>
         <p class="note">
-          Was eine Kachel <em>bedeutet</em> (fest, nur von oben tragend, tödlich), lässt sich nicht
-          ändern: daran hängt der Beweis, dass jeder Turm besteigbar ist. An Wänden liegt auch der
-          Kasten fest – dort wird abgesprungen.
+          Boden, Plattform und Bröckelblock werden gekachelt; ihre Trefferfläche liegt fest. Bei
+          Stacheln und Gegnern lohnt sie sich am meisten: nur was im Kasten liegt, tut weh.
         </p>
-        <div class="tiles" id="tiles"></div>
+        <div class="elements" id="elementList"></div>
+      </section>
+
+      <!-- ---------------------------------------------------------------- -->
+      <section class="panel panel--wide" id="tab-karten" hidden>
+        <p class="lead">
+          Deine Levels. Elemente links wählen, im Raster platzieren; Boden, Plattformen und Stacheln
+          lassen sich als Rechteck aufziehen. Ein Klick auf ein platziertes Element wählt es aus –
+          rechts stehen dann seine Einstellungen und die Notiz.
+        </p>
+        <div class="edit__bar">
+          <select id="mapSelect" aria-label="Karte wählen"></select>
+          <button type="button" class="btn" id="mapNew">Neu</button>
+          <button type="button" class="btn" id="mapRename">Umbenennen</button>
+          <button type="button" class="btn" id="mapUp" title="In der Levelfolge nach vorn">
+            ↑
+          </button>
+          <button type="button" class="btn" id="mapDown" title="In der Levelfolge nach hinten">
+            ↓
+          </button>
+          <button type="button" class="btn btn--danger" id="mapDelete">Löschen</button>
+          <span class="edit__spacer"></span>
+          <label class="edit__size">
+            Raster
+            <select id="mapCell">
+              <option value="16">16 px</option>
+              <option value="32">32 px</option>
+              <option value="48">48 px</option>
+            </select>
+          </label>
+          <label class="edit__size">
+            Breite
+            <input type="number" id="mapCols" min="20" max="600" step="1" />
+          </label>
+          <label class="edit__size">
+            Höhe
+            <input type="number" id="mapRows" min="12" max="40" step="1" />
+          </label>
+          <button type="button" class="btn btn--primary" id="mapTest">Testen ▶</button>
+        </div>
+        <div class="edit">
+          <div class="edit__palette" id="palette"></div>
+          <div class="edit__canvasWrap" id="editorWrap">
+            <canvas id="editorCanvas" width="640" height="336"></canvas>
+          </div>
+          <div class="edit__props" id="props"></div>
+        </div>
+        <p class="note">
+          Werkzeuge: <strong>Auswählen</strong> verschiebt Vorhandenes (Entf löscht),
+          <strong>Radierer</strong> löscht per Klick, <strong>Start</strong> setzt den
+          Einstiegspunkt. Jede Karte braucht genau eine Zielflagge.
+        </p>
       </section>
 
       <!-- ---------------------------------------------------------------- -->
@@ -131,24 +182,6 @@
       </section>
 
       <!-- ---------------------------------------------------------------- -->
-      <section class="panel" id="tab-vorschau" hidden>
-        <p class="lead">
-          Das echte Spiel mit deiner noch nicht gespeicherten Grafik. Der Automat spielt selbst – er
-          zeigt, ob der Turm mit deinen Kästen noch besteigbar ist.
-        </p>
-        <div class="preview">
-          <canvas id="previewCanvas" width="256" height="336"></canvas>
-          <div class="preview__side">
-            <button type="button" class="btn" id="btnBot">Automat 30 s laufen lassen</button>
-            <p class="status" id="botStatus"></p>
-            <p class="note">
-              Der Automat spielt bewusst mittelmässig. Kommt <em>er</em> nicht vom Fleck, kommt auch
-              niemand sonst.
-            </p>
-          </div>
-        </div>
-      </section>
-
       <!-- ---------------------------------------------------------------- -->
       <footer class="save">
         <button type="button" class="btn btn--primary" id="btnSave">Speichern</button>
@@ -171,35 +204,28 @@
     <script type="importmap">
       {
         "imports": {
-          "./src/hitbox.js": "./src/hitbox.js?v=2.2.1",
-          "./src/main.js": "./src/main.js?v=2.2.1",
-          "./src/preview.js": "./src/preview.js?v=2.2.1",
-          "./src/sheet.js": "./src/sheet.js?v=2.2.1",
-          "./src/store.js": "./src/store.js?v=2.2.1",
-          "../src/game/bot.js": "../src/game/bot.js?v=2.2.1",
-          "../src/game/constants.js": "../src/game/constants.js?v=2.2.1",
-          "../src/game/hazard.js": "../src/game/hazard.js?v=2.2.1",
-          "../src/game/level.js": "../src/game/level.js?v=2.2.1",
-          "../src/game/physics.js": "../src/game/physics.js?v=2.2.1",
-          "../src/game/player.js": "../src/game/player.js?v=2.2.1",
-          "../src/game/rng.js": "../src/game/rng.js?v=2.2.1",
-          "../src/game/tilebox.js": "../src/game/tilebox.js?v=2.2.1",
-          "../src/game/world.js": "../src/game/world.js?v=2.2.1",
-          "../src/net/assetRules.js": "../src/net/assetRules.js?v=2.2.1",
-          "../src/render/assets.js": "../src/render/assets.js?v=2.2.1",
-          "../src/render/background.js": "../src/render/background.js?v=2.2.1",
-          "../src/render/fit.js": "../src/render/fit.js?v=2.2.1",
-          "../src/render/frames.js": "../src/render/frames.js?v=2.2.1",
-          "../src/render/gif.js": "../src/render/gif.js?v=2.2.1",
-          "../src/render/palette.js": "../src/render/palette.js?v=2.2.1",
-          "../src/render/particles.js": "../src/render/particles.js?v=2.2.1",
-          "../src/render/scene.js": "../src/render/scene.js?v=2.2.1",
-          "../src/render/sprites.js": "../src/render/sprites.js?v=2.2.1",
-          "../src/render/tiles.js": "../src/render/tiles.js?v=2.2.1"
+          "./src/editor.js": "./src/editor.js?v=3.0.0",
+          "./src/elements.js": "./src/elements.js?v=3.0.0",
+          "./src/hitbox.js": "./src/hitbox.js?v=3.0.0",
+          "./src/main.js": "./src/main.js?v=3.0.0",
+          "./src/sheet.js": "./src/sheet.js?v=3.0.0",
+          "./src/store.js": "./src/store.js?v=3.0.0",
+          "../src/game/constants.js": "../src/game/constants.js?v=3.0.0",
+          "../src/game/elements.js": "../src/game/elements.js?v=3.0.0",
+          "../src/game/physics.js": "../src/game/physics.js?v=3.0.0",
+          "../src/game/player.js": "../src/game/player.js?v=3.0.0",
+          "../src/game/tilebox.js": "../src/game/tilebox.js?v=3.0.0",
+          "../src/net/assetRules.js": "../src/net/assetRules.js?v=3.0.0",
+          "../src/net/mapRules.js": "../src/net/mapRules.js?v=3.0.0",
+          "../src/render/assets.js": "../src/render/assets.js?v=3.0.0",
+          "../src/render/elementArt.js": "../src/render/elementArt.js?v=3.0.0",
+          "../src/render/fit.js": "../src/render/fit.js?v=3.0.0",
+          "../src/render/gif.js": "../src/render/gif.js?v=3.0.0",
+          "../src/render/palette.js": "../src/render/palette.js?v=3.0.0"
         }
       }
     </script>
     <!-- importmap:ende -->
-    <script type="module" src="src/main.js?v=2.2.1"></script>
+    <script type="module" src="src/main.js?v=3.0.0"></script>
   </body>
 </html>

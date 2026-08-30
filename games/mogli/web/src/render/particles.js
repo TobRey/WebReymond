@@ -162,11 +162,11 @@ export function updateParticles(ps) {
  * @param {ReturnType<typeof createParticles>} ps
  * @param {number} cameraY
  */
-export function drawParticles(ctx, ps, cameraY) {
+export function drawParticles(ctx, ps, cameraY, cameraX = 0) {
   for (const p of ps.items) {
     ctx.globalAlpha = Math.min(1, p.life / p.maxLife);
     ctx.fillStyle = p.color;
-    ctx.fillRect(Math.round(p.x), Math.round(p.y - cameraY), p.size, p.size);
+    ctx.fillRect(Math.round(p.x - cameraX), Math.round(p.y - cameraY), p.size, p.size);
   }
   ctx.globalAlpha = 1;
 }

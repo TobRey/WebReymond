@@ -1,58 +1,45 @@
-// Bindet Level, Mogli, Gefahr und Kamera zusammen. Bewusst ohne DOM: so
-// kann ein kompletter Lauf in Node simuliert werden (Tests, Automat).
+// Bindet Karte, Mogli, Elemente und Kamera zusammen. Bewusst ohne DOM: so
+// kann ein kompletter Lauf in Node simuliert werden (Tests).
 
-import { CAM, EMERALD_BONUS, PHYS, TILE, VIEW_H, cameraOffset } from './constants.js';
-import { createLevel, difficultyFromHeight } from './level.js';
-import { createHazard, updateHazard } from './hazard.js';
-import { createPlayer, heightInMetres, idleTick, kill, updatePlayer } from './player.js';
+import { CAM, PHYS, VIEW_H, VIEW_W } from './constants.js';
+import { buildLevel } from './map.js';
+import { createEntities, carryPlayer, touchEntities, updateEntities } from './entities.js';
+import { createPlayer, kill, respawn, updatePlayer } from './player.js';
 
-export { EMERALD_BONUS };
+/**
+ * @param {object} map eine durch mapRules geprüfte Karte
+ */
+export function createWorld(map) {
+  const level = buildLevel(map);
+  const entities = createEntities(map);
 
-/** Der Weck-Tipp wird verbraucht und nicht als Sprung durchgereicht. */
-const WAKE_INPUT = { jump: false, jumpPressed: false, jumpReleased: false };
-
-export function createWorld(seed) {
-  const level = createLevel(seed);
-  // Startzeile 0 ist der Absatz an der linken Wand, Mogli steht darauf und
-  // schaut nach rechts.
-  const startY = -PHYS.hitboxH;
-  // Ganz aussen an der linken Wand: so hat er den gesamten Startabsatz als
-  // Anlauf, genau wie bei jedem späteren Absatz auch.
-  const startX = TILE + (TILE - PHYS.hitboxW) / 2;
-
-  level.ensureUpTo(-Math.ceil(VIEW_H / TILE) - 8);
-
+  const startX = map.spawn.x * map.cell + (map.cell - PHYS.hitboxW) / 2;
+  const startY = (map.spawn.y + 1) * map.cell - PHYS.hitboxH;
   const player = createPlayer(startX, startY);
-  const hazard = createHazard(startY);
-  const cameraTarget = startY - (VIEW_H - cameraOffset());
 
   const world = {
-    seed,
+    map,
     level,
+    entities,
     player,
-    hazard,
-    startY,
     tick: 0,
-    over: false,
-    /** Vor dem ersten Tipp steht alles still – auch die Glut. */
+    /** Vor der ersten Eingabe steht die Uhr – man bestimmt selbst den Start. */
     started: false,
-    camera: { y: cameraTarget, minY: cameraTarget },
+    finished: false,
+    /** Läufe enden am Ziel, nicht am Tod: gestorben heisst zurückgesetzt. */
+    deaths: 0,
+    keys: 0,
+    /** Zeitgutschrift aus Smaragden, in Ticks. */
+    bonusTicks: 0,
+    respawnAt: { x: startX, y: startY },
+    camera: { x: 0, y: 0 },
     /** Ereignisse des letzten Ticks, für Ton und Partikel. */
     events: [],
-    /** Kacheln, die in diesem Tick zerbröselt sind – für Staubwolken. */
     crumbled: [],
 
-    get heightPx() {
-      return Math.max(0, startY - player.bestY);
-    },
-    get metres() {
-      return heightInMetres(player, startY);
-    },
-    get score() {
-      return heightInMetres(player, startY) + player.emeralds * EMERALD_BONUS;
-    },
-    get difficulty() {
-      return difficultyFromHeight(Math.max(0, startY - player.bestY));
+    /** Die Zeit, die zählt: Uhr minus Smaragd-Gutschrift, nie unter 0. */
+    get resultTicks() {
+      return Math.max(0, world.tick - world.bonusTicks);
     },
     get seconds() {
       return world.tick / 60;
@@ -60,66 +47,116 @@ export function createWorld(seed) {
     update,
   };
 
+  placeCamera(world, true);
+
   function update(input) {
     world.events.length = 0;
-    if (world.over) return world.events;
+    if (world.finished) return world.events;
 
-    // Der Lauf beginnt beim ersten Tipp, nicht beim Öffnen des Bildschirms.
-    // Bis dahin steht alles still, auch die Glut – man bestimmt selbst, wann
-    // es losgeht.
-    //
-    // Dieser erste Tipp weckt Mogli nur auf, er springt noch nicht. Täte er
-    // es, flöge er vom Startabsatz direkt darüber hinaus, bevor er überhaupt
-    // gelaufen ist: der Sprung trägt 82 px, der Absatz ist 80 px breit.
-    let effective = input;
+    // Die Uhr startet mit der ersten echten Eingabe, nicht beim Laden.
     if (!world.started) {
-      if (!input.jumpPressed) {
-        idleTick(player);
+      if (!input.left && !input.right && !input.jumpPressed) {
+        placeCamera(world, false);
         return world.events;
       }
       world.started = true;
-      effective = WAKE_INPUT;
     }
 
     world.tick += 1;
 
-    // Zuerst zerfallen lassen, dann bewegen. Andersherum kann ein Quader
-    // mitten in einem Bewegungsteilschritt verschwinden – das ist der
-    // klassische "ich falle grundlos durch den Boden"-Fehler.
+    // Reihenfolge je Tick, und sie ist Absicht:
+    // 1. Zerfall (sonst verschwindet ein Block mitten im Bewegungsschritt)
+    // 2. Elemente bewegen, 3. Spieler, 4. Plattform-Mitnahme, 5. Berührungen.
+    //
+    // Die Mitnahme kommt NACH dem Spieler: sie setzt onGround und den
+    // Mitnahme-Schub für den nächsten Tick. Stand sie davor, überschrieb die
+    // Kachelphysik ihr onGround wieder mit false – der Spieler stand auf der
+    // Plattform und galt trotzdem als fallend, der Test hat es gefasst.
     world.crumbled = level.updateCrumbling();
+    updateEntities(entities, world.tick);
+    updatePlayer(player, input, level, world.events);
+    carryPlayer(entities, player);
 
-    updatePlayer(player, effective, level, world.events);
-
-    // Kamera folgt nur nach oben.
-    const target = player.body.y - (VIEW_H - cameraOffset());
-    if (target < world.camera.minY) world.camera.minY = target;
-    world.camera.y += (world.camera.minY - world.camera.y) * CAM.smoothing;
-
-    updateHazard(hazard, world.tick, world.heightPx, player.body.y, player.bestY);
-
-    if (!player.dead && player.body.y + player.body.h >= hazard.y) {
+    // Kartenränder: links und rechts sind unsichtbare Wände, unten ist Schluss.
+    const body = player.body;
+    if (body.x < 0) {
+      body.x = 0;
+      body.vx = Math.max(0, body.vx);
+    } else if (body.x + body.w > level.widthPx) {
+      body.x = level.widthPx - body.w;
+      body.vx = Math.min(0, body.vx);
+    }
+    if (!player.dead && body.y > level.heightPx + PHYS.fallOutMargin) {
       kill(player, world.events);
     }
 
-    // Nachschieben und aufräumen.
-    level.ensureUpTo(Math.floor(world.camera.y / TILE) - 24);
-    level.cullBelow(Math.floor(hazard.y / TILE) + 6);
+    const touched = touchEntities(entities, player, world, world.events);
+    if (touched.finished) {
+      world.finished = true;
+      return world.events;
+    }
 
-    if (player.dead && player.deadTicks > 70) world.over = true;
+    // Tod ist kein Ende: kurz liegen lassen, dann zurück zum Checkpoint.
+    // Die Uhr läuft weiter – der Zeitverlust IST die Strafe.
+    if (player.dead && player.deadTicks > 55) {
+      world.deaths += 1;
+      respawn(player, world.respawnAt.x, world.respawnAt.y);
+      world.events.push('respawn');
+    }
 
+    placeCamera(world, false);
     return world.events;
   }
 
   return world;
 }
 
-/** Für die Anzeige: wie voll der Gefahrenbalken ist (0…1). */
-export function hazardPressure(world) {
-  const lead = world.hazard.y - (world.player.body.y + world.player.body.h);
-  return Math.max(0, Math.min(1, 1 - lead / 240));
+/**
+ * Die Kamera: waagerecht ein Mario-Fenster (Totzone), senkrecht weiches
+ * Folgen. Beides an die Kartenränder geklemmt – und reine Darstellung:
+ * kein Wert hier darf je ins Spielgeschehen zurückfliessen
+ * (test/viewheight.test.mjs besteht darauf).
+ */
+function placeCamera(world, snap) {
+  const cam = world.camera;
+  const body = world.player.body;
+  const level = world.level;
+
+  const left = cam.x + VIEW_W * CAM.deadLeft;
+  const right = cam.x + VIEW_W * CAM.deadRight;
+  let targetX = cam.x;
+  if (body.x < left) targetX = body.x - VIEW_W * CAM.deadLeft;
+  else if (body.x > right) targetX = body.x - VIEW_W * CAM.deadRight;
+  targetX = Math.max(0, Math.min(level.widthPx - VIEW_W, targetX));
+
+  let targetY = body.y - VIEW_H * CAM.playerAtY;
+  if (level.heightPx <= VIEW_H) {
+    // Karte niedriger als das Bild: unten anschlagen, oben füllt der
+    // Hintergrund (cover kann das seit 2.2.1).
+    targetY = level.heightPx - VIEW_H;
+  } else {
+    targetY = Math.max(0, Math.min(level.heightPx - VIEW_H, targetY));
+  }
+
+  if (snap) {
+    cam.x = targetX;
+    cam.y = targetY;
+  } else {
+    cam.x = targetX; // waagerecht hart – die Totzone ist die Glättung
+    cam.y += (targetY - cam.y) * CAM.smoothingY;
+  }
 }
 
-/** Nur für Tests und den Automaten: eine leere Eingabe. */
+/** Zeit hübsch: "1:23.4". */
+export function formatTicks(ticks) {
+  const totalTenths = Math.round((ticks / 60) * 10);
+  const minutes = Math.floor(totalTenths / 600);
+  const rest = totalTenths - minutes * 600;
+  const seconds = Math.floor(rest / 10);
+  return `${minutes}:${String(seconds).padStart(2, '0')}.${rest % 10}`;
+}
+
+/** Nur für Tests: eine leere Eingabe. */
 export function emptyInput() {
-  return { jump: false, jumpPressed: false, jumpReleased: false };
+  return { left: false, right: false, jump: false, jumpPressed: false, jumpReleased: false };
 }

@@ -11,13 +11,11 @@
 // statt umgekehrt.
 //
 // WAS BEWUSST NICHT GEHT
-// Die Kachelart (fest, nur von oben tragend, tödlich) ist NICHT einstellbar.
-// Sie steht im Levelgenerator und ist die Grundlage jedes Erreichbarkeits-
-// beweises; wer "Stein" zu "tödlich" erklären könnte, hätte einen Turm, den
-// niemand mehr besteigen kann. Einstellbar ist nur, WO in der Zelle die Kachel
-// fest ist – nicht, was sie bedeutet.
+// Die Kachelart (fest, nur von oben tragend, bröckelnd) ist NICHT einstellbar.
+// Sie kommt aus dem Element-Typ auf der Karte; einstellbar ist nur, WO in der
+// Zelle die Kachel fest ist – nicht, was sie bedeutet.
 
-import { T, TILE } from './constants.js';
+import { TILE } from './constants.js';
 
 /** Die ganze Zelle. Wird geteilt, nie verändert. */
 const FULL = Object.freeze({ x: 0, y: 0, w: TILE, h: TILE });
@@ -34,16 +32,8 @@ export function tileBox(tile) {
   return boxes.get(tile) ?? FULL;
 }
 
-/**
- * Setzt den Kasten einer Kachelart.
- *
- * Die Wände sind ausgenommen: an ihnen wird gerutscht und abgesprungen, und
- * ein schmalerer Kasten würde den Schacht an dieser Zeile unpassierbar machen
- * oder den Wandsprung ins Leere greifen lassen. Der Aufruf wird still
- * ignoriert – die Oberfläche im Admin-Bereich lässt ihn gar nicht erst zu.
- */
+/** Setzt den Kasten einer Kachelart. */
 export function setTileBox(tile, box) {
-  if (tile === T.WALL) return;
   const clamped = {
     x: clamp(box.x, 0, TILE - 1),
     y: clamp(box.y, 0, TILE - 1),

@@ -164,6 +164,70 @@ export async function clearStored() {
   if (data.ok !== true) throw new Error(data.error ?? 'unknown');
 }
 
+// ---------------------------------------------------------------------------
+// Karten (der Editor speichert hier)
+// ---------------------------------------------------------------------------
+
+const LOCAL_MAPS_KEY = 'mogli.maps.v1';
+
+/**
+ * Holt die gespeicherten Karten. Im local-Modus derselbe Schlüssel, aus dem
+ * auch das SPIEL liest (net/maps.js) – Editor und Spiel teilen sich die
+ * Ablage, gespeichert ist gespielt.
+ */
+export async function loadMaps() {
+  if (mode === 'local') {
+    try {
+      const raw = window.localStorage.getItem(LOCAL_MAPS_KEY);
+      const parsed = raw === null ? [] : JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  const data = await post({ action: 'maps_load', token });
+  if (data.ok !== true) throw new Error(data.error ?? 'unknown');
+  return Array.isArray(data.maps) ? data.maps : [];
+}
+
+/** Speichert alle Karten. */
+export async function saveMaps(maps) {
+  if (mode === 'local') {
+    try {
+      window.localStorage.setItem(LOCAL_MAPS_KEY, JSON.stringify(maps));
+    } catch {
+      throw new Error('local_full');
+    }
+    return { count: maps.length };
+  }
+  const data = await post({ action: 'maps_save', token, maps });
+  if (data.ok !== true) {
+    const error = new Error(data.error ?? 'unknown');
+    error.detail = data.detail;
+    throw error;
+  }
+  return { count: data.count ?? maps.length };
+}
+
+/** Karten als Datei – für Webspaces ohne PHP: nach data/maps.json hochladen. */
+export function downloadMaps(maps) {
+  const blob = new Blob([JSON.stringify({ version: 1, updated: 0, maps })], {
+    type: 'application/json',
+  });
+  triggerDownload(blob, 'maps.json');
+}
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 /**
  * Gibt das Paket als Datei heraus – der Weg für Webspaces ohne PHP: die Datei
  * nach data/assets.json hochladen, fertig.

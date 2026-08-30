@@ -1,18 +1,31 @@
-// Zeichnet die Spielwelt in den 192×256-Puffer. Alles hier ist Darstellung –
-// der Spielzustand wird nicht verändert.
+// Zeichnet die Spielwelt in den Puffer. Alles hier ist Darstellung – der
+// Spielzustand wird nicht verändert.
+//
+// Seit 3.0 scrollt die Kamera waagerecht durch eine Karte aus dem Editor.
+// Feste Blöcke, Plattformen und Bröckelsteine kommen aus dem Kachelblatt
+// (tiles.js), alle übrigen Elemente aus elementArt.js oder – wenn eingesetzt
+// – aus dem Grafikpaket.
 
-import { GRID_W, PHYS, T, TILE, VIEW_H, VIEW_W, isSolid } from '../game/constants.js';
+import { PHYS, T, TILE, VIEW_H, VIEW_W, isSolid } from '../game/constants.js';
+import { ELEMENTS } from '../game/elements.js';
 import { FRAME_SIZE, buildAtlases, drawSprite } from './sprites.js';
 import { SLOT, buildTileSheet, drawTile } from './tiles.js';
 import { buildBackground, drawBackground } from './background.js';
-import { drawParticles, emitEmber, shakeOffset } from './particles.js';
-import { COLORS, PALETTE } from './palette.js';
+import { drawParticles, shakeOffset } from './particles.js';
+import { PALETTE } from './palette.js';
+import { tileOverride } from './assets.js';
+import { elementImage, resetElementArt } from './elementArt.js';
 
 // Figuren- und Kachelblätter hängen nicht von der Bildhöhe ab und werden
-// deshalb nur einmal gebrannt. Die Hintergrundebenen dagegen sind so hoch wie
-// das Bild und müssen bei einer Grössenänderung neu entstehen.
+// deshalb nur einmal gebrannt. Die Hintergrundebenen dagegen sind bildhoch
+// und müssen bei einer Grössenänderung neu entstehen.
 let cachedAtlases = null;
 let cachedTiles = null;
+
+/** Naturgrössen der Elemente in Zellen, für die Platzhalter-Grafik. */
+const ELEMENT_SIZES = Object.fromEntries(
+  Object.entries(ELEMENTS).map(([type, def]) => [type, def.cells]),
+);
 
 export function createScene() {
   if (cachedAtlases === null) cachedAtlases = buildAtlases();
@@ -25,32 +38,25 @@ export function createScene() {
   };
 }
 
-/**
- * Nach einer Änderung der Bildhöhe: nur die Hintergrundebenen sind so hoch wie
- * das Bild und müssen neu entstehen. Figuren und Kacheln bleiben.
- */
+/** Nach einer Änderung der Bildhöhe: nur die Hintergrundebenen neu. */
 export function resizeScene(scene) {
   scene.background = buildBackground();
 }
 
-/**
- * Nach dem Einsetzen eines Grafikpakets: alles neu brennen.
- *
- * Anders als bei einer Grössenänderung sind hier auch Figuren- und Kachelblatt
- * betroffen, deshalb müssen die Zwischenspeicher weg.
- */
+/** Nach dem Einsetzen eines Grafikpakets: alles neu brennen. */
 export function reloadScene(scene) {
   cachedAtlases = null;
   cachedTiles = null;
+  resetElementArt();
   const fresh = createScene();
   scene.atlases = fresh.atlases;
   scene.tiles = fresh.tiles;
   scene.background = fresh.background;
 }
 
-function slotForTile(tile, col, row, level, frame) {
+function slotForTile(tile, col, row, level) {
   switch (tile) {
-    case T.STONE: {
+    case T.SOLID: {
       // Liegt darüber ebenfalls Stein, ist diese Kachel verdeckt und bekommt
       // weder Moos noch Lichtkante – sonst wirkt ein massiver Block wie ein
       // Stapel Bretter.
@@ -63,81 +69,87 @@ function slotForTile(tile, col, row, level, frame) {
       const progress = level.crumbleProgress(col, row);
       return SLOT.CRUMBLE_0 + Math.min(2, Math.floor(progress * 3));
     }
-    case T.WALL: {
-      // Der Schmuck kommt in festen Abständen, nicht zufällig: so entsteht der
-      // Rhythmus einer gebauten Anlage statt eines Rauschens. Die Abstände sind
-      // teilerfremd (7, 11, 5), damit sich das Muster erst nach 385 Zeilen
-      // wiederholt – niemand klettert so weit, ohne dass die Glut ihn holt.
-      //
-      // Gerechnet wird mit einer Zeilennummer, die nach oben WÄCHST. `row` wird
-      // beim Klettern negativ; ein Rest von einer negativen Zahl ist in
-      // JavaScript negativ und träfe die Fälle unten nie.
-      const r = -row;
-      if (r > 0) {
-        if (r % 7 === 0) return (frame >> 4) & 1 ? SLOT.WALL_TORCH_1 : SLOT.WALL_TORCH_0;
-        if (r % 11 === 0) return SLOT.WALL_IDOL;
-        if (r % 5 === 0) return SLOT.WALL_CRYSTAL;
-      }
-      return row % 2 === 0 ? SLOT.WALL_A : SLOT.WALL_B;
-    }
-    case T.SPIKE:
-      return SLOT.SPIKE;
-    case T.LEAF:
+    case T.PLATFORM:
       return SLOT.LEAF;
-    case T.EMERALD:
-      return SLOT.EMERALD_0 + ((frame >> 3) & 3);
-    case T.VINE:
-      return SLOT.VINE_0 + ((frame >> 4) & 1);
     default:
       return -1;
   }
 }
 
-/** Die aufsteigende Glut: der einzige warme Bereich im Bild. */
-function drawHazard(ctx, hazardY, cameraY, frame) {
-  const top = Math.round(hazardY - cameraY);
-  if (top >= VIEW_H) return;
+/** Ein Element zeichnen: eigenes Bild oder Platzhalter, aufs Rechteck gezogen. */
+function drawEntity(ctx, e, camX, camY, frame) {
+  if (e.taken || (e.alive === false && (e.type === 'walker' || e.type === 'flyer'))) return;
 
-  const gradient = ctx.createLinearGradient(0, top, 0, VIEW_H);
-  gradient.addColorStop(0, COLORS.emberHot);
-  gradient.addColorStop(0.22, COLORS.emberCore);
-  gradient.addColorStop(1, COLORS.emberDeep);
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, top, VIEW_W, VIEW_H - top);
+  const x = Math.round(e.x - camX);
+  const y = Math.round(e.y - camY);
 
-  // Wellenkamm: zwei versetzte Sinuslinien, damit die Kante lebt.
-  ctx.fillStyle = COLORS.emberHot;
-  for (let x = 0; x < VIEW_W; x += 1) {
-    const wave = Math.sin((x + frame * 1.6) * 0.16) + Math.sin((x - frame) * 0.09);
-    ctx.fillRect(x, top + Math.round(wave) - 2, 1, 2);
+  // Zustands-Varianten der Platzhalter.
+  let variant = null;
+  if (e.type === 'checkpoint' && e.active) variant = 'checkpointActive';
+
+  const image = elementImage(ELEMENT_SIZES, e.type, variant);
+  if (image !== null) {
+    // Portale drehen sich ein wenig – billig, aber lebendig.
+    if (e.type === 'portal') {
+      ctx.save();
+      ctx.translate(x + e.w / 2, y + e.h / 2);
+      ctx.rotate(Math.sin(frame / 20) * 0.15);
+      ctx.drawImage(image, -e.w / 2, -e.h / 2, e.w, e.h);
+      ctx.restore();
+    } else {
+      ctx.drawImage(image, x, y, e.w, e.h);
+    }
+    return;
   }
-  ctx.fillStyle = COLORS.emberSpark;
-  for (let x = 0; x < VIEW_W; x += 2) {
-    const wave = Math.sin((x + frame * 1.6) * 0.16);
-    if (wave > 0.75) ctx.fillRect(x, top + Math.round(wave) - 3, 1, 1);
-  }
+  // Letzte Rettung: ein Kasten mit Umriss, damit nie "nichts" dasteht.
+  ctx.fillStyle = PALETTE[6] ?? '#3fe3a8';
+  ctx.fillRect(x, y, e.w, e.h);
 }
 
-function drawPlayer(ctx, player, atlas, cameraY) {
+/** Smaragde und Stacheln kommen aus dem Kachelblatt und dürfen animieren. */
+function drawSheetEntity(ctx, scene, e, camX, camY, frame) {
+  const x = Math.round(e.x - camX);
+  const y = Math.round(e.y - camY);
+  if (e.type === 'emerald') {
+    if (e.taken) return true;
+    const custom = tileOverride('EMERALD_0');
+    if (custom !== null) {
+      ctx.drawImage(custom, x, y, e.w, e.h);
+      return true;
+    }
+    drawTile(ctx, scene.tiles, SLOT.EMERALD_0 + ((frame >> 3) & 3), x, y);
+    return true;
+  }
+  if (e.type === 'spikes') {
+    const custom = tileOverride('SPIKE');
+    for (let dx = 0; dx < e.w; dx += TILE) {
+      if (custom !== null) ctx.drawImage(custom, x + dx, y, TILE, e.h);
+      else drawTile(ctx, scene.tiles, SLOT.SPIKE, x + dx, y);
+    }
+    return true;
+  }
+  return false;
+}
+
+function drawPlayer(ctx, player, atlas, camX, camY) {
   if (atlas === undefined) return;
-  // Das 24×24-Bild ist grösser als die Trefferfläche: passend ausrichten.
   const x = player.body.x - PHYS.hitboxOffX;
   const y = player.body.y - PHYS.hitboxOffY;
 
-  let tint = null;
-  let alpha = 1;
-  if (player.dead) {
-    alpha = Math.max(0.15, 1 - player.deadTicks / 90);
-  } else if (player.vine > 0) {
-    // Kurzes helles Aufleuchten, solange die Ranke zieht.
-    tint = player.vine % 6 < 3 ? PALETTE[7] : null;
-  }
-
-  drawSprite(ctx, atlas, player.anim, player.animFrame, x, y - cameraY, {
-    flip: player.facing < 0,
-    tint,
-    alpha,
-  });
+  const alpha = player.dead ? Math.max(0.15, 1 - player.deadTicks / 90) : 1;
+  drawSprite(
+    ctx,
+    atlas,
+    player.anim,
+    player.animFrame,
+    Math.round(x - camX),
+    Math.round(y - camY),
+    {
+      flip: player.facing < 0,
+      tint: null,
+      alpha,
+    },
+  );
 }
 
 /**
@@ -153,43 +165,42 @@ export function drawScene(ctx, world, scene, particles, options = {}) {
   const reducedMotion = options.reducedMotion === true;
 
   const shake = shakeOffset(particles, reducedMotion);
-  const cameraY = Math.round(world.camera.y) + shake.y;
+  const camX = Math.round(world.camera.x) + shake.x;
+  const camY = Math.round(world.camera.y) + shake.y;
 
-  drawBackground(ctx, scene.background, cameraY, world.heightPx);
+  drawBackground(ctx, scene.background, camX);
 
-  ctx.save();
-  ctx.translate(shake.x, 0);
-
-  // --- Kacheln -------------------------------------------------------------
-  const firstRow = Math.floor(cameraY / TILE) - 1;
-  const lastRow = Math.floor((cameraY + VIEW_H) / TILE) + 1;
+  // --- Kachelgitter, nur der sichtbare Ausschnitt --------------------------
   const level = world.level;
+  const firstCol = Math.max(0, Math.floor(camX / TILE) - 1);
+  const lastCol = Math.min(level.cols - 1, Math.floor((camX + VIEW_W) / TILE) + 1);
+  const firstRow = Math.max(0, Math.floor(camY / TILE) - 1);
+  const lastRow = Math.min(level.rows - 1, Math.floor((camY + VIEW_H) / TILE) + 1);
+
   for (let row = firstRow; row <= lastRow; row += 1) {
-    const screenY = row * TILE - cameraY;
-    for (let col = 0; col < GRID_W; col += 1) {
+    for (let col = firstCol; col <= lastCol; col += 1) {
       const tile = level.tileAt(col, row);
       if (tile === T.EMPTY) continue;
-      const slot = slotForTile(tile, col, row, level, frame);
+      const slot = slotForTile(tile, col, row, level);
       if (slot < 0) continue;
-      drawTile(ctx, scene.tiles, slot, col * TILE, screenY);
+      drawTile(ctx, scene.tiles, slot, col * TILE - camX, row * TILE - camY);
     }
   }
 
-  // --- Funken über der Glut -----------------------------------------------
-  if (!reducedMotion && frame % 3 === 0) {
-    const hazardScreenY = world.hazard.y - cameraY;
-    if (hazardScreenY < VIEW_H + 20) {
-      emitEmber(particles, Math.random() * VIEW_W, world.hazard.y - 2);
+  // --- Elemente ------------------------------------------------------------
+  for (const e of world.entities) {
+    if (e.x + e.w < camX - 16 || e.x > camX + VIEW_W + 16) continue;
+    if (!drawSheetEntity(ctx, scene, e, camX, camY, frame)) {
+      drawEntity(ctx, e, camX, camY, frame);
     }
   }
 
-  drawParticles(ctx, particles, cameraY);
+  drawParticles(ctx, particles, camY, camX);
 
-  drawPlayer(ctx, world.player, scene.atlases[world.player.anim], cameraY);
-
-  drawHazard(ctx, world.hazard.y, cameraY, frame);
-
-  ctx.restore();
+  drawPlayer(ctx, world.player, scene.atlases[world.player.anim], camX, camY);
 }
 
 export { FRAME_SIZE };
+
+/** Für die Trefferflächen-Anzeige des Editors: nichts weiter exportiert. */
+export const _internal = { slotForTile };

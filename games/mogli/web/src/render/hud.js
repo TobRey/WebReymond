@@ -1,17 +1,15 @@
 // Die Anzeige im Spiel liegt bewusst im DOM und nicht auf dem Canvas.
 //
-// Auf 192 × 256 Pixeln bräuchte Text auf dem Canvas eine eigene Pixelschrift
+// Auf 256 Pixeln Breite bräuchte Text auf dem Canvas eine eigene Pixelschrift
 // und wäre bei jeder Vergrösserung genauso grob wie die Grafik. Als DOM-Ebene
 // darüber ist er in jeder Grösse scharf, übersetzbar (data-i18n) und für
 // Vorleseprogramme lesbar.
 
-import { hazardPressure } from '../game/world.js';
-import { t } from '../i18n.js';
+import { formatTicks } from '../game/world.js';
 
 export function createHud(elements) {
-  let lastHeight = -1;
+  let lastTime = '';
   let lastEmeralds = -1;
-  let lastPressure = -1;
 
   return {
     show() {
@@ -23,10 +21,13 @@ export function createHud(elements) {
 
     /** Nur schreiben, was sich geändert hat – spart Layoutarbeit je Bild. */
     update(world) {
-      const height = world.metres;
-      if (height !== lastHeight) {
-        elements.height.textContent = `${height} ${t('hud.metres')}`;
-        lastHeight = height;
+      // Angezeigt wird die WERTUNGSZEIT (Uhr minus Smaragd-Gutschrift): so
+      // sieht man einen Smaragd sofort als Zeitsprung nach unten – das ist
+      // die ganze Belohnung, also soll sie sichtbar sein.
+      const time = formatTicks(world.resultTicks);
+      if (time !== lastTime) {
+        elements.time.textContent = time;
+        lastTime = time;
       }
 
       const emeralds = world.player.emeralds;
@@ -34,19 +35,12 @@ export function createHud(elements) {
         elements.emeralds.textContent = String(emeralds);
         lastEmeralds = emeralds;
       }
-
-      const pressure = Math.round(hazardPressure(world) * 100);
-      if (pressure !== lastPressure) {
-        elements.pressure.style.width = `${pressure}%`;
-        lastPressure = pressure;
-      }
     },
 
-    /** Nach einem Sprachwechsel müssen die Einheiten neu geschrieben werden. */
+    /** Nach einem Sprachwechsel neu schreiben. */
     invalidate() {
-      lastHeight = -1;
+      lastTime = '';
       lastEmeralds = -1;
-      lastPressure = -1;
     },
   };
 }

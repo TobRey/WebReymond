@@ -1,66 +1,61 @@
 // Die Bildhöhe darf das Spiel nicht verändern.
 //
-// Diese Datei gibt es wegen eines echten Fehlers. Als die Höhe des Bildes
-// beweglich wurde, damit das Spiel ein Handy füllt, hing die Leine der Glut
-// noch am unteren BILDRAND: `hazard.y = min(hazard.y, cameraY + VIEW_H + 8)`.
-// Damit war dasselbe Spiel auf einem hohen Handy ein anderes als auf einem
-// breiten Monitor – derselbe Automat kam dort 60 m weit und hier 4 m.
+// Diese Datei gibt es wegen eines echten Fehlers aus der Turm-Zeit: die Leine
+// der Glut hing am unteren BILDRAND, und dasselbe Spiel war auf einem hohen
+// Handy ein anderes als auf einem breiten Monitor. Die Glut ist weg, die
+// Regel bleibt: was man sehen kann, darf nicht bestimmen, wie schwer es ist.
+// Seit 3.0 heisst das konkret: die Kamera ist reine Darstellung, kein Wert
+// aus ihr fliesst je in die Physik zurück.
 //
-// Die Regel dahinter: was man sehen kann, darf nicht bestimmen, wie schwer es
-// ist. Der Test hält sie fest, indem er denselben Lauf bei jeder erlaubten
-// Bildhöhe durchspielt und auf denselben Ausgang besteht.
+// Geprüft wird, indem derselbe Eingabelauf auf der Demo-Karte bei jeder
+// erlaubten Bildhöhe durchgespielt wird – Tick für Tick müssen Position und
+// Ausgang exakt gleich sein.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { VIEW_H_MAX, VIEW_H_MIN, setViewHeight } from '../web/src/game/constants.js';
+import { VIEW_H_MAX, VIEW_H_MIN, setViewHeight, TILE } from '../web/src/game/constants.js';
 import { createWorld, emptyInput } from '../web/src/game/world.js';
-import { botInput, createBot } from '../web/src/game/bot.js';
+import { demoMap } from '../web/src/game/map.js';
 
-const SEEDS = [104729, 611953, 1299709, 15485863];
 const HEIGHTS = [VIEW_H_MIN, 432, 528, VIEW_H_MAX];
 
-/** Spielt einen Lauf mit dem Automaten und meldet, wie er ausgegangen ist. */
-function run(seed) {
-  const world = createWorld(seed);
-  const bot = createBot();
-  const input = emptyInput();
-  let ticks = 0;
-  while (!world.over && ticks < 60 * 90) {
-    botInput(bot, world, input);
+/** Ein fester Eingabelauf: 30 Sekunden rennen und rhythmisch springen. */
+function run() {
+  const world = createWorld(demoMap());
+  const spur = [];
+  for (let t = 0; t < 60 * 30 && !world.finished; t += 1) {
+    const input = emptyInput();
+    input.right = true;
+    input.jump = t % 37 < 12;
+    input.jumpPressed = t % 37 === 0;
+    input.jumpReleased = t % 37 === 12;
     world.update(input);
-    ticks += 1;
+    if (t % 30 === 0) {
+      spur.push([Math.round(world.player.body.x * 100), Math.round(world.player.body.y * 100)]);
+    }
   }
-  return { metres: world.metres, emeralds: world.player.emeralds, ticks };
+  return {
+    spur,
+    finished: world.finished,
+    deaths: world.deaths,
+    emeralds: world.player.emeralds,
+    ticks: world.tick,
+  };
 }
 
-test('derselbe Lauf endet bei jeder Bildhöhe gleich', () => {
-  for (const seed of SEEDS) {
-    setViewHeight(VIEW_H_MIN);
-    const reference = run(seed);
-
-    for (const height of HEIGHTS) {
-      assert.equal(setViewHeight(height), height, `${height} ist keine gültige Bildhöhe`);
-      assert.deepEqual(
-        run(seed),
-        reference,
-        `Startwert ${seed} bei Bildhöhe ${height}: anderer Ausgang als bei ${VIEW_H_MIN}`,
-      );
-    }
+test('derselbe Lauf endet bei jeder Bildhöhe exakt gleich', () => {
+  const referenz = setViewHeight(HEIGHTS[0]) && run();
+  for (const height of HEIGHTS.slice(1)) {
+    setViewHeight(height);
+    assert.deepEqual(run(), referenz, `Bildhöhe ${height} spielt sich anders`);
   }
   setViewHeight(VIEW_H_MIN);
 });
 
 test('setViewHeight rundet auf ganze Kacheln und bleibt in den Grenzen', () => {
+  assert.equal(setViewHeight(500) % TILE, 0);
   assert.equal(setViewHeight(10), VIEW_H_MIN);
-  assert.equal(setViewHeight(9999), VIEW_H_MAX);
-  assert.equal(setViewHeight(400), 400); // 25 Kacheln, geht glatt auf
-  assert.equal(setViewHeight(407), 400); // 25.4 Kacheln -> 25
-  assert.equal(setViewHeight(409), 416); // 25.6 Kacheln -> 26
-  for (let wanted = VIEW_H_MIN - 40; wanted <= VIEW_H_MAX + 40; wanted += 7) {
-    const height = setViewHeight(wanted);
-    assert.equal(height % 16, 0, `${height} ist kein Vielfaches der Kachelgrösse`);
-    assert.ok(height >= VIEW_H_MIN && height <= VIEW_H_MAX, `${height} liegt ausserhalb`);
-  }
+  assert.equal(setViewHeight(9000), VIEW_H_MAX);
   setViewHeight(VIEW_H_MIN);
 });

@@ -46,14 +46,13 @@ const DATA_DIR = __DIR__ . '/data';
  */
 const RATE_SALT = 'bitte-aendern-in-etwas-zufaelliges';
 
-const MAX_ENTRIES     = 100;   // so viele Ergebnisse werden aufbewahrt
+// Seit 3.0 zaehlt die ZEIT je Level (aufsteigend), nicht mehr die Hoehe.
+// Deckt sich mit src/net/scoreRules.js; der Test haelt beide zusammen.
+const MAX_PER_MAP     = 50;    // so viele Zeiten je Level werden aufbewahrt
 const DEFAULT_TOP     = 25;    // so viele werden zurückgegeben
 const NAME_MAX        = 12;
-const SCORE_MAX       = 200000;
-const TIME_MIN        = 3;
-const TIME_MAX        = 7200;
-const MAX_PER_SECOND  = 20;    // Plausibilität: Punkte je Sekunde
-const SCORE_GRACE     = 100;
+const TICKS_MIN       = 180;   // 3 s bei 60 Ticks je Sekunde
+const TICKS_MAX       = 432000; // 2 h
 const RATE_PER_MINUTE = 5;
 const RATE_PER_HOUR   = 60;
 const MAX_BODY_BYTES  = 2048;
@@ -177,38 +176,26 @@ function sanitizeName(mixed $raw): string
     return $clean === '' ? 'ANON' : $clean;
 }
 
-/** @return array{name: string, score: int, time: int} */
+/** @return array{name: string, map: string, ticks: int} */
 function validatePayload(array $data): array
 {
-    if (!isset($data['score'], $data['time'])) {
+    $map = $data['map'] ?? null;
+    if (!is_string($map) || preg_match('/^[a-z0-9-]{1,24}$/', $map) !== 1) {
         fail(400, 'invalid_payload');
     }
-    if (!is_int($data['score']) && !(is_string($data['score']) && ctype_digit($data['score']))) {
+    $ticks = $data['ticks'] ?? null;
+    if (!is_int($ticks) && !(is_string($ticks) && ctype_digit($ticks))) {
         fail(400, 'invalid_payload');
     }
-    if (!is_int($data['time']) && !(is_string($data['time']) && ctype_digit($data['time']))) {
-        fail(400, 'invalid_payload');
-    }
-
-    $score = (int) $data['score'];
-    $time  = (int) $data['time'];
-
-    if ($score < 1 || $score > SCORE_MAX) {
-        fail(400, 'invalid_payload');
-    }
-    if ($time < TIME_MIN || $time > TIME_MAX) {
-        fail(400, 'invalid_payload');
-    }
-    // Plausibilität: schneller als MAX_PER_SECOND Punkte je Sekunde kann
-    // niemand dauerhaft klettern.
-    if ($score > MAX_PER_SECOND * $time + SCORE_GRACE) {
+    $ticks = (int) $ticks;
+    if ($ticks < TICKS_MIN || $ticks > TICKS_MAX) {
         fail(400, 'invalid_payload');
     }
 
     return [
         'name'  => sanitizeName($data['name'] ?? null),
-        'score' => $score,
-        'time'  => $time,
+        'map'   => $map,
+        'ticks' => $ticks,
     ];
 }
 
@@ -258,18 +245,24 @@ function checkRate(array $rate, string $key, int $now): array
 // Ablauf
 // ---------------------------------------------------------------------------
 
-/** @param array<int, array<string, mixed>> $scores */
+/** Aufsteigend nach Zeit; bei Gleichstand gewinnt der fruehere Eintrag. */
 function sortScores(array $scores): array
 {
     usort($scores, static function (array $a, array $b): int {
-        $sa = (int) ($a['score'] ?? 0);
-        $sb = (int) ($b['score'] ?? 0);
-        if ($sa !== $sb) {
-            return $sb <=> $sa;
+        $ta = (int) ($a['ticks'] ?? PHP_INT_MAX);
+        $tb = (int) ($b['ticks'] ?? PHP_INT_MAX);
+        if ($ta !== $tb) {
+            return $ta <=> $tb;
         }
         return ((int) ($a['at'] ?? 0)) <=> ((int) ($b['at'] ?? 0));
     });
     return $scores;
+}
+
+/** Nur die Eintraege eines Levels. */
+function forMap(array $scores, string $map): array
+{
+    return array_values(array_filter($scores, static fn($r) => ($r['map'] ?? '') === $map));
 }
 
 function topSlice(array $scores, int $count): array
@@ -281,14 +274,22 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($method === 'GET') {
     $wanted = isset($_GET['top']) ? (int) $_GET['top'] : DEFAULT_TOP;
-    $wanted = max(1, min(MAX_ENTRIES, $wanted));
+    $wanted = max(1, min(MAX_PER_MAP, $wanted));
+    $map = $_GET['map'] ?? '';
+    if (!is_string($map) || preg_match('/^[a-z0-9-]{1,24}$/', $map) !== 1) {
+        // Ohne gueltiges Level gibt es keine Liste - es gibt keine
+        // levelübergreifende Wertung, Zeiten verschiedener Karten sind
+        // nicht vergleichbar.
+        fail(400, 'invalid_map');
+    }
 
     $store = withStore(static fn(array $s): ?array => null);
-    $scores = sortScores($store['scores']);
+    $scores = sortScores(forMap($store['scores'], $map));
 
     respond(200, [
         'ok'     => true,
         'mode'   => 'server',
+        'map'    => $map,
         'count'  => count($scores),
         'scores' => topSlice($scores, $wanted),
     ]);
@@ -320,19 +321,24 @@ $store = withStore(static function (array $s) use ($entry, $now, $key, &$rank, &
         return null;
     }
 
-    $fresh    = ['name' => $entry['name'], 'score' => $entry['score'], 'time' => $entry['time'], 'at' => $now];
-    $scores   = sortScores(array_merge($s['scores'], [$fresh]));
+    $fresh = ['name' => $entry['name'], 'map' => $entry['map'], 'ticks' => $entry['ticks'], 'at' => $now];
+
+    // Je Level wird getrennt sortiert und gekappt; andere Levels bleiben
+    // unberuehrt in der Ablage stehen.
+    $mine   = sortScores(array_merge(forMap($s['scores'], $entry['map']), [$fresh]));
+    $others = array_values(array_filter($s['scores'], static fn($r) => ($r['map'] ?? '') !== $entry['map']));
+
     $position = 0;
-    foreach ($scores as $index => $row) {
-        if (($row['at'] ?? null) === $now && ($row['score'] ?? null) === $entry['score']
+    foreach ($mine as $index => $row) {
+        if (($row['at'] ?? null) === $now && ($row['ticks'] ?? null) === $entry['ticks']
             && ($row['name'] ?? null) === $entry['name']) {
             $position = $index + 1;
             break;
         }
     }
-    $rank = $position > 0 && $position <= MAX_ENTRIES ? $position : 0;
+    $rank = $position > 0 && $position <= MAX_PER_MAP ? $position : 0;
 
-    $s['scores'] = topSlice($scores, MAX_ENTRIES);
+    $s['scores'] = array_merge($others, topSlice($mine, MAX_PER_MAP));
     $s['rate']   = $rate;
     return $s;
 });
@@ -345,5 +351,5 @@ respond(200, [
     'ok'     => true,
     'mode'   => 'server',
     'rank'   => $rank,
-    'scores' => topSlice(sortScores($store['scores']), DEFAULT_TOP),
+    'scores' => topSlice(sortScores(forMap($store['scores'], $entry['map'])), DEFAULT_TOP),
 ]);

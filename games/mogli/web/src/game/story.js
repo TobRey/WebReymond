@@ -1,12 +1,11 @@
 // Die Vorgeschichte in sechs Tafeln.
 //
-// Sie hat zwei Aufgaben, und die zweite ist die wichtigere: Bei einem Spiel
-// mit genau einem Knopf muss irgendwo stehen, was dieser Knopf tut. Statt
-// eines Hilfebildschirms, den niemand liest, erklären es die drei Wesen
-// nebenbei im letzten Absatz. Wer sie überspringt, findet dieselben Sätze
-// unter "Steuerung" im Menü.
+// Sie hat zwei Aufgaben, und die zweite ist die wichtigere: Irgendwo muss
+// stehen, wie man steuert. Statt eines Hilfebildschirms, den niemand liest,
+// erklären es die drei Wesen nebenbei in den letzten Tafeln.
 //
-// Die Texte selbst stehen in i18n.js, hier nur der Ablauf – sonst gäbe es sie
+// Die Texte selbst stehen in i18n.js (seit 3.0 erzählen sie die Reise nach
+// rechts, nicht mehr den Turm), hier nur der Ablauf – sonst gäbe es sie
 // zweimal, einmal je Sprache.
 
 export const STORY = [
@@ -23,4 +22,4 @@ export function nameKey(who) {
   return `story.name.${who}`;
 }
 
-export const STORY_SEEN_KEY = 'mogli.story.v1';
+export const STORY_SEEN_KEY = 'mogli.story.v2';

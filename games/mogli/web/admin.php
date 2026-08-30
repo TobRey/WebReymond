@@ -56,6 +56,22 @@ const MAX_IMAGE_BYTES  = 256 * 1024;
 // Eine Hintergrundebene deckt den ganzen Bildschirm und wiegt entsprechend
 // mehr als ein 32x32-Sprite. Deckt sich mit maxLayerBytes in assetRules.js.
 const MAX_LAYER_BYTES  = 768 * 1024;
+
+// --- Karten (Editor). Deckt sich mit MAP_LIMITS in src/net/mapRules.js. ---
+const MAX_MAPS          = 30;
+const MAX_MAP_ELEMENTS  = 600;
+const MAP_MIN_COLS      = 20;
+const MAP_MAX_COLS      = 600;
+const MAP_MIN_ROWS      = 12;
+const MAP_MAX_ROWS      = 40;
+const MAP_CELLS         = [16, 32, 48];
+const MAP_NAME_MAX      = 24;
+const MAP_NOTE_MAX      = 200;
+const MAX_MAP_BYTES     = 256 * 1024;
+const MAX_MAPS_BYTES    = 2 * 1024 * 1024;
+/** Die Element-Typen aus src/game/elements.js. Ein Test haelt beide Listen zusammen. */
+const MAP_ELEMENT_TYPES = ['ground', 'platform', 'crumble', 'mover', 'spring', 'spikes',
+    'emerald', 'key', 'door', 'portal', 'walker', 'flyer', 'checkpoint', 'flag'];
 const FRAMES_PER_ANIM  = 5;
 const MAX_BG_LAYERS    = 4;
 const MIN_HITBOX       = 4;
@@ -436,12 +452,168 @@ function cleanPack(mixed $input): array
         }
     }
 
+    // --- Elemente ------------------------------------------------------------
+    if (isset($input['elements'])) {
+        if (!is_array($input['elements'])) {
+            fail(400, 'invalid_elements');
+        }
+        $cleanElements = [];
+        foreach ($input['elements'] as $type => $entry) {
+            if (!in_array($type, MAP_ELEMENT_TYPES, true)) {
+                fail(400, 'unknown_element', (string) $type);
+            }
+            if (!is_array($entry)) {
+                fail(400, 'invalid_element', $type);
+            }
+            $out = [];
+            if (isset($entry['image'])) {
+                $out['image'] = checkImage($entry['image'], (string) $type);
+            }
+            if (isset($entry['box'])) {
+                $out['box'] = checkBox($entry['box'], 4096, 'invalid_box', (string) $type);
+            }
+            if ($out !== []) {
+                $cleanElements[$type] = $out;
+            }
+        }
+        if ($cleanElements !== []) {
+            $pack['elements'] = $cleanElements;
+        }
+    }
+
     $size = strlen((string) json_encode($pack));
     if ($size > MAX_PACK_BYTES) {
         fail(413, 'pack_too_large', (string) $size);
     }
 
     return $pack;
+}
+
+/**
+ * Prueft und bereinigt die Kartensammlung.
+ *
+ * Wie ueberall gilt: massgeblich ist DIESE Pruefung, die im Editor ist die
+ * freundliche Vorpruefung. Die Eigenschaften je Element werden hier nur grob
+ * gefasst (kurze Skalare); ihre Bedeutung prueft das Spiel beim Laden noch
+ * einmal ueber mapRules.js - ein unsinniger Wert kann also gespeichert
+ * werden, aber nichts kaputt machen.
+ */
+function cleanMaps(mixed $input): array
+{
+    if (!is_array($input) || !array_is_list($input)) {
+        fail(400, 'invalid_maps');
+    }
+    if (count($input) > MAX_MAPS) {
+        fail(400, 'too_many_maps');
+    }
+
+    $maps = [];
+    $ids  = [];
+    foreach ($input as $rawMap) {
+        if (!is_array($rawMap)) {
+            fail(400, 'invalid_map');
+        }
+        $id = $rawMap['id'] ?? null;
+        if (!is_string($id) || preg_match('/^[a-z0-9-]{1,24}$/', $id) !== 1 || isset($ids[$id])) {
+            fail(400, 'invalid_id');
+        }
+        $ids[$id] = true;
+
+        $name = is_string($rawMap['name'] ?? null) ? trim($rawMap['name']) : '';
+        $name = mb_substr(preg_replace('/[\x00-\x1f]/u', '', $name) ?? '', 0, MAP_NAME_MAX);
+        if ($name === '') {
+            fail(400, 'invalid_name');
+        }
+
+        $cols = $rawMap['cols'] ?? null;
+        $rows = $rawMap['rows'] ?? null;
+        $cell = $rawMap['cell'] ?? null;
+        if (!isInt($cols, MAP_MIN_COLS, MAP_MAX_COLS) || !isInt($rows, MAP_MIN_ROWS, MAP_MAX_ROWS)
+            || !in_array($cell, MAP_CELLS, true)) {
+            fail(400, 'invalid_size', $id);
+        }
+
+        $spawn = $rawMap['spawn'] ?? null;
+        if (!is_array($spawn) || !isInt($spawn['x'] ?? null, 0, $cols - 1)
+            || !isInt($spawn['y'] ?? null, 0, $rows - 1)) {
+            fail(400, 'invalid_spawn', $id);
+        }
+
+        $rawElements = $rawMap['elements'] ?? null;
+        if (!is_array($rawElements) || !array_is_list($rawElements)) {
+            fail(400, 'invalid_elements', $id);
+        }
+        if (count($rawElements) > MAX_MAP_ELEMENTS) {
+            fail(400, 'too_many_elements', $id);
+        }
+
+        $elements = [];
+        $seen     = [];
+        $flags    = 0;
+        foreach ($rawElements as $raw) {
+            if (!is_array($raw)) {
+                fail(400, 'invalid_element', $id);
+            }
+            $eid  = $raw['id'] ?? null;
+            $type = $raw['type'] ?? null;
+            if (!is_string($eid) || preg_match('/^[a-z0-9-]{1,24}$/', $eid) !== 1 || isset($seen[$eid])) {
+                fail(400, 'invalid_element_id', $id);
+            }
+            $seen[$eid] = true;
+            if (!in_array($type, MAP_ELEMENT_TYPES, true)) {
+                fail(400, 'unknown_type', (string) $type);
+            }
+            if ($type === 'flag') {
+                $flags += 1;
+            }
+            $x = $raw['x'] ?? null;
+            $y = $raw['y'] ?? null;
+            $w = $raw['w'] ?? 1;
+            $h = $raw['h'] ?? 1;
+            if (!isInt($x, 0, $cols - 1) || !isInt($y, 0, $rows - 1)
+                || !isInt($w, 1, $cols) || !isInt($h, 1, $rows)
+                || $x + $w > $cols || $y + $h > $rows) {
+                fail(400, 'element_out_of_bounds', $type);
+            }
+
+            $note = is_string($raw['note'] ?? null) ? trim($raw['note']) : '';
+            $note = mb_substr(preg_replace('/[\x00-\x1f]/u', '', $note) ?? '', 0, MAP_NOTE_MAX);
+
+            $props = [];
+            if (is_array($raw['props'] ?? null)) {
+                foreach ($raw['props'] as $key => $value) {
+                    if (!is_string($key) || preg_match('/^[a-zA-Z]{1,16}$/', $key) !== 1) {
+                        continue;
+                    }
+                    if (is_int($value) || is_float($value) || is_bool($value)) {
+                        $props[$key] = $value;
+                    } elseif (is_string($value) && preg_match('/^[a-z0-9-]{0,24}$/', $value) === 1) {
+                        $props[$key] = $value;
+                    }
+                }
+            }
+
+            $elements[] = ['id' => $eid, 'type' => $type, 'x' => $x, 'y' => $y,
+                'w' => $w, 'h' => $h, 'props' => (object) $props, 'note' => $note];
+        }
+
+        if ($flags !== 1) {
+            fail(400, 'needs_one_flag', $id);
+        }
+
+        $map = ['version' => 1, 'id' => $id, 'name' => $name, 'cols' => $cols, 'rows' => $rows,
+            'cell' => $cell, 'spawn' => ['x' => $spawn['x'], 'y' => $spawn['y']],
+            'elements' => $elements];
+        if (strlen((string) json_encode($map)) > MAX_MAP_BYTES) {
+            fail(400, 'map_too_large', $id);
+        }
+        $maps[] = $map;
+    }
+
+    if (strlen((string) json_encode($maps)) > MAX_MAPS_BYTES) {
+        fail(400, 'maps_too_large');
+    }
+    return $maps;
 }
 
 // ---------------------------------------------------------------------------
@@ -483,6 +655,23 @@ if ($action === 'save') {
         return $store;
     });
     respond(200, ['ok' => true, 'bytes' => strlen((string) json_encode($pack))]);
+}
+
+if ($action === 'maps_load') {
+    $store = withStore('maps.json', static fn(array $s): ?array => null);
+    respond(200, ['ok' => true, 'maps' => is_array($store['maps'] ?? null) ? $store['maps'] : []]);
+}
+
+if ($action === 'maps_save') {
+    $maps = cleanMaps($data['maps'] ?? null);
+    withStore('maps.json', static function (array $store) use ($maps): array {
+        $store['version'] = 1;
+        $store['updated'] = time();
+        $store['maps']    = $maps;
+        return $store;
+    });
+    respond(200, ['ok' => true, 'count' => count($maps),
+        'bytes' => strlen((string) json_encode($maps))]);
 }
 
 if ($action === 'clear') {

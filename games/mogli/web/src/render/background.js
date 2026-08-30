@@ -292,33 +292,28 @@ export function buildBackground() {
 }
 
 /**
- * Zeichnet eine Ebene so oft untereinander, dass sie den Bildschirm füllt.
+ * Zeichnet eine Ebene so oft NEBENEINANDER, dass sie den Bildschirm füllt.
  *
- * HIER STAND EIN FEHLER
- * Vorher lief die Schleife nur nach oben: sie malte die Ebene an ihrer
- * Position und einmal darüber. Solange jede Ebene mindestens so hoch war wie
- * das Bild, fiel das nicht auf. Setzt man aber ein eigenes Bild ein, das
- * niedriger ist – ein Foto im Verhältnis 1:2 wird bei 256 Pixeln Breite 534
- * hoch, der Bildschirm ist bis zu 640 –, dann blieb unten ein Streifen leer.
- * Gemeldet wurde das als „ist nur oben im Bild und deckt nicht alles ab".
+ * Seit 3.0 läuft das Spiel seitwärts, also läuft auch die Parallaxe
+ * seitwärts: der Versatz kommt aus der waagerechten Kameralage. Die Ebene
+ * wird auf Bildhöhe gebracht (Verhältnis bleibt) und waagerecht wiederholt.
  *
- * Jetzt wird von der ersten Kachel oberhalb des Bildes bis unter den unteren
- * Rand gemalt. Die Breite wird dabei aufs Bild gezogen und die Höhe im
- * Verhältnis mitgenommen, damit eine Ebene, die nicht genau 256 breit ist,
- * nicht gestaucht wird.
+ * Die Lehre aus 2.2.1 gilt weiter, nur um 90 Grad gedreht: gemalt wird von
+ * der ersten Kachel LINKS des Bildes bis über den rechten Rand – eine Ebene,
+ * die schmaler ist als das Bild, darf keinen Streifen frei lassen.
  */
 function tiled(ctx, canvas, offset, alpha) {
-  const breite = canvas.width || VIEW_W;
-  const hoehe = Math.max(1, Math.round((canvas.height || VIEW_H) * (VIEW_W / breite)));
+  const srcH = canvas.height || VIEW_H;
+  const breite = Math.max(1, Math.round((canvas.width || VIEW_W) * (VIEW_H / srcH)));
 
   // Positiver Rest, auch bei negativen Versätzen.
-  const y = ((offset % hoehe) + hoehe) % hoehe;
-  let oben = Math.round(y);
-  while (oben > 0) oben -= hoehe;
+  const x = ((offset % breite) + breite) % breite;
+  let links = Math.round(x);
+  while (links > 0) links -= breite;
 
   ctx.globalAlpha = alpha;
-  for (let top = oben; top < VIEW_H; top += hoehe) {
-    ctx.drawImage(canvas, 0, top, VIEW_W, hoehe);
+  for (let left = links; left < VIEW_W; left += breite) {
+    ctx.drawImage(canvas, left, 0, breite, VIEW_H);
   }
   ctx.globalAlpha = 1;
 }
@@ -327,11 +322,8 @@ function tiled(ctx, canvas, offset, alpha) {
  * Zeichnet eine Ebene einmal, formatfüllend – der stehende Hintergrund.
  *
  * Eine Ebene mit Tempo 0 bewegt sich nicht; sie zu wiederholen ergäbe keinen
- * Sinn, sondern nur eine sichtbare Naht quer durchs Bild. Sie wird deshalb so
- * vergrössert, dass sie den Bildschirm ganz ausfüllt, und mittig beschnitten.
- * Das Seitenverhältnis eines Handys ist nicht das eines Fotos – irgendetwas
- * muss weichen, und ein Rand fällt mehr auf als ein fehlender Streifen am
- * Bildrand.
+ * Sinn, sondern nur eine sichtbare Naht. Sie wird so vergrössert, dass sie
+ * den Bildschirm ganz ausfüllt, und mittig beschnitten.
  */
 function cover(ctx, canvas, alpha) {
   const faktor = Math.max(VIEW_W / canvas.width, VIEW_H / canvas.height);
@@ -345,23 +337,20 @@ function cover(ctx, canvas, alpha) {
 /**
  * @param {CanvasRenderingContext2D} ctx
  * @param {ReturnType<typeof buildBackground>} bg
- * @param {number} cameraY Weltkoordinate der oberen Bildkante (negativ beim Klettern).
- * @param {number} heightPx
+ * @param {number} cameraX Weltkoordinate der linken Bildkante.
  */
-export function drawBackground(ctx, bg, cameraY, heightPx) {
-  const [top, bottom] = hazeColors(heightPx);
+export function drawBackground(ctx, bg, cameraX) {
+  const [top, bottom] = hazeColors(0);
   const gradient = ctx.createLinearGradient(0, 0, 0, VIEW_H);
   gradient.addColorStop(0, top);
   gradient.addColorStop(1, bottom);
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
-  // cameraY wird beim Klettern negativ, deshalb das Minus: die Ebenen sollen
-  // nach unten wandern, wenn man steigt.
   for (const layer of bg.layers) {
     // Tempo 0 heisst: steht still. Dann ist es ein Hintergrundbild und keine
-    // mitlaufende Ebene - es füllt den Bildschirm, statt sich zu wiederholen.
+    // mitlaufende Ebene – es füllt den Bildschirm, statt sich zu wiederholen.
     if (layer.speed === 0) cover(ctx, layer.canvas, layer.alpha ?? 1);
-    else tiled(ctx, layer.canvas, -cameraY * layer.speed, layer.alpha ?? 1);
+    else tiled(ctx, layer.canvas, -cameraX * layer.speed, layer.alpha ?? 1);
   }
 }

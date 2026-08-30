@@ -565,3 +565,201 @@ input[type='number'] {
   border-style: solid;
   border-color: var(--hc-accent);
 }
+
+/* --- Reiter "Elemente" ---------------------------------------------------- */
+
+.elements {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin: 0 0 14px;
+}
+
+.element {
+  background: var(--hc-surface);
+  border: 1px solid var(--hc-border);
+  border-radius: var(--hc-radius);
+  padding: 12px;
+}
+
+.element h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.element__row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 8px 0;
+}
+
+.element__view {
+  image-rendering: pixelated;
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  background: repeating-conic-gradient(var(--hc-surface-2) 0% 25%, var(--hc-surface) 0% 50%) 0 0 /
+    16px 16px;
+  border: 1px dashed var(--hc-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.element__view--filled {
+  border-style: solid;
+  border-color: var(--hc-accent-strong);
+}
+
+.element__box {
+  image-rendering: pixelated;
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  background: var(--hc-surface-2);
+  border: 1px solid var(--hc-border);
+  border-radius: 6px;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+/* --- Reiter "Karten": der Editor ------------------------------------------ */
+
+.panel--wide {
+  max-width: none;
+}
+
+.edit__bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 10px;
+}
+
+.edit__spacer {
+  flex: 1;
+}
+
+.edit__size {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--hc-muted);
+}
+
+.edit__size input,
+.edit__size select,
+.edit__bar select {
+  background: var(--hc-surface-2);
+  border: 1px solid var(--hc-border);
+  border-radius: 6px;
+  color: var(--hc-text);
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+.edit__size input {
+  width: 70px;
+}
+
+.edit {
+  display: grid;
+  grid-template-columns: 170px 1fr 220px;
+  gap: 10px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .edit {
+    grid-template-columns: 1fr;
+  }
+}
+
+.edit__palette {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.edit__tool {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--hc-border);
+  border-radius: 7px;
+  background: var(--hc-surface);
+  color: var(--hc-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.edit__tool--active {
+  border-color: var(--hc-accent);
+  background: var(--hc-surface-2);
+}
+
+.edit__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.edit__rule {
+  border: 0;
+  border-top: 1px solid var(--hc-border);
+  margin: 6px 0;
+}
+
+.edit__canvasWrap {
+  overflow: auto;
+  max-height: 70vh;
+  border: 1px solid var(--hc-border);
+  border-radius: var(--hc-radius);
+  background: #0a1512;
+}
+
+#editorCanvas {
+  display: block;
+  image-rendering: pixelated;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.edit__props {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--hc-surface);
+  border: 1px solid var(--hc-border);
+  border-radius: var(--hc-radius);
+  padding: 12px;
+  min-height: 120px;
+}
+
+.edit__props h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.edit__props textarea {
+  background: var(--hc-surface-2);
+  border: 1px solid var(--hc-border);
+  border-radius: 6px;
+  color: var(--hc-text);
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+  resize: vertical;
+}
+
+.btn--danger {
+  border-color: var(--hc-danger);
+  color: #ffb9a8;
+}

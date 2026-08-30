@@ -1,9 +1,9 @@
-// Einstiegspunkt: verdrahtet Eingabe, Schleife, Darstellung, Story, Menüs und
-// Bestenliste. Der Spielzustand selbst liegt in game/world.js.
+// Einstiegspunkt: verdrahtet Eingabe, Schleife, Darstellung, Story, Menüs,
+// Levelliste und Bestenliste. Der Spielzustand selbst liegt in game/world.js.
 
 import { VERSION } from './version.js';
-import { createWorld, emptyInput } from './game/world.js';
-import { botInput, createBot } from './game/bot.js';
+import { createWorld, emptyInput, formatTicks } from './game/world.js';
+import { demoMap } from './game/map.js';
 import { TILE } from './game/constants.js';
 import { STORY, STORY_SEEN_KEY, nameKey } from './game/story.js';
 import { createLoop } from './engine/loop.js';
@@ -20,7 +20,7 @@ import {
 import { createScene, drawScene, reloadScene, resizeScene } from './render/scene.js';
 import { loadPack } from './render/assets.js';
 import { createHud } from './render/hud.js';
-import { CREATURE_SIZE, buildCreatureAtlas } from './render/creatures.js';
+import { buildCreatureAtlas, CREATURE_SIZE } from './render/creatures.js';
 import {
   createParticles,
   emitCrumble,
@@ -28,22 +28,15 @@ import {
   emitEmerald,
   emitLandDust,
   emitVine,
-  emitWallDust,
   emitWallJump,
   updateParticles,
 } from './render/particles.js';
 import { applyTranslations, getLang, initialLang, onLangChange, setLang, t } from './i18n.js';
 import { guarded, ready, report, watchForErrors } from './engine/crash.js';
 import { readString, writeString } from './engine/storage.js';
-import {
-  fetchTop,
-  getMode,
-  personalBest,
-  probe,
-  rememberPersonalBest,
-  submit,
-} from './net/scores.js';
+import { fetchTop, getMode, probe, submit } from './net/scores.js';
 import { sanitizeName } from './net/scoreRules.js';
+import { bestTicksFor, isUnlocked, loadMaps, rememberResult } from './net/maps.js';
 
 // Ganz oben, vor allem anderen: von hier an landet jeder Fehler sichtbar auf
 // dem Bildschirm statt in einer Konsole, die auf einem Handy niemand sieht.
@@ -55,15 +48,9 @@ const NAME_KEY = 'mogli.name';
  * Holt ein Element und merkt sich, wenn es fehlt.
  *
  * Das passiert genau dann, wenn index.html und main.js aus verschiedenen
- * Ständen kommen – auf einem Webspace der Normalfall, sobald der Browser die
- * eine Datei aus dem Zwischenspeicher nimmt und die andere frisch lädt.
- * Früher lief das Spiel dann in einen TypeError und blieb stumm im Menü
- * stehen, was wie ein kaputter Startknopf aussah.
- *
- * Statt null kommt ein loses Ersatzstück zurück. Es nimmt Zuweisungen und
- * Zuhörer entgegen und tut sonst nichts: die fehlende Kleinigkeit fehlt dann
- * wirklich, aber sie reisst den Start nicht mehr mit. Was fehlt, steht
- * gleich darunter im Meldungsstreifen.
+ * Ständen kommen. Statt null kommt ein loses Ersatzstück zurück: die fehlende
+ * Kleinigkeit fehlt dann wirklich, aber sie reisst den Start nicht mit. Was
+ * fehlt, steht im Meldungsstreifen.
  */
 const missing = [];
 const $ = (id) => {
@@ -82,22 +69,26 @@ const dom = {
   panelPause: $('panelPause'),
   panelOver: $('panelOver'),
   hudRoot: $('hud'),
-  hudHeight: $('hudHeight'),
+  hudTime: $('hudTime'),
   hudEmeralds: $('hudEmeralds'),
-  pressure: $('pressureFill'),
+  pad: $('pad'),
+  padLeft: $('padLeft'),
+  padRight: $('padRight'),
+  padJump: $('padJump'),
   tapHint: $('tapHint'),
   name: $('playerName'),
+  levelList: $('levelList'),
+  mapSource: $('mapSource'),
   storyPortrait: $('storyPortrait'),
   storyWho: $('storyWho'),
   storyText: $('storyText'),
   btnStoryNext: $('btnStoryNext'),
-  overHeight: $('overHeight'),
+  overTime: $('overTime'),
   overEmeralds: $('overEmeralds'),
-  overScore: $('overScore'),
-  overPersonal: $('overPersonal'),
+  overDeaths: $('overDeaths'),
   overBest: $('overBest'),
   overStatus: $('overStatus'),
-  boardMenu: $('boardMenu'),
+  btnNext: $('btnNext'),
   boardOver: $('boardOver'),
   mute: $('mute'),
   full: $('full'),
@@ -113,8 +104,8 @@ if (missing.length > 0) {
 
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// Zuerst die Bildhöhe zum Gerät wählen: Puffer, Hintergrundebenen und die
-// Kamera der Vorschauwelt hängen daran und werden gleich darunter gebaut.
+// Zuerst die Bildhöhe zum Gerät wählen: Puffer und Hintergrundebenen hängen
+// daran und werden gleich darunter gebaut.
 chooseViewHeight(dom.stage);
 
 const buffer = createBuffer();
@@ -124,17 +115,19 @@ const audio = createAudio();
 const particles = createParticles();
 const hud = createHud({
   root: dom.hudRoot,
-  height: dom.hudHeight,
+  time: dom.hudTime,
   emeralds: dom.hudEmeralds,
-  pressure: dom.pressure,
 });
 
 /** @type {'menu'|'story'|'playing'|'paused'|'over'} */
 let state = 'menu';
 let world = null;
-let best = personalBest();
-let submitting = false;
+let maps = [demoMap()];
+let mapsSource = 'builtin';
+let currentIndex = 0;
 let hintShown = false;
+/** true, wenn das Spiel per ?map=… direkt gestartet wurde (Editor-Test). */
+let directTest = false;
 
 // ---------------------------------------------------------------------------
 // Szenenwechsel
@@ -145,6 +138,7 @@ function showPanel(panel) {
     p.hidden = p !== panel;
   }
   dom.overlay.hidden = panel === null;
+  dom.pad.hidden = panel !== null;
 }
 
 function toMenu() {
@@ -152,23 +146,24 @@ function toMenu() {
   world = null;
   hud.hide();
   dom.tapHint.hidden = true;
+  renderLevelList();
   showPanel(dom.panelMenu);
   input.releaseAll();
 }
 
-function startGame() {
+function startGame(index = currentIndex) {
   audio.unlock();
   enterFullscreenOnTouch();
   const name = sanitizeName(dom.name.value);
   dom.name.value = name === 'ANON' ? '' : name;
   writeString(NAME_KEY, name);
 
-  world = createWorld((Date.now() ^ (Math.random() * 0xffffffff)) >>> 0);
+  currentIndex = index;
+  world = createWorld(maps[index]);
   particles.items.length = 0;
   particles.shake = 0;
   state = 'playing';
   hintShown = false;
-  dom.tapHint.dataset.key = '';
   dom.tapHint.textContent = t('misc.tapToStart');
   dom.tapHint.hidden = false;
   hud.invalidate();
@@ -193,29 +188,69 @@ function resumeGame() {
   loop.resetClock();
 }
 
-function endGame() {
+function finishGame() {
   state = 'over';
   hud.hide();
   dom.tapHint.hidden = true;
 
-  const score = world.score;
-  const isBest = rememberPersonalBest(score);
-  if (isBest) best = score;
+  const map = maps[currentIndex];
+  const ticks = world.resultTicks;
+  const isBest = rememberResult(map.id, ticks);
 
-  dom.overHeight.textContent = `${world.metres} ${t('hud.metres')}`;
+  dom.overTime.textContent = formatTicks(ticks);
   dom.overEmeralds.textContent = String(world.player.emeralds);
-  dom.overPersonal.textContent = String(best);
-  dom.overScore.textContent = String(score);
+  dom.overDeaths.textContent = String(world.deaths);
   dom.overBest.hidden = !isBest;
   dom.overStatus.textContent = '';
+  dom.btnNext.hidden = currentIndex + 1 >= maps.length;
   showPanel(dom.panelOver);
   input.releaseAll();
 
-  // Sehr kurze Läufe gar nicht erst senden: der Server weist alles unter drei
-  // Sekunden als unplausibel ab, und eine Fehlermeldung dafür wäre unsinnig.
-  const seconds = Math.round(world.seconds);
-  if (score >= 1 && seconds >= 3) sendScore(score, seconds);
-  else dom.overStatus.textContent = t('over.rankNone');
+  sendTime(map.id, ticks);
+}
+
+// ---------------------------------------------------------------------------
+// Levelliste
+// ---------------------------------------------------------------------------
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className !== undefined) node.className = className;
+  // textContent, nie innerHTML: Kartennamen kommen aus dem Editor.
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function renderLevelList() {
+  dom.levelList.replaceChildren();
+  maps.forEach((map, index) => {
+    const unlocked = isUnlocked(maps, index);
+    const button = el('button', 'level');
+    button.type = 'button';
+    button.disabled = !unlocked;
+    if (!unlocked) button.title = t('menu.locked');
+
+    const best = bestTicksFor(map.id);
+    button.append(
+      el('span', 'level__name', `${index + 1}. ${map.name}`),
+      best !== null
+        ? el('span', 'level__time', formatTicks(best))
+        : el('span', 'level__time level__time--none', unlocked ? t('menu.noTime') : '🔒'),
+    );
+    button.addEventListener('click', () => {
+      audio.unlock();
+      audio.play('ui');
+      if (readString(STORY_SEEN_KEY, '0') === '1') startGame(index);
+      else {
+        currentIndex = index;
+        storyThenPlay = true;
+        toStory();
+      }
+    });
+    dom.levelList.append(button);
+  });
+
+  dom.mapSource.textContent = mapsSource === 'builtin' ? t('menu.editorHint') : '';
 }
 
 // ---------------------------------------------------------------------------
@@ -225,6 +260,9 @@ function endGame() {
 const creatureAtlases = {};
 let storyIndex = 0;
 let storyBlink = 0;
+// Warum die Geschichte gerade offen ist: vor dem ersten Levelstart soll
+// "Überspringen" ins Spiel führen, aus dem Menü heraus zurück ins Menü.
+let storyThenPlay = false;
 
 function creatureAtlas(who) {
   if (creatureAtlases[who] === undefined) creatureAtlases[who] = buildCreatureAtlas(who);
@@ -232,19 +270,24 @@ function creatureAtlas(who) {
 }
 
 function drawPortrait(who, frame) {
-  const ctx = dom.storyPortrait.getContext('2d');
+  const canvas = dom.storyPortrait;
+  const ctx = canvas.getContext('2d');
+  if (ctx === null) return;
   ctx.imageSmoothingEnabled = false;
-  ctx.clearRect(0, 0, CREATURE_SIZE, CREATURE_SIZE);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // buildCreatureAtlas liefert direkt ein Canvas: alle Bilder nebeneinander,
+  // jedes CREATURE_SIZE breit.
+  const atlas = creatureAtlas(who);
   ctx.drawImage(
-    creatureAtlas(who),
+    atlas,
     frame * CREATURE_SIZE,
     0,
     CREATURE_SIZE,
     CREATURE_SIZE,
     0,
     0,
-    CREATURE_SIZE,
-    CREATURE_SIZE,
+    canvas.width,
+    canvas.height,
   );
 }
 
@@ -254,7 +297,6 @@ function showStoryBeat() {
   dom.storyText.textContent = t(beat.text);
   dom.btnStoryNext.textContent =
     storyIndex === STORY.length - 1 ? t('story.play') : t('story.next');
-  storyBlink = 0;
   drawPortrait(beat.who, 0);
 }
 
@@ -275,22 +317,23 @@ function storyNext() {
     showStoryBeat();
   } else {
     writeString(STORY_SEEN_KEY, '1');
-    startGame();
+    if (storyThenPlay) startGame(currentIndex);
+    else toMenu();
   }
 }
 
 function storySkip() {
   writeString(STORY_SEEN_KEY, '1');
-  toMenu();
+  if (storyThenPlay) startGame(currentIndex);
+  else toMenu();
 }
 
 /** Blinzeln der Wesen: alle rund anderthalb Sekunden kurz die Augen zu. */
 function updateStoryPortrait() {
   if (state !== 'story') return;
   storyBlink += 1;
-  const cycle = storyBlink % 96;
-  const frame = cycle > 88 ? 1 : 0;
-  if (cycle === 89 || cycle === 0) drawPortrait(STORY[storyIndex].who, frame);
+  const frame = storyBlink % 90 < 6 ? 1 : 0;
+  drawPortrait(STORY[storyIndex].who, frame);
 }
 
 // ---------------------------------------------------------------------------
@@ -308,42 +351,50 @@ function handleEvents(events) {
       case 'jump':
         audio.play('jump');
         emitLandDust(particles, footX, footY, 0.4);
-        if (!hintShown) {
-          hintShown = true;
-          dom.tapHint.hidden = true;
-        }
-        break;
-      case 'wallJump':
-        audio.play('wallJump');
-        emitWallJump(particles, footX, body.y + body.h / 2, world.player.facing);
-        if (!hintShown) {
-          hintShown = true;
-          dom.tapHint.hidden = true;
-        }
+        hideHint();
         break;
       case 'land':
         audio.play('land');
         emitLandDust(particles, footX, footY, 1);
         break;
-      case 'turn':
-        audio.play('turn');
-        break;
       case 'emerald':
         audio.play('emerald');
         emitEmerald(particles, footX, body.y + body.h / 2);
         break;
-      case 'vine':
+      case 'key':
+      case 'unlock':
+      case 'checkpoint':
+        audio.play('emerald');
+        break;
+      case 'spring':
+      case 'portal':
         audio.play('vine');
         emitVine(particles, footX, body.y);
+        break;
+      case 'stomp':
+        audio.play('wallJump');
+        emitWallJump(particles, footX, footY, world.player.facing);
         break;
       case 'death':
         audio.play('death');
         emitDeath(particles, footX, body.y + body.h / 2);
         break;
+      case 'respawn':
+        loop.resetClock();
+        break;
+      case 'finish':
+        audio.play('emerald');
+        break;
       default:
         break;
     }
   }
+}
+
+function hideHint() {
+  if (hintShown) return;
+  hintShown = true;
+  dom.tapHint.hidden = true;
 }
 
 // ---------------------------------------------------------------------------
@@ -373,6 +424,8 @@ function update() {
     return;
   }
 
+  if (world.started) hideHint();
+
   const events = world.update(inputState);
   handleEvents(events);
 
@@ -380,163 +433,87 @@ function update() {
     emitCrumble(particles, cell.col * TILE, cell.row * TILE);
   }
 
-  if (world.player.sliding && !reducedMotion) {
-    const body = world.player.body;
-    emitWallDust(
-      particles,
-      body.x + (world.player.slideSide > 0 ? body.w : 0),
-      body.y + body.h - 3,
-      world.player.slideSide,
-    );
-  }
-
   updateParticles(particles);
   hud.update(world);
-  updateTapHint();
 
-  if (world.over) endGame();
-}
-
-/** Der Hinweis sagt erst "los", dann "springen", und verschwindet danach. */
-function updateTapHint() {
-  if (hintShown || world === null) return;
-  const key = world.started ? 'misc.tapToJump' : 'misc.tapToStart';
-  if (dom.tapHint.dataset.key !== key) {
-    dom.tapHint.dataset.key = key;
-    dom.tapHint.textContent = t(key);
-  }
+  if (world.finished) finishGame();
 }
 
 function render() {
-  if (world !== null) {
-    drawScene(buffer.ctx, world, scene, particles, { reducedMotion });
-  } else {
-    drawScene(buffer.ctx, previewWorld, scene, previewParticles, { reducedMotion });
-  }
+  drawScene(buffer.ctx, world ?? previewWorld, scene, world ? particles : previewParticles, {
+    reducedMotion,
+  });
   present(dom.screen, buffer.canvas);
 }
 
 const loop = createLoop({ update, render });
 
-// Hinter den Menüs und der Story klettert ein Automat. Ein stehendes Bild wäre
-// die einfachere Lösung, aber eine Vorschau, in der sich etwas bewegt, erklärt
-// das Spiel besser als jede Beschreibung.
+// Hinter den Menüs steht die erste Karte, und ihre Elemente bewegen sich:
+// Plattformen fahren, Gegner patrouillieren. Das erklärt das Spiel besser als
+// ein Standbild – und kostet nichts, die Welt existiert sowieso.
 const previewParticles = createParticles();
-const previewBot = createBot();
+let previewWorld = createWorld(demoMap());
+previewWorld.started = true;
 const previewInput = emptyInput();
-let previewWorld = createWorld(20260829);
 
 function updateAttract() {
-  if (previewWorld.over) {
-    previewWorld = createWorld((Date.now() ^ 0x5eed) >>> 0);
-    previewBot.held = false;
-    previewParticles.items.length = 0;
-    return;
-  }
-  botInput(previewBot, previewWorld, previewInput);
   previewWorld.update(previewInput);
   updateParticles(previewParticles);
 }
 
 // ---------------------------------------------------------------------------
-// Bestenliste
+// Bestenliste (je Level, nach Zeit)
 // ---------------------------------------------------------------------------
 
-// Die Liste steht zweimal in der Seite: im Menü und im Ergebnis. Beide bekommen
-// denselben Inhalt aus einer Quelle – die Daten liegen hier, nicht im DOM.
-const BOARD_LIMIT = 25;
-let boardEntries = [];
-let boardLoading = false;
-
-function el(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className !== undefined) node.className = className;
-  // textContent, nie innerHTML: Namen kommen von fremden Leuten.
-  if (text !== undefined) node.textContent = text;
-  return node;
-}
-
-function renderBoardInto(container) {
+function renderBoardInto(container, entries) {
   const mode = getMode();
-  container.classList.toggle('board--server', mode === 'server');
-  container.classList.toggle('board--local', mode === 'local');
+  container.replaceChildren();
 
-  const head = el('p', 'board__head');
-  const modeBox = el('span', 'board__mode');
-  modeBox.append(
-    el('i', 'board__dot'),
-    el(
-      'span',
-      undefined,
-      boardLoading
-        ? t('board.loading')
-        : mode === 'server'
-          ? t('board.worldwide')
-          : t('board.local'),
-    ),
+  const head = el('div', 'board__head');
+  head.append(
+    el('span', 'board__mode', mode === 'server' ? t('board.worldwide') : t('board.local')),
   );
-  head.append(el('span', undefined, t('menu.leaderboardTitle')), modeBox);
+  container.append(head);
 
   const list = el('ol', 'board__list');
-  if (boardEntries.length === 0) {
+  if (entries.length === 0) {
     list.append(el('li', 'board__empty', t('board.empty')));
-  } else {
-    boardEntries.forEach((entry, index) => {
-      const li = el('li');
-      li.append(
-        el('span', 'board__rank', `${index + 1}.`),
-        el('span', 'board__name', String(entry.name ?? '')),
-        el('span', 'board__score', String(entry.score ?? 0)),
-      );
-      list.append(li);
-    });
   }
+  entries.forEach((entry, index) => {
+    const item = el('li');
+    item.append(
+      el('span', 'board__rank', `${index + 1}.`),
+      el('span', 'board__name', entry.name),
+      el('span', 'board__score', formatTicks(entry.ticks)),
+    );
+    list.append(item);
+  });
+  container.append(list);
 
-  const note = el(
-    'p',
-    'board__note',
-    mode === 'local' ? t('board.localHint') : t('board.forgeable'),
-  );
-
-  container.replaceChildren(head, list, note);
+  if (mode === 'local') container.append(el('p', 'board__note', t('board.localHint')));
 }
 
-function renderBoards() {
-  renderBoardInto(dom.boardMenu);
-  renderBoardInto(dom.boardOver);
-}
-
-async function loadBoard() {
-  boardLoading = true;
-  renderBoards();
-  const result = await fetchTop(BOARD_LIMIT);
-  boardEntries = result.entries;
-  boardLoading = false;
-  renderBoards();
-}
-
-async function sendScore(score, seconds) {
-  if (submitting) return;
-  submitting = true;
+async function sendTime(mapId, ticks) {
   dom.overStatus.textContent = t('over.submitting');
-
-  const result = await submit({ name: sanitizeName(dom.name.value), score, time: seconds });
-  submitting = false;
-  boardEntries = result.entries;
-  renderBoards();
-
-  if (result.ok) {
-    dom.overStatus.textContent =
-      result.rank > 0 ? t('over.submitted', { rank: result.rank }) : t('over.rankNone');
+  const name = sanitizeName(dom.name.value.length > 0 ? dom.name.value : readString(NAME_KEY, ''));
+  const result = await submit(name, mapId, ticks);
+  if (state !== 'over') return;
+  if (result.error !== undefined) {
+    const key = `error.${result.error}`;
+    dom.overStatus.textContent = t('over.submitError').replace(
+      '{reason}',
+      t(key) === key ? t('error.unknown') : t(key),
+    );
   } else {
-    const reasonKey = `error.${result.error ?? 'unknown'}`;
-    const reason = t(reasonKey) === reasonKey ? t('error.unknown') : t(reasonKey);
-    dom.overStatus.textContent = t('over.submitError', { reason });
+    dom.overStatus.textContent =
+      result.rank > 0 ? t('over.submitted').replace('{rank}', String(result.rank)) : '';
   }
+  const top = await fetchTop(mapId, 10);
+  if (state === 'over') renderBoardInto(dom.boardOver, top.entries);
 }
 
 // ---------------------------------------------------------------------------
-// Oberfläche verdrahten
+// Ton, Vollbild, Sprache
 // ---------------------------------------------------------------------------
 
 function toggleMute() {
@@ -546,8 +523,8 @@ function toggleMute() {
 
 /**
  * Auf iPhones gibt es die Vollbild-API nicht. Dort bleibt der Knopf nicht
- * wirkungslos stehen, sondern verschwindet – und das Spiel füllt trotzdem den
- * Bildschirm, weil die Seite selbst genau so hoch ist wie das Fenster.
+ * wirkungslos stehen, sondern verschwindet – und das Spiel füllt trotzdem
+ * den Bildschirm, weil die Seite selbst genau so hoch ist wie das Fenster.
  */
 function fullscreenSupported() {
   const root = document.documentElement;
@@ -561,10 +538,7 @@ function isFullscreen() {
 /**
  * Ein abgelehntes Vollbild ist kein Grund, irgendetwas abzubrechen – aber der
  * Rückgabewert ist nicht überall ein Promise. Das alte webkitRequestFullscreen
- * (Safari auf iPad und Mac, ältere Android-WebViews) gibt undefined zurück;
- * ein .catch() darauf wirft einen TypeError, und zwar in der zweiten Zeile von
- * startGame(). Ergebnis wäre genau das gemeldete Bild: Startknopf gedrückt,
- * nichts passiert.
+ * gibt undefined zurück; ein .catch() darauf wirft (siehe 2.0.1).
  */
 function ignoreRejection(result) {
   if (result !== null && typeof result === 'object' && typeof result.catch === 'function') {
@@ -578,13 +552,6 @@ function enterFullscreen() {
   if (typeof request === 'function') ignoreRejection(request.call(root));
 }
 
-/**
- * Am Handy geht es beim Losspielen von allein ins Vollbild: dort ist das Spiel
- * die ganze Seite, und die Adressleiste nimmt sonst ein Stück davon weg. Am
- * Rechner bleibt es beim Knopf und der Taste F – da will man das Fenster oft
- * behalten. Der Aufruf steht in startGame(), also innerhalb eines Tipps; ohne
- * diese Nutzergeste lehnen Browser das Vollbild ab.
- */
 function enterFullscreenOnTouch() {
   if (isFullscreen() || !fullscreenSupported()) return;
   if (!window.matchMedia('(pointer: coarse)').matches) return;
@@ -609,7 +576,7 @@ function refreshLanguage() {
   dom.version.textContent = `${t('misc.version')} ${VERSION}`;
   updateFullscreenLabel();
   hud.invalidate();
-  renderBoards();
+  if (state === 'menu') renderLevelList();
   if (state === 'story') showStoryBeat();
 }
 
@@ -633,22 +600,23 @@ function bindButtons() {
     const element = $(id);
     if (element === null) return;
     element.addEventListener('click', (event) => {
-      // Gürtel und Hosenträger: die Einblendung ist für den Sprungknopf schon
-      // ein toter Bereich, hier hört der Klick zusätzlich auf.
       event.stopPropagation();
       audio.unlock();
       audio.play('ui');
       fn();
     });
   };
-  click('btnStart', () => (readString(STORY_SEEN_KEY, '0') === '1' ? startGame() : toStory()));
-  click('btnStory', toStory);
+  click('btnStory', () => {
+    storyThenPlay = false;
+    toStory();
+  });
   click('btnStoryNext', storyNext);
   click('btnStorySkip', storySkip);
   click('btnResume', resumeGame);
-  click('btnRestartPause', startGame);
+  click('btnRestartPause', () => startGame());
   click('btnMenuPause', toMenu);
-  click('btnRetry', startGame);
+  click('btnRetry', () => startGame());
+  click('btnNext', () => startGame(currentIndex + 1));
   click('btnMenuOver', toMenu);
 
   dom.mute.addEventListener('click', () => {
@@ -661,7 +629,6 @@ function bindButtons() {
   });
   document.addEventListener('fullscreenchange', () => {
     updateFullscreenLabel();
-    // Die Bühne hat jetzt eine andere Grösse – neu einpassen.
     resizeNow();
   });
 }
@@ -679,18 +646,6 @@ function bindVisibility() {
 
 let resizeNow = () => {};
 
-/**
- * Passt das Bild an die Bühne an – in dieser Reihenfolge, sie hängt zusammen:
- *
- * 1. Bildhöhe zum Seitenverhältnis wählen. Ein Handy ist mehr als doppelt so
- *    hoch wie breit; bei fester Höhe bliebe oben und unten ein schwarzer
- *    Balken, und das Spiel wäre eine Briefmarke in der Mitte.
- * 2. Nur wenn sich die Höhe wirklich geändert hat: Puffer und die
- *    bildhohen Hintergrundebenen neu bauen. Das kostet ein paar Millisekunden
- *    und darf nicht bei jedem Ausfahren der Adressleiste passieren.
- * 3. Ganzzahlig auf den Bildschirm einpassen und sofort ein Bild zeichnen,
- *    damit es zwischen Grössenänderung und nächstem Bild nicht flackert.
- */
 function fitToStage() {
   if (chooseViewHeight(dom.stage).changed) {
     resizeBuffer(buffer);
@@ -701,47 +656,34 @@ function fitToStage() {
 }
 
 /**
- * REIHENFOLGE: erst verdrahten, dann verzieren.
- *
- * Vorher standen hier drei Verzierungen ganz oben (Name eintragen, Rekord
- * anzeigen, Vollbildknopf ein- oder ausblenden). Warf eine davon – etwa weil
- * der Browser eine ältere index.html im Zwischenspeicher hatte, in der ein
- * Element noch fehlte –, dann wurde kein einziger Knopf mehr verdrahtet. Das
- * Menü ist statisches HTML und stand trotzdem tadellos da. Genau das war der
- * gemeldete Fehler: „Auf Starten klicken, es passiert nichts."
- *
- * Deshalb: alles, was auf einen Tipp reagiert, zuerst. Alles Weitere danach
- * und jeder Block für sich abgesichert, damit eine kaputte Kleinigkeit
- * höchstens sich selbst kostet und nicht das ganze Spiel.
+ * REIHENFOLGE: erst verdrahten, dann verzieren – die Lehre aus 2.0.1. Alles,
+ * was auf eine Eingabe reagiert, zuerst; jeder Block für sich abgesichert.
  */
 function boot() {
   guarded('Knöpfe', bindButtons);
-  // Die gesamte Spielfläche ist der Sprungknopf – ausser dort, wo gerade eine
-  // Einblendung liegt. Es gibt keine Knöpfe mehr.
-  guarded('Tippfläche', () => input.bindTapArea(dom.stage, dom.overlay));
+  guarded('Steuerkreuz', () => {
+    input.bindHoldButton(dom.padLeft, 'left');
+    input.bindHoldButton(dom.padRight, 'right');
+    input.bindHoldButton(dom.padJump, 'jump');
+  });
   guarded('Sprachwahl', bindLanguage);
   guarded('Sichtbarkeit', bindVisibility);
   guarded('Ton', () => {
-    // Beim ersten Druck den Ton freischalten (Autoplay-Regel der Browser).
     window.addEventListener('keydown', () => audio.unlock(), { once: true });
     window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
   });
 
-  // Ab hier ist das Menü bedienbar. Der Wachhund in index.html, der sonst kurz
-  // nach dem Laden „konnte nicht geladen werden" meldet, darf jetzt schweigen.
+  // Ab hier ist das Menü bedienbar; der Wachhund in index.html darf schweigen.
   ready();
 
   guarded('Sprache', () => {
     setLang(initialLang());
     applyTranslations(document);
-    // Alles Sprachabhängige einmal setzen: onLangChange hängt zwar schon dran,
-    // aber setLang meldet sich nur, wenn sich die Sprache wirklich ändert.
     refreshLanguage();
   });
 
   guarded('Menütexte', () => {
     dom.name.value = readString(NAME_KEY, '') ?? '';
-    dom.overPersonal.textContent = String(best);
     dom.full.hidden = !fullscreenSupported();
   });
 
@@ -753,19 +695,39 @@ function boot() {
   toMenu();
   loop.start();
 
-  probe().then(() => loadBoard());
+  probe();
+
+  // Karten laden – und erst DANACH auf einen ?map=…-Direktstart reagieren:
+  // der Editor öffnet das Spiel so zum Probespielen.
+  loadMaps().then((result) => {
+    maps = result.maps;
+    mapsSource = result.source;
+    // Die Vorschau hinter dem Menü zeigt die erste echte Karte.
+    previewWorld = createWorld(maps[0]);
+    previewWorld.started = true;
+
+    const wanted = new URLSearchParams(window.location.search).get('map');
+    const index = wanted === null ? -1 : maps.findIndex((m) => m.id === wanted);
+    if (index >= 0) {
+      directTest = true;
+      writeString(STORY_SEEN_KEY, '1');
+      startGame(index);
+    } else if (state === 'menu') {
+      renderLevelList();
+    }
+  });
 
   // Eigene Grafik aus dem Admin-Bereich. Das Spiel läuft dabei schon – ein
-  // Paket darf den Start nicht aufhalten, und wenn es nie kommt (kein PHP,
-  // nichts hochgeladen), bleibt einfach alles, wie es ist.
+  // Paket darf den Start nicht aufhalten.
   loadPack().then((changed) => {
     if (!changed) return;
     reloadScene(scene);
-    // Die Vorschauwelt hinter dem Menü läuft mit der alten Trefferfläche –
-    // eine neue holt sich die geänderten Masse.
-    previewWorld = createWorld((Date.now() ^ 0xa55e7) >>> 0);
     render();
   });
 }
 
 guarded('Start', boot);
+
+// `directTest` ist bewusst exportfrei benutzt – die Variable dokumentiert nur
+// den Zustand für Lesende; der Editor-Test verhält sich sonst wie ein Spiel.
+void directTest;

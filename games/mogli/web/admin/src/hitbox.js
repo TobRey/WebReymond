@@ -7,22 +7,24 @@
 
 /**
  * @param {HTMLCanvasElement} canvas
- * @param {number} size Kantenlänge des Bildes in Pixeln (32 oder 16).
+ * @param {number} _size Historischer Parameter, wird nicht mehr benutzt: seit
+ *   Bilder beliebige Formate haben dürfen, kommt die Grösse je Achse aus dem
+ *   Canvas selbst (ein 24 × 8-Bild braucht zwei verschiedene Massstäbe).
  * @param {() => {x:number,y:number,w:number,h:number}} getBox
  * @param {(box: {x:number,y:number,w:number,h:number}) => void} onChange
  * @returns {() => void} Abmelden.
  */
-export function bindBoxEditor(canvas, size, getBox, onChange) {
+export function bindBoxEditor(canvas, _size, getBox, onChange) {
   let dragFrom = null;
 
-  /** Bildschirmpunkt -> Bildpixel. */
+  /** Bildschirmpunkt -> Bildpixel, je Achse im eigenen Massstab. */
   function toPixel(event) {
     const rect = canvas.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * size;
-    const y = ((event.clientY - rect.top) / rect.height) * size;
+    const x = ((event.clientX - rect.left) / rect.width) * canvas.width;
+    const y = ((event.clientY - rect.top) / rect.height) * canvas.height;
     return {
-      x: Math.max(0, Math.min(size - 1, Math.floor(x))),
-      y: Math.max(0, Math.min(size - 1, Math.floor(y))),
+      x: Math.max(0, Math.min(canvas.width - 1, Math.floor(x))),
+      y: Math.max(0, Math.min(canvas.height - 1, Math.floor(y))),
     };
   }
 
@@ -36,7 +38,11 @@ export function bindBoxEditor(canvas, size, getBox, onChange) {
 
   function onDown(event) {
     if (event.button !== undefined && event.button !== 0) return;
-    canvas.setPointerCapture?.(event.pointerId);
+    try {
+      canvas.setPointerCapture?.(event.pointerId);
+    } catch {
+      // Ohne Fang zieht der Kasten trotzdem, nur ohne Maus-Einfang.
+    }
     dragFrom = toPixel(event);
     onChange(boxBetween(dragFrom, dragFrom));
     event.preventDefault();
@@ -51,7 +57,11 @@ export function bindBoxEditor(canvas, size, getBox, onChange) {
   function onUp(event) {
     if (dragFrom === null) return;
     dragFrom = null;
-    canvas.releasePointerCapture?.(event.pointerId);
+    try {
+      canvas.releasePointerCapture?.(event.pointerId);
+    } catch {
+      // siehe onDown
+    }
   }
 
   canvas.addEventListener('pointerdown', onDown);

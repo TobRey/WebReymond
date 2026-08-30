@@ -35,10 +35,10 @@ function solidRect(level, col, row) {
   return { x: col * TILE + box.x, y: row * TILE + box.y, w: box.w, h: box.h, tile };
 }
 
-/** Nur von oben tragend (Blatt): dieselbe Form, andere Bedingung. */
+/** Nur von oben tragend: dieselbe Form, andere Bedingung. */
 function platformRect(level, col, row) {
   const tile = level.tileAt(col, row);
-  if (tile !== T.LEAF) return null;
+  if (tile !== T.PLATFORM) return null;
   const box = tileBox(tile);
   return { x: col * TILE + box.x, y: row * TILE + box.y, w: box.w, h: box.h, tile };
 }
@@ -140,8 +140,7 @@ function moveY(body, level, dy, result) {
     for (let col = col0; col <= col1; col += 1) {
       let rect = solidRect(level, col, row);
       if (dy > 0 && rect === null) {
-        // Blattplattform: trägt nur von oben. Von unten springt man hindurch,
-        // was den Zickzack an manchen Stellen abkürzt.
+        // Plattform: trägt nur von oben, von unten springt man hindurch.
         const leaf = platformRect(level, col, row);
         if (leaf !== null && bottomBefore <= leaf.y) rect = leaf;
       }
@@ -161,37 +160,6 @@ function moveY(body, level, dy, result) {
       return;
     }
   }
-}
-
-/**
- * An welcher Seite liegt eine greifbare Wand an?
- * @returns {-1|0|1} -1 = links, 1 = rechts, 0 = keine.
- */
-export function wallSide(body, level) {
-  // Etwas oberhalb des Fusses und unterhalb des Kopfes prüfen, damit eine
-  // einzelne Bodenkachel neben den Füssen nicht als Wand zählt.
-  const top = body.y + 2;
-  const bottom = body.y + body.h - 3;
-  const rows = tileSpan(top, bottom);
-
-  // Ein Pixel breite Fühler links und rechts neben dem Körper.
-  const feeler = (x) => ({ x, y: top, w: 1, h: Math.max(1, bottom - top) });
-  const left = feeler(body.x - 1);
-  const right = feeler(body.x + body.w);
-
-  for (const [probe, side] of [
-    [left, -1],
-    [right, 1],
-  ]) {
-    const [col0, col1] = tileSpan(probe.x, probe.x + probe.w);
-    for (let col = col0; col <= col1; col += 1) {
-      for (let row = rows[0]; row <= rows[1]; row += 1) {
-        const rect = solidRect(level, col, row);
-        if (rect !== null && overlaps(probe, rect)) return side;
-      }
-    }
-  }
-  return 0;
 }
 
 /**

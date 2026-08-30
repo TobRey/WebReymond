@@ -19,17 +19,20 @@ import { PHYS, T } from '../game/constants.js';
 import { resetTileBoxes, setTileBox } from '../game/tilebox.js';
 import { packIsEmpty, validatePack } from '../net/assetRules.js';
 
-/** Kachelname im Paket -> Kachelart in der Physik. */
+/**
+ * Kachelname im Paket -> Kachelart in der Physik. Seit 3.0 gibt es nur noch
+ * drei Gitterarten; Stacheln, Smaragde und Ranken sind Elemente mit eigener
+ * Trefferfläche und tauchen hier nicht mehr auf.
+ */
 const TILE_KIND = {
-  STONE_A: T.STONE,
-  STONE_B: T.STONE,
-  BURIED_A: T.STONE,
-  BURIED_B: T.STONE,
+  STONE_A: T.SOLID,
+  STONE_B: T.SOLID,
+  BURIED_A: T.SOLID,
+  BURIED_B: T.SOLID,
   CRUMBLE_0: T.CRUMBLE,
   CRUMBLE_1: T.CRUMBLE,
   CRUMBLE_2: T.CRUMBLE,
-  SPIKE: T.SPIKE,
-  LEAF: T.LEAF,
+  LEAF: T.PLATFORM,
 };
 
 /** Die Trefferfläche, wie sie ohne Paket gilt – zum Zurückstellen. */
@@ -43,6 +46,7 @@ const BUILT_IN_HITBOX = {
 let frames = null; // { [animation]: (HTMLImageElement|null)[] }
 let tiles = null; // { [slotName]: HTMLImageElement }
 let layers = null; // [{ image, speed }]
+let elements = null; // { [type]: { image: HTMLImageElement, box: {x,y,w,h}|null } }
 
 /** Was das Spiel abfragt. Alle drei geben null, wenn nichts eingesetzt ist. */
 export function frameOverride(animation) {
@@ -57,8 +61,28 @@ export function layerOverride() {
   return layers;
 }
 
+/** Eigene Grafik für einen Element-Typ, oder null. */
+export function elementOverride(type) {
+  return elements?.[type]?.image ?? null;
+}
+
+/**
+ * Die eingezeichnete Trefferfläche eines Element-Typs, als ANTEILE des
+ * Bildes (0…1) – oder null für "ganzes Rechteck". Anteile statt Pixel, weil
+ * das Bild beim Zeichnen auf die Elementgrösse gezogen wird.
+ */
+export function elementBoxNorm(type) {
+  const entry = elements?.[type];
+  if (entry === undefined || entry.box === null || entry.image === null) return null;
+  const iw = entry.image.naturalWidth || entry.image.width;
+  const ih = entry.image.naturalHeight || entry.image.height;
+  if (!iw || !ih) return null;
+  const b = entry.box;
+  return { x: b.x / iw, y: b.y / ih, w: b.w / iw, h: b.h / ih };
+}
+
 export function hasPack() {
-  return frames !== null || tiles !== null || layers !== null;
+  return frames !== null || tiles !== null || layers !== null || elements !== null;
 }
 
 /** Lädt ein Bild aus einer Daten-URL. Wirft, wenn es kein Bild ist. */
@@ -93,6 +117,7 @@ export async function applyPack(raw) {
   const nextFrames = {};
   const nextTiles = {};
   const nextLayers = [];
+  const nextElements = {};
   try {
     for (const [name, list] of Object.entries(pack.player?.frames ?? {})) {
       nextFrames[name] = await Promise.all(list.map((url) => (url === null ? null : decode(url))));
@@ -102,6 +127,12 @@ export async function applyPack(raw) {
     }
     for (const layer of pack.background?.layers ?? []) {
       nextLayers.push({ image: await decode(layer.image), speed: layer.speed });
+    }
+    for (const [type, entry] of Object.entries(pack.elements ?? {})) {
+      nextElements[type] = {
+        image: entry.image === undefined ? null : await decode(entry.image),
+        box: entry.box ?? null,
+      };
     }
   } catch (error) {
     console.warn(`Mogli: Grafikpaket unvollständig (${error.message}) – nichts übernommen.`);
@@ -113,6 +144,7 @@ export async function applyPack(raw) {
   if (Object.keys(nextFrames).length > 0) frames = nextFrames;
   if (Object.keys(nextTiles).length > 0) tiles = nextTiles;
   if (nextLayers.length > 0) layers = nextLayers;
+  if (Object.keys(nextElements).length > 0) elements = nextElements;
 
   const hitbox = pack.player?.hitbox;
   if (hitbox !== undefined) applyHitbox(hitbox);
@@ -137,6 +169,7 @@ export function clear() {
   frames = null;
   tiles = null;
   layers = null;
+  elements = null;
   resetTileBoxes();
   applyHitbox(BUILT_IN_HITBOX);
 }
