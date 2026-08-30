@@ -79,6 +79,9 @@ function buildBar(config, state) {
 }
 
 function hoursLeft(expiresAt) {
+  // Der Server schickt einen ISO-Zeitpunkt samt Zeitzone. Fehlt sie
+  // ausnahmsweise, wird er als Ortszeit gelesen – das ist immer noch
+  // besser, als "Z" anzunehmen und um den Zeitversatz danebenzuliegen.
   const end = new Date(expiresAt.replace(' ', 'T')).getTime();
   if (Number.isNaN(end)) return null;
   return Math.max(0, Math.round((end - Date.now()) / 3600000));

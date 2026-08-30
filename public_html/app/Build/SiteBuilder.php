@@ -148,10 +148,13 @@ final class SiteBuilder
         <meta property="og:site_name" content="{$this->esc($brand)}">
 
         <!-- Das Nötigste steht direkt hier: die Seite erscheint sofort
-             fertig gestaltet, ohne auf eine zweite Datei zu warten. -->
+             fertig gestaltet, ohne auf eine zweite Datei zu warten.
+             Das vollständige Stylesheet folgt als gewöhnlicher Verweis.
+             Der bekannte Trick mit media="print" und onload wäre ein
+             Zeilenskript – jede strenge Content-Security-Policy blockt
+             es, und dann bliebe die Seite für immer unformatiert. -->
         <style>{$critical}</style>
-        <link rel="stylesheet" href="assets/css/site.css" media="print" onload="this.media='all'">
-        <noscript><link rel="stylesheet" href="assets/css/site.css"></noscript>
+        <link rel="stylesheet" href="assets/css/site.css">
 
         <script type="application/ld+json">{$schema}</script>
         </head>

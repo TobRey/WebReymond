@@ -22,7 +22,9 @@ final class SettingsController
                 'aiConfigured' => ClaudeClient::isConfigured(),
                 'imprintComplete' => Settings::imprintComplete(),
                 'cronHint' => self::cronLine(),
-                'diagnostics' => self::diagnostics(),
+                'diagnostics' => self::diagnostics([
+                    'actual' => ($request->isSecure() ? 'https://' : 'http://') . $request->host(),
+                ]),
             ]),
         ]))->noCache()->noIndex();
     }
@@ -108,9 +110,29 @@ final class SettingsController
     }
 
     /** Läuft alles, was laufen muss? */
-    private static function diagnostics(): array
+    private static function diagnostics(array $request = []): array
     {
         $checks = [];
+
+        // Stimmt "app_url" nicht mit der Adresse überein, unter der die
+        // Seite wirklich läuft, scheitert jede Herkunftsprüfung – und
+        // damit jedes Formular, ohne dass man den Grund sähe. Genau
+        // deshalb steht dieser Punkt hier ganz oben.
+        $configured = rtrim((string) Config::get('app_url', ''), '/');
+        $actual = rtrim((string) ($request['actual'] ?? ''), '/');
+        $matches = $configured !== '' && $actual !== '' && $configured === $actual;
+
+        $checks[] = [
+            'label' => 'Adresse in der Konfiguration',
+            'ok' => $matches,
+            'value' => $configured === '' ? 'nicht gesetzt' : $configured,
+            'hint' => $matches
+                ? 'Stimmt mit der aufgerufenen Adresse überein.'
+                : 'Die Seite läuft gerade unter ' . ($actual !== '' ? $actual : 'einer anderen Adresse')
+                  . '. Solange beides nicht übereinstimmt, wird jedes Formular abgewiesen. '
+                  . 'In app/config.php unter "app_url" berichtigen – mit oder ohne "www", '
+                  . 'genau so, wie die Seite aufgerufen wird.',
+        ];
 
         $checks[] = [
             'label' => 'PHP-Version',

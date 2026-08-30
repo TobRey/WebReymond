@@ -268,7 +268,7 @@ final class SectionEditor
         }
 
         $before = json_decode((string) $change['before_state'], true);
-        if (!is_array($before) || !isset($before['content'])) {
+        if (!is_array($before) || $before === []) {
             return self::fail('Von dieser Änderung gibt es keinen vorherigen Stand.');
         }
 
@@ -281,16 +281,34 @@ final class SectionEditor
             return self::fail('Der Abschnitt gibt es nicht mehr.');
         }
 
-        $current = [
-            'content' => json_decode((string) $section['content'], true) ?: [],
-            'overrides' => json_decode((string) $section['overrides'], true) ?: [],
-        ];
+        // Zurückgenommen wird genau das, was der Eintrag festgehalten hat.
+        // Ein Sichtbarkeits- oder Reihenfolgewechsel merkt sich kein
+        // Inhaltsabbild – und braucht auch keines.
+        $current = [];
+        $restore = ['updated_at' => Db::now()];
 
-        Db::update('project_sections', [
-            'content' => $before['content'],
-            'overrides' => $before['overrides'] ?? [],
-            'updated_at' => Db::now(),
-        ], 'id = :id AND project_id = :p', [
+        if (isset($before['content'])) {
+            $current['content'] = json_decode((string) $section['content'], true) ?: [];
+            $current['overrides'] = json_decode((string) $section['overrides'], true) ?: [];
+            $restore['content'] = $before['content'];
+            $restore['overrides'] = $before['overrides'] ?? [];
+        }
+
+        if (isset($before['hidden'])) {
+            $current['hidden'] = (bool) $section['hidden'];
+            $restore['hidden'] = $before['hidden'] ? 1 : 0;
+        }
+
+        if (isset($before['sort_order'])) {
+            $current['sort_order'] = (int) $section['sort_order'];
+            $restore['sort_order'] = (int) $before['sort_order'];
+        }
+
+        if (count($restore) === 1) {
+            return self::fail('Von dieser Änderung gibt es keinen vorherigen Stand.');
+        }
+
+        Db::update('project_sections', $restore, 'id = :id AND project_id = :p', [
             'id' => (int) $section['id'],
             'p' => $projectId,
         ]);

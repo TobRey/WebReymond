@@ -147,6 +147,21 @@ final class PreviewController
     }
 
     /** Bearbeitungsbalken und Skript in die Seite einsetzen. */
+    /** Einen Datenbankzeitpunkt als ISO-8601 mit Zeitzone ausgeben. */
+    private static function isoTime(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        try {
+            return (new \DateTimeImmutable($value))->format(\DateTimeInterface::ATOM);
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
     private function injectEditor(string $html, array $project): string
     {
         $data = json_out([
@@ -155,7 +170,10 @@ final class PreviewController
             'token' => Session::csrfToken(),
             'base' => '/' . trim((string) Config::get('create_path', 'create'), '/'),
             'previewBase' => '/vorschau/' . (string) $project['preview_token'] . '/',
-            'expiresAt' => (string) ($project['preview_expires_at'] ?? ''),
+            // Mit Zeitzone, sonst rechnet der Browser mit seiner eigenen:
+            // Der Server schreibt Zürcher Zeit, ein Browser in UTC läse
+            // sie als UTC und käme auf zwei Stunden zu viel.
+            'expiresAt' => self::isoTime((string) ($project['preview_expires_at'] ?? '')),
         ]);
 
         $css = Assets::url('editor.css');

@@ -271,9 +271,15 @@ final class Renderer
         if (preg_match('#^(https?:|mailto:|tel:|/|\#|\./)#i', $url)) {
             return $url;
         }
-        // Ohne erkennbares Schema als seiteninterner Verweis behandeln.
+        // Ohne erkennbares Schema ein seiteninterner Verweis – und der
+        // bleibt relativ. Eine erzeugte Website besteht aus flachen
+        // Dateien in einem Verzeichnis; relative Verweise funktionieren
+        // deshalb von jeder Seite aus. Ein vorangestelltes "/" würde sie
+        // an die Wurzel der Domain binden und damit überall dort brechen,
+        // wo die Seite nicht dort liegt: in der Vorschau unter
+        // /vorschau/<kennung>/ und bei jeder Installation im Unterordner.
         if (preg_match('/^[a-zA-Z0-9._~\/-]+$/', $url)) {
-            return '/' . ltrim($url, '/');
+            return ltrim($url, '/');
         }
         return '#';
     }

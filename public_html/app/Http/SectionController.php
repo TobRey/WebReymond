@@ -252,6 +252,20 @@ final class SectionController
             'updated_at' => Db::now(),
         ], 'id = :id', ['id' => (int) $section['id']]);
 
+        // Auch das gehört ins Protokoll: Ein verschwundener Abschnitt
+        // ist genauso eine Änderung wie ein umgeschriebener Text – und
+        // muss sich genauso zurücknehmen lassen.
+        SectionEditor::log(
+            (int) $section['project_id'],
+            (int) $section['id'],
+            'manual',
+            (string) (Session::user()['username'] ?? ''),
+            '',
+            $hidden ? 'Abschnitt ausgeblendet.' : 'Abschnitt wieder eingeblendet.',
+            ['hidden' => $hidden],
+            ['hidden' => !$hidden]
+        );
+
         $this->refresh((int) $section['project_id']);
 
         return Response::json(['ok' => true, 'hidden' => $hidden])->noCache();
@@ -293,6 +307,17 @@ final class SectionController
             Db::update('project_sections', ['sort_order' => $index],
                 'id = :id', ['id' => (int) $siblings[$target]['id']]);
         });
+
+        SectionEditor::log(
+            (int) $section['project_id'],
+            (int) $section['id'],
+            'manual',
+            (string) (Session::user()['username'] ?? ''),
+            '',
+            $direction === -1 ? 'Abschnitt nach oben verschoben.' : 'Abschnitt nach unten verschoben.',
+            ['sort_order' => $target],
+            ['sort_order' => $index]
+        );
 
         $this->refresh((int) $section['project_id']);
 
