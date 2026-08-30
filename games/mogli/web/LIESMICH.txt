@@ -1,4 +1,4 @@
-Mogli - Tempelflucht 2.0.2
+Mogli - Tempelflucht 2.0.3
 ==========================
 
 Ein Jump'n'Run fuer den Browser. Ein Knopf, immer nach oben.
@@ -128,7 +128,12 @@ NEUE FASSUNG HOCHGELADEN UND ES SIEHT AUS WIE VORHER?
     3. Notfalls die Adresse mit einem Anhaengsel aufrufen:
          https://deine-domain.tld/mogli/?neu=1
 
-  Damit das gar nicht erst passiert, liegt eine .htaccess im Hauptordner. Sie
+  Ab Fassung 2.0.3 kann das eigentlich nicht mehr vorkommen: jede Code-Datei
+  wird mit ihrer Versionsnummer angefordert, ein alter Eintrag im
+  Zwischenspeicher wird also gar nicht mehr getroffen. In den Fassungen davor
+  hing die Nummer nur an einer einzigen Datei - das war der Fehler.
+
+  Zusaetzlich liegt eine .htaccess im Hauptordner. Sie
   sagt Apache, dass index.html nicht zwischengespeichert werden darf, und setzt
   fuer .js-Dateien den richtigen Typ - bei falschem Typ fuehrt kein Browser die
   Module aus, ohne einen Fehler zu zeigen. Bei nginx stehen die entsprechenden
@@ -281,7 +286,12 @@ UPLOADED A NEW VERSION AND IT LOOKS THE SAME?
     3. If all else fails, call the address with a suffix:
          https://your-domain.tld/mogli/?neu=1
 
-  To stop this happening at all, an .htaccess sits in the main folder. It tells
+  From version 2.0.3 on this should not happen any more: every code file is
+  requested with its version number, so a stale cache entry can no longer be
+  hit. In earlier versions the number was attached to a single file only - that
+  was the bug.
+
+  In addition, an .htaccess sits in the main folder. It tells
   Apache not to cache index.html, and sets the correct type for .js files - with
   the wrong type no browser executes the modules, and none of them says so. The
   nginx equivalent is a comment in the same file.

@@ -45,8 +45,8 @@ nicht laden – die Seite bliebe leer. Es braucht immer einen Webserver.
 web/                     genau dieser Baum landet in der ZIP-Datei
   index.html             Seite, Menüs, Story-Tafeln, Fänger für Startfehler
   pruefung.html          prüft den Server, wenn das Spiel nicht anläuft
+  .htaccess              HTML und Code nicht zwischenspeichern, MIME für .js
   style.css              Gestaltung, --hc-* als einzige Farbquelle des Rahmens
-  .htaccess              kein Zwischenspeicher für HTML, MIME-Typ für .js
   score.php              Bestenliste: flache JSON-Datei, kein SQL
   admin.php              Admin-Bereich: Anmeldung, Grafikpaket schreiben
   assets.php             gibt das Grafikpaket an das Spiel heraus
@@ -160,6 +160,14 @@ fertig geladen, ohne dass sich das Spiel als bedienbar gemeldet hat, erscheint d
 allein. In `boot()`
 wird deshalb erst verdrahtet und dann verziert: eine kaputte Kleinigkeit kostet höchstens sich
 selbst. Näheres in [0015](../../docs/decisions/0015-startfehler-werden-sichtbar.md).
+
+**Die Version hängt an jeder Modul-Adresse.** `index.html` enthält eine `importmap`, erzeugt von
+`tools/make-importmap.mjs`. Vorher trug nur `main.js` ein `?v=`; die 31 Dateien darunter wurden
+unter ihrer blanken Adresse geholt und kamen damit aus dem Zwischenspeicher des Browsers — eine
+neue Seite traf auf alte Module, und das Spiel blieb stumm im Menü stehen. Wer unter `src/` eine
+Datei anlegt oder umbenennt, lässt das Werkzeug einmal laufen; `test/dom.test.mjs` erzwingt es
+und prüft auch die Reihenfolge im HTML (eine `importmap` nach dem ersten Modul-Skript wird
+verworfen).
 
 **Die Prüfseite.** `pruefung.html` gehört nicht zum Spiel: sie prüft den Server vom Gerät des
 Nutzers aus und sagt im Klartext, was nicht stimmt – ausgelieferte Fassung, jede JS-Datei auf

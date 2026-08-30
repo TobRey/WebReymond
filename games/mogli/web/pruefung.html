@@ -377,15 +377,23 @@
           fertig();
           return;
         }
-        // Eine Datei ohne Nebenwirkungen: sie zieht den halben Spielcode mit,
-        // startet aber nichts. Scheitert sie, steht der Grund gleich hier.
+        // DIE ENTSCHEIDENDE PRUEFUNG.
+        //
+        // Oben wurde jede Datei per XHR geholt – mit angehängtem Zeitstempel,
+        // also garantiert frisch vom Server. Der Modul-Lader dagegen holt sie
+        // unter der blanken Adresse, und das kann etwas völlig anderes sein:
+        // der Stand, der im Zwischenspeicher des Browsers liegt.
+        //
+        // Genau diese Lücke war der Fehler. Deshalb wird version.js hier auf
+        // beiden Wegen geladen und verglichen. Weichen die Zahlen ab, ist es
+        // bewiesen und nicht mehr geraten.
         var s = document.createElement('script');
         s.type = 'module';
         s.textContent =
           "import('" +
           basis +
-          "src/game/constants.js').then(function (m) {" +
-          "  window.__ergebnis = 'ok ' + Object.keys(m).length + ' Werte geladen';" +
+          "src/version.js').then(function (m) {" +
+          "  window.__ergebnis = 'ok ' + m.VERSION;" +
           '}).catch(function (e) {' +
           "  window.__ergebnis = 'FEHLER ' + (e && e.message ? e.message : e);" +
           '});';
@@ -395,10 +403,31 @@
           runden += 1;
           if (window.__ergebnis) {
             clearInterval(uhr);
-            if (window.__ergebnis.indexOf('ok') === 0)
-              zeile('ok', 'Spielcode ausführbar: ' + window.__ergebnis);
-            else zeile('bad', 'Spielcode nicht ausführbar: ' + window.__ergebnis);
-            fertig();
+            if (window.__ergebnis.indexOf('ok') !== 0) {
+              zeile('bad', 'Spielcode nicht ausführbar: ' + window.__ergebnis);
+              fertig();
+              return;
+            }
+            var geladen = window.__ergebnis.slice(3);
+            zeile('ok', 'Spielcode ausführbar, geladene Fassung: ' + geladen);
+            // Und dieselbe Datei noch einmal, aber garantiert frisch vom Server.
+            hol('src/version.js', function (st, ty, txt) {
+              var t = txt.match(/VERSION = '([^']+)'/);
+              var aufDemServer = t ? t[1] : '?';
+              if (aufDemServer === geladen) {
+                zeile('ok', 'Server und Browser benutzen dieselbe Fassung (' + geladen + ')');
+              } else {
+                zeile(
+                  'bad',
+                  'ZWISCHENSPEICHER: Auf dem Server liegt Fassung ' +
+                    aufDemServer +
+                    ', der Browser benutzt aber ' +
+                    geladen +
+                    '. Das ist der Grund, warum beim Starten nichts passiert. Abhilfe: Einstellungen › Safari › Verlauf und Websitedaten löschen.',
+                );
+              }
+              fertig();
+            });
           } else if (runden > 60) {
             clearInterval(uhr);
             zeile('bad', 'Spielcode nicht ausführbar: keine Antwort nach 6 Sekunden.');

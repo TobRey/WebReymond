@@ -67,6 +67,15 @@ Vier Dinge, in dieser Reihenfolge nach Wichtigkeit:
    ein echter `import()`. Sie ist bewusst in altem JavaScript geschrieben und lädt nichts nach –
    sonst könnte sie genau den Fall nicht melden, für den es sie gibt. Ein Test hält das fest.
 
+6. **Die Version an JEDER Modul-Adresse, per `importmap`.** Nachgereicht in 2.0.3, nachdem der
+   Bericht der Prüfseite vom Gerät zurückkam. Punkt 4 war nämlich halb falsch: `?v=` hing nur an
+   `main.js`, die 31 Dateien darunter wurden unter ihrer blanken Adresse geholt — und meine
+   eigene `.htaccess` sagte dem Browser gleichzeitig, `.js` sieben Tage lang nicht mehr
+   nachzufragen, während `index.html` auf `no-cache` stand. Neue Seite, eine Woche alte Module.
+   Das ist keine Vermutung: im Browser nebeneinander nachgestellt (siehe unten). Behoben durch
+   eine von `tools/make-importmap.mjs` erzeugte `importmap` — und `.js`/`.css` stehen jetzt
+   ebenfalls auf „jedes Mal nachfragen".
+
 ## Begründung
 
 Punkt 2 bis 4 beheben drei benennbare Ursachen. Punkt 1 ist trotzdem der wichtigste, weil er
@@ -88,6 +97,17 @@ Prüfseite fragt deshalb den Server selbst.
   Endpunkt, Zustimmung und eine Datenschutzerklärung. Für ein Spiel ohne Datenbank zu viel.
 - **`console.error` und gut.** Genau das war der Zustand vorher.
 
+## Nachweis für Punkt 6
+
+Ein Server, der `.js` sieben Tage aufheben lässt (wie meine alte `.htaccess`), zweimal besucht:
+erst mit der alten, dann mit der neuen Fassung. Der Zwischenspeicher bleibt dazwischen bestehen,
+wie auf einem echten Gerät.
+
+| Schema | erster Besuch | zweiter Besuch |
+|---|---|---|
+| alt — nur `main.js?v=` | 2.0.2 | **2.0.2** (der Browser nimmt das alte Modul) |
+| neu — `importmap` | 2.0.3 | 9.9.9 |
+
 ## Konsequenzen
 
 - Ein Startfehler ist ab jetzt aus der Ferne diagnostizierbar, ohne das Gerät in der Hand zu
@@ -95,7 +115,11 @@ Prüfseite fragt deshalb den Server selbst.
 - Ein fehlendes Element macht das Spiel nicht mehr unbedienbar, sondern nur unvollständig.
 - Der Preis: zwei Stellen, die den Streifen zeichnen (das Skript in `index.html` und
   `engine/crash.js`). Das ist unvermeidlich – die eine muss ohne die andere auskommen.
-- Zwei neue Tests: die Version in der Modul-Adresse muss zu `version.js` passen, und der
+- Ein alter Stand im Zwischenspeicher kann nicht mehr getroffen werden, ohne dass jemand etwas
+  löschen muss — und es hängt auch nicht daran, ob der Hoster die `.htaccess` beachtet.
+- `index.html` enthält einen erzeugten Block. Wer eine Datei unter `src/` anlegt oder umbenennt,
+  muss `tools/make-importmap.mjs` laufen lassen; ein Test erzwingt das.
+- Drei neue Tests: die Version in der Modul-Adresse muss zu `version.js` passen, und der
   Streifen muss samt seiner `display: none`-Regel im HTML und CSS vorhanden sein.
 
 ## Wiedervorlage

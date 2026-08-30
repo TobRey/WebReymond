@@ -19,6 +19,7 @@ import { dirname, join } from 'node:path';
 
 import { DICT } from '../web/src/i18n.js';
 import { VERSION } from '../web/src/version.js';
+import { moduleDateien } from '../tools/make-importmap.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const webDir = join(here, '..', 'web');
@@ -117,6 +118,38 @@ test('der Meldungsstreifen ist im HTML vollständig angelegt', () => {
   // der Streifen stünde bei jedem Start da. Genau diese Falle hat hier schon
   // zweimal zugeschlagen.
   assert.match(read('style.css'), /\.crash\[hidden\]\s*\{\s*display:\s*none/);
+});
+
+test('die importmap nennt jede Moduldatei mit der aktuellen Version', () => {
+  // Sie ist der Grund, warum ein alter Stand im Zwischenspeicher nicht mehr
+  // getroffen werden kann. Fehlt eine Datei darin, wird genau die wieder unter
+  // ihrer blanken Adresse geholt - und ein einziges altes Modul reicht, damit
+  // das Spiel stumm im Menue stehen bleibt. Das war der gemeldete Fehler.
+  const gefunden = new Map(
+    matchAll(html, /"\.\/(src\/[^"]+\.js)":\s*"[^"]*"/g).map((datei) => [datei, true]),
+  );
+  const erwartet = moduleDateien(webDir);
+  assert.deepEqual(
+    [...gefunden.keys()].sort(),
+    [...erwartet].sort(),
+    'importmap und Dateien auf der Platte weichen ab - node games/mogli/tools/make-importmap.mjs',
+  );
+
+  for (const ziel of matchAll(html, /"\.\/src\/[^"]+\.js":\s*"\.\/[^"?]+\?v=([^"]+)"/g)) {
+    assert.equal(ziel, VERSION, `die importmap zeigt auf ?v=${ziel}, das Spiel ist ${VERSION}`);
+  }
+  assert.equal(
+    matchAll(html, /"\.\/src\/[^"]+\.js":\s*"\.\/[^"?]+\?v=([^"]+)"/g).length,
+    erwartet.length,
+    'in der importmap fehlt an einem Ziel das ?v=',
+  );
+
+  // Die Reihenfolge im HTML ist keine Kosmetik: eine importmap nach dem ersten
+  // Modul-Skript wird vom Browser verworfen.
+  assert.ok(
+    html.indexOf('type="importmap"') < html.indexOf('type="module"'),
+    'die importmap muss vor dem Modul-Skript stehen',
+  );
 });
 
 test('die Pruefseite bleibt in altem JavaScript', () => {

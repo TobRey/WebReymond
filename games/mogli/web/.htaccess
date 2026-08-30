@@ -8,7 +8,7 @@
 # Bei nginx gehört stattdessen in die Serverkonfiguration:
 #
 #   location = /index.html { add_header Cache-Control "no-cache"; }
-#   location ~* \.js$      { types { text/javascript js; } expires 7d; }
+#   location ~* \.(js|css)$ { types { text/javascript js; } add_header Cache-Control "no-cache"; }
 #
 # Wer weder das eine noch das andere setzen kann: es geht auch ohne. Die
 # Modul-Adresse in index.html trägt die Versionsnummer (src/main.js?v=…), damit
@@ -43,12 +43,25 @@
 # Ohne das erscheinen Umlaute in den Texten als Fragezeichen.
 AddDefaultCharset UTF-8
 
-# --- 4. Alles ausser HTML darf zwischengespeichert werden -------------------
-# Grafik und Code ändern sich selten, und die Modul-Adresse trägt die Version.
+# --- 4. Code jedes Mal nachfragen lassen -----------------------------------
+# Hier stand einmal "sieben Tage aufheben". Das war ein Fehler, und zwar genau
+# der, gegen den diese Datei helfen sollte: index.html wurde nicht
+# zwischengespeichert, die .js-Dateien schon – eine neue Seite traf also auf
+# eine Woche alte Module und blieb stumm im Menü stehen.
+#
+# "no-cache" heisst nicht "jedes Mal neu laden", sondern "jedes Mal kurz
+# nachfragen". Hat sich nichts geändert, antwortet der Server mit 304 und ein
+# paar Byte. Das ist bei 32 kleinen Dateien nicht spürbar und immer richtig.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
 <IfModule mod_expires.c>
   ExpiresActive On
-  ExpiresByType text/javascript "access plus 7 days"
-  ExpiresByType text/css "access plus 7 days"
   ExpiresByType image/png "access plus 30 days"
   ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType text/javascript "access plus 0 seconds"
+  ExpiresByType text/css "access plus 0 seconds"
 </IfModule>
