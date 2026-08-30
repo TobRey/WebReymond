@@ -8,6 +8,7 @@ import type { Config } from './config.js';
 import type { Db } from './db.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerHealthRoutes } from './routes/health.js';
+import { registerPixelRoutes } from './routes/pixel.js';
 
 export interface ServerDeps {
   config: Config;
@@ -81,6 +82,7 @@ export async function buildServer({ config, db }: ServerDeps): Promise<FastifyIn
 
   await registerHealthRoutes(app, config);
   await registerAuthRoutes(app, auth);
+  await registerPixelRoutes(app, config);
 
   /**
    * Einheitliche Fehlerantworten. Interne Details bleiben im Log,

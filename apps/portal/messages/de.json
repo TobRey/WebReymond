@@ -98,5 +98,36 @@
     "signOut": "Abmelden",
     "comingSoonTitle": "Hier entsteht dein Hosting",
     "comingSoonDescription": "Domains, Websites, Dateien und Datenbanken folgen in den nächsten Phasen."
+  },
+  "pixelArt": {
+    "title": "Pixel-Figur erstellen",
+    "intro": "Beschreibe eine Figur, wähle die Grösse und lass sie zeichnen. Danach ein Klick auf eine Bewegung – daraus entsteht ein GIF.",
+    "promptLabel": "Beschreibung der Figur",
+    "promptHint": "Kurz und deutlich, zum Beispiel Beruf, Kleidung und Farben.",
+    "promptPlaceholder": "Ritter in blauer Rüstung mit rotem Umhang",
+    "sizeLabel": "Grösse",
+    "sizeDefault": "(Standard)",
+    "create": "Figur zeichnen",
+    "creating": "Wird gezeichnet …",
+    "animationsTitle": "Animation",
+    "animationsHint": "Die Bewegung zeigt dieselbe Figur. In Klammern steht die Anzahl der Bilder.",
+    "animationsLocked": "Zuerst eine Figur zeichnen lassen – danach lässt sie sich bewegen.",
+    "animations": {
+      "walk": "Laufen",
+      "idle": "Stehen",
+      "jump": "Springen",
+      "wave": "Winken"
+    },
+    "characterTitle": "Figur",
+    "animationTitle": "Animation",
+    "empty": "Noch keine Figur.",
+    "emptyAnimation": "Noch keine Animation.",
+    "download": "Als GIF herunterladen",
+    "errors": {
+      "network": "Keine Verbindung zum Server. Bitte später erneut versuchen.",
+      "rateLimited": "Zu viele Anfragen in kurzer Zeit. Bitte einen Moment warten.",
+      "unavailable": "Das Werkzeug ist auf diesem Server nicht eingerichtet.",
+      "generic": "Das hat leider nicht geklappt. Bitte noch einmal versuchen."
+    }
   }
 }

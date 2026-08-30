@@ -48,6 +48,7 @@ pnpm dev                     # Portal + API starten
 | http://localhost:3000/de/registrieren | Konto erstellen |
 | http://localhost:3000/de/anmelden | Anmelden |
 | http://localhost:3000/de/dashboard | Kundenbereich (nur angemeldet) |
+| http://localhost:3000/de/pixel-art | Pixel-Figuren zeichnen und animieren |
 
 Beenden mit **Strg + C**, danach `pnpm db:down`.
 
@@ -61,6 +62,23 @@ Beenden mit **Strg + C**, danach `pnpm db:down`.
 | `pnpm db:migrate` | Datenbankänderung erzeugen und einspielen |
 | `pnpm db:deploy` | Migrationen auf einem Server einspielen |
 | `pnpm db:studio` | Datenbank im Browser ansehen |
+
+## Pixel-Art-Werkzeug
+
+Unter `/de/pixel-art` beschreibt man eine Figur, wählt die Grösse (Standard
+32 × 64 Pixel) und lässt sie zeichnen. Ein Klick auf eine Bewegung – Laufen,
+Stehen, Springen, Winken – erzeugt daraus sechs bis acht Bilder und daraus ein
+GIF.
+
+Wie es funktioniert:
+
+- Claude liefert die Figur nicht als Bild, sondern als Raster aus Zeichen plus
+  Farbpalette. So sitzt jedes Pixel genau dort, wo es hingehört.
+- Aus dem Raster baut der Browser das GIF selbst
+  (`apps/portal/src/lib/gif.ts`) – ohne zusätzliche Bibliothek.
+- Dafür braucht die API einen `ANTHROPIC_API_KEY` in der `.env`. Fehlt er,
+  läuft alles andere normal weiter und nur dieses Werkzeug meldet, dass es
+  nicht eingerichtet ist.
 
 ## Aufbau des Repositories
 

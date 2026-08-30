@@ -26,3 +26,26 @@ export {
   type ApiError,
   ApiErrorCode,
 } from './api.js';
+
+export {
+  TRANSPARENT_KEY,
+  SPRITE_SIZES,
+  DEFAULT_SPRITE_SIZE,
+  ANIMATIONS,
+  animationIdSchema,
+  framesForAnimation,
+  type AnimationId,
+  spritePaletteSchema,
+  type SpritePalette,
+  spriteFrameSchema,
+  type SpriteFrame,
+  spriteSchema,
+  type Sprite,
+  promptSchema,
+  characterRequestSchema,
+  type CharacterRequest,
+  animationRequestSchema,
+  type AnimationRequest,
+  spriteResponseSchema,
+  type SpriteResponse,
+} from './pixel.js';

@@ -1,3 +1,5 @@
+import type { AnimationRequest, CharacterRequest, Sprite } from '@webheaven/shared';
+
 /**
  * Schmaler Zugang zur WebHeaven-API.
  *
@@ -49,6 +51,14 @@ export interface Me {
 
 export const api = {
   me: () => request<Me>('/v1/me'),
+
+  /** Pixel-Werkzeug: eine Figur nach Beschreibung zeichnen lassen. */
+  pixelCharacter: (input: CharacterRequest) =>
+    request<Sprite>('/v1/pixel/character', { method: 'POST', body: JSON.stringify(input) }),
+
+  /** Pixel-Werkzeug: dieselbe Figur als Bewegungsablauf. */
+  pixelAnimation: (input: AnimationRequest) =>
+    request<Sprite>('/v1/pixel/animation', { method: 'POST', body: JSON.stringify(input) }),
 
   signUp: (input: { name: string; email: string; password: string }) =>
     request('/api/auth/sign-up/email', { method: 'POST', body: JSON.stringify(input) }),

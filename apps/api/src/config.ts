@@ -32,6 +32,14 @@ const envSchema = z.object({
    * Totalausfall der Sicherheit. Erzeugen mit: openssl rand -base64 48
    */
   AUTH_SECRET: z.string().min(32, 'AUTH_SECRET muss mindestens 32 Zeichen lang sein'),
+
+  /**
+   * Schlüssel für das Pixel-Art-Werkzeug (Claude).
+   *
+   * Optional: Fehlt er, startet die API normal und nur dieses eine Werkzeug
+   * meldet, dass es nicht eingerichtet ist.
+   */
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
 });
 
 export type Config = z.infer<typeof envSchema> & { version: string };
