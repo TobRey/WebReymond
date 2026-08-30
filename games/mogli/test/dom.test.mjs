@@ -19,7 +19,7 @@ import { dirname, join } from 'node:path';
 
 import { DICT } from '../web/src/i18n.js';
 import { VERSION } from '../web/src/version.js';
-import { moduleDateien } from '../tools/make-importmap.mjs';
+import { SEITEN, modulBaum } from '../tools/make-importmap.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const webDir = join(here, '..', 'web');
@@ -120,36 +120,65 @@ test('der Meldungsstreifen ist im HTML vollständig angelegt', () => {
   assert.match(read('style.css'), /\.crash\[hidden\]\s*\{\s*display:\s*none/);
 });
 
-test('die importmap nennt jede Moduldatei mit der aktuellen Version', () => {
+test('JEDE Seite mit Modulen hat eine importmap mit der aktuellen Version', () => {
   // Sie ist der Grund, warum ein alter Stand im Zwischenspeicher nicht mehr
   // getroffen werden kann. Fehlt eine Datei darin, wird genau die wieder unter
   // ihrer blanken Adresse geholt - und ein einziges altes Modul reicht, damit
-  // das Spiel stumm im Menue stehen bleibt. Das war der gemeldete Fehler.
-  const gefunden = new Map(
-    matchAll(html, /"\.\/(src\/[^"]+\.js)":\s*"[^"]*"/g).map((datei) => [datei, true]),
-  );
-  const erwartet = moduleDateien(webDir);
-  assert.deepEqual(
-    [...gefunden.keys()].sort(),
-    [...erwartet].sort(),
-    'importmap und Dateien auf der Platte weichen ab - node games/mogli/tools/make-importmap.mjs',
-  );
+  // die Seite stumm stehenbleibt.
+  //
+  // "JEDE Seite" steht hier gross, weil der erste Anlauf nur das Spiel
+  // abgedeckt hat. Der Admin-Bereich ist ein eigenes Dokument und behielt den
+  // Fehler: sein GIF-Knopf war nach dem Hochladen nicht da, weil der Browser
+  // den alten admin/src/main.js weiterbenutzte. Dieser Test lief damals gruen.
+  assert.ok(SEITEN.length >= 2, 'es werden nicht alle Seiten geprüft');
 
-  for (const ziel of matchAll(html, /"\.\/src\/[^"]+\.js":\s*"\.\/[^"?]+\?v=([^"]+)"/g)) {
-    assert.equal(ziel, VERSION, `die importmap zeigt auf ?v=${ziel}, das Spiel ist ${VERSION}`);
+  for (const seite of SEITEN) {
+    const html = read(...seite.html.split('/'));
+    const eintraege = [...html.matchAll(/"([^"]+\.js)":\s*"([^"]+)"/g)];
+    const schluessel = eintraege.map((m) => m[1]).sort();
+
+    // Erwartet: genau der Modulbaum dieser Seite, als Pfade relativ zu ihr.
+    const basis = seite.html.includes('/') ? seite.html.replace(/\/[^/]+$/, '') : '';
+    const erwartet = modulBaum(seite.einstieg, webDir)
+      .map((datei) => {
+        if (basis === '') return `./${datei}`;
+        const teile = datei.startsWith(`${basis}/`)
+          ? `./${datei.slice(basis.length + 1)}`
+          : `../${datei}`;
+        return teile;
+      })
+      .sort();
+    assert.deepEqual(
+      schluessel,
+      erwartet,
+      `${seite.html}: importmap und Modulbaum weichen ab - node games/mogli/tools/make-importmap.mjs`,
+    );
+
+    for (const [, schluessel_, ziel] of eintraege) {
+      assert.equal(
+        ziel,
+        `${schluessel_}?v=${VERSION}`,
+        `${seite.html}: ${schluessel_} zeigt auf ${ziel}, das Spiel ist ${VERSION}`,
+      );
+    }
+
+    // Die Einstiegsdatei selbst laeuft nicht ueber die Tabelle - sie braucht
+    // die Version direkt am script-Tag.
+    const tag = html.match(/<script type="module" src="([^"]+)"/);
+    assert.ok(tag !== null, `${seite.html}: kein Modul-Skript gefunden`);
+    assert.ok(
+      tag[1].endsWith(`?v=${VERSION}`),
+      `${seite.html}: das Modul-Skript laedt ${tag[1]} statt ?v=${VERSION}`,
+    );
+
+    // Die Reihenfolge im HTML ist keine Kosmetik: eine importmap nach dem
+    // ersten Modul-Skript wird vom Browser verworfen.
+    assert.ok(
+      html.indexOf('type="importmap"') >= 0 &&
+        html.indexOf('type="importmap"') < html.indexOf('type="module"'),
+      `${seite.html}: die importmap muss vor dem Modul-Skript stehen`,
+    );
   }
-  assert.equal(
-    matchAll(html, /"\.\/src\/[^"]+\.js":\s*"\.\/[^"?]+\?v=([^"]+)"/g).length,
-    erwartet.length,
-    'in der importmap fehlt an einem Ziel das ?v=',
-  );
-
-  // Die Reihenfolge im HTML ist keine Kosmetik: eine importmap nach dem ersten
-  // Modul-Skript wird vom Browser verworfen.
-  assert.ok(
-    html.indexOf('type="importmap"') < html.indexOf('type="module"'),
-    'die importmap muss vor dem Modul-Skript stehen',
-  );
 });
 
 test('die Pruefseite bleibt in altem JavaScript', () => {

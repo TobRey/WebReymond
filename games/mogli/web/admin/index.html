@@ -148,6 +148,43 @@
       <p style="padding: 1rem">Der Admin-Bereich braucht JavaScript.</p>
     </noscript>
 
-    <script type="module" src="src/main.js"></script>
+    <!--
+      Wie beim Spiel: jede Modul-Adresse traegt die Versionsnummer, sonst
+      holt der Browser die Dateien darunter aus seinem Zwischenspeicher.
+      Erzeugt von tools/make-importmap.mjs, nicht von Hand pflegen.
+    -->
+    <!-- importmap:anfang -->
+    <script type="importmap">
+      {
+        "imports": {
+          "./src/hitbox.js": "./src/hitbox.js?v=2.1.1",
+          "./src/main.js": "./src/main.js?v=2.1.1",
+          "./src/preview.js": "./src/preview.js?v=2.1.1",
+          "./src/sheet.js": "./src/sheet.js?v=2.1.1",
+          "./src/store.js": "./src/store.js?v=2.1.1",
+          "../src/game/bot.js": "../src/game/bot.js?v=2.1.1",
+          "../src/game/constants.js": "../src/game/constants.js?v=2.1.1",
+          "../src/game/hazard.js": "../src/game/hazard.js?v=2.1.1",
+          "../src/game/level.js": "../src/game/level.js?v=2.1.1",
+          "../src/game/physics.js": "../src/game/physics.js?v=2.1.1",
+          "../src/game/player.js": "../src/game/player.js?v=2.1.1",
+          "../src/game/rng.js": "../src/game/rng.js?v=2.1.1",
+          "../src/game/tilebox.js": "../src/game/tilebox.js?v=2.1.1",
+          "../src/game/world.js": "../src/game/world.js?v=2.1.1",
+          "../src/net/assetRules.js": "../src/net/assetRules.js?v=2.1.1",
+          "../src/render/assets.js": "../src/render/assets.js?v=2.1.1",
+          "../src/render/background.js": "../src/render/background.js?v=2.1.1",
+          "../src/render/frames.js": "../src/render/frames.js?v=2.1.1",
+          "../src/render/gif.js": "../src/render/gif.js?v=2.1.1",
+          "../src/render/palette.js": "../src/render/palette.js?v=2.1.1",
+          "../src/render/particles.js": "../src/render/particles.js?v=2.1.1",
+          "../src/render/scene.js": "../src/render/scene.js?v=2.1.1",
+          "../src/render/sprites.js": "../src/render/sprites.js?v=2.1.1",
+          "../src/render/tiles.js": "../src/render/tiles.js?v=2.1.1"
+        }
+      }
+    </script>
+    <!-- importmap:ende -->
+    <script type="module" src="src/main.js?v=2.1.1"></script>
   </body>
 </html>

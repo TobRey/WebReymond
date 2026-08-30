@@ -1,4 +1,4 @@
-Mogli - Tempelflucht 2.1.0
+Mogli - Tempelflucht 2.1.1
 ==========================
 
 Ein Jump'n'Run fuer den Browser. Ein Knopf, immer nach oben.

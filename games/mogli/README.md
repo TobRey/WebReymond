@@ -176,13 +176,16 @@ beweist, hält `tools/gif-gegenprobe.mjs` beide gegen **Chromiums eigenen `Image
 vergleicht Pixel für Pixel – verschränkte Zeilen, Teilbilder, Durchsichtigkeit, beide
 Räum-Verfahren, lange LZW-Ketten.
 
-**Die Version hängt an jeder Modul-Adresse.** `index.html` enthält eine `importmap`, erzeugt von
+**Die Version hängt an jeder Modul-Adresse — auf jeder Seite.** `index.html` und
+`admin/index.html` enthalten je eine `importmap`, erzeugt von
 `tools/make-importmap.mjs`. Vorher trug nur `main.js` ein `?v=`; die 31 Dateien darunter wurden
 unter ihrer blanken Adresse geholt und kamen damit aus dem Zwischenspeicher des Browsers — eine
-neue Seite traf auf alte Module, und das Spiel blieb stumm im Menü stehen. Wer unter `src/` eine
-Datei anlegt oder umbenennt, lässt das Werkzeug einmal laufen; `test/dom.test.mjs` erzwingt es
-und prüft auch die Reihenfolge im HTML (eine `importmap` nach dem ersten Modul-Skript wird
-verworfen).
+neue Seite traf auf alte Module, und das Spiel blieb stumm im Menü stehen. Eine `importmap` gilt je **Dokument**, nicht je Ordner: der erste Anlauf erfasste nur das Spiel,
+und der Admin-Bereich behielt den Fehler, bis dort eine neue Funktion nach dem Hochladen nicht
+auftauchte. Die Tabellen entstehen deshalb aus dem tatsächlichen **Modulbaum** der jeweiligen
+Einstiegsdatei, nicht aus einer Verzeichnisliste. Wer eine Datei anlegt oder umbenennt, lässt das
+Werkzeug einmal laufen; `test/dom.test.mjs` erzwingt es für **jede** Seite und prüft auch die
+Reihenfolge im HTML (eine `importmap` nach dem ersten Modul-Skript wird verworfen).
 
 **Die Prüfseite.** `pruefung.html` gehört nicht zum Spiel: sie prüft den Server vom Gerät des
 Nutzers aus und sagt im Klartext, was nicht stimmt – ausgelieferte Fassung, jede JS-Datei auf

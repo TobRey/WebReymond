@@ -76,6 +76,14 @@ Vier Dinge, in dieser Reihenfolge nach Wichtigkeit:
    eine von `tools/make-importmap.mjs` erzeugte `importmap` — und `.js`/`.css` stehen jetzt
    ebenfalls auf „jedes Mal nachfragen".
 
+7. **Dieselbe Tabelle für den Admin-Bereich.** Punkt 6 hatte in 2.0.3 nur `index.html` erfasst.
+   Eine `importmap` gilt je **Dokument**, nicht je Ordner – `admin/index.html` lud sein Modul
+   weiterhin ohne Version, und der Admin-Bereich behielt den Fehler unverändert. Aufgefallen ist
+   das erst, als eine neue Funktion dort nach dem Hochladen schlicht nicht da war. Seit 2.1.1
+   erzeugt `tools/make-importmap.mjs` für jede Seite eine eigene Tabelle, und zwar aus ihrem
+   tatsächlichen Modulbaum statt aus einer Verzeichnisliste: was eine Seite lädt, kann so nicht
+   mehr vergessen werden. Der Test läuft jetzt über **alle** Seiten.
+
 ## Begründung
 
 Punkt 2 bis 4 beheben drei benennbare Ursachen. Punkt 1 ist trotzdem der wichtigste, weil er
@@ -107,6 +115,15 @@ wie auf einem echten Gerät.
 |---|---|---|
 | alt — nur `main.js?v=` | 2.0.2 | **2.0.2** (der Browser nimmt das alte Modul) |
 | neu — `importmap` | 2.0.3 | 9.9.9 |
+
+Und für Punkt 7 dasselbe mit dem Admin-Bereich: erst den Stand vor der neuen Funktion besuchen,
+dann die neue Fassung ausliefern.
+
+| Stand auf dem Server | GIF-Knöpfe im Admin |
+|---|---|
+| 2.0.3 (vor der Funktion) | 0 |
+| 2.1.0 — Tabelle nur im Spiel | **0** (der Browser nimmt das alte Modul) |
+| 2.1.1 — Tabelle auch im Admin | 8 |
 
 ## Konsequenzen
 
