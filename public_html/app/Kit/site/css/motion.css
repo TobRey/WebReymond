@@ -1,0 +1,24 @@
+/**
+ * Bewegung auf der Kundenwebsite.
+ *
+ * Bewusst dezent: die Seiten sollen ruhig wirken und schnell sein.
+ * Ohne JavaScript ist alles sofort sichtbar – nichts bleibt versteckt.
+ */
+
+.js [data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 1.5rem, 0);
+  transition: opacity 700ms var(--c-ease), transform 700ms var(--c-ease);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+
+.js [data-reveal].is-in { opacity: 1; transform: none; }
+
+/* Bilder blenden weich auf, sobald sie geladen sind */
+img { transition: opacity 400ms var(--c-ease); }
+img[loading='lazy']:not(.is-loaded) { opacity: 0.01; }
+img[loading='lazy'].is-loaded { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  img[loading='lazy'] { opacity: 1 !important; }
+}
