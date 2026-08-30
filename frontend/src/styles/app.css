@@ -1,0 +1,13 @@
+/**
+ * WebAtze – Haupt-Stylesheet
+ *
+ * Reihenfolge ist wichtig: erst Tokens, dann Grundlagen, dann Aufbau,
+ * dann Bausteine, dann Abschnitte, zuletzt Bewegung.
+ */
+
+@import './tokens.css';
+@import './base.css';
+@import './layout.css';
+@import './components.css';
+@import './sections.css';
+@import './motion.css';

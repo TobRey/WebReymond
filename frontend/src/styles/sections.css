@@ -1,0 +1,707 @@
+/**
+ * Die einzelnen Abschnitte der Startseite.
+ */
+
+/* ================================================================== */
+/* Hero                                                                */
+/* ================================================================== */
+
+.wa-hero {
+  position: relative;
+  display: grid;
+  align-items: center;
+  min-block-size: 100svh;
+  padding-block: calc(var(--wa-header-h) + clamp(3rem, 8vh, 6rem)) clamp(4rem, 10vh, 8rem);
+  overflow: clip;
+}
+
+.wa-hero__inner { position: relative; z-index: 2; }
+
+.wa-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wa-space-2);
+  padding: 0.42rem 0.9rem 0.42rem 0.5rem;
+  border: 1px solid var(--wa-border);
+  border-radius: var(--wa-radius-full);
+  background: var(--wa-surface-glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-size: var(--wa-text-xs);
+  font-weight: var(--wa-weight-medium);
+  color: var(--wa-text-muted);
+  letter-spacing: 0.02em;
+}
+
+.wa-hero__badge-dot {
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 50%;
+  background: var(--wa-success);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--wa-success) 70%, transparent);
+  animation: wa-pulse 2.4s var(--wa-ease-out) infinite;
+}
+
+@keyframes wa-pulse {
+  70%  { box-shadow: 0 0 0 0.55rem transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.wa-hero__title {
+  margin-block-start: var(--wa-space-5);
+  font-size: var(--wa-text-hero);
+  font-weight: var(--wa-weight-black);
+  line-height: var(--wa-leading-none);
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+/* Jede Zeile wird einzeln enthüllt */
+.wa-hero__line {
+  display: block;
+  overflow: hidden;
+}
+
+.wa-hero__line > span {
+  display: block;
+  transform: translateY(105%);
+  animation: wa-line-up 1.05s var(--wa-ease-out) forwards;
+  animation-delay: calc(var(--i, 0) * 105ms + 180ms);
+}
+
+@keyframes wa-line-up {
+  to { transform: translateY(0); }
+}
+
+.wa-hero__line--accent > span {
+  background: var(--wa-gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* Rückfall, falls background-clip fehlt: dann bleibt der Text sichtbar */
+  -webkit-text-fill-color: transparent;
+}
+
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  .wa-hero__line--accent > span {
+    color: var(--wa-accent);
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
+.wa-hero__lead {
+  max-width: 34rem;
+  margin-block-start: var(--wa-space-6);
+  font-size: var(--wa-text-lg);
+  color: var(--wa-text-muted);
+}
+
+.wa-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wa-space-3);
+  margin-block-start: var(--wa-space-7);
+}
+
+.wa-hero__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wa-space-2) var(--wa-space-5);
+  margin-block-start: var(--wa-space-6);
+  padding-block-start: var(--wa-space-4);
+  border-block-start: 1px solid var(--wa-border);
+  list-style: none;
+}
+
+.wa-hero__badges li {
+  display: flex;
+  align-items: center;
+  gap: var(--wa-space-2);
+  font-size: var(--wa-text-sm);
+  color: var(--wa-text-muted);
+}
+
+.wa-hero__badges li::before {
+  content: '';
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+  flex-shrink: 0;
+  background-color: var(--wa-secondary);
+  -webkit-mask: var(--wa-check-mask) center / contain no-repeat;
+  mask: var(--wa-check-mask) center / contain no-repeat;
+}
+
+/* Scroll-Hinweis unten */
+.wa-hero__scroll {
+  position: absolute;
+  inset-block-end: clamp(0.75rem, 2vh, 1.5rem);
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--wa-space-2);
+  font-size: var(--wa-text-xs);
+  letter-spacing: var(--wa-tracking-wide);
+  text-transform: uppercase;
+  color: var(--wa-text-faint);
+  text-decoration: none;
+  z-index: 3;
+}
+
+/* Auf kleinen oder flachen Bildschirmen fehlt dem Hinweis der Platz –
+   dort würde er die Vorteilsliste überlagern. */
+@media (max-width: 48rem), (max-height: 46rem) {
+  .wa-hero__scroll { display: none; }
+}
+
+.wa-hero__scroll-line {
+  inline-size: 1px;
+  block-size: 2.75rem;
+  background: linear-gradient(to bottom, var(--wa-secondary), transparent);
+  animation: wa-scroll-hint 2.2s var(--wa-ease-in-out) infinite;
+  transform-origin: top;
+}
+
+@keyframes wa-scroll-hint {
+  0%   { transform: scaleY(0); opacity: 0; }
+  35%  { transform: scaleY(1); opacity: 1; }
+  100% { transform: scaleY(1) translateY(2.75rem); opacity: 0; }
+}
+
+@media (min-width: 62rem) {
+  /* Der Container bleibt voll breit und mittig – nur sein Inhalt wird
+     schmal gehalten, damit die 3D-Szene rechts Platz bekommt. Würde man
+     den Container selbst schmal machen, zöge margin-inline:auto ihn in
+     die Mitte und der Text stünde nicht mehr an der Fluchtlinie. */
+  .wa-hero__inner > * { max-width: 36rem; }
+
+  /* Die Schlagzeile darf breiter sein als der Fliesstext, sonst bricht
+     die letzte Zeile um und schiebt alles Weitere nach unten. */
+  .wa-hero__title { max-width: 46rem; }
+}
+
+/* Damit der Text vor der 3D-Szene sicher lesbar bleibt, liegt links ein
+   sehr weicher Schleier. Er ist nicht als Fläche wahrnehmbar, hebt den
+   Kontrast aber genau dort an, wo er gebraucht wird. */
+.wa-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--wa-bg) 88%, transparent) 0%,
+    color-mix(in srgb, var(--wa-bg) 62%, transparent) 34%,
+    transparent 62%
+  );
+}
+
+@media (max-width: 61.99rem) {
+  .wa-hero::before {
+    background: color-mix(in srgb, var(--wa-bg) 72%, transparent);
+  }
+}
+
+/* ================================================================== */
+/* Laufband                                                            */
+/* ================================================================== */
+
+.wa-marquee {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  padding-block: var(--wa-space-5);
+  border-block: 1px solid var(--wa-border);
+  background: var(--wa-surface-glass);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  user-select: none;
+}
+
+.wa-marquee__track {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--wa-space-7);
+  padding-inline-end: var(--wa-space-7);
+  animation: wa-marquee 38s linear infinite;
+  will-change: transform;
+}
+
+.wa-marquee:hover .wa-marquee__track { animation-play-state: paused; }
+
+@keyframes wa-marquee {
+  to { transform: translate3d(-100%, 0, 0); }
+}
+
+.wa-marquee__item {
+  display: flex;
+  align-items: center;
+  gap: var(--wa-space-7);
+  font-family: var(--wa-font-display);
+  font-size: clamp(1.15rem, 2.4vw, 1.9rem);
+  font-weight: var(--wa-weight-semibold);
+  letter-spacing: var(--wa-tracking-snug);
+  color: var(--wa-text-muted);
+  white-space: nowrap;
+}
+
+.wa-marquee__item::after {
+  content: '';
+  inline-size: 0.4rem;
+  block-size: 0.4rem;
+  border-radius: 50%;
+  background: var(--wa-secondary);
+  flex-shrink: 0;
+}
+
+/* ================================================================== */
+/* Ablauf – waagerecht scrollend auf breiten Bildschirmen              */
+/* ================================================================== */
+
+.wa-process { position: relative; }
+
+.wa-process__track {
+  display: grid;
+  gap: clamp(1rem, 2.5vw, 2rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  counter-reset: step;
+}
+
+.wa-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--wa-space-3);
+  padding: clamp(1.5rem, 3vw, 2.25rem) clamp(1.25rem, 2.5vw, 1.75rem);
+  border: 1px solid var(--wa-border);
+  border-radius: var(--wa-radius-lg);
+  background: var(--wa-surface-glass);
+  counter-increment: step;
+  overflow: hidden;
+  transition: border-color var(--wa-dur-base) var(--wa-ease-out),
+              transform var(--wa-dur-base) var(--wa-ease-out);
+}
+
+.wa-step:hover {
+  border-color: var(--wa-accent);
+  transform: translateY(-4px);
+}
+
+.wa-step__num {
+  display: grid;
+  place-items: center;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  border-radius: var(--wa-radius-full);
+  background: var(--wa-gradient-brand);
+  color: var(--wa-ink-0);
+  font-family: var(--wa-font-display);
+  font-size: var(--wa-text-base);
+  font-weight: var(--wa-weight-bold);
+}
+
+.wa-step__num::before { content: counter(step, decimal-leading-zero); }
+
+.wa-step__title {
+  font-size: var(--wa-text-lg);
+  font-weight: var(--wa-weight-bold);
+  letter-spacing: var(--wa-tracking-snug);
+}
+
+.wa-step__text {
+  font-size: var(--wa-text-sm);
+  color: var(--wa-text-muted);
+}
+
+/* Verbindungslinie zwischen den Schritten */
+.wa-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  inset-block-start: calc(clamp(1.5rem, 3vw, 2.25rem) + 1.375rem);
+  inset-inline-start: calc(100% - 0.5rem);
+  inline-size: 2rem;
+  block-size: 1px;
+  background: linear-gradient(90deg, var(--wa-border-strong), transparent);
+  display: none;
+}
+
+@media (min-width: 64rem) {
+  .wa-step:not(:last-child)::after { display: block; }
+}
+
+/* ================================================================== */
+/* Warum WebAtze – versetztes Raster                                   */
+/* ================================================================== */
+
+.wa-why__grid {
+  display: grid;
+  gap: clamp(1rem, 2.2vw, 1.75rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+}
+
+@media (min-width: 68rem) {
+  /* Jede zweite Karte sitzt leicht tiefer – nimmt dem Raster die Strenge */
+  .wa-why__grid > :nth-child(even) { transform: translateY(2.25rem); }
+}
+
+/* ================================================================== */
+/* Referenzen                                                          */
+/* ================================================================== */
+
+.wa-work__grid {
+  display: grid;
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
+}
+
+.wa-work-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--wa-border);
+  border-radius: var(--wa-radius-lg);
+  background: var(--wa-surface-glass);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--wa-dur-base) var(--wa-ease-out),
+              transform var(--wa-dur-slow) var(--wa-ease-out),
+              box-shadow var(--wa-dur-slow) var(--wa-ease-out);
+}
+
+.wa-work-card:hover {
+  border-color: var(--wa-accent);
+  transform: translateY(-6px);
+  box-shadow: var(--wa-shadow-lg);
+}
+
+/* Browser-Rahmen um die Miniatur */
+.wa-browser {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background: var(--wa-surface-2);
+  border-block-end: 1px solid var(--wa-border);
+  overflow: hidden;
+  perspective: 1200px;
+}
+
+.wa-browser__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.75rem;
+  border-block-end: 1px solid var(--wa-border);
+  background: color-mix(in srgb, var(--wa-bg) 60%, transparent);
+}
+
+.wa-browser__dot {
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 50%;
+  background: var(--wa-border-strong);
+}
+
+.wa-browser__url {
+  flex: 1;
+  margin-inline-start: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--wa-radius-full);
+  background: var(--wa-surface-glass);
+  font-family: var(--wa-font-mono);
+  font-size: 0.62rem;
+  color: var(--wa-text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Die eingebettete Miniatur der fertigen Kundenseite.
+   Sie zeigt die gespeicherte Kopie vom eigenen Server – deshalb gibt es
+   keine Probleme mit fremden Einbettungssperren. */
+.wa-browser__frame {
+  position: absolute;
+  inset-block-start: 2rem;
+  inset-inline: 0;
+  inset-block-end: 0;
+  inline-size: 1440px;
+  block-size: 1800px;
+  border: 0;
+  transform: scale(var(--thumb-scale, 0.28));
+  transform-origin: top left;
+  pointer-events: none;
+  background: var(--wa-ink-0);
+}
+
+.wa-browser__placeholder {
+  position: absolute;
+  inset: 2rem 0 0;
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(135deg, var(--wa-accent-quiet), var(--wa-secondary-quiet));
+  color: var(--wa-text-faint);
+  font-family: var(--wa-font-display);
+  font-size: var(--wa-text-2xl);
+  font-weight: var(--wa-weight-bold);
+  letter-spacing: var(--wa-tracking-tight);
+}
+
+.wa-work-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wa-space-2);
+  padding: clamp(1.25rem, 2.5vw, 1.75rem);
+}
+
+.wa-work-card__title {
+  font-size: var(--wa-text-lg);
+  font-weight: var(--wa-weight-bold);
+  letter-spacing: var(--wa-tracking-snug);
+}
+
+.wa-work-card__meta {
+  font-size: var(--wa-text-sm);
+  color: var(--wa-text-muted);
+}
+
+.wa-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wa-space-2);
+  margin-block-start: var(--wa-space-2);
+  list-style: none;
+  padding: 0;
+}
+
+.wa-tag {
+  padding: 0.22rem 0.65rem;
+  border: 1px solid var(--wa-border);
+  border-radius: var(--wa-radius-full);
+  font-size: 0.72rem;
+  font-weight: var(--wa-weight-medium);
+  color: var(--wa-text-muted);
+}
+
+.wa-empty {
+  padding: clamp(3rem, 8vw, 5rem);
+  border: 1px dashed var(--wa-border-strong);
+  border-radius: var(--wa-radius-lg);
+  text-align: center;
+  color: var(--wa-text-muted);
+}
+
+/* ================================================================== */
+/* FAQ                                                                 */
+/* ================================================================== */
+
+.wa-faq { display: flex; flex-direction: column; gap: var(--wa-space-2); }
+
+.wa-faq__item {
+  border: 1px solid var(--wa-border);
+  border-radius: var(--wa-radius-md);
+  background: var(--wa-surface-glass);
+  overflow: hidden;
+  transition: border-color var(--wa-dur-base) var(--wa-ease-out),
+              background-color var(--wa-dur-base) var(--wa-ease-out);
+}
+
+.wa-faq__item[open] { border-color: var(--wa-accent); }
+
+.wa-faq__q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wa-space-4);
+  padding: clamp(1.1rem, 2.2vw, 1.5rem) clamp(1.25rem, 2.5vw, 1.75rem);
+  font-family: var(--wa-font-display);
+  font-size: var(--wa-text-md);
+  font-weight: var(--wa-weight-semibold);
+  color: var(--wa-text-strong);
+  cursor: pointer;
+  list-style: none;
+  transition: color var(--wa-dur-fast) var(--wa-ease-out);
+}
+
+.wa-faq__q::-webkit-details-marker { display: none; }
+.wa-faq__q:hover { color: var(--wa-secondary); }
+
+.wa-faq__icon {
+  flex-shrink: 0;
+  position: relative;
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+}
+
+.wa-faq__icon::before,
+.wa-faq__icon::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 0;
+  inline-size: 100%;
+  block-size: 1.5px;
+  border-radius: 2px;
+  background: currentColor;
+  transition: transform var(--wa-dur-base) var(--wa-ease-spring);
+}
+
+.wa-faq__icon::after { transform: rotate(90deg); }
+.wa-faq__item[open] .wa-faq__icon::after { transform: rotate(0deg); }
+
+.wa-faq__a {
+  padding: 0 clamp(1.25rem, 2.5vw, 1.75rem) clamp(1.25rem, 2.5vw, 1.6rem);
+  max-width: var(--wa-measure);
+  color: var(--wa-text-muted);
+  font-size: var(--wa-text-base);
+}
+
+/* ================================================================== */
+/* Abschluss-Aufruf                                                    */
+/* ================================================================== */
+
+.wa-cta {
+  position: relative;
+  padding: clamp(3rem, 8vw, 6rem) clamp(1.5rem, 5vw, 4.5rem);
+  border: 1px solid var(--wa-border-strong);
+  border-radius: var(--wa-radius-xl);
+  background: var(--wa-surface-glass);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  text-align: center;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Leuchtender Rand */
+.wa-cta::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--wa-gradient-edge);
+  opacity: 0.5;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: 1px;
+}
+
+.wa-cta__title {
+  font-size: var(--wa-text-3xl);
+  max-width: 20ch;
+  margin-inline: auto;
+}
+
+.wa-cta__lead {
+  max-width: 42ch;
+  margin: var(--wa-space-5) auto 0;
+  color: var(--wa-text-muted);
+  font-size: var(--wa-text-lg);
+}
+
+.wa-cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--wa-space-3);
+  margin-block-start: var(--wa-space-7);
+}
+
+/* ================================================================== */
+/* Kontakt                                                             */
+/* ================================================================== */
+
+.wa-contact {
+  display: grid;
+  gap: clamp(2rem, 5vw, 4rem);
+}
+
+@media (min-width: 60rem) {
+  .wa-contact { grid-template-columns: 0.85fr 1.15fr; }
+}
+
+.wa-contact__form {
+  display: grid;
+  gap: var(--wa-space-4);
+}
+
+@media (min-width: 38rem) {
+  .wa-contact__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--wa-space-4);
+  }
+}
+
+.wa-contact__aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wa-space-5);
+}
+
+.wa-contact__direct {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wa-space-2);
+  padding: var(--wa-space-5);
+  border: 1px solid var(--wa-border);
+  border-radius: var(--wa-radius-md);
+  background: var(--wa-surface-glass);
+}
+
+.wa-contact__direct a {
+  font-size: var(--wa-text-md);
+  font-weight: var(--wa-weight-semibold);
+  word-break: break-word;
+}
+
+/* ================================================================== */
+/* Rechtstexte                                                         */
+/* ================================================================== */
+
+.wa-prose {
+  max-width: var(--wa-measure);
+  display: flex;
+  flex-direction: column;
+  gap: var(--wa-space-5);
+  color: var(--wa-text-muted);
+}
+
+.wa-prose h2 {
+  margin-block-start: var(--wa-space-5);
+  font-size: var(--wa-text-xl);
+  color: var(--wa-text-strong);
+}
+
+.wa-prose dl { display: grid; gap: var(--wa-space-2); }
+.wa-prose dt { font-weight: var(--wa-weight-semibold); color: var(--wa-text); }
+.wa-prose dd { margin: 0; }
+
+/* ================================================================== */
+/* Fehlerseiten                                                        */
+/* ================================================================== */
+
+.wa-error-page {
+  display: grid;
+  place-items: center;
+  min-block-size: 76svh;
+  text-align: center;
+  padding-block: var(--wa-space-9);
+}
+
+.wa-error-page__code {
+  font-family: var(--wa-font-display);
+  font-size: clamp(6rem, 26vw, 16rem);
+  font-weight: var(--wa-weight-black);
+  line-height: 0.85;
+  letter-spacing: -0.06em;
+  background: var(--wa-gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}

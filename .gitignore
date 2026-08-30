@@ -1,63 +1,27 @@
-# --- Secrets: NIEMALS committen ---
-.env
-.env.*
-!.env.example
-*.pem
-*.key
-*.p12
-*.pfx
-id_rsa*
-id_ed25519*
-secrets/
-credentials.json
+# Konfiguration mit echten Zugangsdaten – niemals ins Repository
+public_html/app/config.php
 
-# --- Node / Build ---
+# Laufzeitdaten
+public_html/storage/projects/*
+public_html/storage/zips/*
+public_html/storage/previews/*
+public_html/storage/uploads/*
+public_html/storage/logs/*
+public_html/storage/tmp/*
+!public_html/storage/**/.gitkeep
+
+# Frontend-Build
 node_modules/
-.pnpm-store/
+frontend/node_modules/
+frontend/.vite/
+
+# Fertige Auslieferung
 dist/
-build/
-out/
-.next/
-.turbo/
-*.tsbuildinfo
-
-# --- Tests / Coverage ---
-coverage/
-test-results/
-playwright-report/
-blob-report/
-.playwright/
-
-# --- Logs ---
-*.log
-npm-debug.log*
-pnpm-debug.log*
-logs/
-
-# --- Datenbank / lokale Daten ---
-*.sqlite
-*.sqlite3
-*.db
-pgdata/
-docker-data/
-*.dump
-*.sql.gz
-
-# --- Backups (gehören nie ins Repository) ---
-backup/
-backups/
-*.tar.gz
 *.zip
 
-# --- Editor / Betriebssystem ---
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.example.json
-.idea/
+# System
 .DS_Store
 Thumbs.db
-desktop.ini
-*.swp
-
-# --- Von Prisma erzeugter Client (wird beim Installieren neu gebaut) ---
-apps/api/src/generated/
+*.log
+.idea/
+.vscode/

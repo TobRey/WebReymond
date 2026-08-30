@@ -1,0 +1,195 @@
+/**
+ * Bewegung.
+ *
+ * Grundsatz: Der Ausgangszustand ist "sichtbar". Erst wenn JavaScript
+ * läuft, wird ein Element auf "noch nicht eingeblendet" gesetzt. Bleibt
+ * JavaScript aus, ist trotzdem alles lesbar – nichts hängt unsichtbar fest.
+ */
+
+/* JS setzt diese Klasse auf <html>, sobald es übernimmt. */
+.js [data-reveal] {
+  opacity: 0;
+  will-change: opacity, transform;
+  transition:
+    opacity var(--wa-dur-slow) var(--wa-ease-out),
+    transform var(--wa-dur-slow) var(--wa-ease-out),
+    clip-path var(--wa-dur-slow) var(--wa-ease-out);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+.js [data-reveal='up']    { transform: translate3d(0, 2.5rem, 0); }
+.js [data-reveal='down']  { transform: translate3d(0, -2rem, 0); }
+.js [data-reveal='left']  { transform: translate3d(-2.5rem, 0, 0); }
+.js [data-reveal='right'] { transform: translate3d(2.5rem, 0, 0); }
+.js [data-reveal='scale'] { transform: scale(0.93); }
+.js [data-reveal='blur']  { filter: blur(12px); transform: translate3d(0, 1.5rem, 0); }
+
+/* Aus der Tiefe nach vorne – der eigentliche 3D-Eindruck beim Scrollen */
+.js [data-reveal='depth'] {
+  transform: perspective(1400px) translate3d(0, 4rem, -18rem) rotateX(14deg);
+  transform-origin: 50% 100%;
+}
+
+/* Wie ein Vorhang von unten aufgezogen */
+.js [data-reveal='wipe'] {
+  clip-path: inset(0 0 100% 0);
+  opacity: 1;
+}
+
+.js [data-reveal].is-revealed {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  clip-path: inset(0 0 0 0);
+}
+
+/* Kinder nacheinander einblenden */
+.js [data-reveal-stagger] > [data-reveal-child] {
+  opacity: 0;
+  transform: translate3d(0, 1.75rem, 0);
+  transition:
+    opacity var(--wa-dur-slow) var(--wa-ease-out),
+    transform var(--wa-dur-slow) var(--wa-ease-out);
+}
+
+.js [data-reveal-stagger].is-revealed > [data-reveal-child] {
+  opacity: 1;
+  transform: none;
+  transition-delay: calc(var(--i, 0) * 85ms);
+}
+
+/* ------------------------------------------------------------------ */
+/* Text Wort für Wort                                                  */
+/* ------------------------------------------------------------------ */
+
+.wa-words { display: inline; }
+
+.wa-word {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+
+.wa-word > span {
+  display: inline-block;
+  transform: translateY(100%);
+  transition: transform var(--wa-dur-slow) var(--wa-ease-out);
+  transition-delay: calc(var(--i, 0) * 32ms);
+}
+
+.is-revealed .wa-word > span { transform: translateY(0); }
+
+/* ------------------------------------------------------------------ */
+/* Parallax                                                            */
+/*                                                                     */
+/* --p ist der Fortschritt (0 = Element kommt herein, 1 = geht heraus).*/
+/* JavaScript setzt ihn; das CSS macht daraus die Verschiebung.        */
+/* ------------------------------------------------------------------ */
+
+[data-parallax] {
+  --p: 0;
+  --speed: 1;
+  will-change: transform;
+  transform: translate3d(0, calc((var(--p) - 0.5) * -6rem * var(--speed)), 0);
+}
+
+[data-parallax='deep'] {
+  transform:
+    perspective(1200px)
+    translate3d(0, calc((var(--p) - 0.5) * -9rem * var(--speed)), 0)
+    rotateX(calc((var(--p) - 0.5) * -4deg));
+}
+
+[data-parallax='scale'] {
+  transform:
+    translate3d(0, calc((var(--p) - 0.5) * -3rem * var(--speed)), 0)
+    scale(calc(1 + (var(--p) * 0.08)));
+}
+
+/* Element folgt der Maus leicht mit */
+[data-magnet] {
+  will-change: transform;
+  transition: translate var(--wa-dur-slow) var(--wa-ease-out);
+}
+
+/* ------------------------------------------------------------------ */
+/* Zahlen, die hochzählen                                              */
+/* ------------------------------------------------------------------ */
+
+.wa-count {
+  font-family: var(--wa-font-display);
+  font-size: var(--wa-text-2xl);
+  font-weight: var(--wa-weight-black);
+  letter-spacing: var(--wa-tracking-tight);
+  font-variant-numeric: tabular-nums;
+  background: var(--wa-gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ------------------------------------------------------------------ */
+/* Ladeanzeige                                                         */
+/* ------------------------------------------------------------------ */
+
+.wa-spinner {
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-block-start-color: currentColor;
+  border-radius: 50%;
+  animation: wa-spin 0.75s linear infinite;
+}
+
+@keyframes wa-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Balken, der den Fortschritt beim Bauen einer Website zeigt */
+.wa-progress {
+  position: relative;
+  block-size: 0.4rem;
+  border-radius: var(--wa-radius-full);
+  background: var(--wa-surface-glass);
+  overflow: hidden;
+}
+
+.wa-progress__bar {
+  block-size: 100%;
+  inline-size: var(--value, 0%);
+  border-radius: inherit;
+  background: var(--wa-gradient-brand);
+  transition: inline-size var(--wa-dur-slow) var(--wa-ease-out);
+}
+
+/* Schimmer, solange es läuft */
+.wa-progress--busy::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.28), transparent);
+  animation: wa-shimmer 1.5s linear infinite;
+}
+
+@keyframes wa-shimmer {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+/* Platzhalter, solange etwas lädt */
+.wa-skeleton {
+  border-radius: var(--wa-radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--wa-surface-glass) 25%,
+    color-mix(in srgb, var(--wa-surface-glass) 50%, var(--wa-border)) 50%,
+    var(--wa-surface-glass) 75%
+  );
+  background-size: 200% 100%;
+  animation: wa-skeleton 1.4s var(--wa-ease-in-out) infinite;
+}
+
+@keyframes wa-skeleton {
+  to { background-position: -200% 0; }
+}

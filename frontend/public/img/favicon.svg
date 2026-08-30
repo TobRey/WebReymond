@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 104">
+  <!-- WebAtze – Bildzeichen für den Browser-Tab. Dieselbe Geometrie wie
+       das Logo, nur ohne Globus: bei 16 Pixeln wäre er nicht mehr lesbar. -->
+  <rect width="132" height="104" rx="22" fill="#0A0A1F"/>
+  <g fill="#EDEDF7">
+    <path d="M3 8 L33 8 L58 96 L28 96 Z"/>
+    <path d="M28 96 L58 96 L81 40 L51 40 Z"/>
+    <path d="M51 40 L81 40 L104 96 L74 96 Z"/>
+    <path d="M74 96 L104 96 L129 8 L99 8 Z"/>
+  </g>
+  <path d="M44 51 L66 75 L101 31" stroke="#2FE0DC" stroke-width="19" fill="none"/>
+</svg>

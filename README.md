@@ -1,153 +1,66 @@
-# WebHeaven
+# WebAtze
 
-WebHeaven ist eine im Aufbau befindliche Webhosting-Plattform aus der Schweiz:
-Webdesign, Domainregistrierung, Webhosting, Datei-Hosting, Datenbanken, Website-Verwaltung –
-mit einem eigenen CMS namens **backendHeaven** und einem visuellen Website-Builder.
+Moderne Websites aus der Schweiz – die eigene Website von WebAtze samt
+verstecktem Bereich, in dem neue Kundenwebsites entstehen.
 
-> **Aktueller Stand: Phase 4 – Konten und Anmeldung funktionieren.**
-> Registrierung, Login, Logout, Passwort-Reset, Rollen, Rate-Limits und Audit-Log sind fertig
-> und getestet. Noch **nicht** gebaut: Zwei-Faktor-Oberfläche, Hosting-Verwaltung, Domains,
-> Zahlungen – siehe [ROADMAP.md](ROADMAP.md).
+> **Kurzfassung:** ZIP herunterladen, im cPanel-Dateimanager nach
+> `public_html` entpacken, `install.php` im Browser aufrufen, fertig.
+> Die ausführliche Anleitung steht in [`docs/installation.md`](docs/installation.md).
 
----
+## Aufbau
 
-## Was steht wo?
+```
+public_html/     das, was auf den Server kommt
+  index.php        nimmt jede Anfrage entgegen
+  worker.php       arbeitet Aufträge ab (per Cronjob)
+  install.php      einmalige Einrichtung, löscht sich danach selbst
+  assets/          fertig gebautes Frontend (nicht von Hand ändern)
+  app/             der Programmcode
+    Core/            Router, Datenbank, Sitzungen, Sicherheit, Sprachen
+    Http/            die einzelnen Seiten und Schnittstellen
+    Ai/              Anbindung an Claude
+    Build/           Website-Erzeugung, ZIP, Upload, Domainumzug
+    Templates/       die Section-Vorlagen
+    Views/           HTML-Vorlagen
+    Lang/            alle Texte auf Deutsch und Englisch
+  storage/         Projekte, ZIPs, Vorschauen, Protokolle
 
-| Datei | Inhalt |
-|---|---|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Wie das System aufgebaut ist und warum |
-| [SECURITY.md](SECURITY.md) | Sicherheitsarchitektur, Regeln, Checklisten |
-| [COSTS.md](COSTS.md) | Was kostenlos ist, was Geld kostet, laufende Kosten |
-| [ROADMAP.md](ROADMAP.md) | Die Phasen 0–22 mit „fertig heisst …“ je Phase |
-| [DEPLOYMENT.md](DEPLOYMENT.md) | Wie WebHeaven später auf den Server kommt |
-| [BACKUP.md](BACKUP.md) | Was gesichert wird, wohin, und wie ein Restore getestet wird |
-| [docs/branding-domains.md](docs/branding-domains.md) | Domainprüfung, Namensalternativen, Markenrisiko |
-| [docs/phase-2-entwicklungsumgebung.md](docs/phase-2-entwicklungsumgebung.md) | Windows-11-Anleitung: WSL2, Node, pnpm, Git, Docker, VS Code |
-| [docs/decisions/](docs/decisions/) | Kurze Begründungen der wichtigsten Technikentscheidungen (ADRs) |
-
-## Lokal starten
-
-Voraussetzung: einmalig [docs/phase-2-entwicklungsumgebung.md](docs/phase-2-entwicklungsumgebung.md)
-durcharbeiten (WSL2, Node 22, pnpm, Docker).
-
-```bash
-pnpm install                 # Bibliotheken laden
-cp .env.example .env         # Konfiguration anlegen …
-chmod 600 .env               # … und vor fremden Blicken schützen
-openssl rand -base64 48      # Ergebnis als AUTH_SECRET in die .env eintragen
-pnpm db:up                   # PostgreSQL starten (Docker)
-pnpm db:migrate              # Tabellen anlegen
-pnpm dev                     # Portal + API starten
+frontend/        Quellcode der sichtbaren Website (Vite, three.js)
+customer-kit/    Bausteine der erzeugten Kundenwebsites
+tests/           automatische Tests
+build.php        erzeugt das Auslieferungs-ZIP
 ```
 
-| Adresse | Was |
-|---|---|
-| http://localhost:3000 | Portal (leitet auf `/de` weiter) |
-| http://localhost:3000/en | dieselbe Seite auf Englisch |
-| http://localhost:3001/health | API-Statusmeldung |
-| http://localhost:3000/de/registrieren | Konto erstellen |
-| http://localhost:3000/de/anmelden | Anmelden |
-| http://localhost:3000/de/dashboard | Kundenbereich (nur angemeldet) |
+## Entwickeln
 
-Beenden mit **Strg + C**, danach `pnpm db:down`.
+Voraussetzung: PHP 8.1+, Node 22+.
+
+```bash
+# Frontend bauen (erzeugt public_html/assets)
+cd frontend && npm install && npm run build && cd ..
+
+# Konfiguration anlegen
+cp public_html/app/config.example.php public_html/app/config.php
+# darin driver auf 'sqlite' stellen und die beiden Schlüssel erzeugen:
+php -r 'echo bin2hex(random_bytes(32)), "\n";'
+
+# Server starten
+php -S 127.0.0.1:8080 -t public_html public_html/router.php
+```
 
 | Befehl | Wofür |
 |---|---|
-| `pnpm test` | Alle automatischen Tests |
-| `pnpm typecheck` | Typprüfung ohne Ausführung |
-| `pnpm lint` | Code-Regeln prüfen |
-| `pnpm build` | Produktionsbuild wie in der CI |
-| `pnpm format` | Einheitliche Formatierung |
-| `pnpm db:migrate` | Datenbankänderung erzeugen und einspielen |
-| `pnpm db:deploy` | Migrationen auf einem Server einspielen |
-| `pnpm db:studio` | Datenbank im Browser ansehen |
+| `php tests/run.php` | alle automatischen Tests |
+| `php build.php` | Auslieferungs-ZIP erzeugen |
+| `cd frontend && npm run build` | Frontend neu bauen |
+| `cd frontend && npm run dev` | Frontend mit Sofortaktualisierung |
 
-## Aufbau des Repositories
+## Regeln
 
-```
-apps/
-  portal/     Next.js – öffentliche Website, Kundenportal, Adminbereich (Port 3000)
-  api/        Fastify – Geschäftslogik und Autorisierung (Port 3001)
-packages/
-  ui/         Design-Tokens und Basiskomponenten
-  shared/     gemeinsame Typen und Validierungsschemas
-docs/         Anleitungen und Entscheidungen
-```
-
-## Die Kurzfassung der Architektur
-
-```
-Internet
-   │
-   ▼
-[ nginx (HestiaCP) ]  ──► Kundenwebsites (statisch / PHP, je Kunde ein eigener Linux-Benutzer)
-   │
-   ├──► WebHeaven Portal   (Next.js  – das, was Kunden sehen)
-   └──► WebHeaven API      (Fastify  – die Logik, nur intern erreichbar)
-                │
-                ├── PostgreSQL   (WebHeaven-Daten, Jobs, Audit-Log)
-                ├── Worker       (führt Provisioning-Aufträge aus)
-                └── Provider-Adapter (Registrar, DNS, Stripe, E-Mail)
-```
-
-**Grundregel:** Kunden sehen ausschliesslich WebHeaven. Das darunterliegende Hosting-Panel
-(HestiaCP) ist aus dem Internet gar nicht erreichbar.
-
-## Geplante Hosting-Pakete
-
-| Paket | Enthält |
-|---|---|
-| 1 – Hosting | Website-Hosting, SSL, Datenbank, E-Mail |
-| 2 – Hosting + File Manager | zusätzlich den WebHeaven File Manager |
-| 3 – Hosting + backendHeaven | zusätzlich das CMS |
-| 4 – Komplett | zusätzlich den visuellen Website-Builder |
-
-Speicherplatz ist in allen Paketen gleich gross; unterschieden wird über Funktionen.
-Preise werden in Phase 11 mit der Pricing-Engine berechnet (inkl. Zahlungsgebühren und Marge).
-
-## Wie wir arbeiten
-
-1. Wir arbeiten **phasenweise** (siehe [ROADMAP.md](ROADMAP.md)). Eine Phase gilt erst als fertig,
-   wenn ihre „Definition of Done“ erfüllt und getestet ist.
-2. **Nichts Kostenpflichtiges ohne ausdrückliche Zustimmung.** Jede kostenpflichtige Ressource wird
-   vorher in [COSTS.md](COSTS.md) mit Preis, Alternative und Begründung dokumentiert.
-3. **Kein echtes Kundengeld**, bevor Testmodus, Backups und Sicherheitsprüfungen funktionieren.
-4. Wichtige Entscheidungen landen als kurze Notiz in `docs/decisions/`.
-
-## Git – die Regeln in vier Sätzen
-
-Für Einsteiger bewusst einfach gehalten:
-
-1. **`main`** ist immer funktionsfähig. Dort wird nie direkt entwickelt.
-2. Für jede Aufgabe ein eigener Branch: `feature/kurzer-name` (z.B. `feature/login`).
-   Für Reparaturen: `fix/kurzer-name`.
-3. Zusammengeführt wird per **Pull Request**, und erst wenn die automatischen Tests grün sind.
-4. **Niemals Passwörter, API-Schlüssel oder `.env`-Dateien committen.** Nur `.env.example` mit
-   leeren Platzhaltern gehört ins Repository.
-
-Nach jeder abgeschlossenen Phase setzen wir ein Tag: `v0.1`, `v0.2`, …
-
-## Kleines Glossar
-
-| Begriff | Bedeutung in einfachen Worten |
-|---|---|
-| **VPS** | Ein gemieteter Computer im Rechenzentrum, der immer läuft |
-| **SSH** | Sichere Fernsteuerung dieses Computers über die Kommandozeile |
-| **SSH-Key** | Ein digitales Schlüsselpaar statt eines Passworts – sicherer und bequemer |
-| **DNS** | Das Telefonbuch des Internets: Domainname → Serveradresse |
-| **Nameserver** | Die Server, die dieses Telefonbuch für deine Domain beantworten |
-| **SSL/TLS-Zertifikat** | Sorgt für `https://` und das Schloss-Symbol im Browser |
-| **Registrar** | Firma, bei der man Domains kauft (wir kaufen ein, statt selbst Registrar zu werden) |
-| **Control Panel** | Verwaltungsoberfläche für Server (bei uns: HestiaCP, intern) |
-| **Provisioning** | Das automatische Anlegen von Hosting, Datenbank, DNS und SSL |
-| **Mandantentrennung** | Kunde A darf nichts von Kunde B sehen – technisch erzwungen |
-| **RBAC** | Rechte anhand von Rollen (Administrator / Kunde / Benutzer) |
-| **MFA / TOTP** | Zweiter Faktor beim Login (6-stelliger Code aus einer App) |
-| **CI** | Automatische Tests bei jeder Änderung (GitHub Actions) |
-| **Monorepo** | Ein Repository, das mehrere zusammengehörige Programme enthält |
-| **Tenant** | Ein Mandant = eine Kundenwebsite innerhalb einer gemeinsamen Anwendung |
-
-## Nächster Schritt
-
-**Phase 1 – Marke, Domain und Konten.** Details und Prüfanleitung:
-[docs/branding-domains.md](docs/branding-domains.md).
+1. **Farbwerte stehen ausschliesslich in `frontend/src/styles/tokens.css`.**
+   Überall sonst `var(--wa-...)`.
+2. **Kein Text fest im Code.** Alle Texte in `public_html/app/Lang/de.php`
+   und `en.php`.
+3. **Jede Ausgabe läuft durch `e()`.** Auch das, was von der KI kommt.
+4. **`app/config.php` wird niemals committet.** Nur die Beispieldatei.
+5. Auf der öffentlichen Website steht nirgends, wie die Websites entstehen.

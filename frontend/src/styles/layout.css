@@ -1,0 +1,240 @@
+/**
+ * Aufteilung der Seite: Container, Raster, Abstände, Hintergrundeffekte.
+ */
+
+/* ------------------------------------------------------------------ */
+/* Container                                                           */
+/* ------------------------------------------------------------------ */
+
+.wa-container {
+  width: 100%;
+  max-width: var(--wa-container);
+  margin-inline: auto;
+  padding-inline: var(--wa-gutter);
+}
+
+.wa-container--narrow {
+  max-width: var(--wa-container-narrow);
+}
+
+.wa-container--wide {
+  max-width: 92rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Abschnitte                                                          */
+/* ------------------------------------------------------------------ */
+
+.wa-section {
+  position: relative;
+  padding-block: clamp(4.5rem, 10vw, 9rem);
+}
+
+.wa-section--tight { padding-block: clamp(3rem, 6vw, 5rem); }
+.wa-section--loose { padding-block: clamp(6rem, 14vw, 12rem); }
+.wa-section--flush-top { padding-block-start: 0; }
+
+.wa-section__head {
+  max-width: 46rem;
+  margin-block-end: clamp(2.5rem, 5vw, 4.5rem);
+}
+
+.wa-section__head--center {
+  margin-inline: auto;
+  text-align: center;
+}
+
+.wa-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wa-space-2);
+  margin-block-end: var(--wa-space-4);
+  font-family: var(--wa-font-body);
+  font-size: var(--wa-text-xs);
+  font-weight: var(--wa-weight-semibold);
+  letter-spacing: var(--wa-tracking-wide);
+  text-transform: uppercase;
+  color: var(--wa-secondary);
+}
+
+.wa-eyebrow::before {
+  content: '';
+  inline-size: 1.75rem;
+  block-size: 1px;
+  background: currentColor;
+  opacity: 0.7;
+}
+
+.wa-eyebrow--center::before { display: none; }
+
+.wa-lead {
+  max-width: var(--wa-measure);
+  margin-block-start: var(--wa-space-5);
+  font-size: var(--wa-text-lg);
+  color: var(--wa-text-muted);
+  line-height: var(--wa-leading-normal);
+}
+
+.wa-section__head--center .wa-lead {
+  margin-inline: auto;
+}
+
+/* ------------------------------------------------------------------ */
+/* Raster                                                              */
+/* ------------------------------------------------------------------ */
+
+.wa-grid {
+  display: grid;
+  gap: clamp(1rem, 2.2vw, 1.75rem);
+}
+
+.wa-grid--2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); }
+.wa-grid--3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); }
+.wa-grid--4 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); }
+
+/* Zweispaltig mit ungleichem Verhältnis, bricht früh um */
+.wa-split {
+  display: grid;
+  gap: clamp(2rem, 5vw, 4.5rem);
+  align-items: center;
+}
+
+@media (min-width: 60rem) {
+  .wa-split { grid-template-columns: 1.05fr 0.95fr; }
+  .wa-split--reverse > :first-child { order: 2; }
+}
+
+.wa-stack     { display: flex; flex-direction: column; gap: var(--wa-space-4); }
+.wa-stack--sm { gap: var(--wa-space-2); }
+.wa-stack--lg { gap: var(--wa-space-6); }
+
+.wa-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wa-space-3);
+}
+
+.wa-row--between { justify-content: space-between; }
+.wa-row--center  { justify-content: center; }
+
+/* ------------------------------------------------------------------ */
+/* Hintergrund: WebGL-Fläche, Leuchten, Raster, Körnung                */
+/* ------------------------------------------------------------------ */
+
+.wa-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: var(--wa-z-canvas);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.2s var(--wa-ease-out);
+}
+
+/* Nach dem Start bestimmt die Szene selbst ihre Deckkraft: beim
+   Herausscrollen aus dem Hero blendet sie ab, damit sie den Texten der
+   folgenden Abschnitte nicht im Weg steht. */
+.wa-canvas.is-ready { opacity: var(--canvas-opacity, 1); }
+
+/* Auf schmalen Bildschirmen liegt die Szene hinter dem Text und tritt
+   deshalb grundsätzlich zurück. */
+@media (max-width: 61.99rem) {
+  .wa-canvas.is-ready { opacity: calc(var(--canvas-opacity, 1) * 0.5); }
+}
+.wa-canvas canvas { inline-size: 100%; block-size: 100%; display: block; }
+
+/* Ersatz, wenn WebGL nicht läuft: bewusst schön statt bloss leer */
+.wa-fallback-bg {
+  position: fixed;
+  inset: 0;
+  z-index: var(--wa-z-canvas);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.wa-fallback-bg::before,
+.wa-fallback-bg::after {
+  content: '';
+  position: absolute;
+  inline-size: clamp(28rem, 62vw, 62rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  filter: blur(10px);
+}
+
+.wa-fallback-bg::before {
+  background: var(--wa-glow-indigo);
+  inset-block-start: -18vh;
+  inset-inline-start: -12vw;
+  animation: wa-drift-a 26s var(--wa-ease-in-out) infinite alternate;
+}
+
+.wa-fallback-bg::after {
+  background: var(--wa-glow-teal);
+  inset-block-end: -22vh;
+  inset-inline-end: -14vw;
+  animation: wa-drift-b 32s var(--wa-ease-in-out) infinite alternate;
+}
+
+@keyframes wa-drift-a {
+  to { transform: translate3d(14vw, 10vh, 0) scale(1.18); }
+}
+@keyframes wa-drift-b {
+  to { transform: translate3d(-12vw, -8vh, 0) scale(1.12); }
+}
+
+/* Feines Raster – gibt der Fläche Tiefe, ohne aufzufallen */
+.wa-gridlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--wa-border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--wa-border) 1px, transparent 1px);
+  background-size: 5.5rem 5.5rem;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 0%, transparent 78%);
+  opacity: 0.5;
+}
+
+/* Körnung: nimmt Farbverläufen das Digitale */
+.wa-noise {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: var(--wa-noise-url);
+  background-size: 180px 180px;
+}
+
+.wa-page {
+  position: relative;
+  z-index: var(--wa-z-content);
+}
+
+/* Leuchtfleck, der einer Sektion Wärme gibt */
+.wa-halo {
+  position: absolute;
+  inline-size: min(52rem, 90vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.wa-halo--indigo { background: var(--wa-glow-indigo); }
+.wa-halo--teal   { background: var(--wa-glow-teal); }
+.wa-halo--tl { inset-block-start: -20%; inset-inline-start: -18%; }
+.wa-halo--tr { inset-block-start: -24%; inset-inline-end: -16%; }
+.wa-halo--br { inset-block-end: -26%; inset-inline-end: -20%; }
+.wa-halo--bl { inset-block-end: -22%; inset-inline-start: -18%; }
+
+/* Trennlinie, die zur Mitte hin ausblendet */
+.wa-rule {
+  block-size: 1px;
+  border: 0;
+  background: linear-gradient(90deg, transparent, var(--wa-border-strong) 22%,
+              var(--wa-border-strong) 78%, transparent);
+  opacity: 0.75;
+}

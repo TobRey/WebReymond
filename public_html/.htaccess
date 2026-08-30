@@ -1,0 +1,80 @@
+# WebAtze – Apache-Konfiguration
+# Läuft auf jedem cPanel-Hosting ohne Anpassung.
+
+# ------------------------------------------------------------------
+# Alles über index.php leiten (ausser echte Dateien und Ordner)
+# ------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Bestehende Dateien und Verzeichnisse direkt ausliefern
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Alles andere an den Front-Controller
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# ------------------------------------------------------------------
+# Sicherheitsheader
+# ------------------------------------------------------------------
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=(), interest-cohort=()"
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+
+    # HSTS nur, wenn die Seite wirklich über HTTPS läuft
+    <If "%{HTTPS} == 'on'">
+        Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    </If>
+
+    # Statische Dateien lange cachen (sie tragen einen Hash im Namen)
+    <FilesMatch "\.(js|css|woff2|woff|ttf|svg|png|jpg|jpeg|webp|avif|ico)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+</IfModule>
+
+# ------------------------------------------------------------------
+# Kompression
+# ------------------------------------------------------------------
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml \
+        application/javascript application/json application/xml \
+        image/svg+xml application/rss+xml
+</IfModule>
+
+<IfModule mod_brotli.c>
+    AddOutputFilterByType BROTLI_COMPRESS text/html text/plain text/css text/xml \
+        application/javascript application/json application/xml image/svg+xml
+</IfModule>
+
+# ------------------------------------------------------------------
+# Verzeichnisauflistung aus
+# ------------------------------------------------------------------
+Options -Indexes
+
+# ------------------------------------------------------------------
+# Versteckte Dateien und Sicherungskopien sperren
+# ------------------------------------------------------------------
+<FilesMatch "^\.|\.(bak|config|sql|fla|psd|ini|log|sh|inc|swp|dist|example)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# ------------------------------------------------------------------
+# Fehlerseiten über den Front-Controller
+# ------------------------------------------------------------------
+ErrorDocument 403 /index.php
+ErrorDocument 404 /index.php
+
+# UTF-8 als Standard
+AddDefaultCharset UTF-8
