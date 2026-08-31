@@ -95,6 +95,9 @@ final class SiteBuilder
         // --- Anleitung unter /doc, falls gewünscht ------------------------
         $files += DocBuilder::write($this->project, $this->site(), $this->outputDir);
 
+        // --- Vorschaubild für geteilte Verweise ---------------------------
+        $files += OgImage::write($this->project, $this->theme, $this->outputDir);
+
         return [
             'files' => $files,
             'bytes' => dir_size($this->outputDir),
@@ -132,6 +135,12 @@ final class SiteBuilder
                 'phone' => (string) ($brief['contact_phone'] ?? ''),
                 'address' => (string) ($brief['contact_address'] ?? ''),
             ],
+            // Die Domain steht im Kopf jeder Seite: Das Vorschaubild für
+            // geteilte Verweise braucht eine vollständige Adresse.
+            'domain' => (string) ($this->project['domain'] ?? ''),
+            // Ohne die GD-Erweiterung entsteht kein Vorschaubild – dann
+            // darf auch keine Seite darauf verweisen.
+            'preview_image' => function_exists('imagecreatetruecolor'),
             // Zählung und Hilfeseite werden im Formular angehakt, nicht
             // stillschweigend mitgeliefert.
             'counter' => !empty($brief['wants_stats']),

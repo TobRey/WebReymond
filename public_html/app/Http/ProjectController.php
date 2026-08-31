@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace WebAtze\Http;
 
-use WebAtze\Build\{Pipeline, SiteBuilder, ZipExporter};
+use WebAtze\Build\{Pipeline, SiteBuilder, SiteChecker, ZipExporter};
 use WebAtze\Core\{Audit, Config, Db, Jobs, Request, Response, Session, View};
 
 /**
@@ -54,6 +54,7 @@ final class ProjectController
                 'transfer' => $transfer,
                 'cost' => $cost,
                 'previewUrl' => Pipeline::previewUrl($project),
+                'checks' => SiteChecker::latest((int) $project['id']),
             ]),
         ]))->noCache()->noIndex();
     }

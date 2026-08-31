@@ -306,6 +306,66 @@ $latestBuild = $builds[0] ?? null;
     </dl>
 </section>
 
+<?php /* ----------------------------------------------------- Prüfungen */ ?>
+<?php if (!empty($checks)): ?>
+    <?php
+    $namen = [
+        'tempo' => 'Tempo',
+        'verweise' => 'Verweise',
+        'recht' => 'Rechtliches',
+        'text' => 'Rechtschreibung',
+    ];
+    $stufe = [
+        'ok' => ['Passt', 'wa-badge--done'],
+        'info' => ['Hinweis', ''],
+        'warn' => ['Ansehen', 'wa-badge--running'],
+        'error' => ['Muss geändert werden', 'wa-badge--failed'],
+    ];
+    ?>
+    <section class="wa-panel">
+        <div class="wa-panel__head">
+            <h2 class="wa-panel__title">Nach dem Bauen geprüft</h2>
+            <p class="wa-panel__hint">
+                Geprüft wurde die fertige Website, nicht der Bauplan. Was hier steht,
+                ist tatsächlich so herausgekommen.
+            </p>
+        </div>
+
+        <?php foreach ($checks as $check): ?>
+            <?php
+            $kind = (string) $check['kind'];
+            $findings = (array) $check['findings'];
+            ?>
+            <div class="wa-check">
+                <h3 class="wa-check__title">
+                    <?= e($namen[$kind] ?? ucfirst($kind)) ?>
+                    <span class="wa-badge <?= (int) $check['passed'] === 1 ? 'wa-badge--done' : 'wa-badge--running' ?>">
+                        <?= (int) $check['score'] ?> von 100
+                    </span>
+                </h3>
+                <ul class="wa-check__list">
+                    <?php foreach ($findings as $finding): ?>
+                        <?php $level = (string) ($finding['level'] ?? 'info'); ?>
+                        <li>
+                            <span class="wa-badge <?= e($stufe[$level][1] ?? '') ?>">
+                                <?= e($stufe[$level][0] ?? 'Hinweis') ?>
+                            </span>
+                            <?= e((string) ($finding['text'] ?? '')) ?>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endforeach; ?>
+
+        <p class="wa-panel__body">
+            Das Rechtliche ist eine Prüfung auf Vollständigkeit, keine Rechtsberatung:
+            Ob die Pflichtseiten da sind, ob sie mehr als eine Überschrift enthalten
+            und ob die Seite ungefragt jemanden Dritten einbindet. Was drinsteht,
+            muss ein Mensch verantworten.
+        </p>
+    </section>
+<?php endif; ?>
+
 <?php /* ----------------------------------------------------- Kurzer Ausblick */ ?>
 <div class="wa-grid-2">
     <section class="wa-panel">

@@ -28,6 +28,11 @@ use WebAtze\Build\{Theme, ShowcaseBuilder};
 use WebAtze\Core\{Crypto, Http, Request, Router, Validator};
 use WebAtze\Templates\{Catalog, Page, Renderer, Schema};
 
+// Die Tabellen auf den neuesten Stand bringen. Ohne das scheitert der
+// Testlauf in einer frischen Kopie – und in einer alten immer dann,
+// wenn eine Spalte dazugekommen ist.
+\WebAtze\Core\Schema::migrate();
+
 // ==================================================================
 test('Router: Adressen finden ihr Ziel', function (): void {
     $router = new Router();
@@ -298,6 +303,231 @@ test('Mehrsprachige Kundenseiten', function (): void {
     $einzeln = Page::render(array_merge($site, ['locales' => ['de']]), $page, '', 'de');
     ok(!str_contains($einzeln, 'hreflang='), 'Ohne zweite Sprache kein hreflang');
     ok(!str_contains($einzeln, 's-header__langs'), 'Und kein Umschalter');
+});
+
+// ==================================================================
+test('Besucherzählung: es verlässt nur eine Summe den Kundenserver', function (): void {
+    $zaehler = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Kit/site/php/zaehler.php'
+    );
+    $zahlen = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Kit/site/php/zahlen.php'
+    );
+
+    // Das Salz wechselt täglich – sonst liesse sich jemand über Wochen
+    // verfolgen, und genau das soll nicht gehen.
+    ok(str_contains($zaehler, 'tagesSalz'), 'Die Kennung entsteht aus einem Tagessalz');
+    ok(str_contains($zaehler, "date('Y-m-d')"), 'Und das Salz hängt am Tag');
+
+    // Was hinausgeht, sind Zahlen. Die Kennungen bleiben liegen.
+    ok(str_contains($zahlen, "count((array) (\$werte['besucher'] ?? []))"),
+        'Herausgegeben wird die Anzahl, nicht die Liste');
+    ok(!preg_match("/'besucher' => \\\$werte\\['besucher'\\]/", $zahlen),
+        'Die Kennungen selbst verlassen den Server nie');
+    ok(str_contains($zahlen, 'hash_equals'), 'Der Schlüssel wird zeitunabhängig verglichen');
+
+    // Das Bild geht vor dem Zählen hinaus: Eine kaputte Zählung darf
+    // niemanden warten lassen.
+    $bildPos = strpos($zaehler, 'image/gif');
+    $zaehlPos = strpos($zaehler, 'function zaehlen');
+    $aufrufPos = strpos($zaehler, 'zaehlen($dataDir');
+    ok($bildPos !== false && $aufrufPos !== false && $bildPos < $aufrufPos,
+        'Erst das Bild, dann das Zählen');
+    ok(str_contains($zaehler, 'fastcgi_finish_request'), 'Die Verbindung wird vorher geschlossen');
+    ok($zaehlPos !== false, 'Gezählt wird in einer eigenen Funktion');
+
+    // Ein Fehler beim Zählen darf keine Meldung hinterlassen.
+    ok(str_contains($zaehler, 'catch (\\Throwable)'), 'Ein Fehler beim Zählen bleibt folgenlos');
+});
+
+// ==================================================================
+test('Wochenbericht: Zahlen und Vergleich stimmen', function (): void {
+    $projekt = ['id' => 4242, 'name' => 'Bäckerei Muster', 'report_email' => 'kunde@example.org'];
+
+    // Zwei Wochen füllen: die vergangene und die davor.
+    $bis = date('Y-m-d', strtotime('yesterday'));
+    $von = date('Y-m-d', strtotime($bis . ' -6 days'));
+    $davor = date('Y-m-d', strtotime($von . ' -3 days'));
+
+    \WebAtze\Core\Db::delete('visits', 'project_id = :p', ['p' => 4242]);
+
+    \WebAtze\Build\VisitCollector::store(4242, [
+        ['tag' => $bis, 'pfad' => '/', 'herkunft' => '', 'aufrufe' => 30, 'besucher' => 20],
+        ['tag' => $bis, 'pfad' => '/kontakt.html', 'herkunft' => 'google.ch', 'aufrufe' => 10, 'besucher' => 8],
+        ['tag' => $davor, 'pfad' => '/', 'herkunft' => '', 'aufrufe' => 20, 'besucher' => 15],
+        // Unsinn muss durchfallen, nicht die Summe verfälschen.
+        ['tag' => 'gestern', 'pfad' => '/', 'herkunft' => '', 'aufrufe' => 999, 'besucher' => 999],
+        ['tag' => $bis, 'pfad' => '/', 'herkunft' => '', 'aufrufe' => -5, 'besucher' => -5],
+    ]);
+
+    $woche = \WebAtze\Build\VisitCollector::week(4242, $bis);
+
+    // Die letzte Zeile ersetzt die erste (gleicher Tag, gleiche Seite,
+    // gleiche Herkunft) – und -5 wird zu 0.
+    is(10, $woche['aufrufe'], 'Nur die Woche zählt, und negative Werte werden zu null');
+    is(20, $woche['davor']['aufrufe'], 'Die Vorwoche steht getrennt daneben');
+    is('/kontakt.html', $woche['seiten'][0]['pfad'], 'Die meistbesuchte Seite steht oben');
+    is('Direkt eingegeben', $woche['herkunft'][1]['name'] ?? '',
+        'Ohne Verweis heisst es "Direkt eingegeben"');
+    is(7, count($woche['tage']), 'Eine Woche hat sieben Tage');
+
+    // Der Text der Nachricht: verständlich, ohne Fachwörter.
+    $text = \WebAtze\Build\VisitCollector::reportText($projekt, $woche);
+    ok(str_contains($text, 'Seitenaufrufe'), 'Der Bericht nennt die Aufrufe');
+    ok(str_contains($text, 'Bäckerei Muster'), 'Und die Firma');
+    ok(str_contains($text, 'anonym'), 'Und sagt, dass niemand wiedererkannt wird');
+
+    foreach (['Session', 'Bounce', 'Unique', 'Pageview', 'Tracking'] as $fachwort) {
+        ok(!str_contains($text, $fachwort), 'Kein Fachwort: ' . $fachwort);
+    }
+
+    \WebAtze\Core\Db::delete('visits', 'project_id = :p', ['p' => 4242]);
+});
+
+// ==================================================================
+test('Sicherungen: nichts wird ausserhalb des eigenen Ordners gelöscht', function (): void {
+    $quelle = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Build/Backup.php'
+    );
+
+    ok(str_contains($quelle, 'insideBackups'), 'Vor dem Löschen wird der Pfad geprüft');
+    ok(str_contains($quelle, 'realpath'), 'Und zwar über den aufgelösten Pfad');
+
+    // Der Schlüssel gehört nicht in eine Sicherung, die herumwandert.
+    ok(!str_contains($quelle, "'/config.php'"), 'config.php wird nicht mitgesichert');
+    ok(str_contains($quelle, 'app/config.php'), 'Und darauf wird ausdrücklich hingewiesen');
+
+    // Die SQL-Ausgabe muss Anführungszeichen verdoppeln, sonst bricht
+    // ein Firmenname mit Apostroph die ganze Datei.
+    $ref = new ReflectionMethod(\WebAtze\Build\Backup::class, 'literal');
+    $ref->setAccessible(true);
+
+    is("'O''Brien'", $ref->invoke(null, "O'Brien"), 'Ein Apostroph wird verdoppelt');
+    is('NULL', $ref->invoke(null, null), 'null bleibt NULL');
+    is('42', $ref->invoke(null, 42), 'Zahlen ohne Anführungszeichen');
+    is("'a\\\\b'", $ref->invoke(null, 'a\\b'), 'Ein Backslash wird verdoppelt');
+
+    // Die Aufbewahrung: 14 Tage plus Monatserste.
+    ok(str_contains($quelle, 'KEEP_DAILY = 14'), 'Vierzehn Tagesstände');
+    ok(str_contains($quelle, 'KEEP_MONTHLY'), 'Dazu Monatsstände');
+});
+
+// ==================================================================
+test('Prüfung nach dem Bauen findet, was tatsächlich falsch ist', function (): void {
+    $dist = sys_get_temp_dir() . '/wa-pruefung-' . getmypid();
+    @mkdir($dist . '/assets/img', 0775, true);
+
+    file_put_contents($dist . '/index.html',
+        '<html><head><script src="a.js"></script></head><body>'
+        . '<a href="kontakt">Kontakt</a>'
+        . '<a href="gibtsnicht.html">Kaputt</a>'
+        . '<img src="assets/img/x.png">'
+        . '<link href="https://fonts.googleapis.com/css2?family=Inter">'
+        . '</body></html>');
+
+    file_put_contents($dist . '/kontakt.html', '<html><body>Kontakt</body></html>');
+    file_put_contents($dist . '/assets/img/x.png', str_repeat('x', 400 * 1024));
+
+    $projekt = ['id' => 0, 'slug' => 'pruefung', 'domain' => '', 'brief' => '{}'];
+
+    // Verweise: der interne Verweis "kontakt" findet kontakt.html
+    // (so steht es in der .htaccess), "gibtsnicht.html" nicht.
+    $verweise = \WebAtze\Build\SiteChecker::links($projekt, $dist, 0.1);
+    $text = json_encode($verweise['findings'], JSON_UNESCAPED_UNICODE);
+
+    ok(str_contains($text, 'gibtsnicht.html'), 'Der tote Verweis wird gefunden');
+    ok(!str_contains($text, '"kontakt"'), 'Der gültige nicht');
+    ok(!$verweise['passed'], 'Damit ist die Prüfung nicht bestanden');
+
+    // Tempo: das grosse Bild und das fehlende Breite/Höhe.
+    $tempo = \WebAtze\Build\SiteChecker::speed($projekt, $dist);
+    $text = json_encode($tempo['findings'], JSON_UNESCAPED_UNICODE);
+
+    ok(str_contains($text, 'x.png'), 'Das grosse Bild fällt auf');
+    ok(str_contains($text, 'springt'), 'Das Bild ohne feste Grösse ebenso');
+    ok(str_contains($text, 'halten die Darstellung auf'), 'Und das Skript ohne defer');
+
+    // Recht: Impressum fehlt, und Google Fonts wird eingebunden.
+    $recht = \WebAtze\Build\SiteChecker::legal($projekt, $dist);
+    $text = json_encode($recht['findings'], JSON_UNESCAPED_UNICODE);
+
+    ok(str_contains($text, 'Impressum'), 'Das fehlende Impressum fällt auf');
+    ok(str_contains($text, 'Datenschutz'), 'Der fehlende Datenschutz auch');
+    ok(str_contains($text, 'Google Fonts'), 'Und der fremde Dienst');
+    ok(str_contains($text, 'Zustimmungsbanner'), 'Mit der Begründung, warum das stört');
+    ok(!$recht['passed'], 'Auch das ist nicht bestanden');
+
+    // Und nun dasselbe, aber richtig gemacht.
+    file_put_contents($dist . '/index.html',
+        '<html><head><script src="a.js" defer></script></head><body>'
+        . '<a href="kontakt">Kontakt</a>'
+        . '<img src="assets/img/x.png" width="800" height="600">'
+        . '</body></html>');
+    file_put_contents($dist . '/impressum.html', '<html><body>' . str_repeat('Angaben zur Firma. ', 30) . '</body></html>');
+    file_put_contents($dist . '/datenschutz.html', '<html><body>' . str_repeat('Wie wir mit Daten umgehen. ', 30) . '</body></html>');
+    unlink($dist . '/assets/img/x.png');
+
+    $projekt['brief'] = json_encode(['contact_email' => 'a@b.ch', 'contact_address' => 'Weg 1']);
+
+    $recht = \WebAtze\Build\SiteChecker::legal($projekt, $dist);
+    ok($recht['passed'], 'Mit Impressum und ohne fremden Dienst ist es bestanden');
+    is(100, $recht['score'], 'Und ohne Abzug');
+
+    $verweise = \WebAtze\Build\SiteChecker::links($projekt, $dist, 0.1);
+    ok($verweise['passed'], 'Ohne toten Verweis ebenfalls');
+
+    delete_tree($dist);
+});
+
+// ==================================================================
+test('Die Anleitung beschreibt nur, was auch gebaut wurde', function (): void {
+    $site = [
+        'brand' => 'Muster AG',
+        'locales' => ['de'],
+        'theme' => ['colors' => ['primary' => '#2b1b9e']],
+        'pages' => [['path' => '/', 'title' => 'Start']],
+    ];
+
+    // Ohne Bearbeitungsbereich darf kein Wort darüber darin stehen.
+    $ohne = \WebAtze\Build\DocBuilder::render(
+        ['name' => 'Muster AG', 'domain' => '', 'wants_admin' => 0],
+        $site,
+        ['wants_docs' => true]
+    );
+
+    ok(!str_contains($ohne, 'Bilder tauschen'), 'Ohne Backend kein Kapitel dazu');
+    ok(!str_contains($ohne, '/admin'), 'Und keine Adresse dorthin');
+    ok(str_contains($ohne, 'keinen eigenen'), 'Stattdessen steht da, dass es keinen gibt');
+
+    // Mit allem.
+    $mit = \WebAtze\Build\DocBuilder::render(
+        ['name' => 'Muster AG', 'domain' => 'muster.ch', 'wants_admin' => 1, 'admin_username' => 'muster'],
+        $site,
+        ['wants_docs' => true, 'wants_stats' => true, 'wants_support' => true, 'report_email' => 'a@b.ch']
+    );
+
+    ok(str_contains($mit, 'https://muster.ch/admin'), 'Mit Backend steht die Adresse darin');
+    ok(str_contains($mit, 'muster.ch/support'), 'Und die der Hilfeseite');
+    ok(str_contains($mit, 'Besucherzahlen'), 'Und ein Kapitel zur Zählung');
+
+    // Kein Wort darüber, wie die Website entstanden ist.
+    foreach ([' KI', 'Claude', 'Anthropic', 'generiert', 'Sprachmodell'] as $wort) {
+        ok(!str_contains($mit, $wort), 'Kein Hinweis auf: ' . trim($wort));
+    }
+
+    // Der Assistent heisst beim Kunden Assistent.
+    ok(str_contains($mit, 'Assistent'), 'Der Assistent heisst Assistent');
+
+    // Die Farbe landet unmaskiert im Stylesheet – Unsinn darf da nicht durch.
+    $boes = \WebAtze\Build\DocBuilder::render(
+        ['name' => 'X', 'domain' => '', 'wants_admin' => 0],
+        ['brand' => 'X', 'locales' => ['de'], 'pages' => [],
+         'theme' => ['colors' => ['primary' => 'red;} body{display:none']]],
+        ['wants_docs' => true]
+    );
+
+    ok(!str_contains($boes, 'display:none'), 'Eine erfundene Farbe kommt nicht ins Stylesheet');
+    ok(str_contains($boes, '--ton: #1f2937'), 'Stattdessen greift die Vorgabe');
 });
 
 // ==================================================================

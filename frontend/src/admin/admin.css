@@ -687,6 +687,44 @@ fieldset.wa-fieldset { border: 1px solid var(--wa-border); margin: 0; }
 .wa-trend--up { color: var(--wa-success); }
 .wa-trend--down { color: var(--wa-danger); }
 
+/* ================================================================== */
+/* Prüfungen nach dem Bauen                                            */
+/* ================================================================== */
+
+.wa-check {
+  padding: var(--wa-space-4) var(--wa-space-5);
+  border-block-start: 1px solid var(--wa-border);
+}
+
+.wa-check__title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wa-space-2);
+  align-items: center;
+  margin: 0 0 var(--wa-space-2);
+  font-size: var(--wa-text-base);
+}
+
+.wa-check__list {
+  display: grid;
+  gap: var(--wa-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wa-check__list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wa-space-2);
+  align-items: baseline;
+  max-inline-size: 72ch;
+  color: var(--wa-text-muted);
+  line-height: var(--wa-leading-normal);
+}
+
+.wa-check__list .wa-badge { flex: none; }
+
 .wa-code {
   overflow-x: auto;
   margin: 0;

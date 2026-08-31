@@ -32,8 +32,10 @@ final class Pipeline
         'theme' => ['label' => 'Farben und Schriften werden festgelegt', 'progress' => 28],
         'inhalte' => ['label' => 'Texte werden geschrieben', 'progress' => 62],
         'bilder' => ['label' => 'Bilder werden eingesetzt', 'progress' => 70],
+        'sprachen' => ['label' => 'Weitere Sprachen werden übersetzt', 'progress' => 76],
         'bauen' => ['label' => 'Website wird zusammengesetzt', 'progress' => 82],
-        'vorschau' => ['label' => 'Vorschau wird bereitgestellt', 'progress' => 90],
+        'pruefen' => ['label' => 'Die fertige Website wird geprüft', 'progress' => 88],
+        'vorschau' => ['label' => 'Vorschau wird bereitgestellt', 'progress' => 91],
         'zip' => ['label' => 'Paket wird geschnürt', 'progress' => 96],
         'referenz' => ['label' => 'Referenz wird angelegt', 'progress' => 98],
         'fertig' => ['label' => 'Fertig', 'progress' => 100],
@@ -100,7 +102,9 @@ final class Pipeline
                 'theme' => self::stepTheme($project, $brief, $state),
                 'inhalte' => self::stepContent($project, $brief, $state, $remaining, $job),
                 'bilder' => self::stepImages($project, $state),
+                'sprachen' => self::stepTranslate($project, $state, $remaining, $job),
                 'bauen' => self::stepBuild($project, $state),
+                'pruefen' => self::stepCheck($project, $state, $remaining),
                 'vorschau' => self::stepPreview($project, $state),
                 'zip' => self::stepZip($project, $state),
                 'referenz' => self::stepShowcase($project, $state),
@@ -416,7 +420,31 @@ final class Pipeline
     }
 
     // ------------------------------------------------------------------
-    // Schritt 7: Vorschau bereitstellen
+    // Schritt 7: die fertige Website prüfen
+    // ------------------------------------------------------------------
+
+    /**
+     * Geprüft wird das Ergebnis, nicht der Plan.
+     *
+     * Eine Prüfung darf den Auftrag nie scheitern lassen: Der Kunde
+     * bekäme sonst wegen eines Tippfehlers gar keine Website. Was
+     * auffällt, steht danach beim Projekt – dort, wo man es liest,
+     * bevor man die Seite freigibt.
+     */
+    private static function stepCheck(array $project, array $state, float $budget): array
+    {
+        try {
+            $state['checks'] = SiteChecker::runAll($project, max(5.0, $budget - 5.0));
+        } catch (\Throwable $e) {
+            Logger::info('Prüfung übersprungen: ' . $e->getMessage());
+            $state['checks'] = [];
+        }
+
+        return $state;
+    }
+
+    // ------------------------------------------------------------------
+    // Schritt 8: Vorschau bereitstellen
     // ------------------------------------------------------------------
 
     private static function stepPreview(array $project, array $state): array
@@ -446,7 +474,7 @@ final class Pipeline
     }
 
     // ------------------------------------------------------------------
-    // Schritt 8: ZIP
+    // Schritt 9: ZIP
     // ------------------------------------------------------------------
 
     private static function stepZip(array $project, array $state): array

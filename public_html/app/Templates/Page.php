@@ -272,6 +272,22 @@ final class Page
         $escTitle = $esc($pageTitle);
         $escDescription = $esc($description);
 
+        // Das Vorschaubild für geteilte Verweise. Nur mit Domain: Die
+        // Dienste, die es holen, verlangen eine vollständige Adresse –
+        // ein Verweis auf "assets/img/..." bliebe leer.
+        $preview = '';
+        $domain = trim((string) ($site['domain'] ?? ''));
+
+        if ($domain !== '' && !empty($site['preview_image'])) {
+            $absolute = 'https://' . preg_replace('~^https?://~i', '', $domain)
+                . '/assets/img/vorschau.png';
+
+            $preview = '<meta property="og:image" content="' . $esc($absolute) . '">'
+                . '<meta property="og:image:width" content="1200">'
+                . '<meta property="og:image:height" content="630">'
+                . '<meta name="twitter:card" content="summary_large_image">';
+        }
+
         // Die Besucherzählung: ein Bild von einem Pixel, sonst nichts.
         // Kein Skript, kein Cookie, kein fremder Server – gezählt wird
         // auf demselben Hosting, auf dem die Seite liegt. Deshalb
@@ -300,6 +316,7 @@ final class Page
         <meta property="og:title" content="{$escTitle}">
         <meta property="og:description" content="{$escDescription}">
         <meta property="og:site_name" content="{$esc($brand)}">
+        {$preview}
 
         <!-- Das Nötigste steht direkt hier: die Seite erscheint sofort
              fertig gestaltet, ohne auf eine zweite Datei zu warten.
