@@ -48,6 +48,16 @@ return [
         'charset'  => 'utf8mb4',
 
         // Nur für driver = 'sqlite': Pfad zur Datei.
+        //
+        // install.php hängt an den Namen eine Zufallsfolge – das ist
+        // Absicht. Die Datei liegt im Web-Verzeichnis und wird durch
+        // storage/.htaccess gesperrt; auf die allein ist aber kein
+        // Verlass (bei nginx greift sie gar nicht). Anders als eine
+        // PHP-Datei kann eine Datenbankdatei keinen Wächter tragen:
+        // Sie muss mit "SQLite format 3" beginnen. Bleibt der Name.
+        //
+        // Auf einem gemieteten Hosting gehört ohnehin MySQL hierhin.
+        // SQLite ist für den Probelauf auf dem eigenen Rechner.
         'path'     => __DIR__ . '/../storage/webatze.sqlite',
     ],
 

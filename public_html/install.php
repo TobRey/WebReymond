@@ -198,10 +198,19 @@ function install(array $v, string $appDir, string $storage): array
         'db' => $sqlite
             // Der Pfad wird hier aufgelöst und fest eingetragen: Er gilt
             // für diesen Server und ändert sich nicht mehr.
+            //
+            // Der Zufall im Dateinamen ist Absicht. Die Datei liegt im
+            // Web-Verzeichnis; gesperrt wird sie durch storage/.htaccess.
+            // Auf .htaccess allein ist aber kein Verlass – bei nginx
+            // greift sie gar nicht. Anders als eine PHP-Datei kann eine
+            // Datenbankdatei keinen Wächter tragen: Sie muss mit
+            // "SQLite format 3" beginnen. Bleibt der Name. Wer ihn nicht
+            // kennt, kann die Datei nicht abrufen, und Verzeichnisse
+            // werden nicht aufgelistet (Options -Indexes).
             ? [
                 'driver' => 'sqlite',
                 'database' => 'webatze',
-                'path' => __DIR__ . '/storage/webatze.sqlite',
+                'path' => __DIR__ . '/storage/db-' . bin2hex(random_bytes(8)) . '.sqlite',
             ]
             : [
                 'driver' => 'mysql',

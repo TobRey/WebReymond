@@ -821,6 +821,29 @@ test('Buchung wird nur gebaut, wenn sie beschrieben wurde', function (): void {
 });
 
 // ==================================================================
+test('Der Name der SQLite-Datei lässt sich nicht erraten', function (): void {
+    // Die Datei liegt im Web-Verzeichnis. Gesperrt wird sie durch
+    // storage/.htaccess – aber die greift bei nginx gar nicht, und
+    // anders als eine PHP-Datei kann eine Datenbankdatei keinen
+    // Wächter tragen: Sie muss mit "SQLite format 3" beginnen.
+    // Bleibt der Name.
+    $install = (string) file_get_contents(dirname(__DIR__) . '/public_html/install.php');
+
+    ok(!str_contains($install, "storage/webatze.sqlite'"),
+        'install.php schreibt keinen festen Dateinamen');
+    ok(str_contains($install, "'/storage/db-' . bin2hex(random_bytes(8))"),
+        'Sondern hängt Zufall an');
+
+    // Und die Absperrungen stehen trotzdem.
+    $htaccess = (string) file_get_contents(dirname(__DIR__) . '/public_html/storage/.htaccess');
+    ok(str_contains($htaccess, 'Require all denied'), 'storage/ ist per .htaccess gesperrt');
+
+    ok(is_file(dirname(__DIR__) . '/public_html/storage/index.php'),
+        'Und trägt zusätzlich einen Wächter');
+    ok(is_file(dirname(__DIR__) . '/public_html/app/.htaccess'), 'app/ ebenso');
+});
+
+// ==================================================================
 test('Die Referenz-Miniatur überlebt den nächsten Tag', function (): void {
     // Früher zeigte preview_path auf /vorschau/<kennung>/. Diesen Ordner
     // räumt der Cron nach 24 Stunden weg – am Tag darauf stand in jeder
