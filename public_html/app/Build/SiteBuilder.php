@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Build;
 
 use WebAtze\Core\{Db, Logger};
-use WebAtze\Templates\Renderer;
+use WebAtze\Templates\{Page, Renderer};
 
 /**
  * Baut aus den gespeicherten Seiten und Abschnitten die fertige Website.
@@ -87,132 +87,52 @@ final class SiteBuilder
     /** Eine einzelne Seite als HTML. */
     public function renderPage(array $page): string
     {
-        $sections = $page['sections'] ?? [];
-        $context = $this->context($page);
-
-        $body = '';
-        foreach ($sections as $section) {
-            if (!empty($section['hidden'])) {
-                continue;
-            }
-            $body .= Renderer::section($section, $context) . "\n";
-        }
-
-        return $this->wrap($page, $body, $context);
+        return Page::render($this->site(), $page, self::criticalCss());
     }
 
-    /** Der Rahmen um die Abschnitte: Kopf des Dokuments, Metaangaben. */
-    private function wrap(array $page, string $body, array $context): string
+    /**
+     * Die Website als einfache Felder – ohne Datenbank.
+     *
+     * Genau diese Form landet auch in site.json beim Kunden. Sein
+     * Bearbeitungsbereich baut damit dieselben Seiten wie hier; es gibt
+     * nur einen Rahmen (Templates\Page), nicht zwei, die auseinander
+     * laufen könnten.
+     */
+    public function site(): array
     {
         $brief = json_decode((string) ($this->project['brief'] ?? '{}'), true) ?: [];
-
-        $locale = (string) ($this->project['locale'] ?? 'de');
-        $title = (string) ($page['title'] ?? '');
-        $brand = (string) ($this->project['name'] ?? '');
-        $description = (string) ($page['meta_description'] ?? '');
-        $isHome = ($page['path'] ?? '/') === '/';
-
-        $pageTitle = $isHome && $title !== ''
-            ? $title
-            : trim($title . ' · ' . $brand, ' ·');
-
-        $schema = json_out(array_filter([
-            '@context' => 'https://schema.org',
-            '@type' => 'LocalBusiness',
-            'name' => $brand,
-            'description' => $description,
-            'email' => $brief['contact_email'] ?? null,
-            'telephone' => $brief['contact_phone'] ?? null,
-            'address' => trim((string) ($brief['contact_address'] ?? '')) !== '' ? [
-                '@type' => 'PostalAddress',
-                'streetAddress' => (string) $brief['contact_address'],
-            ] : null,
-        ]));
-
-        $critical = self::criticalCss();
-
-        return <<<HTML
-        <!doctype html>
-        <html lang="{$locale}">
-        <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>{$this->esc($pageTitle)}</title>
-        <meta name="description" content="{$this->esc($description)}">
-        <meta name="theme-color" content="{$this->esc($this->theme['colors']['primary'] ?? '#000000')}">
-        <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
-
-        <meta property="og:type" content="website">
-        <meta property="og:title" content="{$this->esc($pageTitle)}">
-        <meta property="og:description" content="{$this->esc($description)}">
-        <meta property="og:site_name" content="{$this->esc($brand)}">
-
-        <!-- Das Nötigste steht direkt hier: die Seite erscheint sofort
-             fertig gestaltet, ohne auf eine zweite Datei zu warten.
-             Das vollständige Stylesheet folgt als gewöhnlicher Verweis.
-             Der bekannte Trick mit media="print" und onload wäre ein
-             Zeilenskript – jede strenge Content-Security-Policy blockt
-             es, und dann bliebe die Seite für immer unformatiert. -->
-        <style>{$critical}</style>
-        <link rel="stylesheet" href="assets/css/site.css">
-
-        <script type="application/ld+json">{$schema}</script>
-        </head>
-        <body>
-        <a class="s-skip" href="#inhalt">Direkt zum Inhalt</a>
-        {$body}
-        <script src="assets/js/site.js" defer></script>
-        </body>
-        </html>
-        HTML;
-    }
-
-    /** Angaben, die jeder Abschnitt braucht: Navigation, Kontakt, Logo. */
-    private function context(array $currentPage): array
-    {
-        $brief = json_decode((string) ($this->project['brief'] ?? '{}'), true) ?: [];
-
-        $nav = [];
-        $legal = [];
-
-        foreach ($this->pages as $page) {
-            $entry = [
-                'label' => (string) $page['title'],
-                'url' => self::linkFor((string) $page['path']),
-                'current' => $page['path'] === $currentPage['path'],
-            ];
-
-            if (in_array($page['path'], ['/impressum', '/datenschutz', '/agb'], true)) {
-                $legal[] = $entry;
-            } elseif (!empty($page['in_navigation'])) {
-                $nav[] = $entry;
-            }
-        }
-
-        $logo = null;
-        $logoAsset = Db::first(
-            "SELECT * FROM project_assets WHERE project_id = :p AND kind = 'logo' ORDER BY id DESC LIMIT 1",
-            ['p' => (int) $this->project['id']]
-        );
-        if ($logoAsset !== null) {
-            $logo = [
-                'src' => 'assets/img/' . basename((string) $logoAsset['path']),
-                'alt' => (string) $this->project['name'],
-                'width' => (int) $logoAsset['width'],
-                'height' => (int) $logoAsset['height'],
-            ];
-        }
 
         return [
             'brand' => (string) $this->project['name'],
-            'home' => 'index.html',
-            'nav' => $nav,
-            'legal' => $legal,
-            'logo' => $logo,
-            'email' => (string) ($brief['contact_email'] ?? ''),
-            'phone' => (string) ($brief['contact_phone'] ?? ''),
-            'address' => (string) ($brief['contact_address'] ?? ''),
             'locale' => (string) ($this->project['locale'] ?? 'de'),
+            'theme' => $this->theme,
+            'pages' => $this->pages,
+            'logo' => $this->logo(),
+            'contact' => [
+                'email' => (string) ($brief['contact_email'] ?? ''),
+                'phone' => (string) ($brief['contact_phone'] ?? ''),
+                'address' => (string) ($brief['contact_address'] ?? ''),
+            ],
+        ];
+    }
+
+    /** Das Logo, falls eines hochgeladen wurde. */
+    private function logo(): ?array
+    {
+        $asset = Db::first(
+            "SELECT * FROM project_assets WHERE project_id = :p AND kind = 'logo' ORDER BY id DESC LIMIT 1",
+            ['p' => (int) $this->project['id']]
+        );
+
+        if ($asset === null) {
+            return null;
+        }
+
+        return [
+            'src' => 'assets/img/' . basename((string) $asset['path']),
+            'alt' => (string) $this->project['name'],
+            'width' => (int) $asset['width'],
+            'height' => (int) $asset['height'],
         ];
     }
 
@@ -353,7 +273,55 @@ final class SiteBuilder
         ]);
         write_file_atomic($this->outputDir . '/404.html', $notFound);
 
-        return 4;
+        // Der Empfänger des Kontaktformulars. Ohne ihn liefe jedes
+        // abgeschickte Formular ins Leere.
+        return 4 + $this->writeContactHandler();
+    }
+
+    /**
+     * contact.php und die zugehörige Ablage anlegen.
+     *
+     * Die Anfragen landen als Datei neben der Website – keine Datenbank,
+     * wie überall sonst auch. Der Ordner ist per .htaccess gesperrt und
+     * enthält zusätzlich eine index.php, die sofort abbricht: Wo
+     * .htaccess nicht greift, greift wenigstens die.
+     */
+    private function writeContactHandler(): int
+    {
+        $source = APP_DIR . '/Kit/site/php/contact.php';
+        if (!is_file($source)) {
+            return 0;
+        }
+
+        $brief = json_decode((string) ($this->project['brief'] ?? '{}'), true) ?: [];
+
+        write_file_atomic($this->outputDir . '/contact.php', (string) file_get_contents($source));
+
+        $dataDir = $this->outputDir . '/data';
+        ensure_dir($dataDir);
+
+        $config = "<?php\n\n"
+            . "// Angaben für den Empfang des Kontaktformulars.\n"
+            . "// Die Empfängeradresse lässt sich hier jederzeit ändern.\n\n"
+            . 'return ' . var_export([
+                'brand' => (string) $this->project['name'],
+                'contact_email' => (string) ($brief['contact_email'] ?? ''),
+            ], true) . ";\n";
+
+        // Nur anlegen, wenn es die Datei noch nicht gibt: Beim erneuten
+        // Bauen soll eine von Hand geänderte Adresse stehen bleiben.
+        if (!is_file($dataDir . '/config.php')) {
+            write_file_atomic($dataDir . '/config.php', $config);
+        }
+        if (!is_file($dataDir . '/leads.php')) {
+            write_file_atomic($dataDir . '/leads.php', "<?php exit; ?>\n[]\n");
+        }
+
+        write_file_atomic($dataDir . '/.htaccess', "Require all denied\n"
+            . "<IfModule !mod_authz_core.c>\n    Deny from all\n</IfModule>\n");
+        write_file_atomic($dataDir . '/index.php', "<?php http_response_code(404); exit;\n");
+
+        return 5;
     }
 
     private static function htaccess(): string
