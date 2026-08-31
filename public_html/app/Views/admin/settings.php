@@ -216,6 +216,16 @@ foreach ($diagnostics as $check) {
                     Arbeitsbereiche darf nur ein Admin-Schlüssel lesen, und deiner baut
                     Websites, statt die Organisation zu verwalten. Das ist so gewollt.
                 </span>
+
+                <p class="wa-fieldset__hint">
+                    <button type="submit" name="workspace_test" value="1"
+                            class="wa-btn wa-btn--quiet wa-btn--sm"
+                            formnovalidate>
+                        Ausprobieren, ohne zu speichern
+                    </button>
+                    Klopft einmal bei der Schnittstelle an und sagt sofort, ob es mit
+                    dem geht, was oben im Feld steht. Kostet nichts.
+                </p>
             </div>
         </fieldset>
 

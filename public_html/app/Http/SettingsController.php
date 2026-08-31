@@ -35,6 +35,37 @@ final class SettingsController
     {
         $action = $request->input('action', 'settings');
 
+        // Eine Kennung ausprobieren, ohne sie zu speichern und ohne einen
+        // Auftrag dafür zu starten. Wer sucht, sucht selten beim ersten
+        // Mal richtig – dann soll die Antwort schnell kommen.
+        if ($request->has('workspace_test')) {
+            $kandidat = ClaudeClient::cleanWorkspaceId($request->input('anthropic_workspace_id'));
+
+            if ($kandidat === '' && trim($request->input('anthropic_workspace_id')) !== '') {
+                Session::flash(
+                    'error',
+                    'Darin steckt keine Kennung. Gesucht wird etwas, das mit "wrkspc_" '
+                    . 'beginnt – die ganze Adresse aus der Konsole einzufügen genügt.'
+                );
+                return $this->back();
+            }
+
+            $probe = ClaudeClient::probe($kandidat);
+
+            Session::flash(
+                $probe['ok'] ? 'success' : 'error',
+                $probe['ok']
+                    ? ($kandidat === ''
+                        ? 'Der Zugang steht auch ohne Kennung: ' . $probe['text']
+                          . '. Das Feld kann leer bleiben.'
+                        : 'Diese Kennung passt: ' . $probe['text']
+                          . '. Jetzt noch speichern, dann läuft es.')
+                    : 'Damit geht es nicht: ' . $probe['text'] . '. ' . $probe['hint']
+            );
+
+            return $this->back();
+        }
+
         if ($action === 'password') {
             return $this->changePassword($request);
         }

@@ -601,7 +601,7 @@ final class ClaudeClient
      *
      * @return array{ok:bool, text:string, hint:string}
      */
-    public static function probe(): array
+    public static function probe(?string $workspaceOverride = null): array
     {
         $apiKey = trim((string) Config::get('anthropic.api_key', ''));
 
@@ -620,7 +620,9 @@ final class ClaudeClient
             'anthropic-version: ' . self::VERSION,
         ];
 
-        $workspace = self::workspaceId();
+        // Zum Ausprobieren darf eine Kennung mitgegeben werden, die noch
+        // nirgends gespeichert ist.
+        $workspace = $workspaceOverride ?? self::workspaceId();
 
         if ($workspace !== '') {
             $headers[] = 'anthropic-workspace-id: ' . $workspace;
