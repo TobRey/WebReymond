@@ -202,8 +202,9 @@ return [
 
     'work' => [
         'eyebrow' => 'Work',
-        'title' => 'Recently built',
-        'lead' => 'A look at sites we have delivered.',
+        'title' => 'Work and studies',
+        'lead' => 'Delivered projects and design studies. Every site is built from '
+            . 'scratch for its purpose – no two look alike.',
         'empty' => 'The first projects will appear here as soon as they are online.',
         'visit' => 'Visit website',
         'preview_label' => 'Preview of :name',

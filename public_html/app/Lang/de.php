@@ -203,8 +203,9 @@ return [
 
     'work' => [
         'eyebrow' => 'Referenzen',
-        'title' => 'Zuletzt gebaut',
-        'lead' => 'Ein Blick auf Seiten, die wir umgesetzt haben.',
+        'title' => 'Arbeiten und Studien',
+        'lead' => 'Umgesetzte Projekte und Designstudien. Jede Seite ist von Grund auf '
+            . 'für ihren Zweck gebaut – keine zwei sehen gleich aus.',
         'empty' => 'Die ersten Projekte erscheinen hier, sobald sie online sind.',
         'visit' => 'Website ansehen',
         'preview_label' => 'Vorschau von :name',

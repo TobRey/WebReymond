@@ -223,6 +223,80 @@ test('Preise: auf der Website steht keine einzige Zahl', function (): void {
 });
 
 // ==================================================================
+test('Die Referenz-Miniatur überlebt den nächsten Tag', function (): void {
+    // Früher zeigte preview_path auf /vorschau/<kennung>/. Diesen Ordner
+    // räumt der Cron nach 24 Stunden weg – am Tag darauf stand in jeder
+    // Referenzkarte ein leerer Rahmen. Jetzt liegt eine dauerhafte Kopie
+    // unter storage/showcase/.
+    $quelle = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Build/ShowcaseBuilder.php'
+    );
+
+    ok(!str_contains($quelle, "'/vorschau/' . \$token"),
+        'Die Referenz zeigt nicht mehr auf die ablaufende Vorschau');
+    ok(str_contains($quelle, "/referenz-ansicht/"),
+        'Sondern auf die dauerhafte Kopie');
+    ok(str_contains($quelle, "STORAGE_DIR . '/showcase/'"),
+        'Die Kopie liegt unter storage/showcase/');
+
+    // Und der Worker darf sie nicht mitaufräumen.
+    $worker = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Core/Worker.php'
+    );
+    ok(!str_contains($worker, "/showcase"),
+        'Das Aufräumen fasst den Referenzordner nicht an');
+});
+
+// ==================================================================
+test('Die Designstudien sind vollständig und verschieden', function (): void {
+    $seedFile = dirname(__DIR__) . '/public_html/app/Support/showcase-seed.php';
+    ok(is_file($seedFile), 'Die Studien sind hinterlegt');
+
+    $studien = require $seedFile;
+    is(20, count($studien), 'Es sind zwanzig');
+
+    $slugs = array_column($studien, 'slug');
+    $farben = array_column($studien, 'accent_color');
+    $titel = array_column($studien, 'title');
+
+    is(20, count(array_unique($slugs)), 'Jede hat ihre eigene Kennung');
+    is(20, count(array_unique($farben)), 'Und ihre eigene Akzentfarbe');
+    is(20, count(array_unique($titel)), 'Und ihren eigenen Namen');
+
+    foreach ($studien as $studie) {
+        $slug = (string) $studie['slug'];
+
+        // Ohne Seite wäre die Karte ein leerer Rahmen.
+        $seite = dirname(__DIR__) . '/public_html/storage/showcase/' . $slug . '/index.html';
+        ok(is_file($seite), 'Seite vorhanden: ' . $slug);
+
+        $html = (string) file_get_contents($seite);
+
+        // Eine Studie darf nicht verraten, wie sie entstanden ist – sie
+        // steht auf der öffentlichen Seite.
+        ok(!\WebAtze\Build\ShowcaseBuilder::leaksMethod(
+            $studie['subtitle'] . ' ' . $studie['body_de'] . ' ' . $studie['body_en']
+        ), 'Text verrät nichts: ' . $slug);
+
+        // Und keine Preisangabe, wie überall sonst auf der Seite auch.
+        ok(!preg_match('/(CHF|Fr\.|EUR|€)\s*\d/', $studie['body_de'] . $studie['body_en']),
+            'Kein Preis im Text: ' . $slug);
+
+        // Als Studie erkennbar – sonst wären es erfundene Kundenarbeiten.
+        ok(str_contains((string) $studie['tags'], 'Designstudie'),
+            'Als Studie gekennzeichnet: ' . $slug);
+
+        // Die Miniatur zeigt auf die dauerhafte Kopie.
+        is('/referenz-ansicht/' . $slug . '/', $studie['preview_path'],
+            'Zeigt auf die eigene Kopie: ' . $slug);
+
+        // Kein fremder Aufruf: Die Seite muss ohne Netz auskommen.
+        ok(!preg_match('#(src|href)\s*=\s*["\']https?://#i', $html),
+            'Lädt nichts von fremden Servern: ' . $slug);
+    }
+});
+
+// ==================================================================
 test('robots.txt verrät die versteckte Adresse nicht', function (): void {
     // robots.txt ist öffentlich. Steht der geheime Pfad darin, genügt ein
     // Aufruf dieser einen Datei, um ihn zu erfahren – dann ist der

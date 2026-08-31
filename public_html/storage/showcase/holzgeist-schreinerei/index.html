@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Holzgeist</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#faf6f0;color:#2e2318;
+  font-family:"Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;font-size:19px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+
+/* Schmuckebenen ragen absichtlich über den Rand hinaus – hier werden
+   sie abgeschnitten. Ohne das wächst die Seite in die Breite, und im
+   Rahmen der Referenzkarte stünde plötzlich alles zu weit links. */
+main{position:relative;overflow:hidden}
+
+.wrap{position:relative;z-index:2;max-width:1180px;margin-inline:auto;padding-inline:64px}
+
+/* Kopfzeile */
+.kopf{position:relative;z-index:5;display:flex;align-items:center;
+  justify-content:space-between;gap:32px;padding:28px 0}
+.marke{display:flex;align-items:center;gap:12px;font-family:"Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  font-size:23px;font-weight:700;letter-spacing:-0.025em}
+.marke i{display:block;inline-size:30px;block-size:30px;border-radius:9px;
+  background:linear-gradient(135deg,#78350f,#84a98c)}
+.menue{display:flex;gap:30px;font-size:16px;color:#7d6a58}
+
+/* Aufmacher */
+.hero{position:relative;padding-block:104px 128px}
+.hero--mitte{text-align:center}
+.hero--mitte .lead{margin-inline:auto}
+.hero--mitte .cta{justify-content:center}
+.hero--schmal .lead{max-width:600px}
+.hero--split{display:grid;grid-template-columns:1.06fr 0.94fr;
+  gap:64px;align-items:center}
+
+.eyebrow{margin:0 0 18px;font-size:14px;font-weight:700;
+  letter-spacing:0.16em;color:#78350f}
+.gesperrt{letter-spacing:0.3em}
+.eyebrow--kasten{display:inline-block;padding:6px 14px;
+  background:#78350f;color:#faf6f0;letter-spacing:0.12em}
+.eyebrow--pille{display:inline-block;padding:8px 20px;border-radius:99px;
+  background:color-mix(in srgb,#78350f 14%,transparent)}
+
+h1.riesig{margin:0 0 24px;font-family:"Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  font-size:74px;line-height:1.04;letter-spacing:-0.025em;font-weight:800}
+.kursiv{font-style:italic;font-weight:400}
+.schraeg{transform:skewX(-6deg);transform-origin:left}
+
+.lead{margin:0 0 34px;max-width:640px;font-size:21px;color:#7d6a58}
+.lead--leise{opacity:.75}
+
+.cta{display:flex;flex-wrap:wrap;gap:14px}
+.btn{display:inline-block;padding:16px 34px;border-radius:99px;
+  background:#78350f;color:#faf6f0;
+  font-family:"Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;font-size:17px;font-weight:700}
+.btn--leise{background:transparent;color:#2e2318;
+  border:1.5px solid color-mix(in srgb,#2e2318 26%,transparent)}
+
+/* Abschnitt darunter */
+.band{position:relative;z-index:2;padding-block:88px;
+  border-block-start:1px solid color-mix(in srgb,#2e2318 12%,transparent)}
+.kacheln{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+.kachel{padding:38px 34px;border-radius:20px;background:#ffffff;
+  border:1px solid color-mix(in srgb,#2e2318 10%,transparent);
+  box-shadow:0 1px 2px rgb(0 0 0/.04),0 22px 50px -30px rgb(0 0 0/.4)}
+.kachel b{display:block;margin-bottom:10px;font-family:"Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  font-size:26px;letter-spacing:-0.025em}
+.kachel span{color:#7d6a58;font-size:17px}
+.kachel i{display:block;inline-size:44px;block-size:44px;margin-bottom:22px;
+  border-radius:13px;background:linear-gradient(140deg,#78350f,#84a98c);
+  opacity:.9}
+
+/* Fusszeile */
+.fuss{position:relative;z-index:2;padding:44px 0 64px;font-size:15px;
+  color:#7d6a58;
+  border-block-start:1px solid color-mix(in srgb,#2e2318 10%,transparent)}
+.fuss .wrap{display:flex;justify-content:space-between;gap:24px}
+.maserung{position:absolute;inset:0;opacity:.5;
+  background:repeating-linear-gradient(97deg,
+    transparent 0 12px,color-mix(in srgb,#78350f 5%,transparent) 12px 15px,
+    transparent 15px 34px,color-mix(in srgb,#78350f 3%,transparent) 34px 36px);
+  mask-image:linear-gradient(180deg,#000,transparent 82%)}
+.platten{position:relative;block-size:400px;perspective:1200px}
+.platte{position:absolute;border-radius:10px;
+  box-shadow:0 30px 56px -30px rgb(70 45 20/.55)}
+.platte--1{inset:20px 90px 120px 0;
+  background:linear-gradient(135deg,#78350f,#8a5a2b);
+  transform:rotateY(16deg) rotateX(6deg)}
+.platte--2{inset:150px 0 20px 120px;
+  background:linear-gradient(135deg,#84a98c,#5f8468);
+  transform:rotateY(16deg) rotateX(6deg)}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="kopf wrap">
+    <span class="marke"><i></i>Holzgeist</span>
+    <nav class="menue"><a href="#">Küchen</a><a href="#">Einbauten</a><a href="#">Tische</a><a href="#">Kontakt</a></nav>
+</header>
+
+<main>
+    <div class="maserung" aria-hidden="true"></div>
+<div class="wrap hero hero--split">
+    <div>
+        <p class="eyebrow">SCHREINEREI</p>
+        <h1 class="riesig">Möbel nach Mass</h1>
+        <p class="lead">Schreinerei im Emmental. Küchen, Einbauschränke und Tische – aus Holz, das keine zweihundert Kilometer gereist ist.</p>
+        <div class="cta"><a class="btn" href="#">Kontakt aufnehmen</a><a class="btn btn--leise" href="#">Mehr erfahren</a></div>
+    </div>
+    <div class="platten" aria-hidden="true">
+        <span class="platte platte--1"></span>
+        <span class="platte platte--2"></span>
+    </div>
+</div>
+
+    <section class="band">
+        <div class="wrap">
+            <div class="kacheln"><div class="kachel"><i></i><b>Küchen</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Einbauten</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Tische</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div></div>
+        </div>
+    </section>
+</main>
+
+<footer class="fuss">
+    <div class="wrap">
+        <span>&copy; 2026 Holzgeist</span>
+        <span>Impressum &middot; Datenschutz</span>
+    </div>
+</footer>
+
+</body>
+</html>

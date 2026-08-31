@@ -274,7 +274,59 @@ function install(array $v, string $appDir, string $storage): array
         @mkdir($storage . '/' . $dir, 0755, true);
     }
 
+    // --- Die Designstudien -------------------------------------------
+    seed_showcase($storage);
+
     return [];
+}
+
+/**
+ * Die Designstudien in die Referenzen eintragen.
+ *
+ * Damit steht die Referenzseite vom ersten Tag an nicht leer. Es sind
+ * ausdrücklich Studien und keine Kundenarbeiten – jede Karte sagt das
+ * auch. Wer sie nicht will, entfernt sie im Adminbereich mit einem Klick.
+ *
+ * Eingetragen wird nur, wenn noch keine Referenz existiert. Ein zweiter
+ * Durchlauf soll nichts doppelt anlegen und nichts überschreiben.
+ */
+function seed_showcase(string $storage): void
+{
+    $seedFile = dirname($storage) . '/app/Support/showcase-seed.php';
+
+    if (!is_file($seedFile)) {
+        return;
+    }
+
+    try {
+        $vorhanden = (int) \WebAtze\Core\Db::value('SELECT COUNT(*) FROM showcase', [], 0);
+        if ($vorhanden > 0) {
+            return;
+        }
+
+        foreach ((array) require $seedFile as $eintrag) {
+            if (!is_array($eintrag) || ($eintrag['slug'] ?? '') === '') {
+                continue;
+            }
+
+            // Nur eintragen, wenn die zugehörige Seite auch wirklich da
+            // ist – eine Referenz mit leerem Rahmen wäre schlechter als
+            // gar keine.
+            if (!is_file($storage . '/showcase/' . $eintrag['slug'] . '/index.html')) {
+                continue;
+            }
+
+            \WebAtze\Core\Db::insert('showcase', array_merge($eintrag, [
+                'project_id' => null,
+                'published' => 1,
+                'created_at' => \WebAtze\Core\Db::now(),
+                'updated_at' => \WebAtze\Core\Db::now(),
+            ]));
+        }
+    } catch (\Throwable) {
+        // Ohne Studien läuft alles weiter. Die Einrichtung daran
+        // scheitern zu lassen, wäre nicht verhältnismässig.
+    }
 }
 
 /** Die eigene Adresse erraten – als Vorschlag, nicht als Festlegung. */

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Achtsam</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#f7f5ef;color:#2f332a;
+  font-family:Georgia, "Iowan Old Style", serif;font-size:19px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+
+/* Schmuckebenen ragen absichtlich über den Rand hinaus – hier werden
+   sie abgeschnitten. Ohne das wächst die Seite in die Breite, und im
+   Rahmen der Referenzkarte stünde plötzlich alles zu weit links. */
+main{position:relative;overflow:hidden}
+
+.wrap{position:relative;z-index:2;max-width:1180px;margin-inline:auto;padding-inline:64px}
+
+/* Kopfzeile */
+.kopf{position:relative;z-index:5;display:flex;align-items:center;
+  justify-content:space-between;gap:32px;padding:28px 0}
+.marke{display:flex;align-items:center;gap:12px;font-family:Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size:23px;font-weight:700;letter-spacing:-0.02em}
+.marke i{display:block;inline-size:30px;block-size:30px;border-radius:9px;
+  background:linear-gradient(135deg,#6b7f5e,#d9c8a9)}
+.menue{display:flex;gap:30px;font-size:16px;color:#77806d}
+
+/* Aufmacher */
+.hero{position:relative;padding-block:104px 128px}
+.hero--mitte{text-align:center}
+.hero--mitte .lead{margin-inline:auto}
+.hero--mitte .cta{justify-content:center}
+.hero--schmal .lead{max-width:600px}
+.hero--split{display:grid;grid-template-columns:1.06fr 0.94fr;
+  gap:64px;align-items:center}
+
+.eyebrow{margin:0 0 18px;font-size:14px;font-weight:700;
+  letter-spacing:0.16em;color:#6b7f5e}
+.gesperrt{letter-spacing:0.3em}
+.eyebrow--kasten{display:inline-block;padding:6px 14px;
+  background:#6b7f5e;color:#f7f5ef;letter-spacing:0.12em}
+.eyebrow--pille{display:inline-block;padding:8px 20px;border-radius:99px;
+  background:color-mix(in srgb,#6b7f5e 14%,transparent)}
+
+h1.riesig{margin:0 0 24px;font-family:Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size:74px;line-height:1.04;letter-spacing:-0.02em;font-weight:800}
+.kursiv{font-style:italic;font-weight:400}
+.schraeg{transform:skewX(-6deg);transform-origin:left}
+
+.lead{margin:0 0 34px;max-width:640px;font-size:21px;color:#77806d}
+.lead--leise{opacity:.75}
+
+.cta{display:flex;flex-wrap:wrap;gap:14px}
+.btn{display:inline-block;padding:16px 34px;border-radius:99px;
+  background:#6b7f5e;color:#f7f5ef;
+  font-family:Georgia, "Iowan Old Style", serif;font-size:17px;font-weight:700}
+.btn--leise{background:transparent;color:#2f332a;
+  border:1.5px solid color-mix(in srgb,#2f332a 26%,transparent)}
+
+/* Abschnitt darunter */
+.band{position:relative;z-index:2;padding-block:88px;
+  border-block-start:1px solid color-mix(in srgb,#2f332a 12%,transparent)}
+.kacheln{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+.kachel{padding:38px 34px;border-radius:20px;background:#fffdf8;
+  border:1px solid color-mix(in srgb,#2f332a 10%,transparent);
+  box-shadow:0 1px 2px rgb(0 0 0/.04),0 22px 50px -30px rgb(0 0 0/.4)}
+.kachel b{display:block;margin-bottom:10px;font-family:Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size:26px;letter-spacing:-0.02em}
+.kachel span{color:#77806d;font-size:17px}
+.kachel i{display:block;inline-size:44px;block-size:44px;margin-bottom:22px;
+  border-radius:13px;background:linear-gradient(140deg,#6b7f5e,#d9c8a9);
+  opacity:.9}
+
+/* Fusszeile */
+.fuss{position:relative;z-index:2;padding:44px 0 64px;font-size:15px;
+  color:#77806d;
+  border-block-start:1px solid color-mix(in srgb,#2f332a 10%,transparent)}
+.fuss .wrap{display:flex;justify-content:space-between;gap:24px}
+.blobs--gross{position:absolute;inset:0;overflow:hidden}
+.blob{position:absolute;filter:blur(50px)}
+.blob--1{inset-block-start:-90px;inset-inline-start:-90px;inline-size:520px;block-size:440px;
+  background:#6b7f5e;opacity:.28;border-radius:58% 42% 39% 61%/47% 53% 47% 53%}
+.blob--2{inset-block-start:120px;inset-inline-end:-110px;inline-size:520px;block-size:520px;
+  background:#d9c8a9;opacity:.6;border-radius:41% 59% 62% 38%/54% 36% 64% 46%}
+.blob--3{inset-block-start:470px;inset-inline-start:14%;inline-size:380px;block-size:260px;
+  background:#6b7f5e;opacity:.2;border-radius:50% 50% 36% 64%/38% 62% 38% 62%}
+.btn{border-radius:99px}
+.kachel{border-radius:38px 38px 38px 8px}
+.kachel i{border-radius:50% 50% 42% 58%}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="kopf wrap">
+    <span class="marke"><i></i>Achtsam</span>
+    <nav class="menue"><a href="#">Einsteigerkurs</a><a href="#">Online</a><a href="#">Retreat</a><a href="#">Kontakt</a></nav>
+</header>
+
+<main>
+    <div class="blobs blobs--gross" aria-hidden="true">
+    <span class="blob blob--1"></span>
+    <span class="blob blob--2"></span>
+    <span class="blob blob--3"></span>
+</div>
+<div class="wrap hero hero--mitte hero--schmal">
+    <p class="eyebrow">MEDITATIONSKURSE</p>
+    <h1 class="riesig kursiv">Zehn Minuten genügen</h1>
+    <p class="lead">Kurse für Achtsamkeit in Zürich und online. Ohne Räucherstäbchen, ohne Versprechen, die niemand halten kann.</p>
+    <div class="cta"><a class="btn" href="#">Kontakt aufnehmen</a><a class="btn btn--leise" href="#">Mehr erfahren</a></div>
+</div>
+
+    <section class="band">
+        <div class="wrap">
+            <div class="kacheln"><div class="kachel"><i></i><b>Einsteigerkurs</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Online</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Retreat</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div></div>
+        </div>
+    </section>
+</main>
+
+<footer class="fuss">
+    <div class="wrap">
+        <span>&copy; 2026 Achtsam</span>
+        <span>Impressum &middot; Datenschutz</span>
+    </div>
+</footer>
+
+</body>
+</html>

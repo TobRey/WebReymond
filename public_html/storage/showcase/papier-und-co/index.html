@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Papier &amp; Co</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#f6f2e9;color:#26303b;
+  font-family:Georgia, "Iowan Old Style", serif;font-size:19px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+
+/* Schmuckebenen ragen absichtlich über den Rand hinaus – hier werden
+   sie abgeschnitten. Ohne das wächst die Seite in die Breite, und im
+   Rahmen der Referenzkarte stünde plötzlich alles zu weit links. */
+main{position:relative;overflow:hidden}
+
+.wrap{position:relative;z-index:2;max-width:1180px;margin-inline:auto;padding-inline:64px}
+
+/* Kopfzeile */
+.kopf{position:relative;z-index:5;display:flex;align-items:center;
+  justify-content:space-between;gap:32px;padding:28px 0}
+.marke{display:flex;align-items:center;gap:12px;font-family:Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size:23px;font-weight:700;letter-spacing:-0.02em}
+.marke i{display:block;inline-size:30px;block-size:30px;border-radius:9px;
+  background:linear-gradient(135deg,#1e3a5f,#b08968)}
+.menue{display:flex;gap:30px;font-size:16px;color:#6f7b86}
+
+/* Aufmacher */
+.hero{position:relative;padding-block:104px 128px}
+.hero--mitte{text-align:center}
+.hero--mitte .lead{margin-inline:auto}
+.hero--mitte .cta{justify-content:center}
+.hero--schmal .lead{max-width:600px}
+.hero--split{display:grid;grid-template-columns:1.06fr 0.94fr;
+  gap:64px;align-items:center}
+
+.eyebrow{margin:0 0 18px;font-size:14px;font-weight:700;
+  letter-spacing:0.16em;color:#1e3a5f}
+.gesperrt{letter-spacing:0.3em}
+.eyebrow--kasten{display:inline-block;padding:6px 14px;
+  background:#1e3a5f;color:#f6f2e9;letter-spacing:0.12em}
+.eyebrow--pille{display:inline-block;padding:8px 20px;border-radius:99px;
+  background:color-mix(in srgb,#1e3a5f 14%,transparent)}
+
+h1.riesig{margin:0 0 24px;font-family:Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size:74px;line-height:1.04;letter-spacing:-0.02em;font-weight:800}
+.kursiv{font-style:italic;font-weight:400}
+.schraeg{transform:skewX(-6deg);transform-origin:left}
+
+.lead{margin:0 0 34px;max-width:640px;font-size:21px;color:#6f7b86}
+.lead--leise{opacity:.75}
+
+.cta{display:flex;flex-wrap:wrap;gap:14px}
+.btn{display:inline-block;padding:16px 34px;border-radius:99px;
+  background:#1e3a5f;color:#f6f2e9;
+  font-family:Georgia, "Iowan Old Style", serif;font-size:17px;font-weight:700}
+.btn--leise{background:transparent;color:#26303b;
+  border:1.5px solid color-mix(in srgb,#26303b 26%,transparent)}
+
+/* Abschnitt darunter */
+.band{position:relative;z-index:2;padding-block:88px;
+  border-block-start:1px solid color-mix(in srgb,#26303b 12%,transparent)}
+.kacheln{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+.kachel{padding:38px 34px;border-radius:20px;background:#fffdf6;
+  border:1px solid color-mix(in srgb,#26303b 10%,transparent);
+  box-shadow:0 1px 2px rgb(0 0 0/.04),0 22px 50px -30px rgb(0 0 0/.4)}
+.kachel b{display:block;margin-bottom:10px;font-family:Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size:26px;letter-spacing:-0.02em}
+.kachel span{color:#6f7b86;font-size:17px}
+.kachel i{display:block;inline-size:44px;block-size:44px;margin-bottom:22px;
+  border-radius:13px;background:linear-gradient(140deg,#1e3a5f,#b08968);
+  opacity:.9}
+
+/* Fusszeile */
+.fuss{position:relative;z-index:2;padding:44px 0 64px;font-size:15px;
+  color:#6f7b86;
+  border-block-start:1px solid color-mix(in srgb,#26303b 10%,transparent)}
+.fuss .wrap{display:flex;justify-content:space-between;gap:24px}
+body{background:
+  radial-gradient(60% 40% at 20% 10%,rgb(255 255 255/.7),transparent 60%),
+  repeating-linear-gradient(0deg,transparent 0 2px,rgb(140 120 95/.028) 2px 3px),
+  #f6f2e9}
+h1.riesig{text-shadow:0 1px 0 rgb(255 255 255/.9),0 -1px 0 rgb(0 0 0/.08)}
+.bogen{position:relative;block-size:420px;perspective:1200px}
+.bogen__blatt{position:absolute;inset-inline:60px;block-size:300px;border-radius:3px;
+  border:1px solid rgb(120 100 78/.42);
+  box-shadow:0 22px 44px -22px rgb(60 45 30/.55)}
+.bogen__blatt--3{inset-block-start:14px;transform:rotate(-7deg) translateZ(-40px);
+  background:color-mix(in srgb,#b08968 26%,#fffdf6)}
+.bogen__blatt--2{inset-block-start:48px;transform:rotate(-2.5deg) translateZ(-20px);
+  background:color-mix(in srgb,#b08968 12%,#fffdf6)}
+.bogen__blatt--1{inset-block-start:84px;transform:rotate(2.5deg);
+  background:#fffdf6;
+  border-inline-start:5px solid #1e3a5f}
+.btn{border-radius:3px}
+.btn--leise{border-radius:3px}
+.kachel{border-radius:3px}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="kopf wrap">
+    <span class="marke"><i></i>Papier &amp; Co</span>
+    <nav class="menue"><a href="#">Restaurierung</a><a href="#">Anfertigung</a><a href="#">Kurse</a><a href="#">Kontakt</a></nav>
+</header>
+
+<main>
+    <div class="wrap hero hero--split">
+    <div>
+        <p class="eyebrow gesperrt">BUCHBINDEREI</p>
+        <h1 class="riesig kursiv">Von Hand gebunden</h1>
+        <p class="lead">Buchbinderei in Chur. Restaurierung, Einzelanfertigung und Kurse für alle, die es selbst versuchen wollen.</p>
+        <div class="cta"><a class="btn" href="#">Kontakt aufnehmen</a><a class="btn btn--leise" href="#">Mehr erfahren</a></div>
+    </div>
+    <div class="bogen" aria-hidden="true">
+        <span class="bogen__blatt bogen__blatt--3"></span>
+        <span class="bogen__blatt bogen__blatt--2"></span>
+        <span class="bogen__blatt bogen__blatt--1"></span>
+    </div>
+</div>
+
+    <section class="band">
+        <div class="wrap">
+            <div class="kacheln"><div class="kachel"><i></i><b>Restaurierung</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Anfertigung</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Kurse</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div></div>
+        </div>
+    </section>
+</main>
+
+<footer class="fuss">
+    <div class="wrap">
+        <span>&copy; 2026 Papier &amp; Co</span>
+        <span>Impressum &middot; Datenschutz</span>
+    </div>
+</footer>
+
+</body>
+</html>

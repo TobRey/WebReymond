@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Vertikal</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#e7e5e4;color:#1c1917;
+  font-family:ui-monospace, "SF Mono", Menlo, monospace;font-size:19px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+
+/* Schmuckebenen ragen absichtlich über den Rand hinaus – hier werden
+   sie abgeschnitten. Ohne das wächst die Seite in die Breite, und im
+   Rahmen der Referenzkarte stünde plötzlich alles zu weit links. */
+main{position:relative;overflow:hidden}
+
+.wrap{position:relative;z-index:2;max-width:1180px;margin-inline:auto;padding-inline:64px}
+
+/* Kopfzeile */
+.kopf{position:relative;z-index:5;display:flex;align-items:center;
+  justify-content:space-between;gap:32px;padding:28px 0}
+.marke{display:flex;align-items:center;gap:12px;font-family:ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  font-size:23px;font-weight:700;letter-spacing:-0.03em}
+.marke i{display:block;inline-size:30px;block-size:30px;border-radius:9px;
+  background:linear-gradient(135deg,#ea580c,#1c1917)}
+.menue{display:flex;gap:30px;font-size:16px;color:#57534e}
+
+/* Aufmacher */
+.hero{position:relative;padding-block:104px 128px}
+.hero--mitte{text-align:center}
+.hero--mitte .lead{margin-inline:auto}
+.hero--mitte .cta{justify-content:center}
+.hero--schmal .lead{max-width:600px}
+.hero--split{display:grid;grid-template-columns:1.06fr 0.94fr;
+  gap:64px;align-items:center}
+
+.eyebrow{margin:0 0 18px;font-size:14px;font-weight:700;
+  letter-spacing:0.16em;color:#ea580c}
+.gesperrt{letter-spacing:0.3em}
+.eyebrow--kasten{display:inline-block;padding:6px 14px;
+  background:#ea580c;color:#e7e5e4;letter-spacing:0.12em}
+.eyebrow--pille{display:inline-block;padding:8px 20px;border-radius:99px;
+  background:color-mix(in srgb,#ea580c 14%,transparent)}
+
+h1.riesig{margin:0 0 24px;font-family:ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  font-size:74px;line-height:1.04;letter-spacing:-0.03em;font-weight:800}
+.kursiv{font-style:italic;font-weight:400}
+.schraeg{transform:skewX(-6deg);transform-origin:left}
+
+.lead{margin:0 0 34px;max-width:640px;font-size:21px;color:#57534e}
+.lead--leise{opacity:.75}
+
+.cta{display:flex;flex-wrap:wrap;gap:14px}
+.btn{display:inline-block;padding:16px 34px;border-radius:99px;
+  background:#ea580c;color:#e7e5e4;
+  font-family:ui-monospace, "SF Mono", Menlo, monospace;font-size:17px;font-weight:700}
+.btn--leise{background:transparent;color:#1c1917;
+  border:1.5px solid color-mix(in srgb,#1c1917 26%,transparent)}
+
+/* Abschnitt darunter */
+.band{position:relative;z-index:2;padding-block:88px;
+  border-block-start:1px solid color-mix(in srgb,#1c1917 12%,transparent)}
+.kacheln{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+.kachel{padding:38px 34px;border-radius:20px;background:#fafaf9;
+  border:1px solid color-mix(in srgb,#1c1917 10%,transparent);
+  box-shadow:0 1px 2px rgb(0 0 0/.04),0 22px 50px -30px rgb(0 0 0/.4)}
+.kachel b{display:block;margin-bottom:10px;font-family:ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  font-size:26px;letter-spacing:-0.03em}
+.kachel span{color:#57534e;font-size:17px}
+.kachel i{display:block;inline-size:44px;block-size:44px;margin-bottom:22px;
+  border-radius:13px;background:linear-gradient(140deg,#ea580c,#1c1917);
+  opacity:.9}
+
+/* Fusszeile */
+.fuss{position:relative;z-index:2;padding:44px 0 64px;font-size:15px;
+  color:#57534e;
+  border-block-start:1px solid color-mix(in srgb,#1c1917 10%,transparent)}
+.fuss .wrap{display:flex;justify-content:space-between;gap:24px}
+h1.kasten{padding:6px 0 10px;border-block:6px solid #1c1917}
+.btn{border-radius:0}
+.btn--leise{border-radius:0;border-width:2px}
+.kachel{border-radius:0;border:2px solid #1c1917;box-shadow:8px 8px 0 #ea580c}
+.kachel i{border-radius:0}
+.bloecke{position:relative;block-size:400px;perspective:900px}
+.block{position:absolute;border:3px solid #1c1917}
+.block--1{inset:0 96px 96px 0;background:#ea580c}
+.block--2{inset:56px 40px 40px 80px;background:#fafaf9}
+.block--3{inset:120px 0 0 150px;background:#1c1917;opacity:.9}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="kopf wrap">
+    <span class="marke"><i></i>Vertikal</span>
+    <nav class="menue"><a href="#">Bouldern</a><a href="#">Kurse</a><a href="#">Tageskarte</a><a href="#">Kontakt</a></nav>
+</header>
+
+<main>
+    <div class="wrap hero hero--split">
+    <div>
+        <p class="eyebrow eyebrow--kasten">KLETTERHALLE</p>
+        <h1 class="kasten">Sechzehn Meter senkrecht</h1>
+        <p class="lead">Boulderhalle und Seilkletterzone in Winterthur. Offen ab sieben, auch wenn draussen alles grau ist.</p>
+        <div class="cta"><a class="btn" href="#">Kontakt aufnehmen</a><a class="btn btn--leise" href="#">Mehr erfahren</a></div>
+    </div>
+    <div class="bloecke" aria-hidden="true">
+        <span class="block block--1"></span>
+        <span class="block block--2"></span>
+        <span class="block block--3"></span>
+    </div>
+</div>
+
+    <section class="band">
+        <div class="wrap">
+            <div class="kacheln"><div class="kachel"><i></i><b>Bouldern</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Kurse</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Tageskarte</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div></div>
+        </div>
+    </section>
+</main>
+
+<footer class="fuss">
+    <div class="wrap">
+        <span>&copy; 2026 Vertikal</span>
+        <span>Impressum &middot; Datenschutz</span>
+    </div>
+</footer>
+
+</body>
+</html>

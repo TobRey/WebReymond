@@ -11,6 +11,23 @@ use WebAtze\Core\{Config, Db, I18n, Request, Response, Settings, View};
  */
 final class SiteController
 {
+    /** Was in einer gespeicherten Kundenwebsite vorkommen kann. */
+    private const MIME = [
+        'html' => 'text/html; charset=utf-8',
+        'css' => 'text/css; charset=utf-8',
+        'js' => 'application/javascript; charset=utf-8',
+        'svg' => 'image/svg+xml',
+        'png' => 'image/png',
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'webp' => 'image/webp',
+        'avif' => 'image/avif',
+        'gif' => 'image/gif',
+        'ico' => 'image/x-icon',
+        'woff2' => 'font/woff2',
+        'woff' => 'font/woff',
+    ];
+
     public function home(Request $request): Response
     {
         return Response::html(View::page('pages/home', [
@@ -68,6 +85,87 @@ final class SiteController
             'description' => (string) $item['subtitle'],
             'item' => $item,
         ]));
+    }
+
+    /**
+     * Die Miniatur einer Referenz.
+     *
+     * Ausgeliefert wird eine dauerhafte Kopie der fertigen Kundenwebsite
+     * aus storage/showcase/<kennung>/. Die Vorschau unter /vorschau/ taugt
+     * dafür nicht: Sie wird nach 24 Stunden aufgeräumt, und danach stünde
+     * in jeder Referenzkarte nur noch ein leerer Rahmen.
+     */
+    public function workPreview(Request $request): Response
+    {
+        return $this->servePreview($request->param('slug'), 'index.html');
+    }
+
+    public function workPreviewFile(Request $request): Response
+    {
+        return $this->servePreview($request->param('slug'), $request->param('path'));
+    }
+
+    private function servePreview(string $slug, string $path): Response
+    {
+        $slug = preg_replace('/[^a-z0-9-]/', '', mb_strtolower($slug)) ?? '';
+
+        if ($slug === '') {
+            return Response::notFound();
+        }
+
+        // Nur veröffentlichte Referenzen. Eine ausgeblendete soll auch
+        // nicht über den Umweg ihrer Miniatur sichtbar sein.
+        $published = Db::value(
+            'SELECT COUNT(*) FROM showcase WHERE slug = :slug AND published = 1',
+            ['slug' => $slug],
+            0
+        );
+
+        if ((int) $published === 0) {
+            return Response::notFound();
+        }
+
+        $root = STORAGE_DIR . '/showcase/' . $slug;
+        $file = self::insideRoot($root, $path === '' ? 'index.html' : $path);
+
+        if ($file === null) {
+            return Response::notFound();
+        }
+
+        $type = self::MIME[strtolower(pathinfo($file, PATHINFO_EXTENSION))] ?? 'application/octet-stream';
+
+        return Response::make((string) file_get_contents($file))
+            ->header('Content-Type', $type)
+            // Die Miniatur steckt in einem Rahmen auf der eigenen Seite –
+            // fremde Seiten sollen sie nicht einbetten können.
+            ->header('X-Frame-Options', 'SAMEORIGIN')
+            ->header('X-Robots-Tag', 'noindex')
+            ->header('Cache-Control', 'public, max-age=3600');
+    }
+
+    /**
+     * Pfad auflösen und sicherstellen, dass er im Ordner bleibt.
+     *
+     * realpath() löst ".." und Verweise auf. Erst danach wird verglichen –
+     * so führt kein Pfad aus dem Referenzordner hinaus.
+     */
+    private static function insideRoot(string $root, string $path): ?string
+    {
+        $realRoot = realpath($root);
+        if ($realRoot === false) {
+            return null;
+        }
+
+        $candidate = realpath($realRoot . '/' . ltrim($path, '/'));
+
+        if ($candidate === false
+            || !is_file($candidate)
+            || !str_starts_with($candidate, $realRoot . DIRECTORY_SEPARATOR)
+        ) {
+            return null;
+        }
+
+        return $candidate;
     }
 
     public function contact(Request $request): Response

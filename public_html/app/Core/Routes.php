@@ -48,6 +48,15 @@ final class Routes
         // Einzelne Referenz
         $router->get('/referenzen/{slug}', 'SiteController@workDetail');
         $router->get('/en/work/{slug}', 'SiteController@workDetail');
+
+        // Die Miniatur in der Referenzkarte.
+        //
+        // Sie zeigt eine dauerhafte Kopie der fertigen Kundenwebsite, nicht
+        // die Vorschau: Die wird nach 24 Stunden aufgeräumt, und dann stünde
+        // in jeder Referenzkarte ein leerer Rahmen.
+        $router->get('/referenz-ansicht/{slug}', 'SiteController@workPreview');
+        $router->get('/referenz-ansicht/{slug}/', 'SiteController@workPreview');
+        $router->get('/referenz-ansicht/{slug}/{path:.+}', 'SiteController@workPreviewFile');
     }
 
     private static function pathFor(string $key, string $locale): string

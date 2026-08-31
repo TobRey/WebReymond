@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Alpenluft</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#eaf4fb;color:#0c2635;
+  font-family:"Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;font-size:19px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+
+/* Schmuckebenen ragen absichtlich über den Rand hinaus – hier werden
+   sie abgeschnitten. Ohne das wächst die Seite in die Breite, und im
+   Rahmen der Referenzkarte stünde plötzlich alles zu weit links. */
+main{position:relative;overflow:hidden}
+
+.wrap{position:relative;z-index:2;max-width:1180px;margin-inline:auto;padding-inline:64px}
+
+/* Kopfzeile */
+.kopf{position:relative;z-index:5;display:flex;align-items:center;
+  justify-content:space-between;gap:32px;padding:28px 0}
+.marke{display:flex;align-items:center;gap:12px;font-family:"Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  font-size:23px;font-weight:700;letter-spacing:-0.025em}
+.marke i{display:block;inline-size:30px;block-size:30px;border-radius:9px;
+  background:linear-gradient(135deg,#0369a1,#7dd3fc)}
+.menue{display:flex;gap:30px;font-size:16px;color:#4a6b7c}
+
+/* Aufmacher */
+.hero{position:relative;padding-block:104px 128px}
+.hero--mitte{text-align:center}
+.hero--mitte .lead{margin-inline:auto}
+.hero--mitte .cta{justify-content:center}
+.hero--schmal .lead{max-width:600px}
+.hero--split{display:grid;grid-template-columns:1.06fr 0.94fr;
+  gap:64px;align-items:center}
+
+.eyebrow{margin:0 0 18px;font-size:14px;font-weight:700;
+  letter-spacing:0.16em;color:#0369a1}
+.gesperrt{letter-spacing:0.3em}
+.eyebrow--kasten{display:inline-block;padding:6px 14px;
+  background:#0369a1;color:#eaf4fb;letter-spacing:0.12em}
+.eyebrow--pille{display:inline-block;padding:8px 20px;border-radius:99px;
+  background:color-mix(in srgb,#0369a1 14%,transparent)}
+
+h1.riesig{margin:0 0 24px;font-family:"Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  font-size:74px;line-height:1.04;letter-spacing:-0.025em;font-weight:800}
+.kursiv{font-style:italic;font-weight:400}
+.schraeg{transform:skewX(-6deg);transform-origin:left}
+
+.lead{margin:0 0 34px;max-width:640px;font-size:21px;color:#4a6b7c}
+.lead--leise{opacity:.75}
+
+.cta{display:flex;flex-wrap:wrap;gap:14px}
+.btn{display:inline-block;padding:16px 34px;border-radius:99px;
+  background:#0369a1;color:#eaf4fb;
+  font-family:"Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;font-size:17px;font-weight:700}
+.btn--leise{background:transparent;color:#0c2635;
+  border:1.5px solid color-mix(in srgb,#0c2635 26%,transparent)}
+
+/* Abschnitt darunter */
+.band{position:relative;z-index:2;padding-block:88px;
+  border-block-start:1px solid color-mix(in srgb,#0c2635 12%,transparent)}
+.kacheln{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+.kachel{padding:38px 34px;border-radius:20px;background:#ffffff;
+  border:1px solid color-mix(in srgb,#0c2635 10%,transparent);
+  box-shadow:0 1px 2px rgb(0 0 0/.04),0 22px 50px -30px rgb(0 0 0/.4)}
+.kachel b{display:block;margin-bottom:10px;font-family:"Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  font-size:26px;letter-spacing:-0.025em}
+.kachel span{color:#4a6b7c;font-size:17px}
+.kachel i{display:block;inline-size:44px;block-size:44px;margin-bottom:22px;
+  border-radius:13px;background:linear-gradient(140deg,#0369a1,#7dd3fc);
+  opacity:.9}
+
+/* Fusszeile */
+.fuss{position:relative;z-index:2;padding:44px 0 64px;font-size:15px;
+  color:#4a6b7c;
+  border-block-start:1px solid color-mix(in srgb,#0c2635 10%,transparent)}
+.fuss .wrap{display:flex;justify-content:space-between;gap:24px}
+body{background:linear-gradient(180deg,#cfe8f8 0%,#eaf4fb 46%)}
+.berge{position:absolute;inset:auto 0 0;block-size:560px;overflow:hidden}
+.berg{position:absolute;inset-block-end:0;inset-inline:-10%;
+  clip-path:polygon(0 100%,16% 46%,29% 62%,45% 22%,60% 55%,74% 34%,88% 58%,100% 40%,100% 100%)}
+.berg--3{block-size:330px;background:#a8cfe6;opacity:.55}
+.berg--2{block-size:250px;background:#6fa8cc;opacity:.65;
+  clip-path:polygon(0 100%,12% 58%,26% 34%,42% 66%,58% 30%,72% 60%,86% 40%,100% 62%,100% 100%)}
+.berg--1{block-size:170px;background:#0369a1;opacity:.85;
+  clip-path:polygon(0 100%,18% 52%,34% 74%,50% 40%,66% 70%,82% 48%,100% 72%,100% 100%)}
+.tafel{display:flex;justify-content:center;gap:16px;margin-bottom:34px;flex-wrap:wrap}
+.tafel span{display:grid;gap:2px;padding:16px 26px;border-radius:16px;background:#ffffff;
+  font-size:22px;font-weight:700;
+  box-shadow:0 18px 34px -22px rgb(3 105 161/.5)}
+.tafel b{font-size:13px;font-weight:600;color:#4a6b7c;letter-spacing:.08em;
+  text-transform:uppercase}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="kopf wrap">
+    <span class="marke"><i></i>Alpenluft</span>
+    <nav class="menue"><a href="#">Fahrplan</a><a href="#">Bergwetter</a><a href="#">Tickets</a><a href="#">Kontakt</a></nav>
+</header>
+
+<main>
+    <div class="berge" aria-hidden="true">
+    <span class="berg berg--3"></span>
+    <span class="berg berg--2"></span>
+    <span class="berg berg--1"></span>
+</div>
+<div class="wrap hero hero--mitte">
+    <p class="eyebrow">BERGBAHN</p>
+    <h1 class="riesig">In neun Minuten oben</h1>
+    <p class="lead">Luftseilbahn ins Wandergebiet. Fahrplan, Wetter und Tickets auf einen Blick, auch mit kaltem Finger auf dem Handy.</p>
+    <div class="tafel" aria-hidden="true">
+        <span><b>Nächste Fahrt</b>09:20</span>
+        <span><b>Berg</b>4&deg;C, sonnig</span>
+        <span><b>Retour</b>CHF 38</span>
+    </div>
+</div>
+
+    <section class="band">
+        <div class="wrap">
+            <div class="kacheln"><div class="kachel"><i></i><b>Fahrplan</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Bergwetter</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Tickets</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div></div>
+        </div>
+    </section>
+</main>
+
+<footer class="fuss">
+    <div class="wrap">
+        <span>&copy; 2026 Alpenluft</span>
+        <span>Impressum &middot; Datenschutz</span>
+    </div>
+</footer>
+
+</body>
+</html>

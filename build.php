@@ -185,6 +185,8 @@ foreach ([
     'app/Kit/admin/index.php',
     'app/Kit/site/php/contact.php',
     'assets/manifest.json',
+    'app/Support/showcase-seed.php',
+    'storage/showcase/nordlicht-studio/index.html',
 ] as $pflicht) {
     if ($prüfung->locateName($pflicht) === false) {
         $fehlend[] = $pflicht;
@@ -207,6 +209,19 @@ for ($i = 0; $i < $prüfung->numFiles; $i++) {
     ) {
         $verräterisch[] = $name;
     }
+}
+
+// Die Designstudien: Ein Paket mit halber Referenzseite wäre schlechter
+// als eines ganz ohne.
+$studien = 0;
+for ($i = 0; $i < $prüfung->numFiles; $i++) {
+    if (preg_match('#^storage/showcase/[^/]+/index\.html$#', (string) $prüfung->getNameIndex($i))) {
+        $studien++;
+    }
+}
+
+if ($studien !== 20) {
+    $fehlend[] = 'nur ' . $studien . ' von 20 Designstudien im Paket';
 }
 
 $prüfung->close();

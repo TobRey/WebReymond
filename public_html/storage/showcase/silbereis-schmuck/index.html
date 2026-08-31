@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Silbereis</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#0c0a09;color:#f5f5f4;
+  font-family:Georgia, "Iowan Old Style", serif;font-size:19px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+
+/* Schmuckebenen ragen absichtlich über den Rand hinaus – hier werden
+   sie abgeschnitten. Ohne das wächst die Seite in die Breite, und im
+   Rahmen der Referenzkarte stünde plötzlich alles zu weit links. */
+main{position:relative;overflow:hidden}
+
+.wrap{position:relative;z-index:2;max-width:1180px;margin-inline:auto;padding-inline:64px}
+
+/* Kopfzeile */
+.kopf{position:relative;z-index:5;display:flex;align-items:center;
+  justify-content:space-between;gap:32px;padding:28px 0}
+.marke{display:flex;align-items:center;gap:12px;font-family:Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size:23px;font-weight:700;letter-spacing:-0.02em}
+.marke i{display:block;inline-size:30px;block-size:30px;border-radius:9px;
+  background:linear-gradient(135deg,#d4b483,#78716c)}
+.menue{display:flex;gap:30px;font-size:16px;color:#a8a29e}
+
+/* Aufmacher */
+.hero{position:relative;padding-block:104px 128px}
+.hero--mitte{text-align:center}
+.hero--mitte .lead{margin-inline:auto}
+.hero--mitte .cta{justify-content:center}
+.hero--schmal .lead{max-width:600px}
+.hero--split{display:grid;grid-template-columns:1.06fr 0.94fr;
+  gap:64px;align-items:center}
+
+.eyebrow{margin:0 0 18px;font-size:14px;font-weight:700;
+  letter-spacing:0.16em;color:#d4b483}
+.gesperrt{letter-spacing:0.3em}
+.eyebrow--kasten{display:inline-block;padding:6px 14px;
+  background:#d4b483;color:#0c0a09;letter-spacing:0.12em}
+.eyebrow--pille{display:inline-block;padding:8px 20px;border-radius:99px;
+  background:color-mix(in srgb,#d4b483 14%,transparent)}
+
+h1.riesig{margin:0 0 24px;font-family:Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size:74px;line-height:1.04;letter-spacing:-0.02em;font-weight:800}
+.kursiv{font-style:italic;font-weight:400}
+.schraeg{transform:skewX(-6deg);transform-origin:left}
+
+.lead{margin:0 0 34px;max-width:640px;font-size:21px;color:#a8a29e}
+.lead--leise{opacity:.75}
+
+.cta{display:flex;flex-wrap:wrap;gap:14px}
+.btn{display:inline-block;padding:16px 34px;border-radius:99px;
+  background:#d4b483;color:#0c0a09;
+  font-family:Georgia, "Iowan Old Style", serif;font-size:17px;font-weight:700}
+.btn--leise{background:transparent;color:#f5f5f4;
+  border:1.5px solid color-mix(in srgb,#f5f5f4 26%,transparent)}
+
+/* Abschnitt darunter */
+.band{position:relative;z-index:2;padding-block:88px;
+  border-block-start:1px solid color-mix(in srgb,#f5f5f4 12%,transparent)}
+.kacheln{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+.kachel{padding:38px 34px;border-radius:20px;background:#161311;
+  border:1px solid color-mix(in srgb,#f5f5f4 10%,transparent);
+  box-shadow:0 1px 2px rgb(0 0 0/.04),0 22px 50px -30px rgb(0 0 0/.4)}
+.kachel b{display:block;margin-bottom:10px;font-family:Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size:26px;letter-spacing:-0.02em}
+.kachel span{color:#a8a29e;font-size:17px}
+.kachel i{display:block;inline-size:44px;block-size:44px;margin-bottom:22px;
+  border-radius:13px;background:linear-gradient(140deg,#d4b483,#78716c);
+  opacity:.9}
+
+/* Fusszeile */
+.fuss{position:relative;z-index:2;padding:44px 0 64px;font-size:15px;
+  color:#a8a29e;
+  border-block-start:1px solid color-mix(in srgb,#f5f5f4 10%,transparent)}
+.fuss .wrap{display:flex;justify-content:space-between;gap:24px}
+.haarlinie{display:block;inline-size:120px;block-size:1px;margin:0 auto 30px;
+  background:linear-gradient(90deg,transparent,#d4b483,transparent)}
+.cta{margin-top:30px}
+h1.riesig{font-size:80px}
+.btn{background:transparent;color:#d4b483;border:1px solid #d4b483;border-radius:0;
+  letter-spacing:.14em;font-size:14px;padding:17px 40px;text-transform:uppercase}
+.btn--leise{border-color:color-mix(in srgb,#f5f5f4 22%,transparent);color:#a8a29e}
+.kachel{background:#161311;border-color:color-mix(in srgb,#d4b483 22%,transparent);
+  border-radius:0;box-shadow:none}
+.kachel i{border-radius:0;block-size:2px;inline-size:52px;
+  background:#d4b483;margin-bottom:26px}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="kopf wrap">
+    <span class="marke"><i></i>Silbereis</span>
+    <nav class="menue"><a href="#">Trauringe</a><a href="#">Umarbeitung</a><a href="#">Beratung</a><a href="#">Kontakt</a></nav>
+</header>
+
+<main>
+    <div class="wrap hero hero--mitte hero--schmal">
+    <span class="haarlinie" aria-hidden="true"></span>
+    <p class="eyebrow gesperrt">GOLDSCHMIEDE</p>
+    <h1 class="riesig kursiv">Einzelstücke, keine Serie</h1>
+    <p class="lead">Goldschmiede in Genf. Trauringe und Umarbeitungen, von der ersten Skizze bis zur Politur in derselben Werkstatt.</p>
+    <span class="haarlinie" aria-hidden="true"></span>
+    <div class="cta"><a class="btn" href="#">Kontakt aufnehmen</a><a class="btn btn--leise" href="#">Mehr erfahren</a></div>
+</div>
+
+    <section class="band">
+        <div class="wrap">
+            <div class="kacheln"><div class="kachel"><i></i><b>Trauringe</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Umarbeitung</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Beratung</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div></div>
+        </div>
+    </section>
+</main>
+
+<footer class="fuss">
+    <div class="wrap">
+        <span>&copy; 2026 Silbereis</span>
+        <span>Impressum &middot; Datenschutz</span>
+    </div>
+</footer>
+
+</body>
+</html>

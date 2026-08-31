@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Stahlwerk Rüegg</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#1c1917;color:#fafaf9;
+  font-family:"Helvetica Neue", Arial, system-ui, sans-serif;font-size:19px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+
+/* Schmuckebenen ragen absichtlich über den Rand hinaus – hier werden
+   sie abgeschnitten. Ohne das wächst die Seite in die Breite, und im
+   Rahmen der Referenzkarte stünde plötzlich alles zu weit links. */
+main{position:relative;overflow:hidden}
+
+.wrap{position:relative;z-index:2;max-width:1180px;margin-inline:auto;padding-inline:64px}
+
+/* Kopfzeile */
+.kopf{position:relative;z-index:5;display:flex;align-items:center;
+  justify-content:space-between;gap:32px;padding:28px 0}
+.marke{display:flex;align-items:center;gap:12px;font-family:"Haettenschweiler", "Arial Narrow", "Helvetica Neue", Impact, sans-serif;
+  font-size:23px;font-weight:700;letter-spacing:-0.03em}
+.marke i{display:block;inline-size:30px;block-size:30px;border-radius:9px;
+  background:linear-gradient(135deg,#dc2626,#a8a29e)}
+.menue{display:flex;gap:30px;font-size:16px;color:#a8a29e}
+
+/* Aufmacher */
+.hero{position:relative;padding-block:104px 128px}
+.hero--mitte{text-align:center}
+.hero--mitte .lead{margin-inline:auto}
+.hero--mitte .cta{justify-content:center}
+.hero--schmal .lead{max-width:600px}
+.hero--split{display:grid;grid-template-columns:1.06fr 0.94fr;
+  gap:64px;align-items:center}
+
+.eyebrow{margin:0 0 18px;font-size:14px;font-weight:700;
+  letter-spacing:0.16em;color:#dc2626}
+.gesperrt{letter-spacing:0.3em}
+.eyebrow--kasten{display:inline-block;padding:6px 14px;
+  background:#dc2626;color:#1c1917;letter-spacing:0.12em}
+.eyebrow--pille{display:inline-block;padding:8px 20px;border-radius:99px;
+  background:color-mix(in srgb,#dc2626 14%,transparent)}
+
+h1.riesig{margin:0 0 24px;font-family:"Haettenschweiler", "Arial Narrow", "Helvetica Neue", Impact, sans-serif;
+  font-size:74px;line-height:1.04;letter-spacing:-0.03em;font-weight:800}
+.kursiv{font-style:italic;font-weight:400}
+.schraeg{transform:skewX(-6deg);transform-origin:left}
+
+.lead{margin:0 0 34px;max-width:640px;font-size:21px;color:#a8a29e}
+.lead--leise{opacity:.75}
+
+.cta{display:flex;flex-wrap:wrap;gap:14px}
+.btn{display:inline-block;padding:16px 34px;border-radius:99px;
+  background:#dc2626;color:#1c1917;
+  font-family:"Helvetica Neue", Arial, system-ui, sans-serif;font-size:17px;font-weight:700}
+.btn--leise{background:transparent;color:#fafaf9;
+  border:1.5px solid color-mix(in srgb,#fafaf9 26%,transparent)}
+
+/* Abschnitt darunter */
+.band{position:relative;z-index:2;padding-block:88px;
+  border-block-start:1px solid color-mix(in srgb,#fafaf9 12%,transparent)}
+.kacheln{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+.kachel{padding:38px 34px;border-radius:20px;background:#292524;
+  border:1px solid color-mix(in srgb,#fafaf9 10%,transparent);
+  box-shadow:0 1px 2px rgb(0 0 0/.04),0 22px 50px -30px rgb(0 0 0/.4)}
+.kachel b{display:block;margin-bottom:10px;font-family:"Haettenschweiler", "Arial Narrow", "Helvetica Neue", Impact, sans-serif;
+  font-size:26px;letter-spacing:-0.03em}
+.kachel span{color:#a8a29e;font-size:17px}
+.kachel i{display:block;inline-size:44px;block-size:44px;margin-bottom:22px;
+  border-radius:13px;background:linear-gradient(140deg,#dc2626,#a8a29e);
+  opacity:.9}
+
+/* Fusszeile */
+.fuss{position:relative;z-index:2;padding:44px 0 64px;font-size:15px;
+  color:#a8a29e;
+  border-block-start:1px solid color-mix(in srgb,#fafaf9 10%,transparent)}
+.fuss .wrap{display:flex;justify-content:space-between;gap:24px}
+body{background:
+  repeating-linear-gradient(135deg,transparent 0 22px,rgb(255 255 255/.014) 22px 44px),#1c1917}
+.diagonale{position:absolute;inset-block:-140px;inset-inline-start:52%;inline-size:44%;
+  background:linear-gradient(180deg,#dc2626,color-mix(in srgb,#dc2626 20%,transparent));
+  transform:skewX(-13deg);opacity:.16}
+.traeger{position:relative;block-size:400px;perspective:1000px}
+.traeger__balken{position:absolute;border-radius:4px;
+  background:linear-gradient(180deg,#57534e,#292524);
+  border:1px solid #44403c;box-shadow:0 30px 50px -26px rgb(0 0 0/.9)}
+.traeger__balken--1{inset:60px 60px auto 0;block-size:74px;
+  transform:rotateY(-22deg) rotateZ(-8deg)}
+.traeger__balken--2{inset:210px 0 auto 70px;block-size:74px;
+  background:linear-gradient(180deg,#dc2626,#7f1d1d);
+  transform:rotateY(-22deg) rotateZ(-8deg)}
+.btn{border-radius:4px}
+.btn--leise{border-radius:4px}
+.kachel{border-radius:4px;background:#292524}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="kopf wrap">
+    <span class="marke"><i></i>Stahlwerk Rüegg</span>
+    <nav class="menue"><a href="#">Geländer</a><a href="#">Tore</a><a href="#">Konstruktion</a><a href="#">Kontakt</a></nav>
+</header>
+
+<main>
+    <span class="diagonale" aria-hidden="true"></span>
+<div class="wrap hero hero--split">
+    <div>
+        <p class="eyebrow eyebrow--kasten">METALLBAU</p>
+        <h1 class="riesig">Geländer, Tore, Tragwerk</h1>
+        <p class="lead">Metallbau seit 1962 in Olten. Von der Wendeltreppe bis zur Halle – gezeichnet, geschweisst und montiert im eigenen Haus.</p>
+        <div class="cta"><a class="btn" href="#">Kontakt aufnehmen</a><a class="btn btn--leise" href="#">Mehr erfahren</a></div>
+    </div>
+    <div class="traeger" aria-hidden="true">
+        <span class="traeger__balken traeger__balken--1"></span>
+        <span class="traeger__balken traeger__balken--2"></span>
+    </div>
+</div>
+
+    <section class="band">
+        <div class="wrap">
+            <div class="kacheln"><div class="kachel"><i></i><b>Geländer</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Tore</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Konstruktion</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div></div>
+        </div>
+    </section>
+</main>
+
+<footer class="fuss">
+    <div class="wrap">
+        <span>&copy; 2026 Stahlwerk Rüegg</span>
+        <span>Impressum &middot; Datenschutz</span>
+    </div>
+</footer>
+
+</body>
+</html>

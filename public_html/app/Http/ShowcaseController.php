@@ -70,6 +70,14 @@ final class ShowcaseController
 
         if ($action === 'delete') {
             Db::delete('showcase', 'id = :id', ['id' => $id]);
+
+            // Die gespeicherte Kopie geht mit. Sonst läge sie für immer
+            // herum und wäre über ihre Adresse weiter erreichbar.
+            $slug = preg_replace('/[^a-z0-9-]/', '', mb_strtolower((string) $entry['slug'])) ?? '';
+            if ($slug !== '') {
+                delete_tree(STORAGE_DIR . '/showcase/' . $slug);
+            }
+
             Audit::log('showcase.deleted', (string) $entry['title'], [], $request);
             Session::flash('success', 'Referenz entfernt.');
             return $this->back();

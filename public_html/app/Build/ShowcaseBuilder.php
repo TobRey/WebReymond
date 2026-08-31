@@ -21,7 +21,6 @@ use WebAtze\Core\{Audit, Db, Logger};
  */
 final class ShowcaseBuilder
 {
-    /** Wörter, die im Referenztext nichts zu suchen haben. */
     /**
      * Wörter, die für sich stehen müssen.
      *
@@ -73,7 +72,7 @@ final class ShowcaseBuilder
             'body_en' => $texts['body_en'],
             'tags' => implode(', ', array_slice($texts['tags'], 0, 4)),
             'live_url' => ($project['domain'] ?? '') !== '' ? 'https://' . (string) $project['domain'] : '',
-            'preview_path' => self::previewPath($project),
+            'preview_path' => self::storeCopy($project, $slug),
             'accent_color' => (string) ($theme['colors']['primary'] ?? ''),
             'published' => $publish ? 1 : 0,
             'updated_at' => Db::now(),
@@ -96,15 +95,41 @@ final class ShowcaseBuilder
     }
 
     /**
-     * Die Referenz zeigt die gespeicherte Kopie der Website.
+     * Eine dauerhafte Kopie der fertigen Website ablegen.
      *
-     * Weil sie vom eigenen Server kommt, greift keine fremde
+     * Weil die Miniatur vom eigenen Server kommt, greift keine fremde
      * Einbettungssperre – anders als bei der echten Kundendomain.
+     *
+     * Früher zeigte die Referenzkarte auf /vorschau/<kennung>/. Die räumt
+     * der Cron nach 24 Stunden weg – einen Tag nach dem Anlegen stand in
+     * jeder Referenz nur noch ein leerer Rahmen. Die Kopie hier bleibt,
+     * solange die Referenz besteht.
+     *
+     * @return string Adresse der Miniatur, leer wenn nichts zu kopieren war
      */
-    private static function previewPath(array $project): string
+    private static function storeCopy(array $project, string $slug): string
     {
-        $token = (string) ($project['preview_token'] ?? '');
-        return $token !== '' ? '/vorschau/' . $token . '/' : '';
+        $source = STORAGE_DIR . '/projects/' . (string) $project['slug'] . '/dist';
+
+        if (!is_dir($source)) {
+            return '';
+        }
+
+        $target = STORAGE_DIR . '/showcase/' . $slug;
+
+        // Erst weg, dann neu: Sonst blieben Dateien einer früheren Fassung
+        // liegen, die es in der jetzigen gar nicht mehr gibt.
+        if (is_dir($target)) {
+            delete_tree($target);
+        }
+
+        $copied = Pipeline::copyTree($source, $target);
+
+        if ($copied === 0) {
+            return '';
+        }
+
+        return '/referenz-ansicht/' . $slug . '/';
     }
 
     private static function texts(array $project, array $brief): array

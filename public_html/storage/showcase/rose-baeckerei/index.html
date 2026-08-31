@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Rosé Bäckerei</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#fff5f7;color:#4a1d2e;
+  font-family:"Avenir Next", "Segoe UI", system-ui, sans-serif;font-size:19px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+
+/* Schmuckebenen ragen absichtlich über den Rand hinaus – hier werden
+   sie abgeschnitten. Ohne das wächst die Seite in die Breite, und im
+   Rahmen der Referenzkarte stünde plötzlich alles zu weit links. */
+main{position:relative;overflow:hidden}
+
+.wrap{position:relative;z-index:2;max-width:1180px;margin-inline:auto;padding-inline:64px}
+
+/* Kopfzeile */
+.kopf{position:relative;z-index:5;display:flex;align-items:center;
+  justify-content:space-between;gap:32px;padding:28px 0}
+.marke{display:flex;align-items:center;gap:12px;font-family:"Avenir Next", "Segoe UI", "Trebuchet MS", system-ui, sans-serif;
+  font-size:23px;font-weight:700;letter-spacing:-0.015em}
+.marke i{display:block;inline-size:30px;block-size:30px;border-radius:9px;
+  background:linear-gradient(135deg,#be185d,#fbbf24)}
+.menue{display:flex;gap:30px;font-size:16px;color:#8f6272}
+
+/* Aufmacher */
+.hero{position:relative;padding-block:104px 128px}
+.hero--mitte{text-align:center}
+.hero--mitte .lead{margin-inline:auto}
+.hero--mitte .cta{justify-content:center}
+.hero--schmal .lead{max-width:600px}
+.hero--split{display:grid;grid-template-columns:1.06fr 0.94fr;
+  gap:64px;align-items:center}
+
+.eyebrow{margin:0 0 18px;font-size:14px;font-weight:700;
+  letter-spacing:0.16em;color:#be185d}
+.gesperrt{letter-spacing:0.3em}
+.eyebrow--kasten{display:inline-block;padding:6px 14px;
+  background:#be185d;color:#fff5f7;letter-spacing:0.12em}
+.eyebrow--pille{display:inline-block;padding:8px 20px;border-radius:99px;
+  background:color-mix(in srgb,#be185d 14%,transparent)}
+
+h1.riesig{margin:0 0 24px;font-family:"Avenir Next", "Segoe UI", "Trebuchet MS", system-ui, sans-serif;
+  font-size:74px;line-height:1.04;letter-spacing:-0.015em;font-weight:800}
+.kursiv{font-style:italic;font-weight:400}
+.schraeg{transform:skewX(-6deg);transform-origin:left}
+
+.lead{margin:0 0 34px;max-width:640px;font-size:21px;color:#8f6272}
+.lead--leise{opacity:.75}
+
+.cta{display:flex;flex-wrap:wrap;gap:14px}
+.btn{display:inline-block;padding:16px 34px;border-radius:99px;
+  background:#be185d;color:#fff5f7;
+  font-family:"Avenir Next", "Segoe UI", system-ui, sans-serif;font-size:17px;font-weight:700}
+.btn--leise{background:transparent;color:#4a1d2e;
+  border:1.5px solid color-mix(in srgb,#4a1d2e 26%,transparent)}
+
+/* Abschnitt darunter */
+.band{position:relative;z-index:2;padding-block:88px;
+  border-block-start:1px solid color-mix(in srgb,#4a1d2e 12%,transparent)}
+.kacheln{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+.kachel{padding:38px 34px;border-radius:20px;background:#ffffff;
+  border:1px solid color-mix(in srgb,#4a1d2e 10%,transparent);
+  box-shadow:0 1px 2px rgb(0 0 0/.04),0 22px 50px -30px rgb(0 0 0/.4)}
+.kachel b{display:block;margin-bottom:10px;font-family:"Avenir Next", "Segoe UI", "Trebuchet MS", system-ui, sans-serif;
+  font-size:26px;letter-spacing:-0.015em}
+.kachel span{color:#8f6272;font-size:17px}
+.kachel i{display:block;inline-size:44px;block-size:44px;margin-bottom:22px;
+  border-radius:13px;background:linear-gradient(140deg,#be185d,#fbbf24);
+  opacity:.9}
+
+/* Fusszeile */
+.fuss{position:relative;z-index:2;padding:44px 0 64px;font-size:15px;
+  color:#8f6272;
+  border-block-start:1px solid color-mix(in srgb,#4a1d2e 10%,transparent)}
+.fuss .wrap{display:flex;justify-content:space-between;gap:24px}
+.schweber{position:absolute;inset:0;overflow:hidden}
+.kugel{position:absolute;border-radius:50%;
+  box-shadow:inset -8px -10px 20px rgb(0 0 0/.08),0 20px 34px -18px rgb(190 24 93/.4)}
+.kugel--1{inset-block-start:70px;inset-inline-start:9%;inline-size:110px;block-size:110px;background:#be185d;opacity:.75}
+.kugel--2{inset-block-start:250px;inset-inline-start:4%;inline-size:64px;block-size:64px;background:#fbbf24}
+.kugel--3{inset-block-start:110px;inset-inline-end:11%;inline-size:140px;block-size:140px;background:#fbbf24;opacity:.85}
+.kugel--4{inset-block-start:330px;inset-inline-end:6%;inline-size:80px;block-size:80px;background:#be185d;opacity:.55}
+.kachel{border-radius:30px}
+.kachel i{border-radius:50%}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="kopf wrap">
+    <span class="marke"><i></i>Rosé Bäckerei</span>
+    <nav class="menue"><a href="#">Brot</a><a href="#">Torten</a><a href="#">Vorbestellung</a><a href="#">Kontakt</a></nav>
+</header>
+
+<main>
+    <div class="schweber" aria-hidden="true">
+    <span class="kugel kugel--1"></span>
+    <span class="kugel kugel--2"></span>
+    <span class="kugel kugel--3"></span>
+    <span class="kugel kugel--4"></span>
+</div>
+<div class="wrap hero hero--mitte">
+    <p class="eyebrow eyebrow--pille">BÄCKEREI</p>
+    <h1 class="riesig">Ab fünf Uhr riecht es gut</h1>
+    <p class="lead">Handwerksbäckerei in Zug. Sauerteig, Zopf am Samstag und Torten, die man drei Tage vorher bestellt.</p>
+    <div class="cta"><a class="btn" href="#">Kontakt aufnehmen</a><a class="btn btn--leise" href="#">Mehr erfahren</a></div>
+</div>
+
+    <section class="band">
+        <div class="wrap">
+            <div class="kacheln"><div class="kachel"><i></i><b>Brot</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Torten</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Vorbestellung</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div></div>
+        </div>
+    </section>
+</main>
+
+<footer class="fuss">
+    <div class="wrap">
+        <span>&copy; 2026 Rosé Bäckerei</span>
+        <span>Impressum &middot; Datenschutz</span>
+    </div>
+</footer>
+
+</body>
+</html>

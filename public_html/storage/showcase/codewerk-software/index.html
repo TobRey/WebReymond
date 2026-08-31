@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Codewerk</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#0a0f0d;color:#e7f6ef;
+  font-family:ui-monospace, "SF Mono", Menlo, monospace;font-size:19px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+
+/* Schmuckebenen ragen absichtlich über den Rand hinaus – hier werden
+   sie abgeschnitten. Ohne das wächst die Seite in die Breite, und im
+   Rahmen der Referenzkarte stünde plötzlich alles zu weit links. */
+main{position:relative;overflow:hidden}
+
+.wrap{position:relative;z-index:2;max-width:1180px;margin-inline:auto;padding-inline:64px}
+
+/* Kopfzeile */
+.kopf{position:relative;z-index:5;display:flex;align-items:center;
+  justify-content:space-between;gap:32px;padding:28px 0}
+.marke{display:flex;align-items:center;gap:12px;font-family:ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  font-size:23px;font-weight:700;letter-spacing:-0.03em}
+.marke i{display:block;inline-size:30px;block-size:30px;border-radius:9px;
+  background:linear-gradient(135deg,#4ade80,#34d399)}
+.menue{display:flex;gap:30px;font-size:16px;color:#7f9f92}
+
+/* Aufmacher */
+.hero{position:relative;padding-block:104px 128px}
+.hero--mitte{text-align:center}
+.hero--mitte .lead{margin-inline:auto}
+.hero--mitte .cta{justify-content:center}
+.hero--schmal .lead{max-width:600px}
+.hero--split{display:grid;grid-template-columns:1.06fr 0.94fr;
+  gap:64px;align-items:center}
+
+.eyebrow{margin:0 0 18px;font-size:14px;font-weight:700;
+  letter-spacing:0.16em;color:#4ade80}
+.gesperrt{letter-spacing:0.3em}
+.eyebrow--kasten{display:inline-block;padding:6px 14px;
+  background:#4ade80;color:#0a0f0d;letter-spacing:0.12em}
+.eyebrow--pille{display:inline-block;padding:8px 20px;border-radius:99px;
+  background:color-mix(in srgb,#4ade80 14%,transparent)}
+
+h1.riesig{margin:0 0 24px;font-family:ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  font-size:74px;line-height:1.04;letter-spacing:-0.03em;font-weight:800}
+.kursiv{font-style:italic;font-weight:400}
+.schraeg{transform:skewX(-6deg);transform-origin:left}
+
+.lead{margin:0 0 34px;max-width:640px;font-size:21px;color:#7f9f92}
+.lead--leise{opacity:.75}
+
+.cta{display:flex;flex-wrap:wrap;gap:14px}
+.btn{display:inline-block;padding:16px 34px;border-radius:99px;
+  background:#4ade80;color:#0a0f0d;
+  font-family:ui-monospace, "SF Mono", Menlo, monospace;font-size:17px;font-weight:700}
+.btn--leise{background:transparent;color:#e7f6ef;
+  border:1.5px solid color-mix(in srgb,#e7f6ef 26%,transparent)}
+
+/* Abschnitt darunter */
+.band{position:relative;z-index:2;padding-block:88px;
+  border-block-start:1px solid color-mix(in srgb,#e7f6ef 12%,transparent)}
+.kacheln{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+.kachel{padding:38px 34px;border-radius:20px;background:#0f1714;
+  border:1px solid color-mix(in srgb,#e7f6ef 10%,transparent);
+  box-shadow:0 1px 2px rgb(0 0 0/.04),0 22px 50px -30px rgb(0 0 0/.4)}
+.kachel b{display:block;margin-bottom:10px;font-family:ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  font-size:26px;letter-spacing:-0.03em}
+.kachel span{color:#7f9f92;font-size:17px}
+.kachel i{display:block;inline-size:44px;block-size:44px;margin-bottom:22px;
+  border-radius:13px;background:linear-gradient(140deg,#4ade80,#34d399);
+  opacity:.9}
+
+/* Fusszeile */
+.fuss{position:relative;z-index:2;padding:44px 0 64px;font-size:15px;
+  color:#7f9f92;
+  border-block-start:1px solid color-mix(in srgb,#e7f6ef 10%,transparent)}
+.fuss .wrap{display:flex;justify-content:space-between;gap:24px}
+.raster{position:absolute;inset:0;opacity:.5;
+  background-image:linear-gradient(color-mix(in srgb,#4ade80 9%,transparent) 1px,transparent 1px),
+    linear-gradient(90deg,color-mix(in srgb,#4ade80 9%,transparent) 1px,transparent 1px);
+  background-size:46px 46px;
+  mask-image:radial-gradient(80% 60% at 50% 30%,#000 0%,transparent 78%)}
+.btn{border-radius:6px}
+.btn--leise{border-radius:6px}
+.fenster{border-radius:12px;background:#060b09;overflow:hidden;
+  border:1px solid color-mix(in srgb,#4ade80 30%,transparent);
+  box-shadow:0 34px 60px -30px rgb(0 0 0/.9)}
+.fenster__leiste{display:block;block-size:34px;
+  border-block-end:1px solid color-mix(in srgb,#4ade80 22%,transparent);
+  background:#0b1310}
+.fenster code{display:block;padding:26px 28px 34px;font-size:16px;line-height:2;color:#7f9f92}
+.fenster b{color:#4ade80}
+.fenster i{color:#34d399;font-style:normal}
+.cursor{display:inline-block;inline-size:9px;block-size:18px;
+  background:#4ade80;vertical-align:-3px}
+.kachel{border-radius:10px;background:#0f1714}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="kopf wrap">
+    <span class="marke"><i></i>Codewerk</span>
+    <nav class="menue"><a href="#">Werkzeuge</a><a href="#">Schnittstellen</a><a href="#">Wartung</a><a href="#">Kontakt</a></nav>
+</header>
+
+<main>
+    <div class="raster" aria-hidden="true"></div>
+<div class="wrap hero hero--split">
+    <div>
+        <p class="eyebrow">&gt; SOFTWAREENTWICKLUNG</p>
+        <h1 class="riesig">Software, die niemand erklären muss</h1>
+        <p class="lead">Kleine Entwicklungsfirma in Bern. Wir bauen interne Werkzeuge für Betriebe, die aus Excel herausgewachsen sind.</p>
+        <div class="cta"><a class="btn" href="#">Kontakt aufnehmen</a><a class="btn btn--leise" href="#">Mehr erfahren</a></div>
+    </div>
+    <div class="fenster" aria-hidden="true">
+        <span class="fenster__leiste"></span>
+        <code>
+            <b>$</b> werkzeug bauen --fuer lager<br>
+            <i>&rarr; 14 Masken erzeugt</i><br>
+            <i>&rarr; Schnittstelle bereit</i><br>
+            <b>$</b> <span class="cursor"></span>
+        </code>
+    </div>
+</div>
+
+    <section class="band">
+        <div class="wrap">
+            <div class="kacheln"><div class="kachel"><i></i><b>Werkzeuge</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Schnittstellen</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Wartung</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div></div>
+        </div>
+    </section>
+</main>
+
+<footer class="fuss">
+    <div class="wrap">
+        <span>&copy; 2026 Codewerk</span>
+        <span>Impressum &middot; Datenschutz</span>
+    </div>
+</footer>
+
+</body>
+</html>

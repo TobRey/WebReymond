@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Neonwerk</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#05010d;color:#f5f3ff;
+  font-family:"Helvetica Neue", Arial, system-ui, sans-serif;font-size:19px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+
+/* Schmuckebenen ragen absichtlich über den Rand hinaus – hier werden
+   sie abgeschnitten. Ohne das wächst die Seite in die Breite, und im
+   Rahmen der Referenzkarte stünde plötzlich alles zu weit links. */
+main{position:relative;overflow:hidden}
+
+.wrap{position:relative;z-index:2;max-width:1180px;margin-inline:auto;padding-inline:64px}
+
+/* Kopfzeile */
+.kopf{position:relative;z-index:5;display:flex;align-items:center;
+  justify-content:space-between;gap:32px;padding:28px 0}
+.marke{display:flex;align-items:center;gap:12px;font-family:"Haettenschweiler", "Arial Narrow", "Helvetica Neue", Impact, sans-serif;
+  font-size:23px;font-weight:700;letter-spacing:-0.03em}
+.marke i{display:block;inline-size:30px;block-size:30px;border-radius:9px;
+  background:linear-gradient(135deg,#f0abfc,#22d3ee)}
+.menue{display:flex;gap:30px;font-size:16px;color:#a5b4fc}
+
+/* Aufmacher */
+.hero{position:relative;padding-block:104px 128px}
+.hero--mitte{text-align:center}
+.hero--mitte .lead{margin-inline:auto}
+.hero--mitte .cta{justify-content:center}
+.hero--schmal .lead{max-width:600px}
+.hero--split{display:grid;grid-template-columns:1.06fr 0.94fr;
+  gap:64px;align-items:center}
+
+.eyebrow{margin:0 0 18px;font-size:14px;font-weight:700;
+  letter-spacing:0.16em;color:#f0abfc}
+.gesperrt{letter-spacing:0.3em}
+.eyebrow--kasten{display:inline-block;padding:6px 14px;
+  background:#f0abfc;color:#05010d;letter-spacing:0.12em}
+.eyebrow--pille{display:inline-block;padding:8px 20px;border-radius:99px;
+  background:color-mix(in srgb,#f0abfc 14%,transparent)}
+
+h1.riesig{margin:0 0 24px;font-family:"Haettenschweiler", "Arial Narrow", "Helvetica Neue", Impact, sans-serif;
+  font-size:74px;line-height:1.04;letter-spacing:-0.03em;font-weight:800}
+.kursiv{font-style:italic;font-weight:400}
+.schraeg{transform:skewX(-6deg);transform-origin:left}
+
+.lead{margin:0 0 34px;max-width:640px;font-size:21px;color:#a5b4fc}
+.lead--leise{opacity:.75}
+
+.cta{display:flex;flex-wrap:wrap;gap:14px}
+.btn{display:inline-block;padding:16px 34px;border-radius:99px;
+  background:#f0abfc;color:#05010d;
+  font-family:"Helvetica Neue", Arial, system-ui, sans-serif;font-size:17px;font-weight:700}
+.btn--leise{background:transparent;color:#f5f3ff;
+  border:1.5px solid color-mix(in srgb,#f5f3ff 26%,transparent)}
+
+/* Abschnitt darunter */
+.band{position:relative;z-index:2;padding-block:88px;
+  border-block-start:1px solid color-mix(in srgb,#f5f3ff 12%,transparent)}
+.kacheln{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+.kachel{padding:38px 34px;border-radius:20px;background:#0f0620;
+  border:1px solid color-mix(in srgb,#f5f3ff 10%,transparent);
+  box-shadow:0 1px 2px rgb(0 0 0/.04),0 22px 50px -30px rgb(0 0 0/.4)}
+.kachel b{display:block;margin-bottom:10px;font-family:"Haettenschweiler", "Arial Narrow", "Helvetica Neue", Impact, sans-serif;
+  font-size:26px;letter-spacing:-0.03em}
+.kachel span{color:#a5b4fc;font-size:17px}
+.kachel i{display:block;inline-size:44px;block-size:44px;margin-bottom:22px;
+  border-radius:13px;background:linear-gradient(140deg,#f0abfc,#22d3ee);
+  opacity:.9}
+
+/* Fusszeile */
+.fuss{position:relative;z-index:2;padding:44px 0 64px;font-size:15px;
+  color:#a5b4fc;
+  border-block-start:1px solid color-mix(in srgb,#f5f3ff 10%,transparent)}
+.fuss .wrap{display:flex;justify-content:space-between;gap:24px}
+body{background:radial-gradient(90% 60% at 50% -10%,#1a0b33 0%,#05010d 70%)}
+.scanlines{position:absolute;inset:0;opacity:.3;
+  background:repeating-linear-gradient(0deg,transparent 0 3px,rgb(255 255 255/.04) 3px 4px)}
+.glut{color:#f0abfc;text-shadow:0 0 14px color-mix(in srgb,#f0abfc 70%,transparent),
+  0 0 44px color-mix(in srgb,#f0abfc 45%,transparent)}
+.eyebrow--glut{color:#22d3ee;text-shadow:0 0 12px color-mix(in srgb,#22d3ee 60%,transparent)}
+.programm{display:flex;justify-content:center;gap:14px;margin-bottom:34px;flex-wrap:wrap}
+.programm span{padding:12px 20px;border-radius:12px;font-size:16px;
+  border:1px solid color-mix(in srgb,#22d3ee 42%,transparent);
+  background:color-mix(in srgb,#22d3ee 8%,transparent)}
+.programm b{color:#22d3ee;margin-inline-end:10px}
+.btn{box-shadow:0 0 26px color-mix(in srgb,#f0abfc 50%,transparent)}
+.kachel{background:color-mix(in srgb,#22d3ee 6%,#0f0620);
+  border-color:color-mix(in srgb,#22d3ee 26%,transparent)}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="kopf wrap">
+    <span class="marke"><i></i>Neonwerk</span>
+    <nav class="menue"><a href="#">Programm</a><a href="#">Tickets</a><a href="#">Halle mieten</a><a href="#">Kontakt</a></nav>
+</header>
+
+<main>
+    <div class="scanlines" aria-hidden="true"></div>
+<div class="wrap hero hero--mitte">
+    <p class="eyebrow eyebrow--glut">KONZERTCLUB</p>
+    <h1 class="riesig glut">Freitag ab elf</h1>
+    <p class="lead">Konzerte und Clubnächte in einer alten Werkhalle in Zürich West. Programm bis Ende Saison, Tickets direkt hier.</p>
+    <div class="programm" aria-hidden="true">
+        <span><b>FR 12.09</b> Kellerkind</span>
+        <span><b>SA 13.09</b> Nachtschicht</span>
+        <span><b>FR 19.09</b> Blaulicht</span>
+    </div>
+    <div class="cta"><a class="btn" href="#">Kontakt aufnehmen</a><a class="btn btn--leise" href="#">Mehr erfahren</a></div>
+</div>
+
+    <section class="band">
+        <div class="wrap">
+            <div class="kacheln"><div class="kachel"><i></i><b>Programm</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Tickets</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Halle mieten</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div></div>
+        </div>
+    </section>
+</main>
+
+<footer class="fuss">
+    <div class="wrap">
+        <span>&copy; 2026 Neonwerk</span>
+        <span>Impressum &middot; Datenschutz</span>
+    </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Hotel Seeblick</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#0f2027;color:#f0fdfa;
+  font-family:Georgia, "Iowan Old Style", serif;font-size:19px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+
+/* Schmuckebenen ragen absichtlich über den Rand hinaus – hier werden
+   sie abgeschnitten. Ohne das wächst die Seite in die Breite, und im
+   Rahmen der Referenzkarte stünde plötzlich alles zu weit links. */
+main{position:relative;overflow:hidden}
+
+.wrap{position:relative;z-index:2;max-width:1180px;margin-inline:auto;padding-inline:64px}
+
+/* Kopfzeile */
+.kopf{position:relative;z-index:5;display:flex;align-items:center;
+  justify-content:space-between;gap:32px;padding:28px 0}
+.marke{display:flex;align-items:center;gap:12px;font-family:Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size:23px;font-weight:700;letter-spacing:-0.02em}
+.marke i{display:block;inline-size:30px;block-size:30px;border-radius:9px;
+  background:linear-gradient(135deg,#2dd4bf,#e2b877)}
+.menue{display:flex;gap:30px;font-size:16px;color:#9ec5c0}
+
+/* Aufmacher */
+.hero{position:relative;padding-block:104px 128px}
+.hero--mitte{text-align:center}
+.hero--mitte .lead{margin-inline:auto}
+.hero--mitte .cta{justify-content:center}
+.hero--schmal .lead{max-width:600px}
+.hero--split{display:grid;grid-template-columns:1.06fr 0.94fr;
+  gap:64px;align-items:center}
+
+.eyebrow{margin:0 0 18px;font-size:14px;font-weight:700;
+  letter-spacing:0.16em;color:#2dd4bf}
+.gesperrt{letter-spacing:0.3em}
+.eyebrow--kasten{display:inline-block;padding:6px 14px;
+  background:#2dd4bf;color:#0f2027;letter-spacing:0.12em}
+.eyebrow--pille{display:inline-block;padding:8px 20px;border-radius:99px;
+  background:color-mix(in srgb,#2dd4bf 14%,transparent)}
+
+h1.riesig{margin:0 0 24px;font-family:Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size:74px;line-height:1.04;letter-spacing:-0.02em;font-weight:800}
+.kursiv{font-style:italic;font-weight:400}
+.schraeg{transform:skewX(-6deg);transform-origin:left}
+
+.lead{margin:0 0 34px;max-width:640px;font-size:21px;color:#9ec5c0}
+.lead--leise{opacity:.75}
+
+.cta{display:flex;flex-wrap:wrap;gap:14px}
+.btn{display:inline-block;padding:16px 34px;border-radius:99px;
+  background:#2dd4bf;color:#0f2027;
+  font-family:Georgia, "Iowan Old Style", serif;font-size:17px;font-weight:700}
+.btn--leise{background:transparent;color:#f0fdfa;
+  border:1.5px solid color-mix(in srgb,#f0fdfa 26%,transparent)}
+
+/* Abschnitt darunter */
+.band{position:relative;z-index:2;padding-block:88px;
+  border-block-start:1px solid color-mix(in srgb,#f0fdfa 12%,transparent)}
+.kacheln{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+.kachel{padding:38px 34px;border-radius:20px;background:#16323b;
+  border:1px solid color-mix(in srgb,#f0fdfa 10%,transparent);
+  box-shadow:0 1px 2px rgb(0 0 0/.04),0 22px 50px -30px rgb(0 0 0/.4)}
+.kachel b{display:block;margin-bottom:10px;font-family:Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size:26px;letter-spacing:-0.02em}
+.kachel span{color:#9ec5c0;font-size:17px}
+.kachel i{display:block;inline-size:44px;block-size:44px;margin-bottom:22px;
+  border-radius:13px;background:linear-gradient(140deg,#2dd4bf,#e2b877);
+  opacity:.9}
+
+/* Fusszeile */
+.fuss{position:relative;z-index:2;padding:44px 0 64px;font-size:15px;
+  color:#9ec5c0;
+  border-block-start:1px solid color-mix(in srgb,#f0fdfa 10%,transparent)}
+.fuss .wrap{display:flex;justify-content:space-between;gap:24px}
+body{background:radial-gradient(120% 90% at 20% 0%,#1c4a52 0%,#0f2027 60%)}
+.wasser{position:absolute;inset:auto 0 0;block-size:420px;
+  background:linear-gradient(180deg,transparent,color-mix(in srgb,#2dd4bf 18%,transparent))}
+.scheibe{padding:52px 48px;border-radius:26px;
+  background:color-mix(in srgb,#ffffff 9%,transparent);
+  border:1px solid color-mix(in srgb,#ffffff 18%,transparent);
+  box-shadow:0 40px 80px -40px rgb(0 0 0/.6);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.scheibe--klein{display:grid;gap:10px;align-content:center;text-align:center;
+  padding:44px 40px}
+.scheibe--klein b{font-size:15px;letter-spacing:.1em;text-transform:uppercase;color:#2dd4bf}
+.scheibe--klein span{color:#9ec5c0}
+.preis{font-family:Georgia,serif;font-size:38px;color:#f0fdfa}
+.kachel{background:color-mix(in srgb,#ffffff 7%,transparent);
+  border-color:color-mix(in srgb,#ffffff 15%,transparent);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="kopf wrap">
+    <span class="marke"><i></i>Hotel Seeblick</span>
+    <nav class="menue"><a href="#">Zimmer</a><a href="#">Restaurant</a><a href="#">Direkt buchen</a><a href="#">Kontakt</a></nav>
+</header>
+
+<main>
+    <div class="wasser" aria-hidden="true"></div>
+<div class="wrap hero hero--split">
+    <div class="scheibe">
+        <p class="eyebrow">HOTEL</p>
+        <h1 class="riesig kursiv">Vierzehn Zimmer, ein See</h1>
+        <p class="lead">Kleines Hotel am Vierwaldstättersee. Direkt buchbar, ohne Portal und ohne Provision.</p>
+        <div class="cta"><a class="btn" href="#">Kontakt aufnehmen</a><a class="btn btn--leise" href="#">Mehr erfahren</a></div>
+    </div>
+    <div class="scheibe scheibe--klein" aria-hidden="true">
+        <b>Freie Zimmer</b>
+        <span>Do 11.09 &ndash; Sa 13.09</span>
+        <span class="preis">ab CHF 180</span>
+    </div>
+</div>
+
+    <section class="band">
+        <div class="wrap">
+            <div class="kacheln"><div class="kachel"><i></i><b>Zimmer</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Restaurant</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div><div class="kachel"><i></i><b>Direkt buchen</b><span>Kurz erklärt, was dahintersteckt – und was es kostet.</span></div></div>
+        </div>
+    </section>
+</main>
+
+<footer class="fuss">
+    <div class="wrap">
+        <span>&copy; 2026 Hotel Seeblick</span>
+        <span>Impressum &middot; Datenschutz</span>
+    </div>
+</footer>
+
+</body>
+</html>
