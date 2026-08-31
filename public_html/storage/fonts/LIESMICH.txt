@@ -1,0 +1,15 @@
+Schriften für das Vorschaubild
+==============================
+
+Hier hinein darf eine TTF-Datei. Wird eine gefunden, steht der Firmenname
+im Vorschaubild, das WhatsApp, LinkedIn und Slack beim Teilen eines
+Verweises anzeigen.
+
+Ohne Datei bleibt das Bild rein grafisch: Verlauf in den Firmenfarben,
+dazu das Logo, wenn eines hochgeladen wurde. Das ist kein Notbehelf – der
+Name der Firma steht in der Vorschaukarte ohnehin daneben.
+
+Nur TTF. Die WOFF2-Dateien der Website funktionieren dafür nicht: Damit
+kann die Bildbibliothek von PHP nichts anfangen.
+
+Achte auf die Lizenz. Nicht jede Schrift darf so verwendet werden.
