@@ -20,7 +20,7 @@ final class ContentWriter
 {
     private ClaudeClient $claude;
 
-    public function __construct(private int $projectId, private int $jobId)
+    public function __construct(private int $projectId, private ?int $jobId = null)
     {
         $this->claude = (new ClaudeClient())->forProject($projectId, $jobId);
     }
@@ -28,56 +28,149 @@ final class ContentWriter
     /** Eine geplante Seite mit Inhalt füllen und speichern. */
     public function writePage(int $projectId, array $page, array $brief, string $oldSiteSummary = ''): int
     {
-        $sections = $page['sections'] ?? [];
+        $pageId = $this->preparePage($projectId, $page);
 
-        $contents = ClaudeClient::isConfigured()
-            ? $this->ask($page, $brief, $oldSiteSummary)
-            : self::fallbackContent($page, $brief);
-
-        $pageId = Db::insert('project_pages', [
-            'project_id' => $projectId,
-            'path' => (string) $page['path'],
-            'title' => (string) $page['title'],
-            'meta_description' => (string) ($page['meta_description'] ?? ''),
-            'sort_order' => self::orderFor((string) $page['path']),
-            'in_navigation' => !empty($page['in_navigation']) ? 1 : 0,
-            'created_at' => Db::now(),
-            'updated_at' => Db::now(),
-        ]);
-
-        foreach ($sections as $index => $section) {
-            $type = (string) $section['type'];
-            $raw = $contents[$index] ?? [];
-
-            Db::insert('project_sections', [
-                'project_id' => $projectId,
-                'page_id' => $pageId,
-                'type' => $type,
-                'template_key' => (string) $section['template'],
-                'content' => self::validate($type, $raw),
-                'overrides' => [],
-                'hidden' => 0,
-                'sort_order' => $index,
-                'created_at' => Db::now(),
-                'updated_at' => Db::now(),
-            ]);
+        foreach ($this->groupsFor($page) as $nummer => $gruppe) {
+            $this->writeGroup($projectId, $pageId, $page, $brief, $oldSiteSummary, $nummer);
         }
 
         return $pageId;
     }
 
-    /** @return array<int,array> Inhalt je Abschnittsposition */
-    private function ask(array $page, array $brief, string $oldSiteSummary): array
+    /**
+     * Die Seitenzeile anlegen - oder die vorhandene weiterverwenden.
+     *
+     * Wird ein Durchlauf mitten in einer Seite unterbrochen, darf der
+     * naechste nicht eine zweite Zeile fuer dieselbe Adresse anlegen.
+     * Deshalb wird zuerst nachgesehen.
+     */
+    public function preparePage(int $projectId, array $page): int
+    {
+        $path = (string) $page['path'];
+
+        $vorhanden = Db::first(
+            'SELECT id FROM project_pages WHERE project_id = :p AND path = :path',
+            ['p' => $projectId, 'path' => $path]
+        );
+
+        if ($vorhanden !== null) {
+            return (int) $vorhanden['id'];
+        }
+
+        return Db::insert('project_pages', [
+            'project_id' => $projectId,
+            'path' => $path,
+            'title' => (string) $page['title'],
+            'meta_description' => (string) ($page['meta_description'] ?? ''),
+            'sort_order' => self::orderFor($path),
+            'in_navigation' => !empty($page['in_navigation']) ? 1 : 0,
+            'created_at' => Db::now(),
+            'updated_at' => Db::now(),
+        ]);
+    }
+
+    /**
+     * In wie vielen Gruppen wird diese Seite geschrieben?
+     *
+     * @return array<int, array<int, array<string, mixed>>>
+     */
+    public function groupsFor(array $page): array
     {
         $sections = $page['sections'] ?? [];
 
+        if ($sections === []) {
+            return [];
+        }
+
+        return ClaudeClient::isConfigured()
+            ? JsonSchema::chunkSections($sections)
+            : [$sections];
+    }
+
+    /**
+     * Eine Gruppe schreiben und sofort ablegen.
+     *
+     * Sofort ist hier das Wesentliche. Frueher wurde die ganze Seite
+     * erst am Ende gespeichert; wurde der Vorgang vorher abgebrochen,
+     * war die bezahlte Arbeit weg und der naechste Durchlauf fing von
+     * vorn an - immer wieder, ohne Fehlermeldung. Jetzt kostet ein
+     * Abbruch hoechstens eine Gruppe.
+     *
+     * @return int Anzahl abgelegter Abschnitte
+     */
+    public function writeGroup(
+        int $projectId,
+        int $pageId,
+        array $page,
+        array $brief,
+        string $oldSiteSummary,
+        int $gruppenNummer
+    ): int {
+        $gruppen = $this->groupsFor($page);
+
+        if (!isset($gruppen[$gruppenNummer])) {
+            return 0;
+        }
+
+        $gruppe = $gruppen[$gruppenNummer];
+
+        $inhalte = ClaudeClient::isConfigured()
+            ? $this->askGroup($page, $brief, $oldSiteSummary, $gruppe, count($gruppen))
+            : self::fallbackContent($page, $brief);
+
+        $gesetzt = 0;
+
+        foreach ($gruppe as $index => $section) {
+            $type = (string) $section['type'];
+
+            // Zweimal dieselbe Position darf es nicht geben - etwa wenn
+            // eine Gruppe nach einem Abbruch noch einmal laeuft.
+            $da = Db::first(
+                'SELECT id FROM project_sections WHERE page_id = :p AND sort_order = :s',
+                ['p' => $pageId, 's' => (int) $index]
+            );
+
+            $werte = [
+                'type' => $type,
+                'template_key' => (string) $section['template'],
+                'content' => self::validate($type, $inhalte[$index] ?? []),
+                'updated_at' => Db::now(),
+            ];
+
+            if ($da !== null) {
+                Db::update('project_sections', $werte, 'id = :id', ['id' => (int) $da['id']]);
+                $gesetzt++;
+                continue;
+            }
+
+            Db::insert('project_sections', $werte + [
+                'project_id' => $projectId,
+                'page_id' => $pageId,
+                'overrides' => [],
+                'hidden' => 0,
+                'sort_order' => (int) $index,
+                'created_at' => Db::now(),
+            ]);
+
+            $gesetzt++;
+        }
+
+        return $gesetzt;
+    }
+
+    // ------------------------------------------------------------------
+
+    /** Der gleichbleibende Teil der Anweisung - fuer jede Gruppe derselbe. */
+    private function messageFor(array $page, array $brief, string $oldSiteSummary): string
+    {
         $list = [];
-        foreach ($sections as $index => $section) {
+
+        foreach ($page['sections'] ?? [] as $index => $section) {
             $definition = Schema::forType((string) $section['type']);
             // Der Feldname der Antwort steht dabei, damit nichts
             // verwechselt werden kann.
             $list[] = sprintf(
-                "abschnitt_%d: %s (%s) – Vorlage: %s. Zweck: %s",
+                "abschnitt_%d: %s (%s) - Vorlage: %s. Zweck: %s",
                 $index,
                 (string) $section['type'],
                 $definition['label'] ?? '',
@@ -95,57 +188,66 @@ final class ContentWriter
         if ($oldSiteSummary !== '') {
             $message .= "\n\nTEXTE DER BESTEHENDEN WEBSITE\n"
                 . "=============================\n"
-                . "Übernimm daraus, was passt, und formuliere es besser.\n\n"
+                . "Uebernimm daraus, was passt, und formuliere es besser.\n\n"
                 . $oldSiteSummary;
         }
 
-        // Nicht die ganze Seite auf einmal.
-        //
-        // Am echten Dienst gemessen: Ab sechs Abschnitten wird die
-        // Anfrage abgewiesen – "the compiled grammar is too large". Das
-        // Schema wächst mit jedem Abschnitt, und irgendwann ist Schluss.
-        //
-        // Also in Gruppen. Der Systemteil ist bei jeder Gruppe derselbe
-        // und wird von Anthropic zwischengespeichert; die zweite Anfrage
-        // kostet deshalb nur einen Bruchteil der ersten.
-        $gruppen = JsonSchema::chunkSections($sections);
+        return $message;
+    }
+
+    /**
+     * Eine Gruppe schreiben lassen.
+     *
+     * Nicht die ganze Seite auf einmal: Am echten Dienst gemessen wird
+     * ab sechs Abschnitten abgewiesen - "the compiled grammar is too
+     * large". Der Systemteil ist bei jeder Gruppe derselbe und wird
+     * zwischengespeichert; die zweite Anfrage kostet deshalb nur einen
+     * Bruchteil der ersten.
+     *
+     * @return array<int,array> Inhalt je Abschnittsposition
+     */
+    private function askGroup(
+        array $page,
+        array $brief,
+        string $oldSiteSummary,
+        array $gruppe,
+        int $anzahlGruppen
+    ): array {
+        $message = $this->messageFor($page, $brief, $oldSiteSummary);
+
+        if ($anzahlGruppen > 1) {
+            $message .= "\n\nJETZT SCHREIBEN\n===============\n"
+                . 'Nur diese Abschnitte, die uebrigen kommen getrennt: '
+                . implode(', ', array_map(
+                    static fn (int $i): string => 'abschnitt_' . $i,
+                    array_keys($gruppe)
+                ));
+        }
+
+        $response = $this->claude->structured(
+            'content',
+            Prompts::writer(),
+            $message,
+            JsonSchema::pageContent($gruppe),
+            [
+                'model' => (string) Config::get('anthropic.model_content', 'claude-sonnet-5'),
+                'effort' => 'medium',
+                'max_tokens' => 16000,
+            ]
+        );
+
+        // Die Antwort traegt ein Feld je Abschnitt: abschnitt_0,
+        // abschnitt_1 ... Die Nummer steht im Namen, deshalb braucht es
+        // kein Zuordnen ueber ein mitgeliefertes "index", das auch
+        // falsch sein konnte.
         $byIndex = [];
 
-        foreach ($gruppen as $nummer => $gruppe) {
-            $teil = $message;
-
-            if (count($gruppen) > 1) {
-                $teil .= "\n\nJETZT SCHREIBEN\n===============\n"
-                    . 'Nur diese Abschnitte, die übrigen kommen getrennt: '
-                    . implode(', ', array_map(
-                        static fn (int $i): string => 'abschnitt_' . $i,
-                        array_keys($gruppe)
-                    ));
+        foreach ((array) ($response['sections'] ?? []) as $key => $content) {
+            if (!is_array($content) || !preg_match('/^abschnitt_(\d+)$/', (string) $key, $m)) {
+                continue;
             }
 
-            $response = $this->claude->structured(
-                'content',
-                Prompts::writer(),
-                $teil,
-                JsonSchema::pageContent($gruppe),
-                [
-                    'model' => (string) Config::get('anthropic.model_content', 'claude-sonnet-5'),
-                    'effort' => 'medium',
-                    'max_tokens' => 16000,
-                ]
-            );
-
-            // Die Antwort trägt ein Feld je Abschnitt: abschnitt_0,
-            // abschnitt_1 … Die Nummer steht im Namen, deshalb braucht es
-            // kein Zuordnen über ein mitgeliefertes "index", das auch
-            // falsch sein konnte.
-            foreach ((array) ($response['sections'] ?? []) as $key => $content) {
-                if (!is_array($content) || !preg_match('/^abschnitt_(\d+)$/', (string) $key, $m)) {
-                    continue;
-                }
-
-                $byIndex[(int) $m[1]] = $content;
-            }
+            $byIndex[(int) $m[1]] = $content;
         }
 
         ksort($byIndex);

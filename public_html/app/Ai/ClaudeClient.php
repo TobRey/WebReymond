@@ -294,6 +294,19 @@ final class ClaudeClient
     /** @return array{status:int, data:array, error:string} */
     private function request(array $payload, string $apiKey, int $timeout): array
     {
+        // PHP zaehlt die Laufzeit des ganzen Vorgangs, nicht die eines
+        // Aufrufs. Der Arbeiter setzt sie auf 80 Sekunden - das reicht
+        // fuer einen Aufruf, aber nicht fuer eine Seite, die in mehreren
+        // Gruppen geschrieben wird. Ohne diese Zeile wird der Vorgang
+        // mitten in der zweiten Gruppe abgeschossen: kein Fehler, nichts
+        // gespeichert, und der naechste Durchlauf faengt dieselbe Seite
+        // von vorn an. Bezahlt wird trotzdem jedes Mal.
+        //
+        // set_time_limit() setzt den Zaehler zurueck. Vor jedem Aufruf
+        // aufgerufen heisst das: Die Uhr laeuft je Aufruf, nicht je
+        // Seite. Der Arbeiter haelt den Gesamtrahmen weiter selbst ein.
+        @set_time_limit($timeout + 30);
+
         $ch = curl_init();
 
         $headers = [

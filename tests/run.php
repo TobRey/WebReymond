@@ -1179,6 +1179,86 @@ test('Lange Seiten werden in Gruppen aufgeteilt', function (): void {
 });
 
 // ==================================================================
+test('Ein Abbruch mitten in der Seite wirft nichts weg', function (): void {
+    // Der teure Fehler: Die Seite wurde erst gespeichert, wenn alle
+    // Gruppen geschrieben waren. Wurde der Vorgang vorher abgeschossen -
+    // und PHPs Zeitlimit tat genau das - war die bezahlte Arbeit weg,
+    // der Zaehler stand weiter auf null, und der naechste Durchlauf fing
+    // dieselbe Seite von vorn an. Ohne Fehlermeldung, aber mit Rechnung.
+    $projectId = (int) \WebAtze\Core\Db::insert('projects', [
+        'name' => 'Abbruchtest', 'slug' => 'abbruchtest-' . bin2hex(random_bytes(4)),
+        'status' => 'building', 'created_at' => \WebAtze\Core\Db::now(),
+        'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $seite = [
+        'path' => '/', 'title' => 'Start', 'meta_description' => '',
+        'in_navigation' => true,
+        'sections' => [
+            ['type' => 'hero', 'template' => 'hero-01', 'purpose' => ''],
+            ['type' => 'services', 'template' => 'services-01', 'purpose' => ''],
+            ['type' => 'faq', 'template' => 'faq-01', 'purpose' => ''],
+        ],
+    ];
+
+    $writer = new \WebAtze\Ai\ContentWriter($projectId);
+
+    // Zweimal aufgerufen darf keine zweite Seitenzeile entstehen.
+    $pageId = $writer->preparePage($projectId, $seite);
+    is($pageId, $writer->preparePage($projectId, $seite), 'Dieselbe Seite wird wiederverwendet');
+
+    $zeilen = \WebAtze\Core\Db::all(
+        'SELECT id FROM project_pages WHERE project_id = :p', ['p' => $projectId]
+    );
+    is(1, count($zeilen), 'Und es bleibt bei einer Zeile');
+
+    // Erste Gruppe schreiben - das ist der Punkt: Sie steht sofort da,
+    // nicht erst wenn die ganze Seite fertig ist.
+    $gruppen = $writer->groupsFor($seite);
+    ok($gruppen !== [], 'Die Seite hat mindestens eine Gruppe');
+
+    $writer->writeGroup($projectId, $pageId, $seite, [], '', 0);
+
+    $nachErster = \WebAtze\Core\Db::all(
+        'SELECT sort_order FROM project_sections WHERE page_id = :p ORDER BY sort_order',
+        ['p' => $pageId]
+    );
+
+    ok(count($nachErster) > 0, 'Nach der ersten Gruppe steht schon etwas in der Datenbank');
+
+    // Jetzt so tun, als waere hier abgebrochen und neu begonnen worden:
+    // dieselbe Gruppe noch einmal. Es darf nichts doppelt entstehen.
+    $writer->writeGroup($projectId, $pageId, $seite, [], '', 0);
+
+    $nachWiederholung = \WebAtze\Core\Db::all(
+        'SELECT sort_order FROM project_sections WHERE page_id = :p ORDER BY sort_order',
+        ['p' => $pageId]
+    );
+
+    is(count($nachErster), count($nachWiederholung), 'Eine Wiederholung legt nichts doppelt an');
+
+    // Die uebrigen Gruppen nachziehen - am Ende ist die Seite komplett.
+    foreach (array_keys($gruppen) as $nummer) {
+        $writer->writeGroup($projectId, $pageId, $seite, [], '', (int) $nummer);
+    }
+
+    $fertig = \WebAtze\Core\Db::all(
+        'SELECT sort_order, type FROM project_sections WHERE page_id = :p ORDER BY sort_order',
+        ['p' => $pageId]
+    );
+
+    is(3, count($fertig), 'Am Ende stehen alle drei Abschnitte da');
+    is([0, 1, 2], array_map(static fn (array $r): int => (int) $r['sort_order'], $fertig),
+        'Jede Position genau einmal');
+    is(['hero', 'services', 'faq'], array_map(static fn (array $r): string => (string) $r['type'], $fertig),
+        'Und in der richtigen Reihenfolge');
+
+    \WebAtze\Core\Db::delete('project_sections', 'project_id = :p', ['p' => $projectId]);
+    \WebAtze\Core\Db::delete('project_pages', 'project_id = :p', ['p' => $projectId]);
+    \WebAtze\Core\Db::delete('projects', 'id = :p', ['p' => $projectId]);
+});
+
+// ==================================================================
 test('Jede benutzte Klasse ist auch eingebunden', function (): void {
     // Der Übersetzungsschritt scheiterte im Betrieb an einem fehlenden
     // "use": Translator liegt in Ai, Pipeline in Build. PHP merkt das

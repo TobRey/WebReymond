@@ -285,44 +285,78 @@ final class Pipeline
             throw new RuntimeException('Der Plan enthält keine Seiten.');
         }
 
-        // Beim ersten Durchlauf die alten Seiten wegräumen
-        if ($index === 0) {
+        // Beim ersten Durchlauf die alten Seiten wegraeumen - aber nur
+        // dann. Wird mitten in der ersten Seite fortgesetzt (Seite 0,
+        // Gruppe 1), steht der Zaehler ebenfalls auf null; wegraeumen
+        // wuerde genau das loeschen, was gerade bezahlt wurde.
+        if ($index === 0 && (int) ($state['group_index'] ?? 0) === 0) {
             self::clearPages((int) $project['id']);
         }
 
         $writer = new ContentWriter((int) $project['id'], (int) $job['id']);
         $started = microtime(true);
-        $writtenNow = 0;
+        $gruppe = (int) ($state['group_index'] ?? 0);
+        $getanNow = 0;
 
         while ($index < count($pages)) {
-            // Eine Seite dauert 20 bis 60 Sekunden. Wer weniger Zeit hat,
-            // hört auf und macht im nächsten Durchlauf weiter.
+            $page = $pages[$index];
+            $gruppen = $writer->groupsFor($page);
+            $anzahl = max(1, count($gruppen));
+
+            // Eine Gruppe dauert 15 bis 35 Sekunden. Wer weniger Zeit
+            // hat, hoert auf und macht im naechsten Durchlauf weiter -
+            // bei genau dieser Gruppe, nicht am Anfang der Seite.
             //
-            // Entscheidend ist "in DIESEM Durchlauf schon eine geschrieben".
-            // Bei einem knappen Zeitfenster wäre die Bedingung sonst sofort
-            // erfüllt, es käme nie eine Seite dazu, und der Schritt liefe
-            // endlos im Kreis.
-            if ($writtenNow > 0 && microtime(true) - $started > $budget - 25.0) {
+            // Entscheidend ist "in DIESEM Durchlauf schon etwas
+            // geschafft". Bei einem knappen Zeitfenster waere die
+            // Bedingung sonst sofort erfuellt, es kaeme nie etwas dazu,
+            // und der Schritt liefe endlos im Kreis.
+            if ($getanNow > 0 && microtime(true) - $started > $budget - 35.0) {
                 break;
             }
 
-            $page = $pages[$index];
+            // Anteil der Seiten plus Anteil der Gruppen innerhalb der
+            // Seite - sonst steht die Anzeige minutenlang still.
+            $anteil = ($index + min($gruppe, $anzahl) / $anzahl) / max(1, count($pages));
+            $percent = 28 + (int) round(34 * $anteil);
 
-            $percent = 28 + (int) round(34 * ($index / max(1, count($pages))));
+            $wo = sprintf('Texte fuer "%s" (%d von %d)', (string) ($page['title'] ?? ''), $index + 1, count($pages));
+
+            if ($anzahl > 1) {
+                $wo .= sprintf(', Teil %d von %d', min($gruppe + 1, $anzahl), $anzahl);
+            }
+
             Jobs::progress(
                 (int) $job['id'],
                 'inhalte',
                 $percent,
-                sprintf('Texte für "%s" (%d von %d)', (string) ($page['title'] ?? ''), $index + 1, count($pages)),
-                array_merge($state, ['page_index' => $index])
+                $wo,
+                array_merge($state, ['page_index' => $index, 'group_index' => $gruppe])
             );
 
-            $writer->writePage((int) $project['id'], $page, $brief, (string) ($state['old_site']['summary'] ?? ''));
+            // Die Seitenzeile zuerst - dann haengt jede Gruppe an einer
+            // Stelle, die es schon gibt, auch nach einem Abbruch.
+            $pageId = $writer->preparePage((int) $project['id'], $page);
 
-            $index++;
-            $writtenNow++;
+            $writer->writeGroup(
+                (int) $project['id'],
+                $pageId,
+                $page,
+                $brief,
+                (string) ($state['old_site']['summary'] ?? ''),
+                $gruppe
+            );
+
+            $getanNow++;
+            $gruppe++;
+
+            if ($gruppe >= $anzahl) {
+                $index++;
+                $gruppe = 0;
+            }
         }
 
+        $state['group_index'] = $gruppe;
         $state['page_index'] = $index;
 
         // Noch nicht alle Seiten geschrieben: denselben Schritt wiederholen.

@@ -23,6 +23,9 @@ final class Worker
     /**
      * @return array{jobs:int, seconds:float, housekeeping:bool}
      */
+    /** Nach so vielen Anlaeufen wird ein Auftrag angehalten. */
+    private const MAX_TICKS = 70;
+
     public static function run(?int $budgetSeconds = null): array
     {
         $started = microtime(true);
@@ -50,6 +53,22 @@ final class Worker
             }
 
             $handled++;
+
+            // Notbremse. Ein Auftrag, der nach sehr vielen Anlaeufen
+            // immer noch laeuft, kommt nicht mehr ans Ziel - er dreht
+            // sich im Kreis. Jeder Kreis kostet Geld, deshalb wird hier
+            // angehalten statt weiterprobiert. Bei einem Anlauf je
+            // Minute ist das gut eine Stunde Geduld.
+            if ((int) ($job['attempts'] ?? 0) > self::MAX_TICKS) {
+                Jobs::fail(
+                    $job['id'],
+                    'Der Auftrag wurde nach ' . self::MAX_TICKS . ' Anlaeufen angehalten, '
+                    . 'weil er nicht weiterkam. Bitte melde dich - so etwas soll nicht vorkommen.',
+                    false,
+                    'Angehalten - kam nicht weiter.'
+                );
+                continue;
+            }
 
             try {
                 $remaining = $budget - (microtime(true) - $started);
