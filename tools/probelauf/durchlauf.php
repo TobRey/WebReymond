@@ -59,9 +59,16 @@ titel('Vorbereiten');
 
 Schema::migrate();
 
-$mitApi = in_array('--mit-api', $argv, true);
+$echt = in_array('--echt', $argv, true);
+$mitApi = $echt || in_array('--mit-api', $argv, true);
 
-if ($mitApi) {
+if ($echt) {
+    // Gegen den richtigen Dienst. Kostet Geld – deshalb nur auf Ansage.
+    prüfe(ClaudeClient::isConfigured(), 'Schlüssel aus der Konfiguration');
+    prüfe(str_starts_with((string) Config::get('anthropic.api_key', ''), 'sk-ant-'),
+        'Sieht nach einem echten Schlüssel aus');
+    echo "  \033[33mAchtung: Dieser Durchlauf kostet echtes Guthaben.\033[0m\n";
+} elseif ($mitApi) {
     // Auf die Attrappe umbiegen. Sie prüft die Anfragen streng.
     $werte = (new ReflectionClass(Config::class))->getProperty('values');
     $werte->setAccessible(true);

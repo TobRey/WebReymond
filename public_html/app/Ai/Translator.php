@@ -116,38 +116,61 @@ final class Translator
 
     private function ask(array $sections, array $page, string $target): array
     {
-        // Dieselben Feldnamen wie in der erwarteten Antwort. So muss das
-        // Modell nichts zuordnen – es füllt aus, was es vor sich sieht.
-        $payload = [];
+        // Wie beim Schreiben: nicht die ganze Seite auf einmal. Ab etwa
+        // sechs Abschnitten weist der Dienst die Anfrage ab, weil das
+        // Schema zu gross wird. Siehe JsonSchema::chunkSections().
+        $gruppen = JsonSchema::chunkSections($sections);
 
-        foreach ($sections as $index => $section) {
-            $payload['abschnitt_' . (int) $index] = [
-                'typ' => (string) $section['type'],
-                'inhalt' => json_decode((string) $section['content'], true) ?: [],
-            ];
+        $ergebnis = ['page' => [], 'sections' => []];
+
+        foreach ($gruppen as $gruppe) {
+            // Dieselben Feldnamen wie in der erwarteten Antwort. So muss
+            // das Modell nichts zuordnen – es füllt aus, was es sieht.
+            $payload = [];
+
+            foreach ($gruppe as $index => $section) {
+                $payload['abschnitt_' . (int) $index] = [
+                    'typ' => (string) $section['type'],
+                    'inhalt' => json_decode((string) $section['content'], true) ?: [],
+                ];
+            }
+
+            $message = sprintf(
+                "ZIELSPRACHE\n===========\n%s\n\n"
+                . "SEITE\n=====\nTitel: %s\nKurzbeschreibung: %s\n\n"
+                . "INHALTE\n=======\n%s",
+                self::NAMES[$target],
+                (string) $page['title'],
+                (string) ($page['meta_description'] ?? ''),
+                json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+            );
+
+            $teil = $this->claude->structured(
+                'translate',
+                Prompts::translator(self::NAMES[$target]),
+                $message,
+                JsonSchema::translation($gruppe),
+                [
+                    'model' => (string) Config::get('anthropic.model_content', 'claude-sonnet-5'),
+                    'effort' => 'low',
+                    'max_tokens' => 16000,
+                ]
+            );
+
+            // Titel und Kurzbeschreibung nur aus der ersten Gruppe – sie
+            // gehören zur Seite, nicht zum Abschnitt.
+            if ($ergebnis['page'] === []) {
+                $ergebnis['page'] = (array) ($teil['page'] ?? []);
+            }
+
+            foreach ((array) ($teil['sections'] ?? []) as $schlüssel => $inhalt) {
+                if (is_array($inhalt)) {
+                    $ergebnis['sections'][$schlüssel] = $inhalt;
+                }
+            }
         }
 
-        $message = sprintf(
-            "ZIELSPRACHE\n===========\n%s\n\n"
-            . "SEITE\n=====\nTitel: %s\nKurzbeschreibung: %s\n\n"
-            . "INHALTE\n=======\n%s",
-            self::NAMES[$target],
-            (string) $page['title'],
-            (string) ($page['meta_description'] ?? ''),
-            json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-        );
-
-        return $this->claude->structured(
-            'translate',
-            Prompts::translator(self::NAMES[$target]),
-            $message,
-            JsonSchema::translation($sections),
-            [
-                'model' => (string) Config::get('anthropic.model_content', 'claude-sonnet-5'),
-                'effort' => 'low',
-                'max_tokens' => 16000,
-            ]
-        );
+        return $ergebnis;
     }
 
     /**

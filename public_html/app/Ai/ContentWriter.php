@@ -99,30 +99,56 @@ final class ContentWriter
                 . $oldSiteSummary;
         }
 
-        $response = $this->claude->structured(
-            'content',
-            Prompts::writer(),
-            $message,
-            JsonSchema::pageContent($sections),
-            [
-                'model' => (string) Config::get('anthropic.model_content', 'claude-sonnet-5'),
-                'effort' => 'medium',
-                'max_tokens' => 16000,
-            ]
-        );
-
-        // Die Antwort trägt ein Feld je Abschnitt: abschnitt_0, abschnitt_1 …
-        // Die Nummer steht im Namen, deshalb braucht es kein Zuordnen mehr
-        // über ein mitgeliefertes "index", das auch falsch sein konnte.
+        // Nicht die ganze Seite auf einmal.
+        //
+        // Am echten Dienst gemessen: Ab sechs Abschnitten wird die
+        // Anfrage abgewiesen – "the compiled grammar is too large". Das
+        // Schema wächst mit jedem Abschnitt, und irgendwann ist Schluss.
+        //
+        // Also in Gruppen. Der Systemteil ist bei jeder Gruppe derselbe
+        // und wird von Anthropic zwischengespeichert; die zweite Anfrage
+        // kostet deshalb nur einen Bruchteil der ersten.
+        $gruppen = JsonSchema::chunkSections($sections);
         $byIndex = [];
 
-        foreach ((array) ($response['sections'] ?? []) as $key => $content) {
-            if (!is_array($content) || !preg_match('/^abschnitt_(\d+)$/', (string) $key, $m)) {
-                continue;
+        foreach ($gruppen as $nummer => $gruppe) {
+            $teil = $message;
+
+            if (count($gruppen) > 1) {
+                $teil .= "\n\nJETZT SCHREIBEN\n===============\n"
+                    . 'Nur diese Abschnitte, die übrigen kommen getrennt: '
+                    . implode(', ', array_map(
+                        static fn (int $i): string => 'abschnitt_' . $i,
+                        array_keys($gruppe)
+                    ));
             }
 
-            $byIndex[(int) $m[1]] = $content;
+            $response = $this->claude->structured(
+                'content',
+                Prompts::writer(),
+                $teil,
+                JsonSchema::pageContent($gruppe),
+                [
+                    'model' => (string) Config::get('anthropic.model_content', 'claude-sonnet-5'),
+                    'effort' => 'medium',
+                    'max_tokens' => 16000,
+                ]
+            );
+
+            // Die Antwort trägt ein Feld je Abschnitt: abschnitt_0,
+            // abschnitt_1 … Die Nummer steht im Namen, deshalb braucht es
+            // kein Zuordnen über ein mitgeliefertes "index", das auch
+            // falsch sein konnte.
+            foreach ((array) ($response['sections'] ?? []) as $key => $content) {
+                if (!is_array($content) || !preg_match('/^abschnitt_(\d+)$/', (string) $key, $m)) {
+                    continue;
+                }
+
+                $byIndex[(int) $m[1]] = $content;
+            }
         }
+
+        ksort($byIndex);
 
         return $byIndex;
     }

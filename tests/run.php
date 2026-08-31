@@ -1110,6 +1110,75 @@ test('Das Seitenschema bleibt klein genug für die Grammatik', function (): void
 });
 
 // ==================================================================
+test('Lange Seiten werden in Gruppen aufgeteilt', function (): void {
+    // Ein festes Feld je Abschnitt war nur die halbe Miete. Am echten
+    // Dienst gemessen: fünf Abschnitte gehen durch, sechs nicht mehr –
+    // "the compiled grammar is too large". Die Grenze hängt am Umfang,
+    // nicht an der Anzahl. Also wird gemessen und aufgeteilt.
+    $typen = ['header', 'hero', 'services', 'about', 'gallery',
+              'testimonials', 'faq', 'cta', 'contact', 'footer'];
+
+    $sections = [];
+    foreach ($typen as $t) {
+        $sections[] = ['type' => $t];
+    }
+
+    $gruppen = \WebAtze\Ai\JsonSchema::chunkSections($sections);
+
+    ok(count($gruppen) > 1, 'Zehn Abschnitte passen nicht in eine Anfrage'
+        . ' (' . count($gruppen) . ' Gruppen)');
+
+    // Keiner darf verlorengehen, keiner doppelt vorkommen.
+    $gesehen = [];
+    foreach ($gruppen as $gruppe) {
+        ok($gruppe !== [], 'Keine leere Gruppe');
+
+        foreach ($gruppe as $index => $section) {
+            ok(!isset($gesehen[$index]), 'Abschnitt ' . $index . ' kommt nur einmal vor');
+            $gesehen[$index] = $section['type'];
+        }
+    }
+
+    is(array_keys($sections), array_keys($gesehen), 'Alle Abschnitte sind dabei');
+    is($typen, array_values($gesehen), 'Und in ihrer ursprünglichen Reihenfolge');
+
+    // Der eigentliche Punkt: Jede einzelne Anfrage bleibt klein genug.
+    // Der Messwert stammt aus dem Versuch am echten Dienst – 7246
+    // Zeichen gingen durch, 8533 nicht.
+    $seal = new ReflectionMethod(ClaudeClient::class, 'sealSchema');
+    $seal->setAccessible(true);
+
+    foreach ($gruppen as $nummer => $gruppe) {
+        foreach ([
+            'Inhalt' => \WebAtze\Ai\JsonSchema::pageContent($gruppe),
+            'Übersetzung' => \WebAtze\Ai\JsonSchema::translation($gruppe),
+        ] as $was => $schema) {
+            $länge = strlen((string) json_encode($seal->invoke(null, $schema)));
+
+            ok($länge < 7300, $was . ' der Gruppe ' . ($nummer + 1) . ' bleibt unter der Grenze'
+                . ' (' . $länge . ' Zeichen)');
+        }
+    }
+
+    // Die Feldnamen tragen weiter die ursprüngliche Nummer – sonst
+    // landet die Antwort der zweiten Gruppe an der falschen Stelle.
+    $letzte = end($gruppen);
+    $erster = (int) array_key_first($letzte);
+
+    ok($erster > 0, 'Die letzte Gruppe fängt nicht bei null an');
+    ok(isset(\WebAtze\Ai\JsonSchema::pageContent($letzte)['properties']['sections']
+        ['properties']['abschnitt_' . $erster]),
+        'Sie heisst weiter abschnitt_' . $erster);
+
+    // Sonderfälle: nichts, einer, und einer der allein zu gross ist.
+    is([], \WebAtze\Ai\JsonSchema::chunkSections([]), 'Ohne Abschnitte keine Gruppe');
+    is(1, count(\WebAtze\Ai\JsonSchema::chunkSections([['type' => 'hero']])),
+        'Ein Abschnitt bleibt eine Gruppe');
+    is(1, count(\WebAtze\Ai\JsonSchema::chunkSections([['type' => 'contact']], 10)),
+        'Ein zu grosser Abschnitt wird nicht weggelassen');
+});
+
+// ==================================================================
 test('Jede benutzte Klasse ist auch eingebunden', function (): void {
     // Der Übersetzungsschritt scheiterte im Betrieb an einem fehlenden
     // "use": Translator liegt in Ai, Pipeline in Build. PHP merkt das

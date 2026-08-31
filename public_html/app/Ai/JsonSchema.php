@@ -96,6 +96,47 @@ final class JsonSchema
     }
 
     /**
+     * Die Abschnitte einer Seite in Gruppen aufteilen.
+     *
+     * Am echten Dienst gemessen: Bis fünf Abschnitte geht eine Anfrage
+     * durch, ab sechs kommt "the compiled grammar is too large". Die
+     * Grenze hängt nicht an der Anzahl, sondern am Umfang – ein
+     * Kontaktabschnitt mit zehn Feldern wiegt schwerer als eine
+     * Zahlenreihe mit zweien. Also wird gemessen statt gezählt.
+     *
+     * Die ursprüngliche Reihenfolge bleibt als Schlüssel erhalten:
+     * Abschnitt 7 heisst auch in der zweiten Gruppe "abschnitt_7".
+     *
+     * @return array<int, array<int, array<string, mixed>>>
+     */
+    public static function chunkSections(array $sections, int $budget = 5500): array
+    {
+        $gruppen = [];
+        $aktuell = [];
+
+        foreach ($sections as $index => $section) {
+            $versuch = $aktuell + [$index => $section];
+
+            // Eine Gruppe hat immer mindestens einen Abschnitt – auch
+            // wenn der allein schon über dem Budget liegt. Ihn ganz
+            // wegzulassen wäre schlimmer als eine grosse Anfrage.
+            if ($aktuell !== [] && strlen(json_encode(self::sectionSlots($versuch))) > $budget) {
+                $gruppen[] = $aktuell;
+                $aktuell = [$index => $section];
+                continue;
+            }
+
+            $aktuell = $versuch;
+        }
+
+        if ($aktuell !== []) {
+            $gruppen[] = $aktuell;
+        }
+
+        return $gruppen;
+    }
+
+    /**
      * Ein festes Feld je Abschnitt statt einer Liste mit Auswahl.
      *
      * Hier stand einmal eine Liste, deren Einträge über "anyOf" jede der
@@ -115,7 +156,7 @@ final class JsonSchema
      * beides: Die Grammatik wächst nur noch linear, und jede Position hat
      * genau eine erlaubte Form.
      */
-    private static function sectionSlots(array $sections): array
+    public static function sectionSlots(array $sections): array
     {
         $properties = [];
         $required = [];
