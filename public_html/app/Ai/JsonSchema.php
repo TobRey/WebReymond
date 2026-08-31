@@ -284,4 +284,62 @@ final class JsonSchema
             'required' => ['spacing', 'desktop', 'tablet', 'mobile'],
         ];
     }
+
+    /**
+     * Die Form der Übersetzungsantwort.
+     *
+     * Sie spiegelt den Aufbau der Seite: dieselben Abschnitte in
+     * derselben Reihenfolge, dieselben Felder. Damit kann eine
+     * Übersetzung nichts anderes werden als eine Übersetzung.
+     */
+    public static function translation(array $sections): array
+    {
+        $items = [];
+
+        foreach ($sections as $section) {
+            $type = (string) ($section['type'] ?? '');
+            $definition = Schema::forType($type);
+
+            if ($definition === null) {
+                continue;
+            }
+
+            $items[] = [
+                'type' => 'object',
+                'properties' => [
+                    'index' => ['type' => 'integer'],
+                    'section_type' => ['type' => 'string', 'enum' => [$type]],
+                    'content' => self::fields($definition['fields']),
+                ],
+                'required' => ['index', 'section_type', 'content'],
+            ];
+        }
+
+        return [
+            'type' => 'object',
+            'properties' => [
+                'page' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'title' => ['type' => 'string', 'description' => 'Titel der Seite in der Zielsprache.'],
+                        'meta_description' => [
+                            'type' => 'string',
+                            'description' => 'Kurzbeschreibung für Suchmaschinen, höchstens zwei Sätze.',
+                        ],
+                    ],
+                    'required' => ['title', 'meta_description'],
+                ],
+                // Dieselbe Form wie bei pageContent(): eine Auswahl statt
+                // prefixItems. Manche Modelle treffen prefixItems schlecht,
+                // und der bestehende Weg ist erprobt.
+                'sections' => [
+                    'type' => 'array',
+                    'minItems' => count($items),
+                    'maxItems' => count($items),
+                    'items' => count($items) === 1 ? $items[0] : ['anyOf' => $items],
+                ],
+            ],
+            'required' => ['page', 'sections'],
+        ];
+    }
 }

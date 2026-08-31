@@ -499,6 +499,15 @@ final class Schema
                 CREATE INDEX IF NOT EXISTS idx_backups_scope ON backups (scope, created_at);
             ',
 
+            // -------------------------------------------------- Mehrsprachigkeit
+            // Die Übersetzungen liegen beim Abschnitt, nicht als eigene
+            // Seitenbäume: So bleibt eine Änderung am Original genau eine
+            // Änderung, und die Sprachen laufen nicht auseinander.
+            '028_translations' => '
+                ALTER TABLE project_sections ADD COLUMN translations {text} NULL;
+                ALTER TABLE project_pages ADD COLUMN translations {text} NULL;
+            ',
+
             // ------------------------------------------------- Prüfung nach dem Bau
             '027_checks' => '
                 CREATE TABLE IF NOT EXISTS site_checks (

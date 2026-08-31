@@ -45,23 +45,35 @@ final class Publisher
         $critical = (string) ($site['critical_css'] ?? '');
         $written = 0;
 
+        // Alle Sprachen, nicht nur die erste. Sonst schriebe eine
+        // Änderung im Bearbeitungsbereich nur die Hauptsprache neu, und
+        // die übrigen liefen mit der Zeit auseinander.
+        $locales = $site['locales'] ?? [];
+        if ($locales === []) {
+            $locales = [(string) ($site['locale'] ?? 'de')];
+        }
+        $primary = (string) $locales[0];
+
         // Erst alles bauen, dann alles schreiben. Bricht das Bauen einer
         // Seite ab, bleibt die Website unangetastet statt halb erneuert.
         $rendered = [];
 
-        foreach ($pages as $page) {
-            try {
-                $html = Page::render($site, $page, $critical);
-            } catch (\Throwable $e) {
-                return [
-                    'ok' => false,
-                    'pages' => 0,
-                    'error' => 'Die Seite "' . (string) ($page['title'] ?? '?')
-                        . '" liess sich nicht bauen: ' . $e->getMessage(),
-                ];
-            }
+        foreach ($locales as $locale) {
+            foreach ($pages as $page) {
+                try {
+                    $html = Page::render($site, $page, $critical, (string) $locale);
+                } catch (\Throwable $e) {
+                    return [
+                        'ok' => false,
+                        'pages' => 0,
+                        'error' => 'Die Seite "' . (string) ($page['title'] ?? '?')
+                            . '" liess sich nicht bauen: ' . $e->getMessage(),
+                    ];
+                }
 
-            $rendered[Page::fileNameFor((string) ($page['path'] ?? '/'))] = $html;
+                $name = Page::fileNameFor((string) ($page['path'] ?? '/'), (string) $locale, $primary);
+                $rendered[$name] = $html;
+            }
         }
 
         foreach ($rendered as $name => $html) {
@@ -70,24 +82,30 @@ final class Publisher
             }
         }
 
-        $this->writeSitemap($pages, (string) ($site['domain'] ?? ''));
+        $this->writeSitemap($pages, (string) ($site['domain'] ?? ''), $locales, $primary);
 
         return ['ok' => $written > 0, 'pages' => $written, 'error' => ''];
     }
 
     /** Nach einer Änderung an den Seiten gehört auch die Sitemap erneuert. */
-    private function writeSitemap(array $pages, string $domain): void
+    private function writeSitemap(array $pages, string $domain, array $locales, string $primary): void
     {
         $base = $domain !== '' ? 'https://' . $domain : '';
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
             . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
 
-        foreach ($pages as $page) {
-            $loc = $base . '/' . Page::fileNameFor((string) ($page['path'] ?? '/'));
-            $xml .= '  <url><loc>'
-                . htmlspecialchars($loc, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
-                . '</loc></url>' . "\n";
+        foreach ($locales as $locale) {
+            foreach ($pages as $page) {
+                $loc = $base . '/' . Page::fileNameFor(
+                    (string) ($page['path'] ?? '/'),
+                    (string) $locale,
+                    $primary
+                );
+                $xml .= '  <url><loc>'
+                    . htmlspecialchars($loc, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+                    . '</loc></url>' . "\n";
+            }
         }
 
         $xml .= '</urlset>' . "\n";

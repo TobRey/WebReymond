@@ -30,6 +30,21 @@ $logo = $ctx['logo'] ?? null;
 
         <div class="s-header__actions">
             <?php if (($ctx['phone'] ?? '') !== ''): ?>
+                <?php /* Der Sprachumschalter – nur, wenn es mehr als eine gibt. */ ?>
+                <?php if (!empty($ctx['languages'])): ?>
+                    <nav class="s-header__langs" aria-label="Sprache">
+                        <?php foreach ($ctx['languages'] as $lang): ?>
+                            <a class="s-header__lang<?= !empty($lang['current']) ? ' is-current' : '' ?>"
+                               href="<?= e(R::safeUrl((string) $lang['url'])) ?>"
+                               hreflang="<?= e((string) $lang['code']) ?>"
+                               lang="<?= e((string) $lang['code']) ?>"
+                               <?= !empty($lang['current']) ? 'aria-current="true"' : '' ?>>
+                                <?= e(mb_strtoupper((string) $lang['code'])) ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </nav>
+                <?php endif; ?>
+
                 <a class="s-header__phone" href="tel:<?= e(preg_replace('/[^\d+]/', '', (string) $ctx['phone'])) ?>">
                     <?= e((string) $ctx['phone']) ?>
                 </a>

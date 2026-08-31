@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Build;
 
 use WebAtze\Core\{Db, Logger};
+use WebAtze\Ai\Translator;
 use WebAtze\Templates\{Page, Renderer};
 
 /**
@@ -64,14 +65,25 @@ final class SiteBuilder
         // --- Bilder -----------------------------------------------------
         $files += $this->copyAssets();
 
-        // --- Seiten -----------------------------------------------------
-        foreach ($this->pages as $page) {
-            $html = $this->renderPage($page);
-            $target = $this->outputDir . '/' . self::fileNameFor((string) $page['path']);
+        // --- Seiten, je Sprache einmal ----------------------------------
+        // Die Hauptsprache liegt in der Wurzel, jede weitere in ihrem
+        // eigenen Ordner. Das hält die Adressen der Hauptsprache kurz –
+        // sie sind die, die verlinkt und gefunden werden.
+        $site = $this->site();
+        $locales = $site['locales'];
+        $primary = $locales[0];
+        $critical = self::criticalCss();
 
-            ensure_dir(dirname($target));
-            write_file_atomic($target, $html);
-            $files++;
+        foreach ($locales as $locale) {
+            foreach ($this->pages as $page) {
+                $html = Page::render($site, $page, $critical, $locale);
+                $target = $this->outputDir . '/'
+                    . Page::fileNameFor((string) $page['path'], $locale, $primary);
+
+                ensure_dir(dirname($target));
+                write_file_atomic($target, $html);
+                $files++;
+            }
         }
 
         // --- Beiwerk ----------------------------------------------------
@@ -108,6 +120,7 @@ final class SiteBuilder
         return [
             'brand' => (string) $this->project['name'],
             'locale' => (string) ($this->project['locale'] ?? 'de'),
+            'locales' => Translator::localesOf($this->project),
             'theme' => $this->theme,
             'pages' => $this->pages,
             'logo' => $this->logo(),
@@ -246,9 +259,17 @@ final class SiteBuilder
         // sitemap.xml
         $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
             . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
-        foreach ($this->pages as $page) {
-            $loc = $base . '/' . ltrim(self::linkFor((string) $page['path']), '/');
-            $xml .= '  <url><loc>' . $this->esc($loc) . '</loc></url>' . "\n";
+        $locales = Translator::localesOf($this->project);
+        $primary = $locales[0];
+
+        foreach ($locales as $locale) {
+            foreach ($this->pages as $page) {
+                $loc = $base . '/' . ltrim(
+                    Page::fileNameFor((string) $page['path'], $locale, $primary),
+                    '/'
+                );
+                $xml .= '  <url><loc>' . $this->esc($loc) . '</loc></url>' . "\n";
+            }
         }
         $xml .= '</urlset>' . "\n";
         write_file_atomic($this->outputDir . '/sitemap.xml', $xml);
@@ -436,9 +457,11 @@ final class SiteBuilder
             foreach ($sections as $key => $section) {
                 $sections[$key]['content'] = json_decode((string) ($section['content'] ?? '{}'), true) ?: [];
                 $sections[$key]['overrides'] = json_decode((string) ($section['overrides'] ?? '{}'), true) ?: [];
+                $sections[$key]['translations'] = json_decode((string) ($section['translations'] ?? '{}'), true) ?: [];
                 $sections[$key]['id'] = (int) $section['id'];
             }
 
+            $pages[$index]['translations'] = json_decode((string) ($page['translations'] ?? '{}'), true) ?: [];
             $pages[$index]['sections'] = $sections;
         }
 

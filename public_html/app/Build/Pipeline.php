@@ -323,6 +323,70 @@ final class Pipeline
     }
 
     // ------------------------------------------------------------------
+    // Schritt 4b: Die weiteren Sprachen
+    // ------------------------------------------------------------------
+
+    /**
+     * Seite für Seite und Sprache für Sprache übersetzen.
+     *
+     * Mit demselben Zeitbudget wie beim Schreiben: Ein Auftrag darf
+     * nicht ins Zeitlimit des Hostings laufen, nur weil eine Website
+     * drei Sprachen hat.
+     */
+    private static function stepTranslate(array $project, array $state, float $budget, array $job): array
+    {
+        $extra = Translator::extraLocales($project);
+
+        if ($extra === []) {
+            return $state;
+        }
+
+        $pages = Db::all(
+            'SELECT id, title FROM project_pages WHERE project_id = :p ORDER BY sort_order ASC, id ASC',
+            ['p' => (int) $project['id']]
+        );
+
+        $done = (array) ($state['translated'] ?? []);
+        $started = microtime(true);
+        $translator = new Translator((int) $project['id'], (int) $job['id']);
+        $didSomething = false;
+
+        foreach ($pages as $page) {
+            foreach ($extra as $locale) {
+                $key = $page['id'] . ':' . $locale;
+
+                if (in_array($key, $done, true)) {
+                    continue;
+                }
+
+                // Mindestens eine Übersetzung je Durchgang, danach nur
+                // weiter, solange Zeit bleibt.
+                if ($didSomething && microtime(true) - $started > $budget - 25.0) {
+                    $state['translated'] = $done;
+                    $state['repeat'] = true;
+                    return $state;
+                }
+
+                Jobs::progress(
+                    (int) $job['id'],
+                    'sprachen',
+                    self::STEPS['sprachen']['progress'],
+                    sprintf('%s auf %s', (string) $page['title'], Translator::NAMES[$locale] ?? $locale)
+                );
+
+                $translator->translatePage((int) $page['id'], $locale);
+
+                $done[] = $key;
+                $didSomething = true;
+            }
+        }
+
+        $state['translated'] = $done;
+
+        return $state;
+    }
+
+    // ------------------------------------------------------------------
     // Schritt 5: Bilder auf die Abschnitte verteilen
     // ------------------------------------------------------------------
 

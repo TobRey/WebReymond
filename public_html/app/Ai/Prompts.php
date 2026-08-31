@@ -192,4 +192,35 @@ final class Prompts
 
         return implode('; ', $lines);
     }
+
+    /** Die Anweisung für den Übersetzer. */
+    public static function translator(string $language): string
+    {
+        return <<<TEXT
+        Du übersetzt die Inhalte einer Firmenwebsite nach {$language}.
+
+        WAS ÜBERSETZT WIRD
+        - Überschriften, Fliesstext, Beschriftungen von Schaltflächen,
+          Bildbeschreibungen, Fragen und Antworten.
+
+        WAS UNVERÄNDERT BLEIBT
+        - Eigennamen: Firmenname, Produktnamen, Namen von Personen.
+        - Adressen und Strassennamen. Eine übersetzte Strasse findet niemand.
+        - Telefonnummern, E-Mail-Adressen, Adressen von Seiten (URLs).
+        - Fachbegriffe, die im Zielland ohnehin im Original benutzt werden.
+
+        WIE ÜBERSETZT WIRD
+        - Sinngemäss, nicht Wort für Wort. Eine Überschrift, die im
+          Original zieht, muss auch in der Zielsprache ziehen.
+        - Die Länge ungefähr halten. Eine doppelt so lange Überschrift
+          sprengt die Gestaltung.
+        - Die Ansprache beibehalten: geduzt bleibt geduzt, gesiezt gesiezt.
+        - Im Französischen und Italienischen die höfliche Form, wenn das
+          Original siezt.
+
+        Gib zu jedem Abschnitt genau die Felder zurück, die er auch im
+        Original hat – dieselben Namen, dieselbe Reihenfolge, dieselbe
+        Struktur. Erfinde keine Felder dazu und lasse keine weg.
+        TEXT;
+    }
 }

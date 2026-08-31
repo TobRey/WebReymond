@@ -223,6 +223,84 @@ test('Preise: auf der Website steht keine einzige Zahl', function (): void {
 });
 
 // ==================================================================
+test('Mehrsprachige Kundenseiten', function (): void {
+    // Das Formular bot "Deutsch und Französisch" an, gebaut wurde
+    // trotzdem nur eine Sprache: SiteBuilder las locales nie.
+    $sprachen = \WebAtze\Ai\Translator::localesOf(['locales' => 'de,fr,it']);
+    is(['de', 'fr', 'it'], $sprachen, 'Die Sprachen werden gelesen');
+    is(['fr', 'it'], \WebAtze\Ai\Translator::extraLocales(['locales' => 'de,fr,it']),
+        'Zu übersetzen sind alle ausser der ersten');
+
+    // Unsinn darf nicht durchkommen.
+    is(['de'], \WebAtze\Ai\Translator::localesOf(['locales' => 'xx,,de']),
+        'Unbekannte Sprachen werden verworfen');
+    is(['de'], \WebAtze\Ai\Translator::localesOf([]), 'Ohne Angabe bleibt es bei Deutsch');
+
+    // Die Hauptsprache liegt in der Wurzel, die weiteren im Unterordner.
+    is('index.html', Page::fileNameFor('/', 'de', 'de'), 'Hauptsprache in der Wurzel');
+    is('fr/index.html', Page::fileNameFor('/', 'fr', 'de'), 'Französisch im Unterordner');
+    is('it/kontakt.html', Page::fileNameFor('/kontakt', 'it', 'de'), 'Auch Unterseiten');
+
+    // Aus dem Unterordner heraus zeigt ein Verweis eine Ebene hinauf.
+    is('index.html', Page::relativeLink('index.html', 'de', 'de'), 'In der Wurzel ohne Umweg');
+    is('../index.html', Page::relativeLink('index.html', 'fr', 'de'), 'Aus fr/ eine Ebene hoch');
+
+    // Eine dreisprachige Seite bauen und nachsehen.
+    $site = [
+        'brand' => 'Test AG',
+        'locale' => 'de',
+        'locales' => ['de', 'fr'],
+        'theme' => ['colors' => ['primary' => '#123456']],
+        'pages' => [
+            ['path' => '/', 'title' => 'Start', 'in_navigation' => 1,
+             'translations' => ['fr' => ['title' => 'Accueil', 'meta_description' => 'Bonjour']]],
+            ['path' => '/kontakt', 'title' => 'Kontakt', 'in_navigation' => 1, 'translations' => []],
+        ],
+        'contact' => [],
+    ];
+
+    $page = [
+        'path' => '/',
+        'title' => 'Start',
+        'meta_description' => 'Guten Tag',
+        'translations' => ['fr' => ['title' => 'Accueil', 'meta_description' => 'Bonjour']],
+        'sections' => [[
+            'id' => 1,
+            'type' => 'hero',
+            'template_key' => Catalog::defaultKey('hero'),
+            'content' => ['title' => 'Guten Tag'],
+            'overrides' => [],
+            'translations' => ['fr' => ['title' => 'Bonjour']],
+        ]],
+    ];
+
+    $de = Page::render($site, $page, '', 'de');
+    $fr = Page::render($site, $page, '', 'fr');
+
+    ok(str_contains($de, 'Guten Tag'), 'Die deutsche Fassung trägt den deutschen Text');
+    ok(str_contains($fr, 'Bonjour'), 'Die französische den französischen');
+    ok(!str_contains($fr, 'Guten Tag'), 'Und nicht mehr den deutschen');
+
+    ok(str_contains($de, '<html lang="de">'), 'lang stimmt in der Wurzel');
+    ok(str_contains($fr, '<html lang="fr">'), 'Und im Unterordner');
+
+    // Aus dem Unterordner müssen Stylesheet und Skript eine Ebene hoch.
+    ok(str_contains($de, 'href="assets/css/site.css"'), 'Stylesheet in der Wurzel');
+    ok(str_contains($fr, 'href="../assets/css/site.css"'), 'Stylesheet aus fr/ eine Ebene hoch');
+    ok(str_contains($fr, 'src="../assets/js/site.js"'), 'Skript ebenso');
+
+    // hreflang, sonst gilt beides als doppelter Inhalt.
+    ok(str_contains($de, 'hreflang="fr"'), 'Die deutsche Seite nennt die französische');
+    ok(str_contains($fr, 'hreflang="de"'), 'Und umgekehrt');
+    ok(str_contains($de, 'hreflang="x-default"'), 'Und eine Vorgabe für alle anderen');
+
+    // Einsprachig bleibt einsprachig – kein Umschalter, kein hreflang.
+    $einzeln = Page::render(array_merge($site, ['locales' => ['de']]), $page, '', 'de');
+    ok(!str_contains($einzeln, 'hreflang='), 'Ohne zweite Sprache kein hreflang');
+    ok(!str_contains($einzeln, 's-header__langs'), 'Und kein Umschalter');
+});
+
+// ==================================================================
 test('Die Referenz-Miniatur überlebt den nächsten Tag', function (): void {
     // Früher zeigte preview_path auf /vorschau/<kennung>/. Diesen Ordner
     // räumt der Cron nach 24 Stunden weg – am Tag darauf stand in jeder
