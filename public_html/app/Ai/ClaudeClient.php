@@ -34,6 +34,31 @@ final class ClaudeClient
     private const MAX_RETRIES = 3;
 
     /**
+     * Was die strukturierte Ausgabe nicht kennt.
+     *
+     * Sie versteht Typen, enum, const, anyOf, allOf und Verweise – aber
+     * keine Grössenangaben. Eine Anfrage, die welche enthält, wird
+     * abgewiesen ("For 'array' type, property 'maxItems' is not
+     * supported"). Die fertigen Bibliotheken für Python und JavaScript
+     * entfernen sie stillschweigend; hier läuft es über cURL, also
+     * müssen wir es selbst tun.
+     *
+     * Nicht entfernt werden anyOf, allOf und oneOf: Die ändern nicht
+     * eine Grenze, sondern die Bedeutung.
+     */
+    private const UNSUPPORTED = [
+        // Listen
+        'minItems', 'maxItems', 'uniqueItems', 'contains', 'minContains',
+        'maxContains', 'prefixItems',
+        // Zahlen
+        'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf',
+        // Zeichenketten
+        'minLength', 'maxLength', 'pattern',
+        // Objekte
+        'minProperties', 'maxProperties', 'propertyNames',
+    ];
+
+    /**
      * Preise in US-Dollar je einer Million Token (Stand Juni 2026).
      *
      * Zwischengespeicherte Eingaben kosten weniger: das Anlegen etwa das
@@ -326,6 +351,18 @@ final class ClaudeClient
      */
     private static function sealSchema(array $schema): array
     {
+        // Grenzen wie "höchstens zwölf" kennt die strukturierte Ausgabe
+        // nicht. Weggelassen ginge die Absicht verloren – also wandert
+        // sie in die Beschreibung. Dort liest das Modell sie und hält
+        // sich meistens daran; erzwungen ist sie dann nicht mehr, aber
+        // eine ungefähr eingehaltene Grenze ist besser als eine
+        // abgewiesene Anfrage.
+        $schema = self::foldLimitsIntoDescription($schema);
+
+        foreach (self::UNSUPPORTED as $keyword) {
+            unset($schema[$keyword]);
+        }
+
         if (($schema['type'] ?? '') === 'object') {
             $schema['additionalProperties'] = false;
 
@@ -340,9 +377,83 @@ final class ClaudeClient
             }
         }
 
-        if (($schema['type'] ?? '') === 'array' && isset($schema['items']) && is_array($schema['items'])) {
+        if (isset($schema['items']) && is_array($schema['items'])) {
             $schema['items'] = self::sealSchema($schema['items']);
         }
+
+        // Auch in Verzweigungen. Das fehlte bisher – dort blieben die
+        // nicht unterstützten Angaben stehen.
+        foreach (['anyOf', 'allOf', 'oneOf'] as $branch) {
+            if (!isset($schema[$branch]) || !is_array($schema[$branch])) {
+                continue;
+            }
+
+            foreach ($schema[$branch] as $index => $variant) {
+                if (is_array($variant)) {
+                    $schema[$branch][$index] = self::sealSchema($variant);
+                }
+            }
+        }
+
+        return $schema;
+    }
+
+    /**
+     * Aus einer Zahlengrenze einen Satz machen.
+     *
+     * "maxItems: 12" wird zu "Höchstens 12 Einträge." und hängt sich an
+     * die Beschreibung. Das Modell liest Beschreibungen – die Grenze
+     * überlebt also den Umzug, nur eben als Bitte statt als Regel.
+     */
+    private static function foldLimitsIntoDescription(array $schema): array
+    {
+        $sätze = [];
+
+        $min = $schema['minItems'] ?? null;
+        $max = $schema['maxItems'] ?? null;
+
+        // Diese Sätze liest das Modell. "Mindestens 1 Einträge" wäre
+        // schlechtes Deutsch in einer Anweisung – das schleift sich in
+        // die Antworten durch.
+        $einträge = static fn (int $n): string => $n . ($n === 1 ? ' Eintrag' : ' Einträge');
+
+        if ($min !== null && $max !== null && (int) $min === (int) $max) {
+            $sätze[] = 'Genau ' . $einträge((int) $min) . '.';
+        } else {
+            if ($min !== null) {
+                $sätze[] = 'Mindestens ' . $einträge((int) $min) . '.';
+            }
+            if ($max !== null) {
+                $sätze[] = 'Höchstens ' . $einträge((int) $max) . '.';
+            }
+        }
+
+        // "Zeichen" hat keine Mehrzahlform – hier reicht die Zahl.
+        if (isset($schema['minLength'])) {
+            $sätze[] = 'Mindestens ' . (int) $schema['minLength'] . ' Zeichen.';
+        }
+
+        if (isset($schema['maxLength'])) {
+            $sätze[] = 'Höchstens ' . (int) $schema['maxLength'] . ' Zeichen.';
+        }
+
+        if (isset($schema['minimum']) && isset($schema['maximum'])) {
+            $sätze[] = 'Ein Wert zwischen ' . $schema['minimum'] . ' und ' . $schema['maximum'] . '.';
+        } elseif (isset($schema['minimum'])) {
+            $sätze[] = 'Mindestens ' . $schema['minimum'] . '.';
+        } elseif (isset($schema['maximum'])) {
+            $sätze[] = 'Höchstens ' . $schema['maximum'] . '.';
+        }
+
+        if ($sätze === []) {
+            return $schema;
+        }
+
+        $vorher = trim((string) ($schema['description'] ?? ''));
+
+        $schema['description'] = trim(
+            ($vorher !== '' ? rtrim($vorher, '. ') . '. ' : '') . implode(' ', $sätze)
+        );
 
         return $schema;
     }

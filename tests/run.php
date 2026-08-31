@@ -970,6 +970,81 @@ test('Ein Einstellungsfehler wird nicht ewig wiederholt', function (): void {
 });
 
 // ==================================================================
+test('Kein Schema enthält, was die strukturierte Ausgabe ablehnt', function (): void {
+    // Die Schnittstelle kennt keine Grössenangaben und weist die ganze
+    // Anfrage ab: "For 'array' type, property 'maxItems' is not
+    // supported". Die fertigen Bibliotheken entfernen sie still; hier
+    // läuft es über cURL, also muss es selbst geschehen.
+    $seal = new ReflectionMethod(ClaudeClient::class, 'sealSchema');
+    $seal->setAccessible(true);
+
+    $verboten = ['minItems', 'maxItems', 'uniqueItems', 'contains', 'minContains',
+                 'maxContains', 'prefixItems', 'minimum', 'maximum', 'exclusiveMinimum',
+                 'exclusiveMaximum', 'multipleOf', 'minLength', 'maxLength', 'pattern',
+                 'minProperties', 'maxProperties', 'propertyNames'];
+
+    $suchen = static function (array $s, array $verboten, string $pfad = '$') use (&$suchen): array {
+        $treffer = [];
+        foreach ($s as $k => $v) {
+            if (is_string($k) && in_array($k, $verboten, true)) {
+                $treffer[] = $pfad . '.' . $k;
+            }
+            if (is_array($v)) {
+                $treffer = array_merge($treffer, $suchen($v, $verboten, $pfad . '.' . $k));
+            }
+        }
+        return $treffer;
+    };
+
+    // Alle Schemas, die tatsächlich verschickt werden.
+    $schemas = [
+        'Seitenplan' => \WebAtze\Ai\JsonSchema::sitePlan(),
+        'Seiteninhalt' => \WebAtze\Ai\JsonSchema::pageContent([
+            ['type' => 'hero'], ['type' => 'services'], ['type' => 'contact'],
+        ]),
+        'Abschnitt' => \WebAtze\Ai\JsonSchema::sectionContent('hero'),
+        'Referenztext' => \WebAtze\Ai\JsonSchema::reference(),
+        'Übersetzung' => \WebAtze\Ai\JsonSchema::translation([
+            ['type' => 'hero'], ['type' => 'text'],
+        ]),
+    ];
+
+    foreach ($schemas as $name => $schema) {
+        $übrig = $suchen($seal->invoke(null, $schema), $verboten);
+        ok($übrig === [], $name . ': nichts Unerlaubtes mehr'
+            . ($übrig === [] ? '' : ' (' . implode(', ', $übrig) . ')'));
+    }
+
+    // Die Absicht darf nicht verlorengehen – sie wandert in die
+    // Beschreibung, wo das Modell sie liest.
+    $plan = $seal->invoke(null, \WebAtze\Ai\JsonSchema::sitePlan());
+    $text = (string) ($plan['properties']['pages']['description'] ?? '');
+
+    ok(str_contains($text, 'Höchstens 12'), 'Die Obergrenze steht als Satz in der Beschreibung');
+    ok(str_contains($text, 'Mindestens 1 Eintrag'), 'Und zwar in richtigem Deutsch – Einzahl');
+
+    // Was gebraucht wird, bleibt stehen.
+    ok(($plan['additionalProperties'] ?? null) === false, 'additionalProperties bleibt false');
+    ok(isset($plan['required']), 'required bleibt');
+
+    // Auch in Verzweigungen wird aufgeräumt. Das fehlte zuerst.
+    $mitAnyOf = $seal->invoke(null, [
+        'type' => 'object',
+        'properties' => [
+            'x' => ['anyOf' => [
+                ['type' => 'array', 'items' => ['type' => 'string'], 'maxItems' => 5],
+                ['type' => 'string', 'maxLength' => 10],
+            ]],
+        ],
+    ]);
+
+    is([], $suchen($mitAnyOf, $verboten), 'Auch unter anyOf ist nichts übrig');
+
+    // anyOf selbst bleibt – das ist keine Grenze, sondern die Bedeutung.
+    ok(isset($mitAnyOf['properties']['x']['anyOf']), 'anyOf selbst bleibt erhalten');
+});
+
+// ==================================================================
 test('Die Referenz-Miniatur überlebt den nächsten Tag', function (): void {
     // Früher zeigte preview_path auf /vorschau/<kennung>/. Diesen Ordner
     // räumt der Cron nach 24 Stunden weg – am Tag darauf stand in jeder
