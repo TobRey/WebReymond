@@ -227,6 +227,34 @@ foreach ($diagnostics as $check) {
                     dem geht, was oben im Feld steht. Kostet nichts.
                 </p>
             </div>
+
+            <div class="wa-field">
+                <label class="wa-label" for="admin_key">
+                    Kennung nachschlagen
+                    <span class="wa-label__hint">nur falls du sie nirgends findest</span>
+                </label>
+                <input class="wa-input" type="password" id="admin_key" name="admin_key"
+                       autocomplete="off" spellcheck="false"
+                       placeholder="sk-ant-admin…">
+                <p class="wa-fieldset__hint">
+                    <button type="submit" name="workspace_lookup" value="1"
+                            class="wa-btn wa-btn--quiet wa-btn--sm" formnovalidate>
+                        Nachschlagen
+                    </button>
+                    Der Standardbereich zeigt in der Konsole keine Kennung an – dann
+                    hilft nur fragen. Ein <strong>Admin-Schlüssel</strong> darf die Liste
+                    lesen; er wird in der Konsole unter <em>Settings → Admin keys</em>
+                    angelegt und beginnt mit <code>sk-ant-admin</code>.
+                </p>
+                <p class="wa-fieldset__hint">
+                    Der Schlüssel wird <strong>nur für diese eine Abfrage</strong> benutzt
+                    und nirgends gespeichert. Er darf mehr als der, der Websites baut –
+                    so einer gehört nicht in eine Datei, die jede Nacht gesichert wird.
+                    Gefunden sich genau ein Arbeitsbereich, wird er gleich eingetragen
+                    und geprüft. Danach kannst du den Admin-Schlüssel in der Konsole
+                    wieder löschen.
+                </p>
+            </div>
         </fieldset>
 
         <div class="wa-form__actions">

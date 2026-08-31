@@ -887,28 +887,33 @@ test('Der fehlende Arbeitsbereich wird erkannt und behoben', function (): void {
     is('', $rein('mein arbeitsbereich'), 'Fliesstext');
     is('', $rein('<script>alert(1)</script>'), 'Und Unfug erst recht');
 
-    // Wer nur den Standardbereich hat, findet nirgends eine
-    // "wrkspc_"-Kennung – in der Konsole heisst der schlicht "default".
-    // Der wird versuchsweise angenommen, aber nur behalten, wenn ihn die
-    // Schnittstelle bestätigt. Ein falscher Wert, der still in den
-    // Einstellungen stehen bleibt, wäre schlimmer als keiner.
+    // Der zweite Wortlaut derselben Sache. Ihn nicht zu erkennen war ein
+    // Fehler mit Folgen: Der abgewiesene Wert blieb stehen und liess von
+    // da an jede Anfrage scheitern.
+    ok(ClaudeClient::isWorkspaceMissing(400,
+        'anthropic-workspace-id header must be a valid workspace ID'),
+        '"muss gültig sein" zählt genauso wie "fehlt"');
+    ok(ClaudeClient::isWorkspaceMissing(400,
+        'The anthropic-workspace-id header must be a valid workspace ID.'),
+        'Auch als ganzer Satz');
+
     $quelle = (string) file_get_contents(
         dirname(__DIR__) . '/public_html/app/Ai/ClaudeClient.php'
     );
 
-    ok(str_contains($quelle, "LAST_RESORT = ['default']"),
-        'Der Standardbereich ist der letzte Versuch');
-    ok(str_contains($quelle, "anthropic_workspace_guessed"),
-        'Und wird als Vermutung markiert');
-    ok(str_contains($quelle, 'if (self::wasGuessed()) {'),
-        'Bewährt sie sich nicht, wird sie wieder entfernt');
+    // "default" ist nachweislich keine gültige Kennung – die
+    // Schnittstelle hat es abgelehnt. Also wird nicht mehr geraten.
+    ok(!str_contains($quelle, "LAST_RESORT"),
+        'Es wird keine Kennung mehr geraten');
 
-    // Die Markierung verschwindet, sobald der Wert getragen hat.
-    $erfolg = mb_strpos($quelle, "// Der Arbeitsbereich hat sich bewährt");
-    $weg = mb_strpos($quelle, "// Die Vermutung wurde wieder entfernt");
-    ok($erfolg !== false, 'Bei Erfolg gilt sie als bestätigt');
-    ok($weg !== false || str_contains($quelle, 'Die Vermutung wurde wieder entfernt'),
-        'Bei Ablehnung wird sie zurückgenommen');
+    ok(str_contains($quelle, 'if (self::wasGuessed()) {'),
+        'Eine frühere Vermutung wird trotzdem wieder entfernt');
+
+    // Und der Weg, der zum Ziel führt: mit einem Admin-Schlüssel fragen.
+    ok(str_contains($quelle, 'public static function lookupWith('),
+        'Nachschlagen mit einem Admin-Schlüssel ist möglich');
+    ok(!str_contains($quelle, "remember('admin_key'"),
+        'Der Admin-Schlüssel wird nirgends abgelegt');
 });
 
 // ==================================================================

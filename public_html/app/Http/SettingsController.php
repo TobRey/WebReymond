@@ -66,6 +66,55 @@ final class SettingsController
             return $this->back();
         }
 
+        // Die Kennung mit einem Admin-Schlüssel nachschlagen. Der wird
+        // nur für diese eine Abfrage benutzt und nirgends abgelegt.
+        if ($request->has('workspace_lookup')) {
+            $result = ClaudeClient::lookupWith($request->input('admin_key'));
+
+            if (!$result['ok']) {
+                Session::flash('error', $result['error']);
+                return $this->back();
+            }
+
+            $liste = [];
+            foreach ($result['workspaces'] as $w) {
+                $liste[] = ($w['name'] !== '' ? $w['name'] : 'ohne Namen') . ': ' . $w['id'];
+            }
+
+            // Genau einer? Dann gibt es nichts zu wählen – eintragen und
+            // gleich nachsehen, ob es damit läuft.
+            if (count($result['workspaces']) === 1) {
+                $id = $result['workspaces'][0]['id'];
+
+                Settings::put('anthropic_workspace_id', $id);
+                Settings::put('anthropic_workspace_guessed', '');
+                Settings::put('anthropic_workspace_lookup', '');
+
+                Audit::log('settings.workspace_found', $id, [], $request);
+
+                $probe = ClaudeClient::probe();
+
+                Session::flash(
+                    $probe['ok'] ? 'success' : 'error',
+                    $probe['ok']
+                        ? 'Gefunden und eingetragen: ' . $liste[0]
+                          . '. Der Zugang steht – angehaltene Aufträge lassen sich fortsetzen.'
+                        : 'Gefunden und eingetragen: ' . $liste[0]
+                          . '. Es geht aber noch nicht: ' . $probe['text'] . ' ' . $probe['hint']
+                );
+
+                return $this->back();
+            }
+
+            Session::flash(
+                'info',
+                'Gefunden: ' . implode(' · ', $liste)
+                . ' – trag die passende Kennung oben ein und speichere.'
+            );
+
+            return $this->back();
+        }
+
         if ($action === 'password') {
             return $this->changePassword($request);
         }

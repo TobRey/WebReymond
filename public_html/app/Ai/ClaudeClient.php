@@ -34,16 +34,6 @@ final class ClaudeClient
     private const MAX_RETRIES = 3;
 
     /**
-     * Womit es sich noch versuchen lässt, wenn nichts anderes bleibt.
-     *
-     * Wer nur den Standardbereich hat, findet in der Konsole nirgends
-     * eine "wrkspc_"-Kennung – dort heisst er einfach "default".
-     * Geraten wird trotzdem nicht: Jeder Kandidat wird erst geprüft und
-     * nur bei einer bestätigten Antwort übernommen.
-     */
-    private const LAST_RESORT = ['default'];
-
-    /**
      * Preise in US-Dollar je einer Million Token (Stand Juni 2026).
      *
      * Zwischengespeicherte Eingaben kosten weniger: das Anlegen etwa das
@@ -477,9 +467,14 @@ final class ClaudeClient
 
         $needle = mb_strtolower($message);
 
+        // Es gibt mehrere Wortlaute für dasselbe Thema: "fehlt", "muss
+        // gültig sein". Sie einzeln aufzuzählen war ein Fehler – dann
+        // rutscht der nächste durch, und ein falscher Wert bleibt stehen.
+        // Also: Jede Beanstandung dieser Kopfzeile zählt.
         return str_contains($needle, 'workspace_id_required')
-            || (str_contains($needle, 'anthropic-workspace-id') && str_contains($needle, 'required'))
-            || (str_contains($needle, 'workspace') && str_contains($needle, 'identity-linked'));
+            || str_contains($needle, 'anthropic-workspace-id')
+            || (str_contains($needle, 'workspace') && str_contains($needle, 'identity-linked'))
+            || (str_contains($needle, 'workspace') && str_contains($needle, 'valid'));
     }
 
     /**
@@ -536,27 +531,12 @@ final class ClaudeClient
                 return false;
             }
 
-            // Nachschlagen ging nicht. Bleibt ein letzter Versuch: Wer nur
-            // den Standardbereich hat, findet nirgends eine Kennung – der
-            // heisst in der Konsole schlicht "default".
-            //
-            // Geprüft wird das an der Anfrage, die gerade gescheitert ist,
-            // nicht an einer anderen: Nur die beantwortet die Frage
-            // wirklich. Deshalb wird der Wert vorläufig gesetzt und als
-            // Vermutung markiert. Bewährt er sich, bleibt er; scheitert
-            // er, wird er wieder entfernt – ein falscher Wert, der still
-            // in den Einstellungen stehen bleibt, wäre schlimmer als
-            // keiner.
-            $candidate = self::LAST_RESORT[0];
-
-            self::remember('anthropic_workspace_id', $candidate);
-            self::remember('anthropic_workspace_guessed', '1');
-
-            Logger::info('Standard-Arbeitsbereich wird versuchsweise angenommen.', [
-                'kennung' => $candidate,
-            ]);
-
-            return true;
+            // Hier stand einmal ein Versuch mit "default" – so heisst der
+            // Standardbereich in der Konsole. Die Schnittstelle nimmt das
+            // nicht: Sie antwortet "must be a valid workspace ID". Der
+            // Versuch ist damit erledigt, und Raten hilft hier nicht
+            // weiter. Es braucht die echte Kennung.
+            return false;
         }
 
         $id = (string) ($found[0]['id'] ?? '');
@@ -757,6 +737,85 @@ final class ClaudeClient
             'ok' => true,
             'text' => $workspace !== '' ? 'in Ordnung (' . $workspace . ')' : 'in Ordnung',
             'hint' => 'Schlüssel gültig und freigeschaltet.',
+        ];
+    }
+
+    /**
+     * Die Arbeitsbereiche mit einem fremden Schlüssel abfragen.
+     *
+     * Für den Fall, dass die Kennung nirgends in der Konsole steht – der
+     * Standardbereich zeigt keine. Ein Admin-Schlüssel darf die Liste
+     * lesen; der gewöhnliche nicht.
+     *
+     * Der Schlüssel wird nur für diese eine Abfrage benutzt und nirgends
+     * abgelegt. Er hat mehr Rechte als der, der Websites baut – so einer
+     * gehört nicht in eine Datei, die täglich gesichert wird.
+     *
+     * @return array{ok:bool, workspaces:array<int, array{id:string,name:string}>, error:string}
+     */
+    public static function lookupWith(string $adminKey): array
+    {
+        $adminKey = trim($adminKey);
+
+        if ($adminKey === '') {
+            return ['ok' => false, 'workspaces' => [], 'error' => 'Kein Schlüssel eingegeben.'];
+        }
+
+        $ch = curl_init();
+
+        curl_setopt_array($ch, [
+            CURLOPT_URL => self::WORKSPACES_ENDPOINT . '?limit=100',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_HTTPHEADER => [
+                'x-api-key: ' . $adminKey,
+                'anthropic-version: ' . self::VERSION,
+            ],
+        ]);
+
+        $raw = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        curl_close($ch);
+
+        if ($raw === false || $status === 0) {
+            return ['ok' => false, 'workspaces' => [], 'error' => 'Keine Verbindung zur Schnittstelle.'];
+        }
+
+        $data = json_decode((string) $raw, true);
+
+        if ($status === 401 || $status === 403) {
+            return [
+                'ok' => false,
+                'workspaces' => [],
+                'error' => 'Dieser Schlüssel darf die Arbeitsbereiche nicht lesen. Es braucht '
+                    . 'einen Admin-Schlüssel – der beginnt mit "sk-ant-admin" und wird in der '
+                    . 'Konsole unter Settings → Admin keys angelegt.',
+            ];
+        }
+
+        if ($status < 200 || $status >= 300) {
+            return [
+                'ok' => false,
+                'workspaces' => [],
+                'error' => (string) ($data['error']['message'] ?? 'Unerwartete Antwort (HTTP ' . $status . ').'),
+            ];
+        }
+
+        $out = [];
+
+        foreach ((array) ($data['data'] ?? []) as $entry) {
+            if (!is_array($entry) || ($entry['id'] ?? '') === '' || ($entry['archived_at'] ?? null) !== null) {
+                continue;
+            }
+
+            $out[] = ['id' => (string) $entry['id'], 'name' => (string) ($entry['name'] ?? '')];
+        }
+
+        return [
+            'ok' => $out !== [],
+            'workspaces' => $out,
+            'error' => $out === [] ? 'Die Antwort enthielt keinen aktiven Arbeitsbereich.' : '',
         ];
     }
 
