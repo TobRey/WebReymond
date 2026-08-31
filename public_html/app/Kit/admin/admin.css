@@ -122,6 +122,25 @@ a { color: var(--k-accent) }
 }
 
 .k-h1 { margin: 0; font-size: 1.55rem }
+.k-h2 { margin: 2.5rem 0 0.9rem; font-size: 1.2rem }
+.k-h3 { margin: 1.8rem 0 0.5rem; font-size: 1rem }
+
+/* Ein Feld mit Beschriftung – die kleinste Einheit eines Formulars. */
+.k-field { margin-block-end: 1.1rem }
+.k-field:last-child { margin-block-end: 0 }
+
+.k-muted { color: var(--k-text-muted) }
+
+/* Ein kleiner Vermerk am Eintrag, etwa "abgesagt". */
+.k-tag {
+  display: inline-block;
+  margin-inline-start: 0.4rem;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--k-border);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: var(--k-text-muted);
+}
 .k-lede { margin: 0; max-width: 60ch; color: var(--k-text-muted) }
 
 /* ================================================================== */

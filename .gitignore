@@ -14,6 +14,9 @@ public_html/storage/previews/*
 public_html/storage/uploads/*
 public_html/storage/logs/*
 public_html/storage/tmp/*
+public_html/storage/documents/*
+public_html/storage/backups/*
+public_html/storage/fonts/*
 !public_html/storage/**/.gitkeep
 
 # Frontend-Build

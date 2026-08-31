@@ -176,6 +176,10 @@ final class DocBuilder
 
         $chapters[] = ['title' => 'Anfragen aus dem Kontaktformular', 'html' => self::leads($project, $base)];
 
+        if (BookingKit::wanted($brief)) {
+            $chapters[] = ['title' => 'Termine', 'html' => self::bookings($project, $base)];
+        }
+
         if (!empty($brief['wants_stats'])) {
             $chapters[] = ['title' => 'Besucherzahlen', 'html' => self::stats($brief)];
         }
@@ -353,6 +357,36 @@ final class DocBuilder
             . '<div class="box"><p>Kommen keine E-Mails an, liegt es fast immer am '
             . 'Versand des Hostings, nicht an der Website. Die Anfragen sind dann '
             . 'trotzdem gespeichert.</p></div>';
+
+        return $html;
+    }
+
+    private static function bookings(array $project, string $base): string
+    {
+        $url = ($base !== '' ? $base : '') . '/buchen';
+
+        $html = '<p>Unter <code>' . self::esc($url) . '</code> können Ihre Kunden selbst '
+            . 'einen Termin nehmen. Sie bekommen jede Buchung sofort per E-Mail, und der '
+            . 'Gast bekommt eine Bestätigung.</p>';
+
+        if (!empty($project['wants_admin'])) {
+            $html .= '<p>Im Bearbeitungsbereich unter <em>Buchungen</em> sehen Sie alle '
+                . 'kommenden Termine. Dort stellen Sie auch ein, wann überhaupt gebucht '
+                . 'werden kann.</p>';
+        }
+
+        $html .= '<h3>Ferien und Feiertage</h3>'
+            . '<p>Im Feld <em>Geschlossen</em> tragen Sie einzelne Tage ein, an denen '
+            . 'nichts geht – ein Datum pro Zeile. An diesen Tagen wird gar nichts erst '
+            . 'angeboten.</p>'
+            . '<h3>Ein Termin passt doch nicht</h3>'
+            . '<p>Klicken Sie beim Termin auf <em>Absagen</em>. Die Zeit ist danach '
+            . 'wieder frei. Der Gast erfährt das nicht von selbst – sagen Sie ihm bitte '
+            . 'kurz Bescheid. Das ist Absicht: Eine Absage, die als kühle Systemmail '
+            . 'ankommt, ärgert mehr als ein Anruf.</p>'
+            . '<div class="box"><p>Zwei Leute können nicht dieselbe Zeit erwischen. Wird '
+            . 'im selben Augenblick zweimal gebucht, kommt genau eine Buchung durch; die '
+            . 'andere sieht sofort, dass die Zeit vergeben ist.</p></div>';
 
         return $html;
     }

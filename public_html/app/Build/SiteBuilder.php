@@ -98,6 +98,13 @@ final class SiteBuilder
         // --- Vorschaubild für geteilte Verweise ---------------------------
         $files += OgImage::write($this->project, $this->theme, $this->outputDir);
 
+        // --- Terminbuchung, falls in den Angaben beschrieben ---------------
+        $files += BookingKit::install(
+            $this->project,
+            json_decode((string) ($this->project['brief'] ?? '{}'), true) ?: [],
+            $this->outputDir
+        );
+
         return [
             'files' => $files,
             'bytes' => dir_size($this->outputDir),

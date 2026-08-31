@@ -331,6 +331,115 @@ if ($isPost) {
 
             Store::writeGuarded($leadsFile, $leads);
             back();
+
+        // ---------------------------------------------------- Buchungen
+        case 'booking':
+            $bookingsFile = DATA_DIR . '/buchungen.php';
+            $bookings = Store::readGuarded($bookingsFile);
+            $wanted = (string) ($_POST['booking'] ?? '');
+            $state = ($_POST['state'] ?? '') === 'abgesagt' ? 'abgesagt' : 'offen';
+
+            foreach ($bookings as $index => $booking) {
+                if ((string) ($booking['id'] ?? '') === $wanted) {
+                    $bookings[$index]['zustand'] = $state;
+                    break;
+                }
+            }
+
+            Store::writeGuarded($bookingsFile, $bookings);
+
+            flash('success', $state === 'abgesagt'
+                ? 'Abgesagt. Die Zeit ist wieder frei – sagen Sie dem Gast bitte selbst Bescheid.'
+                : 'Wieder eingetragen.');
+            back();
+
+        case 'booking-setup':
+            $setupFile = DATA_DIR . '/buchung.php';
+            $setup = is_file($setupFile) ? (array) (require $setupFile) : [];
+
+            // Leistungen: eine pro Zeile, "Name, Dauer".
+            $services = [];
+
+            foreach (explode("\n", (string) ($_POST['leistungen'] ?? '')) as $line) {
+                $line = trim($line);
+
+                if ($line === '') {
+                    continue;
+                }
+
+                $parts = explode(',', $line);
+                $minutes = (int) trim((string) array_pop($parts));
+                $name = trim(implode(',', $parts));
+
+                if ($name === '') {
+                    $name = $line;
+                    $minutes = 30;
+                }
+
+                $services[] = [
+                    'name' => mb_substr($name, 0, 80),
+                    'dauer' => max(5, min(480, $minutes ?: 30)),
+                ];
+            }
+
+            // Zeiten je Wochentag.
+            $times = [];
+
+            foreach ((array) ($_POST['zeiten'] ?? []) as $number => $value) {
+                $number = (int) $number;
+
+                if ($number < 1 || $number > 7) {
+                    continue;
+                }
+
+                $windows = [];
+
+                foreach (explode(',', (string) $value) as $window) {
+                    $window = str_replace([' ', '–'], ['', '-'], trim($window));
+
+                    if (preg_match('/^([0-2]?\d:[0-5]\d)-([0-2]?\d:[0-5]\d)$/', $window, $m) !== 1) {
+                        continue;
+                    }
+
+                    if ($m[2] <= $m[1]) {
+                        continue;
+                    }
+
+                    $windows[] = $m[1] . '-' . $m[2];
+                }
+
+                if ($windows !== []) {
+                    $times[$number] = $windows;
+                }
+            }
+
+            $closed = [];
+
+            foreach (explode("\n", (string) ($_POST['geschlossen'] ?? '')) as $line) {
+                $line = trim($line);
+
+                if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $line) === 1) {
+                    $closed[] = $line;
+                }
+            }
+
+            $setup['titel'] = mb_substr(trim((string) ($_POST['titel'] ?? '')), 0, 120) ?: 'Termin buchen';
+            $setup['einleitung'] = mb_substr(trim((string) ($_POST['einleitung'] ?? '')), 0, 300);
+            $setup['empfaenger'] = mb_substr(trim((string) ($_POST['empfaenger'] ?? '')), 0, 190);
+            $setup['leistungen'] = $services !== [] ? $services : [['name' => 'Termin', 'dauer' => 30]];
+            $setup['zeiten'] = $times;
+            $setup['geschlossen'] = array_values(array_unique($closed));
+            $setup['takt'] = max(5, min(240, (int) ($_POST['takt'] ?? 30)));
+            $setup['vorlauf_stunden'] = max(0, min(720, (int) ($_POST['vorlauf_stunden'] ?? 24)));
+            $setup['horizont_tage'] = max(1, min(365, (int) ($_POST['horizont_tage'] ?? 60)));
+            $setup['telefon_pflicht'] = !empty($_POST['telefon_pflicht']);
+
+            Store::writeAtomic($setupFile, "<?php\n\nreturn " . var_export($setup, true) . ";\n");
+
+            flash($times === [] ? 'error' : 'success', $times === []
+                ? 'Gespeichert – aber es ist kein einziger Tag offen. So kann niemand buchen.'
+                : 'Gespeichert.');
+            back();
     }
 }
 

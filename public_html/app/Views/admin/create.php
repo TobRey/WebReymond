@@ -559,10 +559,24 @@ $invalid = static fn (string $key): string
         <legend class="wa-fieldset__legend">Zusätzliche Informationen</legend>
         <p class="wa-fieldset__hint">
             Alles, was sonst nirgends hinpasst. <strong>Wichtig:</strong> Soll die Website mehr
-            können als zeigen – etwa Termine buchen, Reservationen annehmen oder Produkte
-            verkaufen – dann beschreibe das hier. Nur dann entsteht ein Verwaltungssystem
-            mit Datenbank. Ohne solche Angabe bleibt die Website bewusst datenbankfrei:
-            das ist schneller, sicherer und günstiger im Betrieb.
+            können als zeigen – etwa Termine buchen oder Reservationen annehmen – dann
+            beschreibe das hier. Nur dann entsteht ein Verwaltungssystem. Ohne solche
+            Angabe bleibt die Website bewusst rein statisch: schneller, sicherer und
+            günstiger im Betrieb.
+        </p>
+        <p class="wa-fieldset__hint">
+            Steht hier etwas von Terminen oder Buchungen, entsteht unter
+            <code>/buchen</code> eine Terminseite und im Bearbeitungsbereich des Kunden
+            eine Übersicht dazu. Die Öffnungszeiten von oben werden übernommen, soweit
+            sie sich lesen lassen; der Kunde stellt sie danach selbst um. Nenne die
+            Leistungen mit ihrer Dauer, dann stehen sie gleich richtig darin –
+            etwa <em>Haarschnitt, 45 Min</em>, eine pro Zeile.
+        </p>
+        <p class="wa-fieldset__hint">
+            Eine Datenbank braucht auch das nicht: Die Buchungen liegen als Datei neben
+            der Website, wie die Anfragen aus dem Kontaktformular. Für einen Betrieb mit
+            ein paar Terminen am Tag ist das nicht die schlechtere Lösung, sondern die
+            richtige – nichts einzurichten, nichts, das ausfallen kann.
         </p>
 
         <div class="wa-field">

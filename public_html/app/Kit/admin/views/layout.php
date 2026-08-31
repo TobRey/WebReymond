@@ -30,8 +30,30 @@ foreach ($leads as $lead) {
 $nav = [
     'seiten' => ['Seiten', count($pages)],
     'anfragen' => ['Anfragen', $unread],
-    'sicherungen' => ['Frühere Stände', 0],
 ];
+
+// Buchungen gibt es nur, wenn die Website welche annimmt. Ein leerer
+// Menüpunkt, hinter dem nichts steht, ist schlimmer als keiner.
+$setup = is_file(DATA_DIR . '/buchung.php') ? (array) (require DATA_DIR . '/buchung.php') : [];
+$bookings = [];
+
+if ($setup !== []) {
+    $bookings = \WebAtzeKit\Store::readGuarded(DATA_DIR . '/buchungen.php');
+
+    $offen = 0;
+    $heute = date('Y-m-d');
+
+    foreach ($bookings as $booking) {
+        if ((string) ($booking['tag'] ?? '') >= $heute
+            && (string) ($booking['zustand'] ?? 'offen') !== 'abgesagt') {
+            $offen++;
+        }
+    }
+
+    $nav['buchungen'] = ['Buchungen', $offen];
+}
+
+$nav['sicherungen'] = ['Frühere Stände', 0];
 
 /** Die Farben der Kundenwebsite als Variablen für diese Oberfläche. */
 $vars = [];
@@ -73,7 +95,7 @@ foreach ([
             <a class="k-top__link<?= $view === $key ? ' is-active' : '' ?>"
                href="?ansicht=<?= e($key) ?>">
                 <?= e($label) ?>
-                <?php if ($count > 0 && $key === 'anfragen'): ?>
+                <?php if ($count > 0 && ($key === 'anfragen' || $key === 'buchungen')): ?>
                     <span class="k-dot"><?= (int) $count ?></span>
                 <?php endif; ?>
             </a>

@@ -728,6 +728,99 @@ test('Der Fragebogen nimmt nur an, was hineingehört', function (): void {
 });
 
 // ==================================================================
+test('Buchung: eine belegte Zeit blockiert alles, was hineinragt', function (): void {
+    require_once dirname(__DIR__) . '/public_html/app/Kit/site/php/buchen-zeiten.php';
+
+    // Ein Dienstag. Offen 09:00–12:00 und 13:30–18:00, Takt 15 Minuten.
+    $tag = '2026-09-01';
+    $zeiten = [2 => ['09:00-12:00', '13:30-18:00']];
+    $jetzt = strtotime('2026-08-25 08:00');
+
+    $frei = freieZeitenAus([], $tag, 45, 15, 0, $zeiten, [], $jetzt);
+
+    is('09:00', $frei[0], 'Der erste Takt liegt am Anfang des Fensters');
+    ok(in_array('11:15', $frei, true), '11:15 passt noch: 11:15 + 45 = 12:00');
+    ok(!in_array('11:30', $frei, true), '11:30 nicht mehr – das ragte über 12:00 hinaus');
+    ok(in_array('17:15', $frei, true), 'Und abends bis 17:15');
+    ok(!in_array('17:30', $frei, true), 'Aber nicht darüber');
+    ok(!in_array('12:15', $frei, true), 'In der Mittagspause geht nichts');
+
+    // Jetzt eine Buchung von 14:00 bis 14:45.
+    $belegt = [['tag' => $tag, 'zeit' => '14:00', 'dauer' => 45, 'zustand' => 'offen']];
+    $frei = freieZeitenAus($belegt, $tag, 45, 15, 0, $zeiten, [], $jetzt);
+
+    ok(!in_array('14:00', $frei, true), 'Die gebuchte Zeit ist weg');
+
+    // Das ist der Fehler, den man leicht macht: Nur den Anfangszeitpunkt
+    // zu vergleichen liesse 13:30 stehen – und 13:30 + 45 Minuten läuft
+    // mitten in den bestehenden Termin hinein.
+    ok(!in_array('13:30', $frei, true), '13:30 auch – es ragte hinein');
+    ok(!in_array('13:45', $frei, true), '13:45 ebenso');
+    ok(in_array('13:15', $frei, true) === false, '13:15 liegt vor dem Fenster');
+    ok(in_array('14:45', $frei, true), 'Direkt danach geht es weiter');
+    ok(in_array('11:00', $frei, true), 'Der Vormittag bleibt unberührt');
+
+    // Eine abgesagte Buchung gibt die Zeit wieder frei.
+    $abgesagt = [['tag' => $tag, 'zeit' => '14:00', 'dauer' => 45, 'zustand' => 'abgesagt']];
+    ok(in_array('14:00', freieZeitenAus($abgesagt, $tag, 45, 15, 0, $zeiten, [], $jetzt), true),
+        'Abgesagt heisst wieder frei');
+
+    // Eine längere Leistung passt an weniger Stellen.
+    $lang = freieZeitenAus($belegt, $tag, 90, 15, 0, $zeiten, [], $jetzt);
+    ok(!in_array('13:30', $lang, true), '90 Minuten passen vor dem Termin nicht mehr');
+    ok(in_array('14:45', $lang, true), 'Danach schon');
+    ok(!in_array('16:45', $lang, true), 'Und nicht über 18:00 hinaus');
+
+    // Geschlossene Tage.
+    is([], freieZeitenAus([], '2026-09-06', 45, 15, 0, $zeiten, [], $jetzt),
+        'Am Sonntag ist zu – dafür steht kein Fenster in der Liste');
+    is([], freieZeitenAus([], $tag, 45, 15, 0, $zeiten, ['2026-09-01'], $jetzt),
+        'Ein einzelner geschlossener Tag ebenfalls');
+
+    // Der Vorlauf.
+    $knapp = freieZeitenAus([], $tag, 45, 15, 24, $zeiten, [], strtotime('2026-08-31 14:00'));
+    ok(!in_array('09:00', $knapp, true), 'Mit 24 Stunden Vorlauf fällt der frühe Morgen weg');
+    ok(in_array('14:15', $knapp, true), 'Was weiter weg liegt, bleibt');
+
+    // Die Tagesliste überspringt geschlossene Tage.
+    $tage = naechsteTage(24, 14, $zeiten, [], strtotime('2026-08-31 10:00'));
+    is('2026-09-01', $tage[0], 'Der erste buchbare Tag ist der Dienstag');
+    is('2026-09-08', $tage[1], 'Danach kommt gleich der nächste Dienstag');
+
+    // Ein Datum ausserhalb des Bereichs wird nicht angenommen.
+    $jetzt = strtotime('2026-08-31 10:00');
+    is('', erlaubterTag('2026-08-30', 24, 30, $jetzt), 'Gestern geht nicht');
+    is('', erlaubterTag('2027-01-01', 24, 30, $jetzt), 'Und zu weit weg auch nicht');
+    is('', erlaubterTag('kein datum', 24, 30, $jetzt), 'Unsinn erst recht nicht');
+    is('2026-09-05', erlaubterTag('2026-09-05', 24, 30, $jetzt), 'Was dazwischen liegt, schon');
+});
+
+// ==================================================================
+test('Buchung wird nur gebaut, wenn sie beschrieben wurde', function (): void {
+    $ohne = ['extra_notes' => 'Bitte modern und mit vielen Bildern.', 'description' => 'Wir bauen Möbel.'];
+    $mit = ['extra_notes' => 'Die Kunden sollen online einen Termin buchen können.', 'description' => ''];
+
+    ok(!\WebAtze\Build\BookingKit::wanted($ohne), 'Ohne Beschreibung kein Buchungssystem');
+    ok(\WebAtze\Build\BookingKit::wanted($mit), 'Mit schon');
+
+    // Die Öffnungszeiten aus dem Freitext.
+    $zeiten = \WebAtze\Build\BookingKit::hours("Mo–Fr 08:00–12:00, 13:30–18:00\nSa 09:00–13:00");
+
+    is(['08:00-12:00', '13:30-18:00'], $zeiten[1], 'Montag mit zwei Fenstern');
+    is(['09:00-13:00'], $zeiten[6], 'Samstag mit einem');
+    ok(!isset($zeiten[7]), 'Sonntag steht nicht darin – dann ist zu');
+
+    $einzeln = \WebAtze\Build\BookingKit::hours("Mo, Di, Do 08:00-17:00\nMi geschlossen\nFr 08:00-15:00");
+    ok(isset($einzeln[1], $einzeln[2], $einzeln[4], $einzeln[5]), 'Einzelne Tage werden erkannt');
+    ok(!isset($einzeln[3]), 'Der Mittwoch bleibt draussen');
+
+    // Was nicht zu lesen ist, wird nicht geraten.
+    $vorgabe = \WebAtze\Build\BookingKit::hours('Wir sind eigentlich immer da.');
+    is(['09:00-17:00'], $vorgabe[1], 'Sonst greift Montag bis Freitag, 9 bis 17');
+    ok(!isset($vorgabe[6]), 'Und am Wochenende ist zu');
+});
+
+// ==================================================================
 test('Die Referenz-Miniatur überlebt den nächsten Tag', function (): void {
     // Früher zeigte preview_path auf /vorschau/<kennung>/. Diesen Ordner
     // räumt der Cron nach 24 Stunden weg – am Tag darauf stand in jeder
