@@ -1,0 +1,424 @@
+/**
+ * Der Bearbeitungsbereich beim Kunden.
+ *
+ * Die Farben stehen als Variablen und werden im Kopf der Seite mit den
+ * Farben der Kundenwebsite überschrieben. Der Bereich sieht deshalb bei
+ * jedem Kunden anders aus – und immer wie ein Teil seiner eigenen Seite,
+ * nicht wie ein fremdes Werkzeug.
+ *
+ * Die Werte hier sind nur der Rückfall, falls ein Farbwert fehlt.
+ */
+
+:root {
+  --k-accent: #2b1b9e;
+  --k-accent-dark: #1e1278;
+  --k-on-accent: #ffffff;
+  --k-text: #1a1a24;
+  --k-text-muted: #6b6b78;
+  --k-border: rgb(0 0 0 / 0.12);
+  --k-surface: #ffffff;
+  --k-bg: #f6f7f9;
+
+  --k-radius: 0.7rem;
+  --k-gap: 1.15rem;
+  --k-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.05);
+}
+
+*, *::before, *::after { box-sizing: border-box }
+
+body {
+  margin: 0;
+  background: var(--k-bg);
+  color: var(--k-text);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--k-accent) }
+
+/* ================================================================== */
+/* Anmeldung                                                           */
+/* ================================================================== */
+
+.k-bare {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 1.5rem;
+}
+
+.k-bare__inner { width: 100%; max-width: 22rem }
+.k-bare__foot { margin-top: 1.25rem; text-align: center; font-size: 0.9rem }
+
+.k-login { display: flex; flex-direction: column; gap: 0.55rem }
+.k-login__title { margin: 0; font-size: 1.4rem }
+.k-login__sub { margin: 0 0 0.75rem; color: var(--k-text-muted); font-size: 0.92rem }
+.k-login .k-btn { margin-top: 0.85rem }
+
+/* ================================================================== */
+/* Rahmen                                                              */
+/* ================================================================== */
+
+.k-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem clamp(1rem, 4vw, 2.5rem);
+  border-bottom: 1px solid var(--k-border);
+  background: var(--k-surface);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.k-top__brand { font-weight: 700 }
+
+.k-top__nav { display: flex; flex-wrap: wrap; gap: 0.35rem }
+
+.k-top__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 100px;
+  color: var(--k-text-muted);
+  text-decoration: none;
+  font-size: 0.94rem;
+}
+
+.k-top__link:hover { color: var(--k-text) }
+
+.k-top__link.is-active {
+  background: color-mix(in srgb, var(--k-accent) 12%, transparent);
+  color: var(--k-accent);
+  font-weight: 600;
+}
+
+.k-top__end { display: flex; align-items: center; gap: 0.5rem; margin-left: auto }
+
+.k-dot {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.35rem;
+  border-radius: 100px;
+  background: var(--k-accent);
+  color: var(--k-on-accent);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.k-dot--text { min-width: auto; padding: 0 0.5rem }
+
+.k-main {
+  max-width: 58rem;
+  margin-inline: auto;
+  padding: clamp(1.25rem, 4vw, 2.5rem) clamp(1rem, 4vw, 2.5rem) 5rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-gap);
+}
+
+.k-h1 { margin: 0; font-size: 1.55rem }
+.k-lede { margin: 0; max-width: 60ch; color: var(--k-text-muted) }
+
+/* ================================================================== */
+/* Bausteine                                                           */
+/* ================================================================== */
+
+.k-card {
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid var(--k-border);
+  border-radius: var(--k-radius);
+  background: var(--k-surface);
+  box-shadow: var(--k-shadow);
+}
+
+.k-note {
+  margin: 0;
+  padding: 0.85rem 1.1rem;
+  border-left: 3px solid var(--k-accent);
+  border-radius: 0 var(--k-radius) var(--k-radius) 0;
+  background: color-mix(in srgb, var(--k-accent) 7%, var(--k-surface));
+  font-size: 0.94rem;
+}
+
+.k-note--error { border-left-color: #c0392b; background: rgb(192 57 43 / 0.08) }
+.k-note--success { border-left-color: #1e8449; background: rgb(30 132 73 / 0.08) }
+.k-note--warning { border-left-color: #b7791f; background: rgb(183 121 31 / 0.09) }
+
+.k-warn { color: #b7791f; font-weight: 600 }
+
+.k-tabs { display: flex; flex-wrap: wrap; gap: 0.4rem }
+
+.k-tab {
+  padding: 0.45rem 0.95rem;
+  border: 1px solid var(--k-border);
+  border-radius: 100px;
+  background: var(--k-surface);
+  color: var(--k-text-muted);
+  text-decoration: none;
+  font-size: 0.92rem;
+}
+
+.k-tab.is-active {
+  border-color: transparent;
+  background: var(--k-accent);
+  color: var(--k-on-accent);
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------- Formular */
+
+.k-form { display: flex; flex-direction: column; gap: 0.45rem }
+.k-form > .k-btn { align-self: flex-start; margin-top: 0.75rem }
+
+.k-label {
+  display: block;
+  margin-top: 0.6rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.k-label--inline { margin: 0; white-space: nowrap }
+
+.k-hint {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--k-text-muted);
+  font-size: 0.84rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.k-input, .k-textarea {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--k-border);
+  border-radius: 0.45rem;
+  background: var(--k-bg);
+  color: inherit;
+  font: inherit;
+}
+
+.k-input:focus-visible, .k-textarea:focus-visible {
+  outline: 2px solid var(--k-accent);
+  outline-offset: 1px;
+}
+
+.k-textarea { resize: vertical; line-height: 1.6 }
+.k-input--short { max-width: 9rem }
+.k-input--file { padding: 0.45rem; background: transparent }
+
+.k-check {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.7rem;
+  font-size: 0.94rem;
+}
+
+.k-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem }
+@media (max-width: 34rem) { .k-pair { grid-template-columns: 1fr } }
+
+.k-fieldset {
+  margin: 0.85rem 0 0;
+  padding: 0.85rem 1rem 1rem;
+  border: 1px solid var(--k-border);
+  border-radius: var(--k-radius);
+}
+
+.k-fieldset > legend { padding-inline: 0.4rem; font-size: 0.88rem; font-weight: 600 }
+
+.k-listrow {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  padding-block: 0.6rem;
+  border-top: 1px solid var(--k-border);
+}
+
+.k-listrow:first-of-type { border-top: 0 }
+
+.k-listrow__num {
+  width: 1.6rem;
+  height: 1.6rem;
+  display: grid;
+  place-items: center;
+  border-radius: 100px;
+  background: var(--k-bg);
+  color: var(--k-text-muted);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.k-listrow__body { min-width: 0 }
+.k-listrow__body .k-label:first-child { margin-top: 0 }
+
+/* ----------------------------------------------------------- Knöpfe */
+
+.k-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.62rem 1.15rem;
+  border: 1px solid transparent;
+  border-radius: 100px;
+  background: color-mix(in srgb, var(--k-accent) 10%, var(--k-surface));
+  color: var(--k-accent);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color .15s, color .15s, border-color .15s;
+}
+
+.k-btn:hover { background: color-mix(in srgb, var(--k-accent) 18%, var(--k-surface)) }
+
+.k-btn--primary { background: var(--k-accent); color: var(--k-on-accent) }
+.k-btn--primary:hover { background: var(--k-accent-dark) }
+
+.k-btn--quiet {
+  border-color: var(--k-border);
+  background: transparent;
+  color: var(--k-text-muted);
+}
+
+.k-btn--quiet:hover { background: var(--k-bg); color: var(--k-text) }
+
+.k-btn--sm { padding: 0.4rem 0.8rem; font-size: 0.86rem }
+.k-btn--block { width: 100% }
+
+/* ------------------------------------------------------- Abschnitte */
+
+.k-section { display: flex; flex-direction: column; gap: 0.9rem }
+.k-section.is-hidden { opacity: 0.62 }
+
+.k-section__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--k-border);
+}
+
+.k-section__title { margin: 0; font-size: 1.12rem }
+.k-section__sub { margin: 0.15rem 0 0; color: var(--k-text-muted); font-size: 0.88rem }
+.k-section__tools { display: flex; flex-wrap: wrap; gap: 0.35rem }
+
+.k-subgroup { padding-top: 0.4rem }
+.k-subgroup__title { margin: 0 0 0.6rem; font-size: 0.94rem }
+
+.k-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--k-border);
+}
+
+.k-inline:first-of-type { border-top: 0 }
+
+.k-thumb {
+  width: 4rem;
+  height: 3rem;
+  object-fit: cover;
+  border-radius: 0.35rem;
+  border: 1px solid var(--k-border);
+}
+
+.k-collapse > summary {
+  padding: 0.45rem 0;
+  color: var(--k-text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.k-collapse > summary:hover { color: var(--k-text) }
+.k-collapse[open] > summary { margin-bottom: 0.6rem }
+.k-card.k-collapse { padding-block: 0.85rem }
+
+.k-variants {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.4rem;
+}
+
+.k-variant {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--k-border);
+  border-radius: 0.45rem;
+  background: var(--k-bg);
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.k-variant:hover { border-color: var(--k-accent) }
+
+.k-variant.is-current {
+  border-color: var(--k-accent);
+  background: color-mix(in srgb, var(--k-accent) 12%, transparent);
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------- Anfragen */
+
+.k-lead { display: flex; flex-direction: column; gap: 0.6rem }
+.k-lead.is-new { border-left: 3px solid var(--k-accent) }
+
+.k-lead__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.k-lead__head time { color: var(--k-text-muted); font-size: 0.86rem }
+.k-lead__contact { margin: 0; font-size: 0.9rem }
+.k-lead__subject { margin: 0; font-weight: 600 }
+
+.k-lead__message {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--k-bg);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.k-lead form { align-self: flex-start }
+
+/* ----------------------------------------------------------- Tabelle */
+
+.k-table { width: 100%; border-collapse: collapse; font-size: 0.94rem }
+
+.k-table th {
+  padding: 0 0 0.6rem;
+  border-bottom: 1px solid var(--k-border);
+  color: var(--k-text-muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: left;
+}
+
+.k-table td { padding: 0.65rem 0; border-bottom: 1px solid var(--k-border) }
+.k-table tr:last-child td { border-bottom: 0 }
+.k-right { text-align: right }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important }
+}

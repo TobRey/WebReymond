@@ -1,3 +1,4 @@
+<?php defined('WEBATZE') || exit; ?>
 <?php
 /** @var array $c @var array $ctx @var string $classes @var string $sectionId @var string $style */
 use WebAtze\Templates\Renderer as R;

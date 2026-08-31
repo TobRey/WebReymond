@@ -77,6 +77,9 @@ final class SiteBuilder
         // --- Beiwerk ----------------------------------------------------
         $files += $this->writeExtras();
 
+        // --- Bearbeitungsbereich, falls gewünscht ------------------------
+        $files += AdminKit::install($this->project, $this->site(), $this->outputDir);
+
         return [
             'files' => $files,
             'bytes' => dir_size($this->outputDir),
@@ -381,7 +384,7 @@ final class SiteBuilder
      * Stylesheet geladen ist – ein sichtbares Zucken, das teurer wirkt
      * als es ist.
      */
-    private static function criticalCss(): string
+    public static function criticalCss(): string
     {
         return self::minifyCss(
             '*,*::before,*::after{box-sizing:border-box}'
