@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace WebAtze\Domain;
 
-use WebAtze\Core\Validator;
+use WebAtze\Core\{Http, Validator};
 
 /**
  * Der Auftrag: alles, was im /create-Formular eingetragen wurde.
@@ -99,6 +99,16 @@ final class Brief
             $v->hexColor('color_primary', 'Hauptfarbe', true)
               ->hexColor('color_secondary', 'Zweitfarbe', true)
               ->hexColor('color_accent', 'Akzentfarbe', true);
+        }
+
+        // Zeigt die alte Adresse ins eigene Netz, wird sie später ohnehin
+        // abgewiesen. Das gleich hier zu sagen, ist ehrlicher, als jemanden
+        // erst einen Auftrag anstossen und dann ins Leere laufen zu lassen.
+        if ($data['old_url'] !== '') {
+            $grund = Http::assertPublicUrl($data['old_url']);
+            if ($grund !== null) {
+                $v->custom('old_url', false, $grund);
+            }
         }
 
         // Farben von der alten Website setzen voraus, dass es eine gibt.
