@@ -45,7 +45,7 @@ cp public_html/app/config.example.php public_html/app/config.php
 php -r 'echo bin2hex(random_bytes(32)), "\n";'
 
 # Server starten
-php -S 127.0.0.1:8080 -t public_html public_html/router.php
+php -S 127.0.0.1:8080 -t public_html public_html/index.php
 ```
 
 | Befehl | Wofür |
