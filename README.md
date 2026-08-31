@@ -20,16 +20,48 @@ public_html/     das, was auf den Server kommt
     Http/            die einzelnen Seiten und Schnittstellen
     Ai/              Anbindung an Claude
     Build/           Website-Erzeugung, ZIP, Upload, Domainumzug
-    Templates/       die Section-Vorlagen
-    Views/           HTML-Vorlagen
+    Domain/          das Formular als geprüfte Daten (Brief)
+    Templates/       die Section-Vorlagen und ihr Schema
+    Views/           HTML-Vorlagen der eigenen Seiten
+    Kit/             was in die Kundenwebsites eingebaut wird
+      site/            Stylesheets, Skript, Kontaktformular
+      admin/           der Bearbeitungsbereich beim Kunden
     Lang/            alle Texte auf Deutsch und Englisch
+    Support/         Anbieter-Anleitungen und kleine Hilfen
   storage/         Projekte, ZIPs, Vorschauen, Protokolle
 
 frontend/        Quellcode der sichtbaren Website (Vite, three.js)
-customer-kit/    Bausteine der erzeugten Kundenwebsites
-tests/           automatische Tests
+docs/            Einrichtung Schritt für Schritt
+tests/           der Testlauf
 build.php        erzeugt das Auslieferungs-ZIP
 ```
+
+## Wie eine Kundenwebsite entsteht
+
+```
+Formular (/create/neu)
+      │
+      ▼   Auftrag in der Datenbank, worker.php arbeitet ihn ab
+analyse → plan → theme → inhalte → bilder → bauen → vorschau → zip → referenz
+      │                                                  │        │
+      │                                                  │        └─ liegt im Adminbereich bereit
+      │                                                  └─ /vorschau/<kennung>, 24 Stunden
+      └─ alte Website lesen (nur Texte und Bilder)
+```
+
+Jeder Schritt hat ein Zeitbudget von etwa 50 Sekunden und macht dort
+weiter, wo er aufgehört hat. So läuft nichts in das Zeitlimit des
+Shared-Hostings.
+
+Claude liefert **strukturierte Daten**, kein HTML: Seitenaufbau,
+Abschnitte, Texte, Farbtokens. Daraus baut PHP die Seite aus geprüften
+Vorlagen. Deshalb ist das Ergebnis verlässlich responsiv – und deshalb
+kann eine Änderung an einem Abschnitt den Rest der Website nicht
+berühren.
+
+**Eine Datenbank bekommt eine erzeugte Website nie von sich aus.** Nur
+wenn im Zusatzinfo-Feld etwas beschrieben ist, das etwas speichern muss
+(Buchungen, Bestellungen), entsteht auch ein Verwaltungssystem dazu.
 
 ## Entwickeln
 
@@ -50,7 +82,7 @@ php -S 127.0.0.1:8080 -t public_html public_html/index.php
 
 | Befehl | Wofür |
 |---|---|
-| `php tests/run.php` | alle automatischen Tests |
+| `php tests/run.php` | der Testlauf (443 Prüfungen) |
 | `php build.php` | Auslieferungs-ZIP erzeugen |
 | `cd frontend && npm run build` | Frontend neu bauen |
 | `cd frontend && npm run dev` | Frontend mit Sofortaktualisierung |
@@ -63,4 +95,9 @@ php -S 127.0.0.1:8080 -t public_html public_html/index.php
    und `en.php`.
 3. **Jede Ausgabe läuft durch `e()`.** Auch das, was von der KI kommt.
 4. **`app/config.php` wird niemals committet.** Nur die Beispieldatei.
-5. Auf der öffentlichen Website steht nirgends, wie die Websites entstehen.
+5. Auf der öffentlichen Website steht nirgends, wie die Websites entstehen –
+   und keine einzige Preiszahl. Beides prüft der Testlauf.
+6. **Der Anthropic-Schlüssel verlässt diesen Server nicht.** Das
+   Kundenbackend fragt über `/assistant/v1/edit` hier an; beim Kunden
+   liegt nur ein Kennwort, das für eine einzige Website gilt.
+7. Beim Kunden heisst es **„WebAtze-Assistent"**, nie Claude.
