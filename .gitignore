@@ -35,3 +35,6 @@ Thumbs.db
 *.log
 .idea/
 .vscode/
+
+# Das Protokoll des Probelaufs – Arbeitsspur, kein Quelltext.
+tools/probelauf/anfragen.log

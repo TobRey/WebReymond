@@ -127,10 +127,51 @@ php -S 127.0.0.1:8080 -t public_html public_html/index.php
 
 | Befehl | Wofür |
 |---|---|
-| `php tests/run.php` | der Testlauf (754 Prüfungen) |
-| `php build.php` | Auslieferungs-ZIP erzeugen |
+| `php tests/run.php` | der Testlauf (820 Prüfungen) |
+| `php tools/probelauf/durchlauf.php` | eine ganze Website bauen, vom Formular bis zum Paket |
+| `php build.php` | beide ZIPs erzeugen (voll und nur zum Aktualisieren) |
 | `cd frontend && npm run build` | Frontend neu bauen |
 | `cd frontend && npm run dev` | Frontend mit Sofortaktualisierung |
+
+### Ein ganzer Durchlauf vor dem Ausliefern
+
+Der Testlauf prüft Einzelteile. Ob aus einem ausgefüllten Formular eine
+vollständige Website wird, prüft er nicht – und genau dort sind
+nacheinander drei Fehler in Betrieb gegangen, die eine einzige echte
+Anfrage aufgedeckt hätte.
+
+```bash
+# In einem zweiten Fenster: die Attrappe der Schnittstelle
+php -S 127.0.0.1:8126 tools/probelauf/api-attrappe.php
+
+# Der Durchlauf, mit Aufrufen an die Attrappe
+php tools/probelauf/durchlauf.php --mit-api
+
+# Oder ohne Schnittstelle, im Übungsmodus
+php tools/probelauf/durchlauf.php
+```
+
+Die Attrappe antwortet nicht einfach "ja". Sie setzt dieselben Regeln
+durch, an denen der echte Dienst Anfragen abweist: die Kopfzeile mit dem
+Arbeitsbereich, keine Grössenangaben im Schema, und eine Grammatik, die
+nicht ausufert. Was sie annimmt, scheitert dort nicht mehr an der Form
+der Anfrage.
+
+Was der Durchlauf **nicht** leistet: Er sagt nichts über die Qualität der
+Texte. Dafür braucht es den echten Dienst und einen Schlüssel.
+
+### Zwei Pakete
+
+`php build.php` erzeugt beide:
+
+| Datei | Wofür |
+|---|---|
+| `webatze-<version>.zip` | die erste Einrichtung – mit `install.php` |
+| `webatze-update-<version>.zip` | jede spätere Korrektur – **ohne** `install.php`, ohne `storage/` |
+
+Das zweite wird über eine bestehende Installation entpackt. Konfiguration,
+Datenbank, Projekte und Sicherungen bleiben unangetastet, und es ist
+nichts neu einzugeben.
 
 ## Regeln
 

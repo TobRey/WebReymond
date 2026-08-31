@@ -301,25 +301,55 @@ final class SiteBuilder
         // .htaccess: Sicherheitsheader, Kompression, Zwischenspeicherung
         write_file_atomic($this->outputDir . '/.htaccess', self::htaccess());
 
-        // 404-Seite
-        $notFound = $this->renderPage([
-            'path' => '/404',
-            'title' => 'Seite nicht gefunden',
-            'meta_description' => '',
-            'in_navigation' => 0,
-            'sections' => [[
-                'id' => 0,
-                'type' => 'text',
-                'template_key' => 'mittig',
-                'content' => [
-                    'title' => 'Diese Seite gibt es nicht',
-                    'body' => "Vielleicht hat sich ein Tippfehler eingeschlichen.\n\n"
-                        . '<a href="index.html">Zurück zur Startseite</a>',
-                ],
-                'overrides' => [],
-            ]],
-        ]);
-        write_file_atomic($this->outputDir . '/404.html', $notFound);
+        // 404-Seite – je Sprache eine.
+        //
+        // Sie trägt wie jede Seite Verweise auf ihre anderssprachigen
+        // Fassungen. Gäbe es die nicht, zeigte der Verweis ins Leere –
+        // und die Prüfung nach dem Bauen fand genau das. Wer auf
+        // Französisch unterwegs ist, soll ausserdem auch die
+        // Fehlermeldung auf Französisch bekommen.
+        $texte = [
+            'de' => ['Seite nicht gefunden', 'Diese Seite gibt es nicht',
+                     'Vielleicht hat sich ein Tippfehler eingeschlichen.', 'Zurück zur Startseite'],
+            'en' => ['Page not found', 'This page does not exist',
+                     'Perhaps there is a typo in the address.', 'Back to the home page'],
+            'fr' => ['Page introuvable', "Cette page n'existe pas",
+                     "Il y a peut-être une faute de frappe dans l'adresse.", "Retour à l'accueil"],
+            'it' => ['Pagina non trovata', 'Questa pagina non esiste',
+                     "Forse c'è un errore di battitura nell'indirizzo.", 'Torna alla pagina iniziale'],
+        ];
+
+        foreach ($locales as $locale) {
+            $t = $texte[$locale] ?? $texte['de'];
+            $up = $locale === $primary ? '' : '../';
+
+            $notFound = Page::render($this->site(), [
+                'path' => '/404',
+                'title' => $t[0],
+                'meta_description' => '',
+                'in_navigation' => 0,
+                'translations' => [],
+                'sections' => [[
+                    'id' => 0,
+                    'type' => 'text',
+                    'template_key' => 'mittig',
+                    'content' => [
+                        'title' => $t[1],
+                        'body' => $t[2] . "\n\n"
+                            . '<a href="' . $up . 'index.html">' . $t[3] . '</a>',
+                    ],
+                    'overrides' => [],
+                    'translations' => [],
+                ]],
+            ], self::criticalCss(), $locale);
+
+            $ziel = $locale === $primary
+                ? $this->outputDir . '/404.html'
+                : $this->outputDir . '/' . $locale . '/404.html';
+
+            ensure_dir(dirname($ziel));
+            write_file_atomic($ziel, $notFound);
+        }
 
         // Der Empfänger des Kontaktformulars. Ohne ihn liefe jedes
         // abgeschickte Formular ins Leere.

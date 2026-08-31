@@ -25,10 +25,20 @@ use WebAtze\Core\{Config, ConfigurationError, Db, Logger, Settings};
  */
 final class ClaudeClient
 {
-    private const ENDPOINT = 'https://api.anthropic.com/v1/messages';
+    /**
+     * Die Adresse der Schnittstelle.
+     *
+     * Über die Konfiguration umstellbar – gebraucht wird das für den
+     * Probelauf, der gegen eine Attrappe läuft, die dieselben Regeln
+     * durchsetzt wie der echte Dienst. Im Betrieb steht hier nichts,
+     * und es gilt die Vorgabe.
+     */
+    private static function baseUrl(): string
+    {
+        $eigene = trim((string) Config::get('anthropic.base_url', ''));
 
-    /** Dort stehen die Arbeitsbereiche der Organisation. */
-    private const WORKSPACES_ENDPOINT = 'https://api.anthropic.com/v1/organizations/workspaces';
+        return $eigene !== '' ? rtrim($eigene, '/') : 'https://api.anthropic.com';
+    }
 
     private const VERSION = '2023-06-01';
     private const MAX_RETRIES = 3;
@@ -303,7 +313,7 @@ final class ClaudeClient
         }
 
         curl_setopt_array($ch, [
-            CURLOPT_URL => self::ENDPOINT,
+            CURLOPT_URL => self::baseUrl() . '/v1/messages',
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             CURLOPT_RETURNTRANSFER => true,
@@ -680,7 +690,7 @@ final class ClaudeClient
         $ch = curl_init();
 
         curl_setopt_array($ch, [
-            CURLOPT_URL => self::WORKSPACES_ENDPOINT . '?limit=100',
+            CURLOPT_URL => self::baseUrl() . '/v1/organizations/workspaces?limit=100',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 20,
             CURLOPT_CONNECTTIMEOUT => 10,
@@ -793,7 +803,7 @@ final class ClaudeClient
         $ch = curl_init();
 
         curl_setopt_array($ch, [
-            CURLOPT_URL => 'https://api.anthropic.com/v1/models?limit=1',
+            CURLOPT_URL => self::baseUrl() . '/v1/models?limit=1',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 15,
             CURLOPT_CONNECTTIMEOUT => 8,
@@ -875,7 +885,7 @@ final class ClaudeClient
         $ch = curl_init();
 
         curl_setopt_array($ch, [
-            CURLOPT_URL => self::WORKSPACES_ENDPOINT . '?limit=100',
+            CURLOPT_URL => self::baseUrl() . '/v1/organizations/workspaces?limit=100',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 20,
             CURLOPT_CONNECTTIMEOUT => 10,

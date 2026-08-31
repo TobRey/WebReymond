@@ -1110,6 +1110,109 @@ test('Das Seitenschema bleibt klein genug für die Grammatik', function (): void
 });
 
 // ==================================================================
+test('Jede benutzte Klasse ist auch eingebunden', function (): void {
+    // Der Übersetzungsschritt scheiterte im Betrieb an einem fehlenden
+    // "use": Translator liegt in Ai, Pipeline in Build. PHP merkt das
+    // erst beim Aufruf – und der Aufruf passierte beim Kunden.
+    $eingebaut = ['self', 'static', 'parent', 'ZipArchive', 'DateTime', 'DateTimeImmutable',
+                  'Throwable', 'RuntimeException', 'InvalidArgumentException', 'Exception',
+                  'PDO', 'PDOException', 'ReflectionClass', 'ReflectionMethod', 'TypeError',
+                  'Error', 'Closure', 'Generator', 'JsonException', 'LogicException',
+                  'DomainException', 'SplFileInfo'];
+
+    $fehlend = [];
+    $geprüft = 0;
+
+    foreach (['Ai', 'Build', 'Core', 'Http', 'Domain', 'Templates'] as $ordner) {
+        foreach (glob(dirname(__DIR__) . '/public_html/app/' . $ordner . '/*.php') ?: [] as $datei) {
+            $geprüft++;
+            $tokens = token_get_all((string) file_get_contents($datei));
+            $ns = '';
+            $use = [];
+            $n = count($tokens);
+
+            for ($i = 0; $i < $n; $i++) {
+                $t = $tokens[$i];
+
+                if (!is_array($t)) {
+                    continue;
+                }
+
+                if ($t[0] === T_NAMESPACE) {
+                    for ($j = $i + 1; $j < $n && $tokens[$j] !== ';' && $tokens[$j] !== '{'; $j++) {
+                        if (is_array($tokens[$j])
+                            && in_array($tokens[$j][0], [T_STRING, T_NAME_QUALIFIED], true)) {
+                            $ns .= $tokens[$j][1];
+                        }
+                    }
+                    continue;
+                }
+
+                if ($t[0] === T_USE && $ns !== '') {
+                    $roh = '';
+                    for ($j = $i + 1; $j < $n && $tokens[$j] !== ';'; $j++) {
+                        if (is_array($tokens[$j])) {
+                            $roh .= $tokens[$j][1];
+                        } elseif (in_array($tokens[$j], ['{', '}', ','], true)) {
+                            $roh .= $tokens[$j];
+                        }
+                    }
+
+                    $roh = trim($roh);
+
+                    if ($roh === '' || str_contains($roh, '(')) {
+                        continue;
+                    }
+
+                    if (preg_match('/^(.*?)\\\\\{(.+)\}$/s', $roh, $m) === 1) {
+                        foreach (explode(',', $m[2]) as $teil) {
+                            $teil = trim($teil);
+                            if ($teil !== '') {
+                                $use[$teil] = true;
+                            }
+                        }
+                    } else {
+                        $pos = strrpos($roh, '\\');
+                        $use[$pos !== false ? substr($roh, $pos + 1) : $roh] = true;
+                    }
+                    continue;
+                }
+
+                if ($t[0] !== T_STRING || preg_match('/^[A-Z]/', $t[1]) !== 1) {
+                    continue;
+                }
+
+                $vor = $tokens[$i - 1] ?? null;
+                $nach = $tokens[$i + 1] ?? null;
+
+                if (is_array($vor) && in_array($vor[0],
+                        [T_NS_SEPARATOR, T_OBJECT_OPERATOR, T_FUNCTION, T_CONST], true)) {
+                    continue;
+                }
+
+                $istKlasse = (is_array($nach) && $nach[0] === T_DOUBLE_COLON)
+                    || (is_array($vor) && $vor[0] === T_NEW);
+
+                if (!$istKlasse || isset($use[$t[1]]) || in_array($t[1], $eingebaut, true)) {
+                    continue;
+                }
+
+                if (class_exists($ns . '\\' . $t[1]) || interface_exists($ns . '\\' . $t[1])
+                    || class_exists($t[1])) {
+                    continue;
+                }
+
+                $fehlend[] = basename($datei) . ':' . $t[2] . ' ' . $t[1];
+            }
+        }
+    }
+
+    ok($geprüft > 40, $geprüft . ' Dateien untersucht');
+    ok($fehlend === [], 'Keine Klasse ohne Einbindung'
+        . ($fehlend === [] ? '' : ': ' . implode(', ', array_slice($fehlend, 0, 5))));
+});
+
+// ==================================================================
 test('Die Referenz-Miniatur überlebt den nächsten Tag', function (): void {
     // Früher zeigte preview_path auf /vorschau/<kennung>/. Diesen Ordner
     // räumt der Cron nach 24 Stunden weg – am Tag darauf stand in jeder

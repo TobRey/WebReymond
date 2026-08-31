@@ -332,7 +332,11 @@ final class ContentWriter
                 'features', 'services' => [
                     'eyebrow' => 'Übungsmodus',
                     'title' => 'Hier stehen später die Leistungen',
-                    'lead' => 'Diese Texte entstehen, sobald ein Anthropic-Schlüssel hinterlegt ist.',
+                    // Bewusst ohne den Namen des Dienstes: Dieser Text
+                    // steht in einer Datei, die auf einer Kundenwebsite
+                    // landen könnte. Was dort steht, verrät nicht, wie
+                    // sie entsteht – auch nicht im Übungsmodus.
+                    'lead' => 'Diese Texte werden noch geschrieben.',
                     'items' => array_map(
                         static fn (int $i): array => [
                             'icon' => ['check', 'star', 'shield', 'bolt', 'heart', 'tools'][$i] ?? 'check',

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Build;
 
 use RuntimeException;
-use WebAtze\Ai\{ClaudeClient, JsonSchema, Prompts, SitePlanner, ContentWriter};
+use WebAtze\Ai\{ClaudeClient, ContentWriter, JsonSchema, Prompts, SitePlanner, Translator};
 use WebAtze\Core\{Audit, Config, Db, Jobs, Logger};
 use WebAtze\Domain\Brief;
 
@@ -90,6 +90,13 @@ final class Pipeline
             $info = self::STEPS[$step] ?? null;
             if ($info === null) {
                 throw new RuntimeException('Unbekannter Schritt: ' . $step);
+            }
+
+            // Mitschreiben, was gelaufen ist. Steht danach beim Auftrag –
+            // sowohl für die Anzeige als auch für den Probelauf, der
+            // sonst nicht sehen kann, welche Schritte wirklich dran waren.
+            if (!in_array($step, (array) ($state['schritte'] ?? []), true)) {
+                $state['schritte'][] = $step;
             }
 
             Jobs::progress($job['id'], $step, $info['progress'], $info['label'], $state);

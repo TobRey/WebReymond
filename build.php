@@ -164,6 +164,71 @@ $zip->setArchiveComment(
 $zip->close();
 
 // ------------------------------------------------------------------
+// Das Aktualisierungspaket
+// ------------------------------------------------------------------
+//
+// Dasselbe ohne install.php und ohne die Ablageordner. Wer schon
+// eingerichtet hat, entpackt dieses hier über den bestehenden Stand:
+// Konfiguration, Datenbank, Projekte und Sicherungen bleiben, wo sie
+// sind, und es ist nichts neu einzugeben.
+//
+// Der Grund für diese zweite Datei ist eine berechtigte Beschwerde:
+// Wer bei jeder Korrektur das volle Paket entpackt, hat install.php
+// wieder vor sich – und tippt womöglich alles noch einmal ein.
+
+$updateZiel = $distDir . '/webatze-update-' . $version . '.zip';
+@unlink($updateZiel);
+
+$update = new ZipArchive();
+
+if ($update->open($updateZiel, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+    fwrite(STDERR, "Das Aktualisierungspaket liess sich nicht anlegen.\n");
+    exit(1);
+}
+
+$updateDateien = 0;
+
+foreach (dateien($source, $skipDirs, $skipFiles, $skipPatterns) as $absolut => $relativ) {
+    // install.php gehört nicht hinein – sie ist der ganze Punkt.
+    if ($relativ === 'install.php') {
+        continue;
+    }
+
+    // Und nichts aus der Ablage: Dort stehen seine Daten.
+    if (str_starts_with($relativ, 'storage/')) {
+        continue;
+    }
+
+    $update->addFile($absolut, $relativ);
+    $updateDateien++;
+}
+
+$update->setArchiveComment(
+    "WebAtze {$version} – nur zum Aktualisieren\n\n"
+    . "Über eine bestehende Installation nach public_html entpacken.\n"
+    . "Konfiguration, Datenbank und Projekte bleiben unangetastet.\n"
+    . "install.php ist absichtlich nicht dabei."
+);
+
+$update->close();
+
+// Nachsehen, dass wirklich nichts Heikles darin steckt.
+$prüfUpdate = new ZipArchive();
+
+if ($prüfUpdate->open($updateZiel) === true) {
+    for ($i = 0; $i < $prüfUpdate->numFiles; $i++) {
+        $name = (string) $prüfUpdate->getNameIndex($i);
+
+        if ($name === 'install.php' || str_starts_with($name, 'storage/')
+            || $name === 'app/config.php') {
+            fwrite(STDERR, "Im Aktualisierungspaket steckt, was nicht hineingehört: {$name}\n");
+            exit(1);
+        }
+    }
+    $prüfUpdate->close();
+}
+
+// ------------------------------------------------------------------
 // Nachprüfen
 // ------------------------------------------------------------------
 
@@ -247,7 +312,11 @@ printf(
     . "  %s\n"
     . "  %d Dateien, %s gepackt (%s ungepackt)\n\n"
     . "  Nächster Schritt: im cPanel-Dateimanager nach public_html hochladen,\n"
-    . "  entpacken und install.php im Browser aufrufen.\n\n",
+    . "  entpacken und install.php im Browser aufrufen.\n\n"
+    . "  Schon eingerichtet? Dann reicht dieses hier:\n"
+    . '  ' . str_replace(dirname(__DIR__) . '/', '', $updateZiel) . "\n"
+    . "  Darin ist keine install.php – Konfiguration und Daten bleiben.\n"
+    . '  ' . $updateDateien . " Dateien, " . grösse((int) filesize($updateZiel)) . " gepackt\n\n",
     $version,
     str_replace($root . '/', '', $target),
     $dateien,
