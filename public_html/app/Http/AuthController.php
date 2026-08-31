@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace WebAtze\Http;
 
-use WebAtze\Core\{Audit, Config, Crypto, Db, Logger, RateLimit, Request, Response, Session, View};
+use WebAtze\Core\{Audit, Config, Crypto, Db, Logger, RateLimit, Request, Response,
+    SecondFactor, Session, Totp, View};
 
 /**
  * Anmeldung zum versteckten Bereich.
@@ -86,8 +87,113 @@ final class AuthController
         RateLimit::clear($ipBucket);
         RateLimit::clear($userBucket);
 
+        // Zweiter Faktor eingerichtet? Dann ist hier erst die Hälfte
+        // geschafft. Ohne Code gibt es keinen Zugang – auch nicht auf
+        // Umwegen, denn die Sitzung bekommt noch keine Anmeldung.
+        if (SecondFactor::isActive($user) && !SecondFactor::deviceIsTrusted((int) $user['id'], $request)) {
+            SecondFactor::beginPending((int) $user['id']);
+            Audit::log('auth.password_ok', $username, ['schritt' => 'wartet auf Code'], $request);
+
+            return Response::redirect(self::base() . '/code')->noCache()->noIndex();
+        }
+
         Session::login($user, $request);
         Audit::log('auth.login', $username, [], $request);
+
+        $intended = Session::get('_wa_intended');
+        Session::forget('_wa_intended');
+
+        if (is_string($intended) && str_starts_with($intended, '/')) {
+            return Response::redirect($intended)->noCache();
+        }
+
+        return $this->toDashboard();
+    }
+
+    /** Die Abfrage des Zeitcodes. */
+    public function showCode(Request $request): Response
+    {
+        if (Session::isLoggedIn()) {
+            return $this->toDashboard();
+        }
+
+        if (SecondFactor::pendingUser() === null) {
+            return Response::redirect(self::base())->noCache()->noIndex();
+        }
+
+        $error = Session::get('_wa_code_error', '');
+        Session::forget('_wa_code_error');
+
+        return Response::html(View::page('admin/code', [
+            'title' => 'Bestätigen',
+            'error' => (string) $error,
+        ], 'layouts/bare'))->noCache()->noIndex();
+    }
+
+    public function submitCode(Request $request): Response
+    {
+        $user = SecondFactor::pendingUser();
+
+        if ($user === null) {
+            Session::flash('error', 'Die Anmeldung hat zu lange gedauert. Bitte noch einmal.');
+            return Response::redirect(self::base())->noCache()->noIndex();
+        }
+
+        $ip = $request->ip();
+        $bucket = 'code:' . $ip;
+        $max = (int) Config::get('login_max_attempts', 5);
+
+        // Codes lassen sich sonst durchprobieren: Eine Million
+        // Möglichkeiten sind ohne Sperre in Stunden durch.
+        if (RateLimit::tooMany($bucket, $max)) {
+            $wait = RateLimit::retryAfter($bucket);
+            SecondFactor::clearPending();
+
+            Audit::log('auth.code_locked', (string) $user['username'], ['ip' => $ip], $request);
+
+            Session::flash('error', sprintf(
+                'Zu viele Versuche. Bitte in %d Minuten erneut anmelden.',
+                (int) ceil($wait / 60)
+            ));
+
+            return Response::redirect(self::base())->noCache()->noIndex();
+        }
+
+        RateLimit::hit($bucket, $max, (int) Config::get('login_lockout_seconds', 900));
+
+        $result = SecondFactor::check($user, $request->input('code'));
+
+        if (!$result['ok']) {
+            Audit::log('auth.code_failed', (string) $user['username'], ['ip' => $ip], $request);
+            Session::put('_wa_code_error', $result['error']);
+
+            return Response::redirect(self::base() . '/code')->noCache()->noIndex();
+        }
+
+        RateLimit::clear($bucket);
+        SecondFactor::clearPending();
+
+        if ($request->has('trust')) {
+            SecondFactor::trustDevice((int) $user['id'], $request);
+        }
+
+        Session::login($user, $request);
+
+        Audit::log('auth.login', (string) $user['username'], [
+            'zweiter_faktor' => $result['recovery'] ? 'Ersatzcode' : 'Zeitcode',
+        ], $request);
+
+        if ($result['recovery']) {
+            $left = SecondFactor::recoveryCodesLeft(
+                Db::first('SELECT * FROM users WHERE id = :id', ['id' => (int) $user['id']]) ?? []
+            );
+
+            Session::flash('warning', sprintf(
+                'Mit einem Ersatzcode angemeldet. Es sind noch %d übrig – '
+                . 'unter Einstellungen lassen sich neue erzeugen.',
+                $left
+            ));
+        }
 
         $intended = Session::get('_wa_intended');
         Session::forget('_wa_intended');
@@ -109,6 +215,11 @@ final class AuthController
         return Response::redirect('/' . trim((string) Config::get('create_path', 'create'), '/'))
             ->noCache()
             ->noIndex();
+    }
+
+    private static function base(): string
+    {
+        return '/' . trim((string) Config::get('create_path', 'create'), '/');
     }
 
     private function reject(string $message): Response

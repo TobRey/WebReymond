@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace WebAtze\Http;
 
 use WebAtze\Ai\ClaudeClient;
-use WebAtze\Core\{Audit, Config, Crypto, Db, Request, Response, Session, Settings, Validator, View};
+use WebAtze\Core\{Audit, Config, Crypto, Db, Request, Response, SecondFactor,
+    Session, Settings, Totp, Validator, View};
 
 /**
  * Einstellungen der eigenen Website: Kontaktangaben, Impressum, Passwort.
@@ -21,6 +22,7 @@ final class SettingsController
                 'user' => Session::user(),
                 'aiConfigured' => ClaudeClient::isConfigured(),
                 'imprintComplete' => Settings::imprintComplete(),
+                'twoFactor' => self::twoFactorState(),
                 'cronHint' => self::cronLine(),
                 'diagnostics' => self::diagnostics([
                     'actual' => ($request->isSecure() ? 'https://' : 'http://') . $request->host(),
@@ -35,6 +37,10 @@ final class SettingsController
 
         if ($action === 'password') {
             return $this->changePassword($request);
+        }
+
+        if (in_array($action, ['2fa_start', '2fa_confirm', '2fa_disable', '2fa_codes', '2fa_forget'], true)) {
+            return $this->secondFactor($request, $action);
         }
 
         $values = [];
@@ -55,6 +61,88 @@ final class SettingsController
         Settings::putMany($values);
         Audit::log('settings.saved', '', ['felder' => array_keys($values)], $request);
         Session::flash('success', 'Einstellungen gespeichert.');
+
+        return $this->back();
+    }
+
+    /** Zweiten Faktor einrichten, bestätigen, abschalten. */
+    private function secondFactor(Request $request, string $action): Response
+    {
+        $user = Session::user();
+        if ($user === null) {
+            return Response::notFound();
+        }
+
+        $id = (int) $user['id'];
+
+        switch ($action) {
+
+            case '2fa_start':
+                // Der Schlüssel wird nur vorbereitet. Scharf wird er erst,
+                // wenn ein Code daraus stimmt – sonst könnte sich jemand
+                // aussperren, dessen App ihn gar nicht übernommen hat.
+                $secret = SecondFactor::prepare($id);
+                Session::put('_wa_2fa_setup', $secret);
+                Session::flash('success', 'Schlüssel erzeugt. Jetzt in der App eintragen und '
+                    . 'mit dem ersten Code bestätigen.');
+                break;
+
+            case '2fa_confirm':
+                $codes = SecondFactor::confirm($id, $request->input('code'));
+
+                if ($codes === null) {
+                    Session::flash('error', 'Der Code stimmt nicht. Stimmt die Uhrzeit auf dem Telefon?');
+                    break;
+                }
+
+                Session::forget('_wa_2fa_setup');
+
+                // Die Ersatzcodes gibt es genau einmal zu sehen.
+                Session::put('_wa_2fa_recovery', $codes);
+                Audit::log('auth.2fa_enabled', (string) $user['username'], [], $request);
+                Session::flash('success', 'Der zweite Faktor ist aktiv.');
+                break;
+
+            case '2fa_codes':
+                $row = Db::first('SELECT * FROM users WHERE id = :id', ['id' => $id]);
+
+                if ($row === null || !SecondFactor::isActive($row)) {
+                    Session::flash('error', 'Der zweite Faktor ist nicht aktiv.');
+                    break;
+                }
+
+                if (!SecondFactor::check($row, $request->input('code'))['ok']) {
+                    Session::flash('error', 'Ohne gültigen Code gibt es keine neuen Ersatzcodes.');
+                    break;
+                }
+
+                $neu = Totp::recoveryCodes();
+                Db::update('users', ['recovery_codes' => $neu['hashed']], 'id = :id', ['id' => $id]);
+
+                Session::put('_wa_2fa_recovery', $neu['plain']);
+                Audit::log('auth.2fa_codes', (string) $user['username'], [], $request);
+                Session::flash('success', 'Neue Ersatzcodes erzeugt. Die alten gelten nicht mehr.');
+                break;
+
+            case '2fa_disable':
+                if (!SecondFactor::disable($id, $request->input('code'))) {
+                    Session::flash('error', 'Zum Abschalten wird ein gültiger Code gebraucht.');
+                    break;
+                }
+
+                Audit::log('auth.2fa_disabled', (string) $user['username'], [], $request);
+                Session::flash('warning', 'Der zweite Faktor ist abgeschaltet. '
+                    . 'Ab jetzt genügt das Passwort allein.');
+                break;
+
+            case '2fa_forget':
+                $n = SecondFactor::forgetDevices($id);
+                Audit::log('auth.devices_forgotten', (string) $user['username'], ['anzahl' => $n], $request);
+                Session::flash('success', $n === 1
+                    ? 'Ein Gerät vergessen.'
+                    : $n . ' Geräte vergessen. Sie fragen beim nächsten Mal wieder nach dem Code.');
+                break;
+        }
 
         return $this->back();
     }
@@ -90,8 +178,11 @@ final class SettingsController
         ], 'id = :id', ['id' => (int) $user['id']]);
 
         // Alle anderen Sitzungen beenden – wer das alte Passwort hatte,
-        // ist damit draussen.
+        // ist damit draussen. Bekannte Geräte gehen mit: Sonst käme
+        // jemand mit dem alten Passwort auf seinem Gerät weiterhin
+        // ohne Code hinein.
         Db::delete('auth_sessions', 'user_id = :u', ['u' => (int) $user['id']]);
+        SecondFactor::forgetDevices((int) $user['id']);
 
         Audit::log('auth.password_changed', (string) $user['username'], [], $request);
         Session::logout();
@@ -100,6 +191,37 @@ final class SettingsController
 
         return Response::redirect('/' . trim((string) Config::get('create_path', 'create'), '/'))
             ->noCache()->noIndex();
+    }
+
+    /** Alles, was die Ansicht über den zweiten Faktor wissen muss. */
+    private static function twoFactorState(): array
+    {
+        $user = Session::user();
+
+        if ($user === null) {
+            return ['active' => false];
+        }
+
+        $row = Db::first('SELECT * FROM users WHERE id = :id', ['id' => (int) $user['id']]) ?? [];
+
+        // Die Ersatzcodes werden genau einmal gezeigt und dann vergessen.
+        $recovery = Session::get('_wa_2fa_recovery', []);
+        Session::forget('_wa_2fa_recovery');
+
+        $setupSecret = (string) Session::get('_wa_2fa_setup', '');
+
+        return [
+            'active' => SecondFactor::isActive($row),
+            'setupSecret' => $setupSecret,
+            'setupUri' => $setupSecret === '' ? '' : Totp::uri(
+                $setupSecret,
+                (string) ($user['username'] ?? 'webatze'),
+                (string) (Settings::get('company_name', 'WebAtze') ?: 'WebAtze')
+            ),
+            'recovery' => is_array($recovery) ? $recovery : [],
+            'codesLeft' => SecondFactor::recoveryCodesLeft($row),
+            'devices' => SecondFactor::devices((int) $user['id']),
+        ];
     }
 
     /** Die Cron-Zeile zum Kopieren. */

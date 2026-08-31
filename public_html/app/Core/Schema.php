@@ -352,6 +352,166 @@ final class Schema
                 );
                 CREATE INDEX IF NOT EXISTS idx_rate_reset ON rate_limits (reset_at);
             ',
+
+            // ---------------------------------------------------- Zweiter Faktor
+            '019_second_factor' => '
+                ALTER TABLE users ADD COLUMN totp_secret {string:64} NOT NULL DEFAULT \'\';
+                ALTER TABLE users ADD COLUMN totp_confirmed_at {datetime} NULL;
+                ALTER TABLE users ADD COLUMN recovery_codes {text} NULL;
+            ',
+
+            // Ein bestätigtes Gerät muss nicht bei jeder Anmeldung neu fragen.
+            '020_trusted_devices' => '
+                CREATE TABLE IF NOT EXISTS trusted_devices (
+                    id {string:64} NOT NULL PRIMARY KEY,
+                    user_id {int} NOT NULL,
+                    label {string:120} NOT NULL DEFAULT \'\',
+                    ip {string:45} NOT NULL DEFAULT \'\',
+                    expires_at {datetime} NOT NULL,
+                    created_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_devices_user ON trusted_devices (user_id, expires_at);
+            ',
+
+            // ------------------------------------------------------- Fragebogen
+            // Der Kunde füllt selbst aus, statt dass alles abgetippt wird.
+            '021_questionnaires' => '
+                CREATE TABLE IF NOT EXISTS questionnaires (
+                    id {id},
+                    token {string:64} NOT NULL,
+                    company {string:191} NOT NULL DEFAULT \'\',
+                    email {string:191} NOT NULL DEFAULT \'\',
+                    note {string:500} NOT NULL DEFAULT \'\',
+                    answers {text} NULL,
+                    status {string:20} NOT NULL DEFAULT \'open\',
+                    project_id {int} NULL,
+                    opened_at {datetime} NULL,
+                    submitted_at {datetime} NULL,
+                    expires_at {datetime} NOT NULL,
+                    created_at {datetime} NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_quest_token ON questionnaires (token);
+                CREATE INDEX IF NOT EXISTS idx_quest_status ON questionnaires (status, id);
+            ',
+
+            // -------------------------------------------------- Geld und Verträge
+            '022_documents' => '
+                CREATE TABLE IF NOT EXISTS documents (
+                    id {id},
+                    project_id {int} NULL,
+                    kind {string:20} NOT NULL DEFAULT \'offer\',
+                    number {string:40} NOT NULL DEFAULT \'\',
+                    title {string:191} NOT NULL DEFAULT \'\',
+                    recipient {text} NULL,
+                    items {text} NULL,
+                    intro {text} NULL,
+                    outro {text} NULL,
+                    total_rappen {int} NOT NULL DEFAULT 0,
+                    vat_percent {int} NOT NULL DEFAULT 0,
+                    currency {string:8} NOT NULL DEFAULT \'CHF\',
+                    status {string:20} NOT NULL DEFAULT \'draft\',
+                    issued_on {string:10} NOT NULL DEFAULT \'\',
+                    due_on {string:10} NOT NULL DEFAULT \'\',
+                    paid_on {string:10} NOT NULL DEFAULT \'\',
+                    file_path {string:255} NOT NULL DEFAULT \'\',
+                    created_at {datetime} NOT NULL,
+                    updated_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_docs_kind ON documents (kind, status, id);
+                CREATE INDEX IF NOT EXISTS idx_docs_project ON documents (project_id);
+            ',
+
+            '023_contracts' => '
+                CREATE TABLE IF NOT EXISTS contracts (
+                    id {id},
+                    project_id {int} NOT NULL,
+                    plan {string:40} NOT NULL DEFAULT \'basis\',
+                    price_rappen {int} NOT NULL DEFAULT 0,
+                    interval_months {int} NOT NULL DEFAULT 12,
+                    started_on {string:10} NOT NULL DEFAULT \'\',
+                    next_invoice_on {string:10} NOT NULL DEFAULT \'\',
+                    cancelled_on {string:10} NOT NULL DEFAULT \'\',
+                    note {text} NULL,
+                    created_at {datetime} NOT NULL,
+                    updated_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_contracts_next ON contracts (next_invoice_on);
+                CREATE INDEX IF NOT EXISTS idx_contracts_project ON contracts (project_id);
+            ',
+
+            // ----------------------------------------------------- Besucherzahlen
+            // Gezählt wird beim Kunden, geholt wird einmal am Tag. Es kommen
+            // nur Summen an – nie eine einzelne Person.
+            '024_visits' => '
+                CREATE TABLE IF NOT EXISTS visits (
+                    id {id},
+                    project_id {int} NOT NULL,
+                    day {string:10} NOT NULL,
+                    path {string:191} NOT NULL DEFAULT \'/\',
+                    views {int} NOT NULL DEFAULT 0,
+                    visitors {int} NOT NULL DEFAULT 0,
+                    referrer {string:191} NOT NULL DEFAULT \'\',
+                    created_at {datetime} NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_visits_key ON visits (project_id, day, path, referrer);
+                CREATE INDEX IF NOT EXISTS idx_visits_day ON visits (project_id, day);
+            ',
+
+            // --------------------------------------------------------- Support
+            '025_support' => '
+                CREATE TABLE IF NOT EXISTS support_threads (
+                    id {id},
+                    project_id {int} NOT NULL,
+                    subject {string:191} NOT NULL DEFAULT \'\',
+                    status {string:20} NOT NULL DEFAULT \'open\',
+                    asker_name {string:120} NOT NULL DEFAULT \'\',
+                    asker_email {string:191} NOT NULL DEFAULT \'\',
+                    unread_for_owner {bool} NOT NULL DEFAULT 1,
+                    unread_for_customer {bool} NOT NULL DEFAULT 0,
+                    last_message_at {datetime} NOT NULL,
+                    created_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_threads_status ON support_threads (status, last_message_at);
+                CREATE INDEX IF NOT EXISTS idx_threads_project ON support_threads (project_id);
+
+                CREATE TABLE IF NOT EXISTS support_messages (
+                    id {id},
+                    thread_id {int} NOT NULL,
+                    author {string:20} NOT NULL DEFAULT \'customer\',
+                    body {text} NULL,
+                    created_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_messages_thread ON support_messages (thread_id, id);
+            ',
+
+            // ------------------------------------------------------- Sicherungen
+            '026_backups' => '
+                CREATE TABLE IF NOT EXISTS backups (
+                    id {id},
+                    scope {string:20} NOT NULL DEFAULT \'project\',
+                    project_id {int} NULL,
+                    path {string:255} NOT NULL DEFAULT \'\',
+                    bytes {int} NOT NULL DEFAULT 0,
+                    files {int} NOT NULL DEFAULT 0,
+                    note {string:255} NOT NULL DEFAULT \'\',
+                    created_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_backups_scope ON backups (scope, created_at);
+            ',
+
+            // ------------------------------------------------- Prüfung nach dem Bau
+            '027_checks' => '
+                CREATE TABLE IF NOT EXISTS site_checks (
+                    id {id},
+                    project_id {int} NOT NULL,
+                    kind {string:30} NOT NULL,
+                    passed {bool} NOT NULL DEFAULT 0,
+                    score {int} NOT NULL DEFAULT 0,
+                    findings {text} NULL,
+                    created_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_checks_project ON site_checks (project_id, kind);
+            ',
         ];
     }
 

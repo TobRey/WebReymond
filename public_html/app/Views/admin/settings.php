@@ -11,6 +11,7 @@ use WebAtze\Core\{Config, Csrf};
 
 /** @var array $settings @var array|null $user @var bool $aiConfigured */
 /** @var bool $imprintComplete @var string $cronHint @var array $diagnostics */
+/** @var array $twoFactor */
 
 $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
 $s = static fn (string $key): string => (string) ($settings[$key] ?? '');
@@ -169,6 +170,148 @@ foreach ($diagnostics as $check) {
             <button type="submit" class="wa-btn wa-btn--primary">Einstellungen speichern</button>
         </div>
     </form>
+</section>
+
+<?php /* ------------------------------------------------------ Zweiter Faktor */ ?>
+<section class="wa-panel">
+    <div class="wa-panel__head">
+        <h2 class="wa-panel__title">
+            Zweiter Faktor
+            <span class="wa-badge wa-badge--<?= $twoFactor['active'] ? 'done' : 'waiting' ?>">
+                <?= $twoFactor['active'] ? 'aktiv' : 'nicht eingerichtet' ?>
+            </span>
+        </h2>
+        <p class="wa-panel__hint">
+            Hinter diesem Bereich liegen alle Kundendaten, die FTP-Zugänge und der
+            Schlüssel zum Sprachmodell. Ein Passwort allein schützt das nicht ausreichend:
+            Es kann mitgelesen, durchgesickert oder erraten worden sein. Ein Zeitcode
+            vom Telefon hilft in allen drei Fällen.
+        </p>
+    </div>
+
+    <?php /* --- Die Ersatzcodes: genau einmal zu sehen --- */ ?>
+    <?php if ($twoFactor['recovery'] !== []): ?>
+        <div class="wa-note wa-note--warning">
+            <div>
+                <strong>Diese Ersatzcodes jetzt notieren.</strong>
+                Sie erscheinen kein zweites Mal. Jeder gilt einmal und ersetzt den
+                Zeitcode, wenn das Telefon nicht zur Hand ist.
+            </div>
+        </div>
+        <pre class="wa-code"><code><?= e(implode("\n", $twoFactor['recovery'])) ?></code></pre>
+    <?php endif; ?>
+
+    <?php if (!$twoFactor['active'] && ($twoFactor['setupSecret'] ?? '') === ''): ?>
+
+        <form method="post" action="<?= e($base) ?>/einstellungen">
+            <?= Csrf::field() ?>
+            <input type="hidden" name="action" value="2fa_start">
+            <button type="submit" class="wa-btn wa-btn--primary">Einrichten</button>
+        </form>
+
+    <?php elseif (!$twoFactor['active']): ?>
+
+        <p class="wa-panel__hint">
+            In einer Authenticator-App (Google Authenticator, Aegis, 1Password, Bitwarden)
+            ein neues Konto anlegen und diesen Schlüssel eintragen. Auf dem Telefon
+            genügt ein Tippen auf den Verweis.
+        </p>
+
+        <pre class="wa-code"><code><?= e(trim(chunk_split($twoFactor['setupSecret'], 4, ' '))) ?></code></pre>
+
+        <p class="wa-panel__hint">
+            <a href="<?= e($twoFactor['setupUri']) ?>" rel="nofollow">Direkt in der App öffnen</a>
+        </p>
+
+        <form class="wa-form" method="post" action="<?= e($base) ?>/einstellungen" autocomplete="off">
+            <?= Csrf::field() ?>
+            <input type="hidden" name="action" value="2fa_confirm">
+
+            <div class="wa-field">
+                <label class="wa-label" for="confirm-code">
+                    Erster Code aus der App
+                    <span class="wa-label__hint">
+                        Scharf wird der zweite Faktor erst damit – sonst könntest du dich
+                        aussperren, falls die App den Schlüssel nicht übernommen hat.
+                    </span>
+                </label>
+                <input class="wa-input wa-input--short" type="text" id="confirm-code" name="code"
+                       inputmode="numeric" maxlength="6" required placeholder="123456">
+            </div>
+
+            <div class="wa-form__actions">
+                <button type="submit" class="wa-btn wa-btn--primary">Bestätigen</button>
+            </div>
+        </form>
+
+    <?php else: ?>
+
+        <p class="wa-panel__hint">
+            Noch <strong><?= (int) $twoFactor['codesLeft'] ?></strong> Ersatzcodes übrig.
+            <?php if ((int) $twoFactor['codesLeft'] <= 2): ?>
+                Das wird knapp – am besten neue erzeugen.
+            <?php endif; ?>
+        </p>
+
+        <?php if ($twoFactor['devices'] !== []): ?>
+            <div class="wa-table-wrap">
+                <table class="wa-table">
+                    <thead><tr><th>Bekanntes Gerät</th><th>Von</th><th>Bis</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($twoFactor['devices'] as $device): ?>
+                        <tr>
+                            <td><?= e(mb_substr((string) $device['label'], 0, 60)) ?></td>
+                            <td><?= e((string) $device['ip']) ?></td>
+                            <td><?= e(date('d.m.Y', strtotime((string) $device['expires_at']))) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
+
+        <div class="wa-grid-2">
+            <form class="wa-form" method="post" action="<?= e($base) ?>/einstellungen" autocomplete="off">
+                <?= Csrf::field() ?>
+                <input type="hidden" name="action" value="2fa_codes">
+                <div class="wa-field">
+                    <label class="wa-label" for="codes-code">Neue Ersatzcodes</label>
+                    <input class="wa-input wa-input--short" type="text" id="codes-code" name="code"
+                           inputmode="numeric" maxlength="9" required placeholder="Code">
+                    <span class="wa-label__hint">Die bisherigen gelten danach nicht mehr.</span>
+                </div>
+                <div class="wa-form__actions">
+                    <button type="submit" class="wa-btn">Erzeugen</button>
+                </div>
+            </form>
+
+            <form class="wa-form" method="post" action="<?= e($base) ?>/einstellungen" autocomplete="off"
+                  data-confirm="Zweiten Faktor wirklich abschalten? Danach genügt das Passwort allein.">
+                <?= Csrf::field() ?>
+                <input type="hidden" name="action" value="2fa_disable">
+                <div class="wa-field">
+                    <label class="wa-label" for="off-code">Abschalten</label>
+                    <input class="wa-input wa-input--short" type="text" id="off-code" name="code"
+                           inputmode="numeric" maxlength="9" required placeholder="Code">
+                    <span class="wa-label__hint">Auch dafür braucht es einen gültigen Code.</span>
+                </div>
+                <div class="wa-form__actions">
+                    <button type="submit" class="wa-btn wa-btn--quiet">Abschalten</button>
+                </div>
+            </form>
+        </div>
+
+        <?php if ($twoFactor['devices'] !== []): ?>
+            <form method="post" action="<?= e($base) ?>/einstellungen">
+                <?= Csrf::field() ?>
+                <input type="hidden" name="action" value="2fa_forget">
+                <button type="submit" class="wa-btn wa-btn--quiet wa-btn--sm">
+                    Alle Geräte vergessen
+                </button>
+            </form>
+        <?php endif; ?>
+
+    <?php endif; ?>
 </section>
 
 <?php /* ------------------------------------------------------------ Passwort */ ?>

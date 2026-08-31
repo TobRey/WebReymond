@@ -128,8 +128,13 @@ final class Routes
 
         // Anmeldung – ohne Vorprüfung, sonst käme man nie hinein.
         $router->get($base, 'AuthController@showLogin');
+        // Der zweite Faktor – ebenfalls ohne Vorprüfung, denn wer hier
+        // steht, ist noch nicht angemeldet.
+        $router->get($base . '/code', 'AuthController@showCode');
+
         $router->group(['csrf'], static function (Router $r) use ($base): void {
             $r->post($base, 'AuthController@login');
+            $r->post($base . '/code', 'AuthController@submitCode');
             $r->post($base . '/abmelden', 'AuthController@logout');
         });
 

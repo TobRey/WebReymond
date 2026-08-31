@@ -1024,3 +1024,23 @@ fieldset.wa-fieldset { border: 1px solid var(--wa-border); margin: 0; }
 
 .wa-collapse > summary:hover { color: var(--wa-text) }
 .wa-collapse[open] > summary { margin-block-end: var(--wa-space-3) }
+
+/* Ein Zahlencode wird abgetippt, nicht gelesen – grosse Ziffern, weite Sperrung. */
+.wa-input--code {
+  font-family: var(--wa-font-mono);
+  font-size: var(--wa-text-2xl);
+  letter-spacing: 0.35em;
+  text-align: center;
+}
+
+.wa-input--short { max-width: 12rem }
+
+.wa-login__sub,
+.wa-login__hint {
+  margin: 0;
+  color: var(--wa-text-muted);
+  font-size: var(--wa-text-sm);
+  line-height: var(--wa-leading-normal);
+}
+
+.wa-login__hint { margin-block-start: var(--wa-space-3) }
