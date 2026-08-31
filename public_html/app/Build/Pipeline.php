@@ -35,6 +35,7 @@ final class Pipeline
         'bauen' => ['label' => 'Website wird zusammengesetzt', 'progress' => 82],
         'vorschau' => ['label' => 'Vorschau wird bereitgestellt', 'progress' => 90],
         'zip' => ['label' => 'Paket wird geschnürt', 'progress' => 96],
+        'referenz' => ['label' => 'Referenz wird angelegt', 'progress' => 98],
         'fertig' => ['label' => 'Fertig', 'progress' => 100],
     ];
 
@@ -102,6 +103,7 @@ final class Pipeline
                 'bauen' => self::stepBuild($project, $state),
                 'vorschau' => self::stepPreview($project, $state),
                 'zip' => self::stepZip($project, $state),
+                'referenz' => self::stepShowcase($project, $state),
                 default => $state,
             };
 
@@ -387,6 +389,32 @@ final class Pipeline
     {
         $result = ZipExporter::create($project);
         $state['zip'] = $result;
+
+        return $state;
+    }
+
+    /**
+     * Die fertige Website in die Referenzen aufnehmen.
+     *
+     * Der Text entsteht dabei automatisch – und verrät nicht, wie die
+     * Website entstanden ist. Der Eintrag bleibt zunächst unsichtbar:
+     * Kein Kunde soll auf der Website auftauchen, bevor er die Seite
+     * überhaupt gesehen hat. Sichtbar schalten geht mit einem Klick.
+     *
+     * Scheitert das, ist die Website trotzdem fertig. Eine fehlende
+     * Referenz darf keinen Auftrag zum Scheitern bringen.
+     */
+    private static function stepShowcase(array $project, array $state): array
+    {
+        try {
+            $entry = ShowcaseBuilder::create($project, false);
+            $state['referenz'] = ['id' => (int) ($entry['id'] ?? 0)];
+        } catch (\Throwable $e) {
+            Logger::warning('Die Referenz konnte nicht angelegt werden: ' . $e->getMessage(), [
+                'projekt' => (int) $project['id'],
+            ]);
+            $state['referenz'] = ['fehler' => $e->getMessage()];
+        }
 
         return $state;
     }
