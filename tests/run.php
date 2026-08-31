@@ -844,6 +844,92 @@ test('Der Name der SQLite-Datei lässt sich nicht erraten', function (): void {
 });
 
 // ==================================================================
+test('Der fehlende Arbeitsbereich wird erkannt und behoben', function (): void {
+    // Der Fehler aus dem Betrieb, wortwörtlich:
+    $echt = 'anthropic-workspace-id is required when authenticating with an '
+        . 'identity-linked API key; send the id of the workspace this request acts in.';
+
+    ok(ClaudeClient::isWorkspaceMissing(400, $echt), 'Die echte Meldung wird erkannt');
+    ok(ClaudeClient::isWorkspaceMissing(400, 'workspace_id_required'),
+        'Der Fehlercode allein genügt auch');
+    ok(ClaudeClient::isWorkspaceMissing(400, mb_strtoupper($echt)),
+        'Gross- und Kleinschreibung spielt keine Rolle');
+
+    // Und was nicht dazugehört, wird nicht dafür gehalten.
+    ok(!ClaudeClient::isWorkspaceMissing(400, 'max_tokens must be greater than 0'),
+        'Ein anderer 400er nicht');
+    ok(!ClaudeClient::isWorkspaceMissing(401, $echt), 'Ein 401 ebenfalls nicht');
+    ok(!ClaudeClient::isWorkspaceMissing(500, $echt), 'Und ein Serverfehler auch nicht');
+
+    // Die Kennung wird mitgeschickt, sobald sie bekannt ist.
+    \WebAtze\Core\Settings::put('anthropic_workspace_id', 'wrkspc_01TESTTESTTEST');
+    is('wrkspc_01TESTTESTTEST', ClaudeClient::workspaceId(), 'Sie wird aus den Einstellungen gelesen');
+
+    $quelle = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Ai/ClaudeClient.php'
+    );
+
+    ok(str_contains($quelle, "'anthropic-workspace-id: ' . \$workspace"),
+        'Und als Kopfzeile an jede Anfrage gehängt');
+
+    \WebAtze\Core\Settings::put('anthropic_workspace_id', '');
+    is('', ClaudeClient::workspaceId(), 'Leer heisst: keine Kopfzeile');
+});
+
+// ==================================================================
+test('Ein Einstellungsfehler wird nicht ewig wiederholt', function (): void {
+    // Das war der eigentliche Ärger: Eine falsche Einstellung ist kein
+    // vorübergehender Fehler. Sie alle dreissig Sekunden erneut zu
+    // versuchen bringt nichts und hört nie auf.
+    $ref = new ReflectionMethod(\WebAtze\Core\Worker::class, 'looksTemporary');
+    $ref->setAccessible(true);
+
+    $einstellung = new \WebAtze\Core\ConfigurationError(
+        'Der Schlüssel gehört zu einer Person.',
+        'Trag den Arbeitsbereich ein.',
+        'anthropic_workspace_id'
+    );
+
+    ok(!$ref->invoke(null, $einstellung), 'Ein Einstellungsfehler wird nicht wiederholt');
+
+    // Was wirklich vorübergehend ist, schon.
+    ok($ref->invoke(null, new RuntimeException('Connection timed out')),
+        'Eine Zeitüberschreitung dagegen schon');
+    ok($ref->invoke(null, new RuntimeException('HTTP 503: overloaded')),
+        'Ein überlasteter Server ebenfalls');
+    ok(!$ref->invoke(null, new InvalidArgumentException('falscher Wert')),
+        'Ein Programmierfehler nicht');
+
+    // Die Anweisung gehört zur Meldung – eine Fehlermeldung ohne
+    // Anweisung lässt jemanden ratlos zurück.
+    ok(str_contains($einstellung->full(), 'Trag den Arbeitsbereich ein.'),
+        'Die Meldung enthält, was zu tun ist');
+    is('anthropic_workspace_id', $einstellung->field(), 'Und welches Feld gemeint ist');
+
+    // Ein angehaltener Auftrag lässt sich fortsetzen, ohne von vorne
+    // zu beginnen – sonst wäre schon bezahlte Arbeit verloren.
+    $jobId = \WebAtze\Core\Jobs::enqueue('build', ['test' => 1], null);
+    \WebAtze\Core\Jobs::progress($jobId, 'inhalte', 62, 'Texte werden geschrieben', ['seite' => 3]);
+    \WebAtze\Core\Jobs::fail($jobId, 'Arbeitsbereich fehlt.', false, 'Angehalten.');
+
+    $job = \WebAtze\Core\Jobs::find($jobId);
+    is('failed', (string) $job['status'], 'Der Auftrag steht');
+    is('Angehalten.', (string) $job['message'], 'Mit einer Meldung, die etwas sagt');
+
+    ok(\WebAtze\Core\Jobs::retry($jobId), 'Er lässt sich fortsetzen');
+
+    $job = \WebAtze\Core\Jobs::find($jobId);
+    is('queued', (string) $job['status'], 'Danach steht er wieder in der Warteschlange');
+    is('inhalte', (string) $job['step'], 'Beim Schritt, an dem es klemmte');
+    is(3, (int) ($job['state']['seite'] ?? 0), 'Und mit dem Zwischenstand von vorher');
+    is(0, (int) $job['attempts'], 'Die Versuchszählung beginnt neu');
+
+    ok(!\WebAtze\Core\Jobs::retry($jobId), 'Ein laufender Auftrag lässt sich nicht fortsetzen');
+
+    \WebAtze\Core\Db::delete('jobs', 'id = :id', ['id' => $jobId]);
+});
+
+// ==================================================================
 test('Die Referenz-Miniatur überlebt den nächsten Tag', function (): void {
     // Früher zeigte preview_path auf /vorschau/<kennung>/. Diesen Ordner
     // räumt der Cron nach 24 Stunden weg – am Tag darauf stand in jeder

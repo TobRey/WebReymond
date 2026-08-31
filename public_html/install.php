@@ -228,6 +228,11 @@ function install(array $v, string $appDir, string $storage): array
         'login_lockout_seconds' => 900,
         'anthropic' => [
             'api_key' => $v['api_key'],
+            // Leer ist der Normalfall. Gehört der Schlüssel einer Person
+            // statt einem Arbeitsbereich, trägt die Anwendung die Kennung
+            // beim ersten Aufruf selbst ein – sichtbar im Adminbereich
+            // unter Einstellungen.
+            'workspace_id' => '',
             'model_plan' => 'claude-opus-5',
             'model_content' => 'claude-sonnet-5',
             'timeout' => 300,

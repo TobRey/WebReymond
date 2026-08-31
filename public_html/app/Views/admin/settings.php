@@ -176,6 +176,37 @@ foreach ($diagnostics as $check) {
             </div>
         </fieldset>
 
+        <fieldset class="wa-fieldset">
+            <legend class="wa-fieldset__legend">Zugang zum Sprachmodell</legend>
+            <p class="wa-fieldset__hint">
+                Der Schlüssel selbst steht in <code>app/config.php</code> und gehört auch
+                dorthin – er hat auf dieser Seite nichts zu suchen.
+            </p>
+
+            <div class="wa-field">
+                <label class="wa-label" for="anthropic_workspace_id">
+                    Arbeitsbereich
+                    <span class="wa-label__hint">nur nötig bei einem persönlichen Schlüssel</span>
+                </label>
+                <input class="wa-input" type="text" id="anthropic_workspace_id"
+                       name="anthropic_workspace_id" maxlength="120" spellcheck="false"
+                       placeholder="wrkspc_01…"
+                       value="<?= e($s('anthropic_workspace_id')) ?>">
+                <span class="wa-label__hint">
+                    Ein Schlüssel gehört entweder einem Arbeitsbereich oder einer Person.
+                    Im zweiten Fall weiss die Schnittstelle nicht, für welchen Bereich sie
+                    abrechnen soll, und weist die Anfrage ab. Dann gehört die Kennung
+                    hierhin – sie steht in der Adresszeile der Anthropic-Konsole
+                    (<code>platform.claude.com/workspaces/<strong>wrkspc_01…</strong></code>).
+                </span>
+                <span class="wa-label__hint">
+                    Normalerweise musst du hier nichts tun: Gibt es genau einen
+                    Arbeitsbereich, trägt die Anwendung ihn beim ersten Mal selbst ein.
+                    Das Feld ist für den Fall, dass es mehrere sind.
+                </span>
+            </div>
+        </fieldset>
+
         <div class="wa-form__actions">
             <button type="submit" class="wa-btn wa-btn--primary">Einstellungen speichern</button>
         </div>

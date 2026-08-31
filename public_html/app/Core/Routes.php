@@ -215,6 +215,7 @@ final class Routes
         // Schnittstellen des Adminbereichs (JSON)
         $router->group(['auth', 'csrf'], static function (Router $r) use ($base): void {
             $r->post('/api/jobs/{id}/abbrechen', 'JobController@cancel');
+            $r->post('/api/jobs/{id}/nochmal', 'JobController@retry');
             $r->post('/api/sections/{id}/anweisung', 'SectionController@instruct');
             $r->post('/api/sections/{id}/template', 'SectionController@switchTemplate');
             $r->post('/api/sections/{id}/template/neu', 'SectionController@generateTemplate');

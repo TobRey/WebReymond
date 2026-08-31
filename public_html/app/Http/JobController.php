@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace WebAtze\Http;
 
-use WebAtze\Core\{Audit, Db, Jobs, Request, Response};
+use WebAtze\Core\{Audit, Db, Jobs, Request, Response, Worker};
 
 /**
  * Stand eines Auftrags abfragen und Aufträge abbrechen.
@@ -39,6 +39,38 @@ final class JobController
                 'redirect' => $redirect,
             ],
         ])->noCache();
+    }
+
+    /**
+     * Einen angehaltenen Auftrag fortsetzen.
+     *
+     * Gedacht für den Fall, dass eine Einstellung gefehlt hat: nachtragen,
+     * hier klicken, und es geht dort weiter, wo es geklemmt hat. Der
+     * Zwischenstand bleibt erhalten – schon geschriebene Texte werden
+     * nicht noch einmal bezahlt.
+     */
+    public function retry(Request $request): Response
+    {
+        $id = (int) $request->param('id');
+        $job = Jobs::find($id);
+
+        if ($job === null) {
+            return Response::json(['ok' => false, 'error' => 'Unbekannter Auftrag.'], 404)->noCache();
+        }
+
+        if (!Jobs::retry($id)) {
+            return Response::json([
+                'ok' => false,
+                'error' => 'Dieser Auftrag läuft bereits oder ist fertig.',
+            ], 409)->noCache();
+        }
+
+        Audit::log('job.retry', (string) $id, ['schritt' => (string) $job['step']], $request);
+
+        // Sofort anstossen, statt bis zur nächsten Minute zu warten.
+        Worker::run(5);
+
+        return Response::json(['ok' => true])->noCache()->noIndex();
     }
 
     public function cancel(Request $request): Response

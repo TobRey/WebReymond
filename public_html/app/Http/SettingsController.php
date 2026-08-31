@@ -256,6 +256,17 @@ final class SettingsController
                   . 'genau so, wie die Seite aufgerufen wird.',
         ];
 
+        // Einmal bei der Schnittstelle anklopfen. Das kostet nichts und
+        // beantwortet vorher, was sonst mitten im Bauen auffällt.
+        $ki = \WebAtze\Ai\ClaudeClient::probe();
+
+        $checks[] = [
+            'label' => 'Zugang zum Sprachmodell',
+            'ok' => $ki['ok'],
+            'value' => $ki['text'],
+            'hint' => $ki['hint'],
+        ];
+
         $checks[] = [
             'label' => 'PHP-Version',
             'ok' => PHP_VERSION_ID >= 80100,

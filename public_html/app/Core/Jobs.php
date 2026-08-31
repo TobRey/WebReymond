@@ -161,7 +161,7 @@ final class Jobs
      * zweiten und dritten Versuch mit wachsendem Abstand. Was auch dann
      * nicht klappt, bleibt sichtbar stehen – niemals stillschweigend.
      */
-    public static function fail(int $id, string $error, bool $retryable = true): void
+    public static function fail(int $id, string $error, bool $retryable = true, string $shortMessage = ''): void
     {
         $job = self::find($id);
         $attempts = (int) ($job['attempts'] ?? 0);
@@ -184,12 +184,43 @@ final class Jobs
         Db::update('jobs', [
             'status' => self::FAILED,
             'error' => mb_substr($error, 0, 2000),
-            'message' => 'Fehlgeschlagen.',
+            'message' => $shortMessage !== '' ? mb_substr($shortMessage, 0, 190) : 'Fehlgeschlagen.',
             'locked_until' => null,
             'finished_at' => Db::now(),
         ], 'id = :id', ['id' => $id]);
 
         Logger::error('Auftrag endgültig fehlgeschlagen', ['job' => $id, 'fehler' => $error]);
+    }
+
+    /**
+     * Einen gescheiterten Auftrag wieder aufnehmen.
+     *
+     * Bewusst ohne Rücksetzen des Zwischenstands: Jeder Schritt merkt
+     * sich, wie weit er gekommen ist. Wer eine fehlende Einstellung
+     * nachträgt, soll dort weitermachen, wo es geklemmt hat – nicht
+     * bezahlte Arbeit noch einmal bezahlen.
+     */
+    public static function retry(int $id): bool
+    {
+        $job = self::find($id);
+
+        if ($job === null || !in_array((string) $job['status'], [self::FAILED, self::CANCELLED], true)) {
+            return false;
+        }
+
+        Db::update('jobs', [
+            'status' => self::QUEUED,
+            'attempts' => 0,
+            'error' => '',
+            'message' => 'Wird fortgesetzt …',
+            'locked_until' => null,
+            'run_after' => null,
+            'finished_at' => null,
+        ], 'id = :id', ['id' => $id]);
+
+        Logger::info('Auftrag wieder aufgenommen', ['job' => $id, 'schritt' => (string) $job['step']]);
+
+        return true;
     }
 
     public static function cancel(int $id): void

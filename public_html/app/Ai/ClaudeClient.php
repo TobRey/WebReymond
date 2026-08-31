@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Ai;
 
 use RuntimeException;
-use WebAtze\Core\{Config, Db, Logger};
+use WebAtze\Core\{Config, ConfigurationError, Db, Logger, Settings};
 
 /**
  * Anbindung an die Claude-API von Anthropic.
@@ -26,6 +26,10 @@ use WebAtze\Core\{Config, Db, Logger};
 final class ClaudeClient
 {
     private const ENDPOINT = 'https://api.anthropic.com/v1/messages';
+
+    /** Dort stehen die Arbeitsbereiche der Organisation. */
+    private const WORKSPACES_ENDPOINT = 'https://api.anthropic.com/v1/organizations/workspaces';
+
     private const VERSION = '2023-06-01';
     private const MAX_RETRIES = 3;
 
@@ -197,6 +201,18 @@ final class ClaudeClient
 
             $this->record($purpose, $payload['model'], [], $duration, false);
 
+            // Fehlt der Arbeitsbereich, versuchen wir ihn selbst zu finden
+            // und sofort weiterzumachen. Klappt das, merkt niemand etwas
+            // davon – und beim nächsten Mal steht er schon da.
+            if (self::isWorkspaceMissing($status, $apiMessage)) {
+                if (self::healWorkspace($apiKey)) {
+                    Logger::info('Arbeitsbereich selbst ermittelt, Anfrage wird wiederholt.');
+                    continue;
+                }
+
+                throw self::workspaceError($apiMessage);
+            }
+
             // 4xx ausser 408 und 429 sind unsere Schuld – ein zweiter
             // Versuch mit denselben Daten scheitert genauso.
             $retryable = $status === 0 || $status === 408 || $status === 429 || $status >= 500;
@@ -206,6 +222,19 @@ final class ClaudeClient
                     'status' => $status,
                     'zweck' => $purpose,
                 ]);
+
+                // Ein 4xx ist eine falsche Anfrage oder eine falsche
+                // Einstellung. Beides behebt sich durch Warten nicht –
+                // der Auftrag hält an, statt es alle halbe Minute erneut
+                // zu versuchen.
+                if ($status >= 400 && $status < 500 && $status !== 408 && $status !== 429) {
+                    throw new ConfigurationError(
+                        self::friendlyError($status, $apiMessage),
+                        self::remedyFor($status),
+                        $status === 401 || $status === 403 ? 'anthropic_api_key' : ''
+                    );
+                }
+
                 throw new RuntimeException(self::friendlyError($status, $apiMessage));
             }
 
@@ -226,6 +255,22 @@ final class ClaudeClient
     {
         $ch = curl_init();
 
+        $headers = [
+            'Content-Type: application/json',
+            'x-api-key: ' . $apiKey,
+            'anthropic-version: ' . self::VERSION,
+        ];
+
+        // Ein identitätsgebundener Schlüssel gehört keinem Arbeitsbereich,
+        // sondern einer Person. Die API weiss dann nicht, für welchen
+        // Bereich sie abrechnen soll, und lehnt ab. Diese Kopfzeile sagt
+        // es ihr. Bei einem gewöhnlichen Schlüssel stört sie nicht.
+        $workspace = self::workspaceId();
+
+        if ($workspace !== '') {
+            $headers[] = 'anthropic-workspace-id: ' . $workspace;
+        }
+
         curl_setopt_array($ch, [
             CURLOPT_URL => self::ENDPOINT,
             CURLOPT_POST => true,
@@ -235,11 +280,7 @@ final class ClaudeClient
             CURLOPT_CONNECTTIMEOUT => 15,
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
-            CURLOPT_HTTPHEADER => [
-                'Content-Type: application/json',
-                'x-api-key: ' . $apiKey,
-                'anthropic-version: ' . self::VERSION,
-            ],
+            CURLOPT_HTTPHEADER => $headers,
         ]);
 
         $raw = curl_exec($ch);
@@ -351,6 +392,325 @@ final class ClaudeClient
             + ($output / 1_000_000) * $price['out'];
 
         return (int) round($dollars * 1_000_000);
+    }
+
+    // ==================================================================
+    // Der Arbeitsbereich
+    // ==================================================================
+
+    /**
+     * Die hinterlegte Arbeitsbereich-Kennung.
+     *
+     * Zwei Orte, mit Absicht in dieser Reihenfolge: Was in config.php
+     * steht, gilt. Sonst das, was im Adminbereich eingetragen wurde –
+     * denn dorthin kommt man ohne FTP-Zugang, und das zählt, wenn
+     * gerade nichts geht.
+     */
+    public static function workspaceId(): string
+    {
+        $fromConfig = trim((string) Config::get('anthropic.workspace_id', ''));
+
+        if ($fromConfig !== '') {
+            return $fromConfig;
+        }
+
+        try {
+            return trim(Settings::get('anthropic_workspace_id', ''));
+        } catch (\Throwable) {
+            // Ohne Datenbank – etwa im Testlauf – ist das kein Fehler.
+            return '';
+        }
+    }
+
+    /**
+     * Ist das der Fehler, dem die Arbeitsbereich-Kennung fehlt?
+     *
+     * Geprüft wird nicht nur der Wortlaut: Die API könnte ihn ändern.
+     * Deshalb reicht schon der Fehlercode, und der Wortlaut ist der
+     * zweite Weg.
+     */
+    public static function isWorkspaceMissing(int $status, string $message): bool
+    {
+        if ($status !== 400) {
+            return false;
+        }
+
+        $needle = mb_strtolower($message);
+
+        return str_contains($needle, 'workspace_id_required')
+            || (str_contains($needle, 'anthropic-workspace-id') && str_contains($needle, 'required'))
+            || (str_contains($needle, 'workspace') && str_contains($needle, 'identity-linked'));
+    }
+
+    /**
+     * Den Arbeitsbereich selbst herausfinden und merken.
+     *
+     * Ein identitätsgebundener Schlüssel gehört einer Person, und die
+     * gehört zu einer Organisation. Die Liste der Arbeitsbereiche
+     * beantwortet die Frage also oft selbst. Gibt es genau einen, ist
+     * die Sache eindeutig – dann wird er eingetragen und weitergemacht,
+     * ohne dass jemand etwas tun muss.
+     *
+     * Gibt es mehrere, wird nicht geraten. Auf den falschen Bereich zu
+     * buchen wäre schlimmer als eine Rückfrage.
+     *
+     * @return bool ob es geklappt hat
+     */
+    public static function healWorkspace(string $apiKey): bool
+    {
+        // Steht schon einer da, half er offensichtlich nicht. Dann ist
+        // er falsch, und Nachschlagen würde denselben liefern.
+        if (self::workspaceId() !== '') {
+            Logger::warning('Der hinterlegte Arbeitsbereich wird abgewiesen.', [
+                'kennung' => self::workspaceId(),
+            ]);
+            return false;
+        }
+
+        $found = self::listWorkspaces($apiKey);
+
+        if (count($found) !== 1) {
+            if ($found !== []) {
+                Logger::warning('Mehrere Arbeitsbereiche gefunden – hier wird nicht geraten.', [
+                    'anzahl' => count($found),
+                ]);
+                // Zur Auswahl merken, damit die Oberfläche sie anbieten kann.
+                self::remember('anthropic_workspace_choices', json_encode($found, JSON_UNESCAPED_UNICODE));
+            }
+
+            return false;
+        }
+
+        $id = (string) ($found[0]['id'] ?? '');
+
+        if ($id === '') {
+            return false;
+        }
+
+        self::remember('anthropic_workspace_id', $id);
+
+        Logger::info('Arbeitsbereich eingetragen.', [
+            'kennung' => $id,
+            'name' => (string) ($found[0]['name'] ?? ''),
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Die Arbeitsbereiche der Organisation abfragen.
+     *
+     * Das gelingt nur, wenn der Schlüssel die Organisation lesen darf.
+     * Tut er es nicht, kommt 401 oder 403 – kein Grund für Aufregung,
+     * dann wird eben gefragt.
+     *
+     * @return array<int, array{id:string, name:string}>
+     */
+    public static function listWorkspaces(string $apiKey): array
+    {
+        $ch = curl_init();
+
+        curl_setopt_array($ch, [
+            CURLOPT_URL => self::WORKSPACES_ENDPOINT . '?limit=100',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_HTTPHEADER => [
+                'x-api-key: ' . $apiKey,
+                'anthropic-version: ' . self::VERSION,
+            ],
+        ]);
+
+        $raw = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        curl_close($ch);
+
+        if ($raw === false || $status < 200 || $status >= 300) {
+            Logger::info('Arbeitsbereiche liessen sich nicht abfragen.', ['status' => $status]);
+            return [];
+        }
+
+        $data = json_decode((string) $raw, true);
+        $out = [];
+
+        foreach ((array) ($data['data'] ?? []) as $entry) {
+            if (!is_array($entry) || ($entry['id'] ?? '') === '') {
+                continue;
+            }
+
+            // Stillgelegte Bereiche zählen nicht mit – auf einen davon
+            // zu buchen ginge ohnehin schief.
+            if (($entry['archived_at'] ?? null) !== null) {
+                continue;
+            }
+
+            $out[] = [
+                'id' => (string) $entry['id'],
+                'name' => (string) ($entry['name'] ?? ''),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Einmal anklopfen, ohne etwas zu erzeugen.
+     *
+     * Fragt die Modellliste ab. Das kostet keine Token und beantwortet
+     * trotzdem alle drei Fragen, die vor einem Auftrag zählen: Stimmt
+     * der Schlüssel, ist er freigeschaltet, und fehlt der
+     * Arbeitsbereich? Besser hier als mitten im Bauen.
+     *
+     * @return array{ok:bool, text:string, hint:string}
+     */
+    public static function probe(): array
+    {
+        $apiKey = trim((string) Config::get('anthropic.api_key', ''));
+
+        if ($apiKey === '') {
+            return [
+                'ok' => false,
+                'text' => 'kein Schlüssel',
+                'hint' => 'Ohne Schlüssel läuft der Generator im Übungsmodus und erzeugt '
+                    . 'Beispieltexte. Der Schlüssel gehört in app/config.php unter '
+                    . 'anthropic.api_key.',
+            ];
+        }
+
+        $headers = [
+            'x-api-key: ' . $apiKey,
+            'anthropic-version: ' . self::VERSION,
+        ];
+
+        $workspace = self::workspaceId();
+
+        if ($workspace !== '') {
+            $headers[] = 'anthropic-workspace-id: ' . $workspace;
+        }
+
+        $ch = curl_init();
+
+        curl_setopt_array($ch, [
+            CURLOPT_URL => 'https://api.anthropic.com/v1/models?limit=1',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_CONNECTTIMEOUT => 8,
+            CURLOPT_HTTPHEADER => $headers,
+        ]);
+
+        $raw = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        curl_close($ch);
+
+        if ($raw === false || $status === 0) {
+            return [
+                'ok' => false,
+                'text' => 'nicht erreichbar',
+                'hint' => 'Von diesem Server aus kommt keine Verbindung zustande. '
+                    . 'Lässt das Hosting ausgehendes HTTPS zu?',
+            ];
+        }
+
+        $message = (string) (json_decode((string) $raw, true)['error']['message'] ?? '');
+
+        if (self::isWorkspaceMissing($status, $message)) {
+            return [
+                'ok' => false,
+                'text' => 'Arbeitsbereich fehlt',
+                'hint' => 'Der Schlüssel gehört einer Person, nicht einem Arbeitsbereich. '
+                    . 'Trag die Kennung oben unter "Arbeitsbereich" ein – oder leg in der '
+                    . 'Anthropic-Konsole einen Schlüssel an, der einem Arbeitsbereich '
+                    . 'gehört. Beim nächsten Auftrag versucht die Anwendung es ohnehin '
+                    . 'selbst herauszufinden.',
+            ];
+        }
+
+        if ($status === 401 || $status === 403) {
+            return [
+                'ok' => false,
+                'text' => 'abgewiesen (HTTP ' . $status . ')',
+                'hint' => 'Der Schlüssel stimmt nicht oder darf nicht. In der '
+                    . 'Anthropic-Konsole prüfen: gültig, Guthaben vorhanden?',
+            ];
+        }
+
+        if ($status < 200 || $status >= 300) {
+            return [
+                'ok' => false,
+                'text' => 'HTTP ' . $status,
+                'hint' => $message !== '' ? $message : 'Unerwartete Antwort der Schnittstelle.',
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'text' => $workspace !== '' ? 'in Ordnung (' . $workspace . ')' : 'in Ordnung',
+            'hint' => 'Schlüssel gültig und freigeschaltet.',
+        ];
+    }
+
+    /** Die Meldung, wenn wir es nicht selbst lösen konnten. */
+    private static function workspaceError(string $apiMessage): ConfigurationError
+    {
+        $choices = [];
+
+        try {
+            $choices = json_decode(Settings::get('anthropic_workspace_choices', '[]'), true) ?: [];
+        } catch (\Throwable) {
+            $choices = [];
+        }
+
+        if ($choices !== []) {
+            $list = [];
+
+            foreach (array_slice($choices, 0, 6) as $entry) {
+                $list[] = (string) ($entry['name'] ?? '?') . ' (' . (string) ($entry['id'] ?? '') . ')';
+            }
+
+            return new ConfigurationError(
+                'Der Schlüssel gehört zu einer Person, nicht zu einem Arbeitsbereich – '
+                . 'deshalb muss dabeistehen, für welchen Bereich gearbeitet wird.',
+                'Es gibt mehrere: ' . implode(', ', $list) . '. '
+                . 'Trag den richtigen unter Einstellungen → Arbeitsbereich ein, '
+                . 'dann läuft der Auftrag weiter.',
+                'anthropic_workspace_id'
+            );
+        }
+
+        return new ConfigurationError(
+            'Der Schlüssel gehört zu einer Person, nicht zu einem Arbeitsbereich – '
+            . 'deshalb muss dabeistehen, für welchen Bereich gearbeitet wird.',
+            'Die Kennung steht in der Adresszeile der Anthropic-Konsole '
+            . '(platform.claude.com/workspaces/wrkspc_…) und gehört unter '
+            . 'Einstellungen → Arbeitsbereich. Wer das nicht will, legt in der '
+            . 'Konsole einen Schlüssel an, der einem Arbeitsbereich gehört – '
+            . 'dann braucht es gar nichts.',
+            'anthropic_workspace_id'
+        );
+    }
+
+    /** Was zu tun ist, je nach Fehlercode. */
+    private static function remedyFor(int $status): string
+    {
+        return match ($status) {
+            401 => 'Der Schlüssel stimmt nicht. Unter Einstellungen prüfen '
+                . 'oder in der Anthropic-Konsole einen neuen anlegen.',
+            403 => 'Der Schlüssel darf das nicht. Hat er noch Guthaben, und '
+                . 'gehört er zum richtigen Arbeitsbereich?',
+            404 => 'Die angefragte Adresse gibt es nicht. Ist das Modell noch aktuell?',
+            413 => 'Die Anfrage war zu gross. Kürzere Beschreibung im Formular hilft.',
+            default => '',
+        };
+    }
+
+    /** Einen Wert merken, ohne dass ein Datenbankfehler alles anhält. */
+    private static function remember(string $key, string $value): void
+    {
+        try {
+            Settings::put($key, $value);
+        } catch (\Throwable $e) {
+            Logger::warning('Wert liess sich nicht merken: ' . $e->getMessage());
+        }
     }
 
     /** Aus einer technischen Meldung eine verständliche machen. */

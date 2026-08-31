@@ -32,6 +32,10 @@ final class Settings
         'iban' => '',
         'imprint_extra' => '',
         'hero_available' => '1',
+        // Nur nötig bei einem Schlüssel, der einer Person gehört statt
+        // einem Arbeitsbereich. Die Anwendung trägt ihn selbst ein, wenn
+        // sie ihn eindeutig ermitteln kann.
+        'anthropic_workspace_id' => '',
     ];
 
     public static function all(): array

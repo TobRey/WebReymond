@@ -58,8 +58,11 @@ final class Worker
                 $id = Logger::exception($e);
                 Jobs::fail(
                     $job['id'],
-                    $e->getMessage() . ' (Kennnummer ' . $id . ')',
-                    self::looksTemporary($e)
+                    self::describe($e, $id),
+                    self::looksTemporary($e),
+                    $e instanceof ConfigurationError
+                        ? 'Angehalten – eine Einstellung fehlt.'
+                        : ''
                 );
             }
         }
@@ -170,6 +173,14 @@ final class Worker
      */
     private static function looksTemporary(Throwable $e): bool
     {
+        // Eine falsche Einstellung behebt sich durch Warten nicht. Das
+        // hier zu unterscheiden ist der Unterschied zwischen einer
+        // Meldung und einer Meldung alle dreissig Sekunden, bis jemand
+        // hinsieht.
+        if ($e instanceof ConfigurationError) {
+            return false;
+        }
+
         $message = mb_strtolower($e->getMessage());
 
         foreach (['timeout', 'zeitüberschreitung', 'timed out', 'connection', 'verbindung',
@@ -181,6 +192,20 @@ final class Worker
         }
 
         return !($e instanceof \InvalidArgumentException || $e instanceof \TypeError);
+    }
+
+    /**
+     * Wie die Meldung beim Auftrag stehen soll.
+     *
+     * Bei einem Einstellungsfehler gehört dazu, was zu tun ist. Eine
+     * Fehlermeldung ohne Anweisung lässt jemanden ratlos zurück – und
+     * genau dann wird stattdessen einfach nochmal geklickt.
+     */
+    private static function describe(Throwable $e, string $id): string
+    {
+        $text = $e instanceof ConfigurationError ? $e->full() : $e->getMessage();
+
+        return $text . ' (Kennnummer ' . $id . ')';
     }
 
     private static function safeName(string $name): string

@@ -83,15 +83,35 @@ $latestBuild = $builds[0] ?? null;
             </div>
             <div class="wa-job__row">
                 <span class="wa-job__step" data-job-step><?= e((string) $job['message']) ?></span>
-                <form method="post" action="/api/jobs/<?= (int) $job['id'] ?>/abbrechen"
-                      data-confirm="Diesen Auftrag wirklich abbrechen?">
-                    <?= Csrf::field() ?>
-                    <button type="submit" class="wa-btn wa-btn--quiet wa-btn--sm">Abbrechen</button>
-                </form>
+                <div class="wa-panel__actions">
+                    <?php /* Der Zwischenstand bleibt erhalten. Wer eine fehlende
+                             Einstellung nachträgt, macht dort weiter, wo es
+                             geklemmt hat – schon geschriebene Texte werden nicht
+                             ein zweites Mal bezahlt. */ ?>
+                    <button type="button" class="wa-btn wa-btn--sm" data-job-resume
+                            <?= (string) $job['status'] === 'failed' ? '' : 'hidden' ?>>
+                        Fortsetzen
+                    </button>
+                    <form method="post" action="/api/jobs/<?= (int) $job['id'] ?>/abbrechen"
+                          data-confirm="Diesen Auftrag wirklich abbrechen?">
+                        <?= Csrf::field() ?>
+                        <button type="submit" class="wa-btn wa-btn--quiet wa-btn--sm">Abbrechen</button>
+                    </form>
+                </div>
             </div>
         </div>
         <?php if ((string) ($job['error'] ?? '') !== ''): ?>
-            <div class="wa-note wa-note--danger"><div><?= e((string) $job['error']) ?></div></div>
+            <div class="wa-note wa-note--danger">
+                <div>
+                    <?= e((string) $job['error']) ?>
+                    <?php if (str_contains((string) $job['error'], 'Arbeitsbereich')): ?>
+                        <br>
+                        <a href="<?= e($base) ?>/einstellungen#anthropic_workspace_id">
+                            Zu den Einstellungen
+                        </a>
+                    <?php endif; ?>
+                </div>
+            </div>
         <?php endif; ?>
     </section>
 <?php endif; ?>

@@ -167,6 +167,12 @@ function initJobWatchers() {
           stopped = true;
           element.classList.add('is-failed');
           toast(job.error || 'Der Auftrag ist fehlgeschlagen.', 'danger');
+
+          // Der Zwischenstand bleibt erhalten. Wer die Ursache behoben hat
+          // – meist eine fehlende Einstellung –, macht dort weiter, wo es
+          // geklemmt hat, statt von vorne zu beginnen.
+          const resume = element.querySelector('[data-job-resume]');
+          if (resume) resume.hidden = false;
           return;
         }
 
@@ -179,6 +185,24 @@ function initJobWatchers() {
 
       setTimeout(poll, delay);
     };
+
+    const resume = element.querySelector('[data-job-resume]');
+
+    if (resume) {
+      resume.addEventListener('click', async () => {
+        resume.disabled = true;
+        resume.textContent = 'Wird fortgesetzt …';
+
+        try {
+          await api(`/api/jobs/${encodeURIComponent(jobId)}/nochmal`, { method: 'POST' });
+          window.location.reload();
+        } catch (error) {
+          toast(error.message, 'danger');
+          resume.disabled = false;
+          resume.textContent = 'Fortsetzen';
+        }
+      });
+    }
 
     setTimeout(poll, 600);
   });

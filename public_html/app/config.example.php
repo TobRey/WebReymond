@@ -94,6 +94,18 @@ return [
         // im Übungsmodus und erzeugt Beispielinhalte statt echter Texte.
         'api_key' => '',
 
+        // Nur nötig, wenn der Schlüssel einer Person gehört statt einem
+        // Arbeitsbereich ("identity-linked"). Dann weiss die Schnittstelle
+        // nicht, für welchen Bereich sie abrechnen soll, und weist jede
+        // Anfrage ab. Die Kennung steht in der Adresszeile der Konsole:
+        // platform.claude.com/workspaces/wrkspc_01…
+        //
+        // Hier leer lassen ist der Normalfall: Gibt es genau einen
+        // Arbeitsbereich, trägt die Anwendung ihn selbst ein (im
+        // Adminbereich unter Einstellungen sichtbar). Was hier steht, hat
+        // Vorrang vor dem, was dort eingetragen wurde.
+        'workspace_id' => '',
+
         // Modell für Struktur- und Designentscheidungen (anspruchsvoll).
         'model_plan' => 'claude-opus-5',
 
