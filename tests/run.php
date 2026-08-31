@@ -874,6 +874,18 @@ test('Der fehlende Arbeitsbereich wird erkannt und behoben', function (): void {
 
     \WebAtze\Core\Settings::put('anthropic_workspace_id', '');
     is('', ClaudeClient::workspaceId(), 'Leer heisst: keine Kopfzeile');
+
+    // Wer die Kennung sucht, findet sie in der Adresszeile – und fügt
+    // dann die ganze Adresse ein. Das darf nicht scheitern.
+    $rein = static fn (string $v): string => ClaudeClient::cleanWorkspaceId($v);
+
+    is('wrkspc_01ABCdef123', $rein('wrkspc_01ABCdef123'), 'Die blosse Kennung');
+    is('wrkspc_01ABCdef123', $rein('https://platform.claude.com/workspaces/wrkspc_01ABCdef123/usage'),
+        'Die ganze Adresse aus der Konsole');
+    is('wrkspc_01ABCdef123', $rein('  wrkspc_01ABCdef123  '), 'Mit Leerzeichen drumherum');
+    is('', $rein('https://platform.claude.com/dashboard'), 'Eine Adresse ohne Kennung');
+    is('', $rein('mein arbeitsbereich'), 'Fliesstext');
+    is('', $rein('<script>alert(1)</script>'), 'Und Unfug erst recht');
 });
 
 // ==================================================================

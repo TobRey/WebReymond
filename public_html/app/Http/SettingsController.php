@@ -58,8 +58,52 @@ final class SettingsController
             return $this->back();
         }
 
+        // Wer die Kennung sucht, findet sie in der Adresszeile – und fügt
+        // dann meistens die ganze Adresse ein. Hier wird herausgelesen,
+        // was gemeint ist.
+        $workspaceChanged = false;
+
+        if (isset($values['anthropic_workspace_id'])) {
+            $eingabe = $values['anthropic_workspace_id'];
+            $values['anthropic_workspace_id'] = ClaudeClient::cleanWorkspaceId($eingabe);
+
+            if (trim($eingabe) !== '' && $values['anthropic_workspace_id'] === '') {
+                Session::flash(
+                    'error',
+                    'Das sieht nicht nach einer Arbeitsbereich-Kennung aus. Erwartet wird '
+                    . 'etwas wie "wrkspc_01ABC…" – oder die ganze Adresse aus der Konsole, '
+                    . 'dann wird sie herausgelesen.'
+                );
+                return $this->back();
+            }
+
+            $workspaceChanged = $values['anthropic_workspace_id'] !== Settings::get('anthropic_workspace_id', '');
+        }
+
         Settings::putMany($values);
         Audit::log('settings.saved', '', ['felder' => array_keys($values)], $request);
+
+        // Sofort nachsehen, ob es damit geht. Sonst müsste er raten und
+        // den Auftrag zum Ausprobieren starten – das ist keine Antwort.
+        if ($workspaceChanged) {
+            // Die Erinnerung "Nachschlagen bringt nichts" gilt für den
+            // alten Stand. Mit einer neuen Kennung fängt es von vorne an.
+            Settings::put('anthropic_workspace_lookup', '');
+
+            $probe = ClaudeClient::probe();
+
+            Session::flash(
+                $probe['ok'] ? 'success' : 'error',
+                $probe['ok']
+                    ? 'Gespeichert – und der Zugang steht: ' . $probe['text']
+                      . '. Angehaltene Aufträge lassen sich jetzt fortsetzen.'
+                    : 'Gespeichert, aber es geht noch nicht: ' . $probe['text']
+                      . '. ' . $probe['hint']
+            );
+
+            return $this->back();
+        }
+
         Session::flash('success', 'Einstellungen gespeichert.');
 
         return $this->back();

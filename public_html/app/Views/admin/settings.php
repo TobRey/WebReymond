@@ -195,14 +195,26 @@ foreach ($diagnostics as $check) {
                 <span class="wa-label__hint">
                     Ein Schlüssel gehört entweder einem Arbeitsbereich oder einer Person.
                     Im zweiten Fall weiss die Schnittstelle nicht, für welchen Bereich sie
-                    abrechnen soll, und weist die Anfrage ab. Dann gehört die Kennung
-                    hierhin – sie steht in der Adresszeile der Anthropic-Konsole
-                    (<code>platform.claude.com/workspaces/<strong>wrkspc_01…</strong></code>).
+                    abrechnen soll, und weist jede Anfrage ab.
                 </span>
                 <span class="wa-label__hint">
-                    Normalerweise musst du hier nichts tun: Gibt es genau einen
-                    Arbeitsbereich, trägt die Anwendung ihn beim ersten Mal selbst ein.
-                    Das Feld ist für den Fall, dass es mehrere sind.
+                    <strong>So kommst du an die Kennung:</strong>
+                    <a href="https://platform.claude.com" target="_blank" rel="noopener noreferrer">platform.claude.com</a>
+                    öffnen und in die Adresszeile schauen – dort steht
+                    <code>…/workspaces/<strong>wrkspc_01…</strong></code>. Du kannst die
+                    ganze Adresse hier einfügen, die Kennung wird herausgelesen.
+                    Nach dem Speichern wird sofort geprüft, ob es damit geht.
+                </span>
+                <span class="wa-label__hint">
+                    <strong>Der andere Weg, ein für alle Mal:</strong> in der Konsole unter
+                    „API keys" einen neuen Schlüssel anlegen und dabei einen Arbeitsbereich
+                    auswählen statt „Personal". Ein solcher Schlüssel sagt selbst, wohin er
+                    gehört – dann bleibt dieses Feld für immer leer.
+                </span>
+                <span class="wa-label__hint">
+                    Selbst herausfinden kann die Anwendung es nicht: Die Liste der
+                    Arbeitsbereiche darf nur ein Admin-Schlüssel lesen, und deiner baut
+                    Websites, statt die Organisation zu verwalten. Das ist so gewollt.
                 </span>
             </div>
         </fieldset>

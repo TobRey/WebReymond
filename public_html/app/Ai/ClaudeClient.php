@@ -423,6 +423,30 @@ final class ClaudeClient
     }
 
     /**
+     * Aus dem, was jemand einfügt, die Kennung herauslesen.
+     *
+     * Wer die Kennung sucht, findet sie in der Adresszeile – und fügt
+     * dann meistens die ganze Adresse ein. Sie daraufhin abzuweisen
+     * wäre kleinlich: Was gemeint ist, steht ja da.
+     */
+    public static function cleanWorkspaceId(string $value): string
+    {
+        $value = trim($value);
+
+        if ($value === '') {
+            return '';
+        }
+
+        if (preg_match('/(wrkspc_[A-Za-z0-9]+)/', $value, $m) === 1) {
+            return $m[1];
+        }
+
+        // Etwas anderes, aber plausibel Kennungsartiges lassen wir durch –
+        // die Schnittstelle entscheidet, nicht wir.
+        return preg_match('/^[A-Za-z0-9_-]{6,120}$/', $value) === 1 ? $value : '';
+    }
+
+    /**
      * Ist das der Fehler, dem die Arbeitsbereich-Kennung fehlt?
      *
      * Geprüft wird nicht nur der Wortlaut: Die API könnte ihn ändern.
@@ -464,6 +488,13 @@ final class ClaudeClient
             Logger::warning('Der hinterlegte Arbeitsbereich wird abgewiesen.', [
                 'kennung' => self::workspaceId(),
             ]);
+            return false;
+        }
+
+        // Hat die Abfrage schon einmal mit "darfst du nicht" geantwortet,
+        // wird sie das wieder tun. Ein zweiter Versuch bei jedem Auftrag
+        // kostet nur Zeit.
+        if (self::rememberedAsHopeless()) {
             return false;
         }
 
@@ -527,6 +558,13 @@ final class ClaudeClient
 
         if ($raw === false || $status < 200 || $status >= 300) {
             Logger::info('Arbeitsbereiche liessen sich nicht abfragen.', ['status' => $status]);
+
+            // 401 und 403 heissen: Dieser Schlüssel darf die Organisation
+            // nicht lesen. Das ändert sich nicht von selbst.
+            if ($status === 401 || $status === 403) {
+                self::remember('anthropic_workspace_lookup', 'nein');
+            }
+
             return [];
         }
 
@@ -677,14 +715,21 @@ final class ClaudeClient
             );
         }
 
+        // Selbst nachschlagen konnten wir es nicht: Die Liste der
+        // Arbeitsbereiche darf nur ein Admin-Schlüssel lesen. Also bleibt
+        // ein Handgriff – und der wird hier so genau beschrieben, dass er
+        // beim ersten Versuch sitzt.
         return new ConfigurationError(
             'Der Schlüssel gehört zu einer Person, nicht zu einem Arbeitsbereich – '
-            . 'deshalb muss dabeistehen, für welchen Bereich gearbeitet wird.',
-            'Die Kennung steht in der Adresszeile der Anthropic-Konsole '
-            . '(platform.claude.com/workspaces/wrkspc_…) und gehört unter '
-            . 'Einstellungen → Arbeitsbereich. Wer das nicht will, legt in der '
-            . 'Konsole einen Schlüssel an, der einem Arbeitsbereich gehört – '
-            . 'dann braucht es gar nichts.',
+            . 'deshalb muss dabeistehen, für welchen Bereich gearbeitet wird. '
+            . 'Selbst herausfinden lässt sich das nicht: Die Liste der Arbeitsbereiche '
+            . 'darf nur ein Admin-Schlüssel lesen.',
+            'Zwei Wege, beide einmalig. Entweder in der Anthropic-Konsole unter '
+            . '"API keys" einen neuen Schlüssel anlegen und dabei einen Arbeitsbereich '
+            . 'auswählen statt "Personal" – dann braucht es hier nie wieder etwas. '
+            . 'Oder platform.claude.com öffnen und aus der Adresszeile den Teil ab '
+            . '"wrkspc_" unter Einstellungen → Arbeitsbereich einsetzen; die ganze '
+            . 'Adresse einzufügen geht auch.',
             'anthropic_workspace_id'
         );
     }
@@ -701,6 +746,16 @@ final class ClaudeClient
             413 => 'Die Anfrage war zu gross. Kürzere Beschreibung im Formular hilft.',
             default => '',
         };
+    }
+
+    /** Wissen wir schon, dass das Nachschlagen nichts bringt? */
+    private static function rememberedAsHopeless(): bool
+    {
+        try {
+            return Settings::get('anthropic_workspace_lookup', '') === 'nein';
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /** Einen Wert merken, ohne dass ein Datenbankfehler alles anhält. */
