@@ -521,6 +521,17 @@ final class Schema
                 );
                 CREATE INDEX IF NOT EXISTS idx_checks_project ON site_checks (project_id, kind);
             ',
+
+            // ------------------------------------------------ Wochenbericht
+            // "stats_token" gilt nur für das Abholen der Summen einer
+            // einzigen Website. Er steht getrennt vom Assistenten-Schlüssel:
+            // Wer ihn hat, sieht Zahlen – ändern kann er damit nichts.
+            '029_reports' => '
+                ALTER TABLE projects ADD COLUMN stats_token {string:64} NOT NULL DEFAULT \'\';
+                ALTER TABLE projects ADD COLUMN report_email {string:191} NOT NULL DEFAULT \'\';
+                ALTER TABLE projects ADD COLUMN report_sent_on {string:10} NOT NULL DEFAULT \'\';
+                ALTER TABLE projects ADD COLUMN visits_synced_at {datetime} NULL;
+            ',
         ];
     }
 

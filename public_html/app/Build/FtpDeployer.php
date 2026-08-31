@@ -24,6 +24,12 @@ use WebAtze\Core\{Crypto, Db, Http, Logger};
  */
 final class FtpDeployer
 {
+    /** Beim Herunterladen für die Sicherung: höchstens so viele Dateien. */
+    private const MAX_FETCH_FILES = 500;
+
+    /** Und keine einzelne grösser als das. */
+    private const MAX_FETCH_BYTES = 8 * 1024 * 1024;
+
     /**
      * @param callable|null $onProgress fn(int $erledigt, int $gesamt, string $datei)
      * @return array{ok:bool, files:int, error:string, retryable:bool, verified:bool, url:string}
@@ -238,6 +244,163 @@ final class FtpDeployer
         @ftp_close($connection);
 
         return ['ok' => true, 'files' => $done, 'error' => '', 'retryable' => false, 'verified' => false, 'url' => ''];
+    }
+
+    // ------------------------------------------------------------------
+    // Herunterladen (für die Sicherung)
+    // ------------------------------------------------------------------
+
+    /**
+     * Einen Ordner vom Server des Kunden holen.
+     *
+     * Gedacht für die tägliche Sicherung: Nur "data" interessiert, dort
+     * liegen die Anfragen und die Änderungen des Kunden. Alles andere
+     * lässt sich neu bauen.
+     *
+     * Bewusst eng gefasst: kein Ausstieg aus dem Ordner, eine Grenze für
+     * Anzahl und Grösse, ein Zeitbudget. Ein Server, der zu viel liefert,
+     * darf den Worker nicht ausbremsen.
+     *
+     * @return array<string, string> Pfad innerhalb des Ordners => Inhalt
+     */
+    public static function fetchDirectory(array $target, string $folder, float $budget = 25.0): array
+    {
+        $folder = trim($folder, '/');
+
+        if ($folder === '' || str_contains($folder, '..')) {
+            return [];
+        }
+
+        $password = Crypto::decrypt((string) ($target['secret'] ?? ''));
+        if ($password === null) {
+            return [];
+        }
+
+        $remote = self::cleanPath((string) $target['remote_path']) . '/' . $folder;
+
+        try {
+            $files = (string) $target['protocol'] === 'sftp'
+                ? self::fetchViaSftp($target, $password, $remote, $budget)
+                : self::fetchViaFtp($target, $password, $remote, $budget, (string) $target['protocol'] === 'ftps');
+        } finally {
+            sodium_memzero($password);
+        }
+
+        return $files;
+    }
+
+    /** @return array<string, string> */
+    private static function fetchViaSftp(array $target, string $password, string $remote, float $budget): array
+    {
+        if (!class_exists(SFTP::class)) {
+            return [];
+        }
+
+        $sftp = new SFTP((string) $target['host'], (int) $target['port'] ?: 22, 20);
+
+        if (!$sftp->login((string) $target['username'], $password)) {
+            return [];
+        }
+
+        $out = [];
+        $started = microtime(true);
+
+        $list = $sftp->nlist($remote, true);
+
+        foreach (is_array($list) ? $list : [] as $entry) {
+            if (microtime(true) - $started > $budget || count($out) >= self::MAX_FETCH_FILES) {
+                break;
+            }
+
+            $name = ltrim((string) $entry, './');
+
+            if ($name === '' || $name === '.' || $name === '..' || str_contains($name, '..')) {
+                continue;
+            }
+
+            if ($sftp->is_dir($remote . '/' . $name)) {
+                continue;
+            }
+
+            $content = $sftp->get($remote . '/' . $name);
+
+            if (is_string($content) && strlen($content) <= self::MAX_FETCH_BYTES) {
+                $out[$name] = $content;
+            }
+        }
+
+        $sftp->disconnect();
+
+        return $out;
+    }
+
+    /** @return array<string, string> */
+    private static function fetchViaFtp(
+        array $target,
+        string $password,
+        string $remote,
+        float $budget,
+        bool $secure
+    ): array {
+        if (!function_exists('ftp_connect')) {
+            return [];
+        }
+
+        $host = (string) $target['host'];
+        $port = (int) $target['port'] ?: 21;
+
+        $connection = $secure ? @ftp_ssl_connect($host, $port, 20) : @ftp_connect($host, $port, 20);
+
+        if ($connection === false) {
+            return [];
+        }
+
+        if (!@ftp_login($connection, (string) $target['username'], $password)) {
+            @ftp_close($connection);
+            return [];
+        }
+
+        @ftp_pasv($connection, true);
+
+        $out = [];
+        $started = microtime(true);
+        $names = @ftp_nlist($connection, $remote);
+
+        foreach (is_array($names) ? $names : [] as $entry) {
+            if (microtime(true) - $started > $budget || count($out) >= self::MAX_FETCH_FILES) {
+                break;
+            }
+
+            $name = basename((string) $entry);
+
+            if ($name === '' || $name === '.' || $name === '..' || str_contains($name, '..')) {
+                continue;
+            }
+
+            $size = @ftp_size($connection, $remote . '/' . $name);
+
+            // -1 heisst: kein Grössenwert – meistens ein Unterordner.
+            if ($size < 0 || $size > self::MAX_FETCH_BYTES) {
+                continue;
+            }
+
+            $stream = fopen('php://temp', 'r+');
+
+            if ($stream === false) {
+                continue;
+            }
+
+            if (@ftp_fget($connection, $stream, $remote . '/' . $name, FTP_BINARY)) {
+                rewind($stream);
+                $out[$name] = (string) stream_get_contents($stream);
+            }
+
+            fclose($stream);
+        }
+
+        @ftp_close($connection);
+
+        return $out;
     }
 
     /** Verzeichnisse Stück für Stück anlegen. */

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace WebAtze\Build;
 
-use WebAtze\Core\{Db, Logger};
+use WebAtze\Core\{Config, Db, Logger};
 use WebAtze\Ai\Translator;
 use WebAtze\Templates\{Page, Renderer};
 
@@ -92,6 +92,9 @@ final class SiteBuilder
         // --- Bearbeitungsbereich, falls gewünscht ------------------------
         $files += AdminKit::install($this->project, $this->site(), $this->outputDir);
 
+        // --- Anleitung unter /doc, falls gewünscht ------------------------
+        $files += DocBuilder::write($this->project, $this->site(), $this->outputDir);
+
         return [
             'files' => $files,
             'bytes' => dir_size($this->outputDir),
@@ -129,6 +132,11 @@ final class SiteBuilder
                 'phone' => (string) ($brief['contact_phone'] ?? ''),
                 'address' => (string) ($brief['contact_address'] ?? ''),
             ],
+            // Zählung und Hilfeseite werden im Formular angehakt, nicht
+            // stillschweigend mitgeliefert.
+            'counter' => !empty($brief['wants_stats']),
+            'support' => !empty($brief['wants_support']),
+            'docs' => !empty($brief['wants_docs']),
         ];
     }
 
@@ -299,7 +307,7 @@ final class SiteBuilder
 
         // Der Empfänger des Kontaktformulars. Ohne ihn liefe jedes
         // abgeschickte Formular ins Leere.
-        return 4 + $this->writeContactHandler();
+        return 4 + $this->writeContactHandler() + $this->writeServices();
     }
 
     /**
@@ -317,26 +325,12 @@ final class SiteBuilder
             return 0;
         }
 
-        $brief = json_decode((string) ($this->project['brief'] ?? '{}'), true) ?: [];
-
         write_file_atomic($this->outputDir . '/contact.php', (string) file_get_contents($source));
 
         $dataDir = $this->outputDir . '/data';
         ensure_dir($dataDir);
 
-        $config = "<?php\n\n"
-            . "// Angaben für den Empfang des Kontaktformulars.\n"
-            . "// Die Empfängeradresse lässt sich hier jederzeit ändern.\n\n"
-            . 'return ' . var_export([
-                'brand' => (string) $this->project['name'],
-                'contact_email' => (string) ($brief['contact_email'] ?? ''),
-            ], true) . ";\n";
-
-        // Nur anlegen, wenn es die Datei noch nicht gibt: Beim erneuten
-        // Bauen soll eine von Hand geänderte Adresse stehen bleiben.
-        if (!is_file($dataDir . '/config.php')) {
-            write_file_atomic($dataDir . '/config.php', $config);
-        }
+        $this->writeDataConfig($dataDir);
         if (!is_file($dataDir . '/leads.php')) {
             write_file_atomic($dataDir . '/leads.php', "<?php exit; ?>\n[]\n");
         }
@@ -346,6 +340,83 @@ final class SiteBuilder
         write_file_atomic($dataDir . '/index.php', "<?php http_response_code(404); exit;\n");
 
         return 5;
+    }
+
+    /**
+     * data/config.php – die einzige Datei, die der Kunde anfassen darf.
+     *
+     * Zwei Sorten Werte stehen darin: Die Empfängeradresse gehört ihm,
+     * die Schlüssel gehören der Technik. Deshalb wird beim erneuten
+     * Bauen zusammengeführt statt überschrieben: Eine von Hand
+     * geänderte Adresse bleibt stehen, ein neuer Schlüssel kommt
+     * trotzdem an.
+     */
+    private function writeDataConfig(string $dataDir): void
+    {
+        $brief = json_decode((string) ($this->project['brief'] ?? '{}'), true) ?: [];
+        $file = $dataDir . '/config.php';
+
+        $old = [];
+        if (is_file($file)) {
+            $loaded = @include $file;
+            $old = is_array($loaded) ? $loaded : [];
+        }
+
+        $values = [
+            'brand' => (string) $this->project['name'],
+            // Vom Kunden änderbar – deshalb hat sein Wert Vorrang.
+            'contact_email' => (string) ($old['contact_email'] ?? $brief['contact_email'] ?? ''),
+            'assistant_url' => rtrim((string) Config::get('app_url', ''), '/'),
+            'assistant_token' => (string) ($this->project['assistant_token'] ?? ''),
+            'stats_token' => (string) ($this->project['stats_token'] ?? ''),
+        ];
+
+        write_file_atomic(
+            $file,
+            "<?php\n\n"
+            . "// Angaben dieser Website.\n"
+            . "//\n"
+            . "// Die Empfängeradresse des Kontaktformulars lässt sich hier\n"
+            . "// jederzeit ändern; sie bleibt beim nächsten Bauen stehen.\n"
+            . "//\n"
+            . "// Die Schlüssel darunter weisen diese Website bei WebAtze aus.\n"
+            . "// Der Schlüssel zum Sprachmodell ist nicht dabei – der liegt\n"
+            . "// ausschliesslich auf dem Server von WebAtze.\n\n"
+            . 'return ' . var_export($values, true) . ";\n"
+        );
+    }
+
+    /**
+     * Zählung und Hilfeseite mitliefern – aber nur, was angehakt wurde.
+     *
+     * Wer die Zählung nicht will, bekommt keine einzige Zeile davon:
+     * kein Pixel im HTML, keine Datei auf dem Server, nichts, was
+     * jemand abschalten müsste.
+     */
+    private function writeServices(): int
+    {
+        $site = $this->site();
+        $kit = APP_DIR . '/Kit/site/php';
+        $written = 0;
+
+        $copy = function (string $name) use ($kit, &$written): void {
+            $source = $kit . '/' . $name;
+            if (is_file($source)) {
+                write_file_atomic($this->outputDir . '/' . $name, (string) file_get_contents($source));
+                $written++;
+            }
+        };
+
+        if (!empty($site['counter'])) {
+            $copy('zaehler.php');
+            $copy('zahlen.php');
+        }
+
+        if (!empty($site['support'])) {
+            $copy('support.php');
+        }
+
+        return $written;
     }
 
     private static function htaccess(): string

@@ -360,6 +360,66 @@ $invalid = static fn (string $key): string
         </div>
     </fieldset>
 
+    <?php /* ================= Zusatzdienste ================= */ ?>
+    <fieldset class="wa-fieldset">
+        <legend class="wa-fieldset__legend">Was zusätzlich mitgeliefert wird</legend>
+        <p class="wa-fieldset__hint">
+            Nichts davon ist eingeschaltet, solange du es nicht anhakst. Was nicht
+            angehakt ist, wird auch nicht mitgeliefert – keine Datei, keine Zeile
+            im Quelltext.
+        </p>
+
+        <label class="wa-checkbox">
+            <input type="checkbox" name="wants_stats" value="1" id="wants_stats"
+                   data-toggles="#stats-report"<?= $checked('wants_stats') ?>>
+            <span>Besucher zählen</span>
+        </label>
+        <p class="wa-fieldset__hint">
+            Die Zählung läuft auf dem Server des Kunden, nicht bei einem fremden
+            Dienst. Gespeichert werden Tag, Seite und Herkunft – keine Adressen,
+            keine Kennungen über den Tag hinaus. Deshalb braucht die Website dafür
+            keinen Zustimmungsbanner.
+        </p>
+
+        <div id="stats-report" class="wa-field"<?= !empty($values['wants_stats']) ? '' : ' hidden' ?>>
+            <label class="wa-label" for="report_email">
+                Wochenbericht an
+                <span class="wa-label__hint">freiwillig – leer heisst: kein Bericht</span>
+            </label>
+            <input class="wa-input" type="email" id="report_email" name="report_email"
+                   maxlength="190" autocomplete="off" spellcheck="false"
+                   placeholder="kunde@beispiel.ch"
+                   value="<?= e($v('report_email')) ?>"<?= $invalid('report_email') ?>>
+            <?= $err('report_email') ?>
+            <?= $err('wants_stats') ?>
+            <p class="wa-fieldset__hint">
+                Jeden Montag eine schlichte E-Mail: Aufrufe, Besucher, die
+                meistbesuchten Seiten und woher die Leute kamen – im Vergleich
+                zur Vorwoche.
+            </p>
+        </div>
+
+        <label class="wa-checkbox">
+            <input type="checkbox" name="wants_support" value="1" id="wants_support"<?= $checked('wants_support') ?>>
+            <span>Hilfeseite unter /support</span>
+        </label>
+        <p class="wa-fieldset__hint">
+            Der Kunde stellt dort seine Frage; sie erscheint in deinem Bereich unter
+            „Support". Du antwortest, wenn es dir passt – er sieht die Antwort auf
+            derselben Seite. Es entsteht kein Anspruch auf sofortige Antwort.
+        </p>
+
+        <label class="wa-checkbox">
+            <input type="checkbox" name="wants_docs" value="1" id="wants_docs"<?= $checked('wants_docs') ?>>
+            <span>Anleitung unter /doc schreiben</span>
+        </label>
+        <p class="wa-fieldset__hint">
+            Eine Anleitung in einfacher Sprache: wie der Kunde seine Website
+            ändert, Bilder tauscht, Anfragen liest. Immer unter /doc erreichbar,
+            und aus deinem Bereich mit einem Klick zu öffnen.
+        </p>
+    </fieldset>
+
     <?php /* ================= Domain und Veröffentlichung ================= */ ?>
     <fieldset class="wa-fieldset">
         <legend class="wa-fieldset__legend">Domain und Veröffentlichung</legend>

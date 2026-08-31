@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Core;
 
 use Throwable;
-use WebAtze\Build\Pipeline;
+use WebAtze\Build\{Backup, Pipeline, VisitCollector};
 
 /**
  * Arbeitet die Warteschlange ab.
@@ -91,16 +91,30 @@ final class Worker
         $removedSessions = Session::purgeExpired();
         $removedLimits = RateLimit::purgeExpired();
         $removedJobs = Jobs::purgeOld(30);
+        $removedDevices = SecondFactor::purgeExpired();
 
         Db::delete('login_attempts', 'attempted_at < :before', [
             'before' => date('Y-m-d H:i:s', time() - 30 * 86400),
         ]);
+
+        // Besucherzahlen holen und montags berichten.
+        $visits = VisitCollector::tick();
+
+        // Sicherungen: einmal am Tag die eigene, dazu je Durchgang eine
+        // Kundenseite. Alte Stände werden dabei gleich mit aufgeräumt.
+        $backup = Backup::tick();
 
         Logger::info('Aufgeräumt', [
             'vorschauen' => $removedPreviews,
             'sitzungen' => $removedSessions,
             'limits' => $removedLimits,
             'auftraege' => $removedJobs,
+            'geraete' => $removedDevices,
+            'besuchszahlen' => $visits['geholt'],
+            'berichte' => $visits['berichte'],
+            'sicherung_eigen' => $backup['eigen'],
+            'sicherung_projekt' => $backup['projekt'],
+            'sicherungen_geloescht' => $backup['geloescht'],
         ]);
 
         return true;

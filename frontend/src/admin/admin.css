@@ -667,6 +667,26 @@ fieldset.wa-fieldset { border: 1px solid var(--wa-border); margin: 0; }
 
 .wa-table__right { text-align: end; }
 
+/* Fliesstext innerhalb einer Tafel – etwa eine Erklärung unter der
+   Überschrift, wo keine Tabelle steht. */
+.wa-panel__body {
+  max-inline-size: 62ch;
+  margin: 0 0 var(--wa-space-3);
+  padding-inline: var(--wa-space-5);
+  color: var(--wa-text-muted);
+  line-height: var(--wa-leading-normal);
+}
+
+.wa-panel__body:last-child { margin-block-end: var(--wa-space-5); }
+
+.wa-muted { color: var(--wa-text-muted); }
+
+/* Vergleich zur Vorwoche. Farbe allein genügt nicht – das Vorzeichen
+   steht im Text, sonst ist die Aussage für Farbenblinde weg. */
+.wa-trend { font-variant-numeric: tabular-nums; }
+.wa-trend--up { color: var(--wa-success); }
+.wa-trend--down { color: var(--wa-danger); }
+
 .wa-code {
   overflow-x: auto;
   margin: 0;
@@ -1044,3 +1064,48 @@ fieldset.wa-fieldset { border: 1px solid var(--wa-border); margin: 0; }
 }
 
 .wa-login__hint { margin-block-start: var(--wa-space-3) }
+
+/* ================================================================== */
+/* Support-Fäden                                                       */
+/* ================================================================== */
+
+.wa-panel--neu { border-inline-start: 3px solid var(--wa-accent) }
+
+.wa-faden {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wa-space-3);
+}
+
+.wa-faden__eintrag {
+  max-inline-size: 46rem;
+  padding: var(--wa-space-4);
+  border: 1px solid var(--wa-border);
+  border-radius: var(--wa-radius-md);
+  background: var(--wa-surface-2);
+}
+
+/* Eigene Antworten stehen eingerückt und in der Akzentfarbe –
+   so sieht man den Verlauf, ohne Namen lesen zu müssen. */
+.wa-faden__eintrag.is-eigen {
+  margin-inline-start: auto;
+  border-color: color-mix(in srgb, var(--wa-accent) 34%, transparent);
+  background: color-mix(in srgb, var(--wa-accent) 9%, var(--wa-surface-2));
+}
+
+.wa-faden__wer {
+  display: flex;
+  gap: var(--wa-space-3);
+  margin-block-end: var(--wa-space-2);
+  color: var(--wa-text-muted);
+  font-size: var(--wa-text-sm);
+  font-weight: var(--wa-weight-medium);
+}
+
+.wa-faden__wer time { color: var(--wa-text-faint); font-weight: 400 }
+
+.wa-faden__eintrag p {
+  margin: 0;
+  line-height: var(--wa-leading-normal);
+  overflow-wrap: anywhere;
+}

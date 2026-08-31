@@ -62,6 +62,11 @@ final class CreateController
                     // Schlüssel, mit dem sich das Kundenbackend später beim
                     // Assistenten meldet. Der API-Schlüssel bleibt hier.
                     'assistant_token' => random_token(24),
+                    // Getrennt davon der Schlüssel fürs Abholen der
+                    // Besucherzahlen: Wer ihn hat, sieht Summen – ändern
+                    // kann er damit nichts.
+                    'stats_token' => $brief['wants_stats'] ? random_token(32) : '',
+                    'report_email' => $brief['wants_stats'] ? $brief['report_email'] : '',
                     'preview_token' => '',
                     'created_at' => Db::now(),
                     'updated_at' => Db::now(),

@@ -268,6 +268,41 @@ $latestBuild = $builds[0] ?? null;
                 ? 'ja – die Zusatzinfos beschreiben etwas, das gespeichert werden muss'
                 : 'nein – Inhalte liegen als Dateien, das ist schneller und sicherer' ?>
         </dd>
+
+        <?php
+        // Was zusätzlich mitgeliefert wurde. Die Adressen stehen nur da,
+        // wenn eine Domain hinterlegt ist – sonst zeigen sie ins Leere.
+        $domain = trim((string) $project['domain']);
+        $siteUrl = $domain !== '' ? 'https://' . preg_replace('~^https?://~i', '', $domain) : '';
+        ?>
+
+        <dt>Zusätzlich mitgeliefert</dt>
+        <dd>
+            <?php
+            $extras = [];
+            if (!empty($brief['wants_stats'])) {
+                $extras[] = 'Besucherzählung'
+                    . ((string) $project['report_email'] !== ''
+                        ? ' mit Wochenbericht an ' . e((string) $project['report_email'])
+                        : ' ohne Wochenbericht');
+            }
+            if (!empty($brief['wants_support'])) {
+                $extras[] = $siteUrl !== ''
+                    ? 'Hilfeseite unter <a href="' . e($siteUrl) . '/support" rel="noopener noreferrer" target="_blank">'
+                      . e($domain) . '/support</a>'
+                    : 'Hilfeseite unter /support';
+            }
+            if (!empty($brief['wants_docs'])) {
+                $extras[] = $siteUrl !== ''
+                    ? 'Anleitung unter <a href="' . e($siteUrl) . '/doc" rel="noopener noreferrer" target="_blank">'
+                      . e($domain) . '/doc</a>'
+                    : 'Anleitung unter /doc';
+            }
+            echo $extras === []
+                ? 'nichts – weder Zählung noch Hilfeseite noch Anleitung'
+                : implode('<br>', $extras);
+            ?>
+        </dd>
     </dl>
 </section>
 

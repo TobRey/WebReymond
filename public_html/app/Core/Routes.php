@@ -116,6 +116,14 @@ final class Routes
     {
         $router->post('/assistant/v1/edit', 'AssistantController@edit');
         $router->post('/assistant/v1/ping', 'AssistantController@ping');
+
+        // Der Support-Bereich auf den Kundenwebsites meldet sich ebenso
+        // hierher – mit demselben Kennwort.
+        $router->post('/assistant/v1/support', 'SupportController@post');
+        $router->post('/assistant/v1/support/faden', 'SupportController@thread');
+
+        // Und der Zähler holt seine Zahlen ab bzw. nimmt sie entgegen.
+        $router->post('/assistant/v1/zaehler', 'VisitController@collect');
     }
 
     // ------------------------------------------------------------------
@@ -152,7 +160,11 @@ final class Routes
 
             // Verwaltung
             $r->get($base . '/anfragen', 'LeadController@index');
+            $r->get($base . '/support', 'SupportAdminController@index');
             $r->get($base . '/referenzen', 'ShowcaseController@index');
+            $r->get($base . '/zahlen', 'MaintenanceController@visits');
+            $r->get($base . '/sicherungen', 'MaintenanceController@backups');
+            $r->get($base . '/sicherungen/{id}', 'MaintenanceController@downloadBackup');
             $r->get($base . '/kosten', 'DashboardController@costs');
             $r->get($base . '/protokoll', 'DashboardController@auditLog');
             $r->get($base . '/einstellungen', 'SettingsController@index');
@@ -172,7 +184,11 @@ final class Routes
             $r->post($base . '/projekt/{id}/domain/schritt', 'DomainController@step');
 
             $r->post($base . '/anfragen/{id}/status', 'LeadController@setStatus');
+            $r->post($base . '/support/{id}/antwort', 'SupportAdminController@reply');
+            $r->post($base . '/support/{id}/status', 'SupportAdminController@setStatus');
             $r->post($base . '/referenzen/{id}', 'ShowcaseController@update');
+            $r->post($base . '/sicherungen', 'MaintenanceController@runBackup');
+            $r->post($base . '/zahlen/{id}', 'MaintenanceController@fetchVisits');
             $r->post($base . '/einstellungen', 'SettingsController@save');
         });
 

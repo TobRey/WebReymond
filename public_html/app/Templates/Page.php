@@ -272,6 +272,18 @@ final class Page
         $escTitle = $esc($pageTitle);
         $escDescription = $esc($description);
 
+        // Die Besucherzählung: ein Bild von einem Pixel, sonst nichts.
+        // Kein Skript, kein Cookie, kein fremder Server – gezählt wird
+        // auf demselben Hosting, auf dem die Seite liegt. Deshalb
+        // braucht es dafür auch keinen Zustimmungsbanner.
+        $counter = '';
+        if (!empty($site['counter'])) {
+            $seen = '/' . self::fileNameFor((string) ($page['path'] ?? '/'), $locale, $primary);
+            $counter = '<img src="' . $up . 'zaehler.php?s=' . rawurlencode($seen) . '"'
+                . ' alt="" width="1" height="1" aria-hidden="true" loading="eager"'
+                . ' style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">';
+        }
+
         return <<<HTML
         <!doctype html>
         <html lang="{$esc($locale)}">
@@ -303,6 +315,7 @@ final class Page
         <body>
         <a class="s-skip" href="#inhalt">Direkt zum Inhalt</a>
         {$body}
+        {$counter}
         <script src="{$up}assets/js/site.js" defer></script>
         </body>
         </html>

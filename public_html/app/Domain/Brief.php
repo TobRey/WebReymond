@@ -89,6 +89,7 @@ final class Brief
             ->url('old_url', 'Adresse der alten Website')
             ->domain('domain', 'Domain')
             ->email('contact_email', 'Kontakt-E-Mail', false)
+            ->email('report_email', 'E-Mail für den Wochenbericht', false)
             ->maxLength('contact_phone', 60, 'Telefon')
             ->maxLength('contact_address', 300, 'Adresse')
             ->maxLength('opening_hours', 600, 'Öffnungszeiten')
@@ -131,6 +132,15 @@ final class Brief
                   'Admin-Benutzername darf nur Buchstaben, Zahlen, Punkt, Strich und Unterstrich enthalten.'
               )
               ->password('admin_password', 'Admin-Passwort', 10);
+        }
+
+        // Ein Wochenbericht ohne Zahlen wäre ein leeres Blatt.
+        if ($data['report_email'] !== '' && !$data['wants_stats']) {
+            $v->custom(
+                'wants_stats',
+                false,
+                'Für den Wochenbericht muss die Besucherzählung eingeschaltet sein.'
+            );
         }
 
         // FTP nur, wenn überhaupt etwas eingetragen wurde.
@@ -217,6 +227,12 @@ final class Brief
             'wants_admin' => $bool('wants_admin'),
             'admin_username' => $get('admin_username'),
             'admin_password' => (string) ($input['admin_password'] ?? ''),
+
+            // Zusatzdienste – jeder einzeln anzuhaken, nichts stillschweigend
+            'wants_stats' => $bool('wants_stats'),
+            'wants_support' => $bool('wants_support'),
+            'wants_docs' => $bool('wants_docs'),
+            'report_email' => $get('report_email'),
 
             // Domain und Veröffentlichung
             'domain' => $get('domain') === '' ? '' : Validator::normaliseDomain($get('domain')),
