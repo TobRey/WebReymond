@@ -34,6 +34,16 @@ final class ClaudeClient
     private const MAX_RETRIES = 3;
 
     /**
+     * Womit es sich noch versuchen lässt, wenn nichts anderes bleibt.
+     *
+     * Wer nur den Standardbereich hat, findet in der Konsole nirgends
+     * eine "wrkspc_"-Kennung – dort heisst er einfach "default".
+     * Geraten wird trotzdem nicht: Jeder Kandidat wird erst geprüft und
+     * nur bei einer bestätigten Antwort übernommen.
+     */
+    private const LAST_RESORT = ['default'];
+
+    /**
      * Preise in US-Dollar je einer Million Token (Stand Juni 2026).
      *
      * Zwischengespeicherte Eingaben kosten weniger: das Anlegen etwa das
@@ -173,6 +183,12 @@ final class ClaudeClient
             // Erfolg
             if ($result['status'] >= 200 && $result['status'] < 300) {
                 $data = $result['data'];
+
+                // Der Arbeitsbereich hat sich bewährt – ab jetzt ist er
+                // keine Vermutung mehr, sondern die Einstellung.
+                if (self::wasGuessed()) {
+                    self::remember('anthropic_workspace_guessed', '');
+                }
 
                 $this->record($purpose, $payload['model'], $data['usage'] ?? [], $duration, true);
 
@@ -482,12 +498,21 @@ final class ClaudeClient
      */
     public static function healWorkspace(string $apiKey): bool
     {
-        // Steht schon einer da, half er offensichtlich nicht. Dann ist
-        // er falsch, und Nachschlagen würde denselben liefern.
+        // Steht schon einer da, half er offensichtlich nicht.
         if (self::workspaceId() !== '') {
             Logger::warning('Der hinterlegte Arbeitsbereich wird abgewiesen.', [
                 'kennung' => self::workspaceId(),
             ]);
+
+            // War er nur unsere Vermutung, hat sie sich soeben erledigt.
+            // Sie stehen zu lassen würde die Einstellungen mit etwas
+            // füllen, das nachweislich nicht stimmt.
+            if (self::wasGuessed()) {
+                self::remember('anthropic_workspace_id', '');
+                self::remember('anthropic_workspace_guessed', '');
+                Logger::info('Die Vermutung wurde wieder entfernt.');
+            }
+
             return false;
         }
 
@@ -507,9 +532,31 @@ final class ClaudeClient
                 ]);
                 // Zur Auswahl merken, damit die Oberfläche sie anbieten kann.
                 self::remember('anthropic_workspace_choices', json_encode($found, JSON_UNESCAPED_UNICODE));
+
+                return false;
             }
 
-            return false;
+            // Nachschlagen ging nicht. Bleibt ein letzter Versuch: Wer nur
+            // den Standardbereich hat, findet nirgends eine Kennung – der
+            // heisst in der Konsole schlicht "default".
+            //
+            // Geprüft wird das an der Anfrage, die gerade gescheitert ist,
+            // nicht an einer anderen: Nur die beantwortet die Frage
+            // wirklich. Deshalb wird der Wert vorläufig gesetzt und als
+            // Vermutung markiert. Bewährt er sich, bleibt er; scheitert
+            // er, wird er wieder entfernt – ein falscher Wert, der still
+            // in den Einstellungen stehen bleibt, wäre schlimmer als
+            // keiner.
+            $candidate = self::LAST_RESORT[0];
+
+            self::remember('anthropic_workspace_id', $candidate);
+            self::remember('anthropic_workspace_guessed', '1');
+
+            Logger::info('Standard-Arbeitsbereich wird versuchsweise angenommen.', [
+                'kennung' => $candidate,
+            ]);
+
+            return true;
         }
 
         $id = (string) ($found[0]['id'] ?? '');
@@ -748,6 +795,16 @@ final class ClaudeClient
             413 => 'Die Anfrage war zu gross. Kürzere Beschreibung im Formular hilft.',
             default => '',
         };
+    }
+
+    /** Ist der hinterlegte Arbeitsbereich nur geraten? */
+    private static function wasGuessed(): bool
+    {
+        try {
+            return Settings::get('anthropic_workspace_guessed', '') === '1';
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /** Wissen wir schon, dass das Nachschlagen nichts bringt? */

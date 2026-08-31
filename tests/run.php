@@ -886,6 +886,29 @@ test('Der fehlende Arbeitsbereich wird erkannt und behoben', function (): void {
     is('', $rein('https://platform.claude.com/dashboard'), 'Eine Adresse ohne Kennung');
     is('', $rein('mein arbeitsbereich'), 'Fliesstext');
     is('', $rein('<script>alert(1)</script>'), 'Und Unfug erst recht');
+
+    // Wer nur den Standardbereich hat, findet nirgends eine
+    // "wrkspc_"-Kennung – in der Konsole heisst der schlicht "default".
+    // Der wird versuchsweise angenommen, aber nur behalten, wenn ihn die
+    // Schnittstelle bestätigt. Ein falscher Wert, der still in den
+    // Einstellungen stehen bleibt, wäre schlimmer als keiner.
+    $quelle = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Ai/ClaudeClient.php'
+    );
+
+    ok(str_contains($quelle, "LAST_RESORT = ['default']"),
+        'Der Standardbereich ist der letzte Versuch');
+    ok(str_contains($quelle, "anthropic_workspace_guessed"),
+        'Und wird als Vermutung markiert');
+    ok(str_contains($quelle, 'if (self::wasGuessed()) {'),
+        'Bewährt sie sich nicht, wird sie wieder entfernt');
+
+    // Die Markierung verschwindet, sobald der Wert getragen hat.
+    $erfolg = mb_strpos($quelle, "// Der Arbeitsbereich hat sich bewährt");
+    $weg = mb_strpos($quelle, "// Die Vermutung wurde wieder entfernt");
+    ok($erfolg !== false, 'Bei Erfolg gilt sie als bestätigt');
+    ok($weg !== false || str_contains($quelle, 'Die Vermutung wurde wieder entfernt'),
+        'Bei Ablehnung wird sie zurückgenommen');
 });
 
 // ==================================================================
