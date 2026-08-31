@@ -1045,6 +1045,71 @@ test('Kein Schema enthält, was die strukturierte Ausgabe ablehnt', function ():
 });
 
 // ==================================================================
+test('Das Seitenschema bleibt klein genug für die Grammatik', function (): void {
+    // Hier stand eine Liste, deren Einträge über "anyOf" jede
+    // Abschnittsform annehmen durften. Die Schnittstelle übersetzt das
+    // in eine Grammatik, und "jede Form an jeder Stelle" wächst mit dem
+    // Produkt: Ab acht Abschnitten kam "the compiled grammar is too
+    // large". Ausserdem war es gar nicht gemeint – die Reihenfolge steht
+    // ja fest.
+    $seal = new ReflectionMethod(ClaudeClient::class, 'sealSchema');
+    $seal->setAccessible(true);
+
+    $typen = ['header', 'hero', 'services', 'about', 'gallery',
+              'testimonials', 'faq', 'cta', 'contact', 'footer'];
+
+    $sections = [];
+    foreach ($typen as $t) {
+        $sections[] = ['type' => $t];
+    }
+
+    $schema = $seal->invoke(null, \WebAtze\Ai\JsonSchema::pageContent($sections));
+    $json = json_encode($schema);
+
+    is(0, substr_count($json, '"anyOf"'), 'Keine einzige Verzweigung mehr');
+    ok(strlen($json) < 20000, 'Und das Schema bleibt handlich (' . strlen($json) . ' Zeichen)');
+
+    // Jede Position hat genau eine erlaubte Form – das war der stillere
+    // Fehler: "anyOf" liess an Position 3 die Form von Position 5 zu.
+    $slots = $schema['properties']['sections'];
+
+    is('object', $slots['type'], 'Ein Objekt statt einer Liste');
+    is(10, count($slots['properties']), 'Ein Feld je Abschnitt');
+    ok(isset($slots['properties']['abschnitt_0']), 'Benannt nach der Position');
+    ok(isset($slots['properties']['abschnitt_9']), 'Auch der letzte');
+    is(10, count($slots['required']), 'Alle werden verlangt');
+
+    // Die Form je Position gehört zum Typ, der dort steht.
+    ok(isset($slots['properties']['abschnitt_1']['properties']['eyebrow']),
+        'Position 1 trägt die Form von "hero"');
+    ok(!isset($slots['properties']['abschnitt_1']['properties']['questions']),
+        'Und nicht die von "faq"');
+
+    // Die Übersetzung benutzt dieselbe Form.
+    $üb = $seal->invoke(null, \WebAtze\Ai\JsonSchema::translation($sections));
+    is(0, substr_count(json_encode($üb), '"anyOf"'), 'Auch bei der Übersetzung keine Verzweigung');
+    ok(isset($üb['properties']['sections']['properties']['abschnitt_0']),
+        'Und dieselben Feldnamen');
+
+    // Der Rückweg: aus der Antwort wieder Positionen machen.
+    $antwort = ['sections' => [
+        'abschnitt_0' => ['title' => 'Erster'],
+        'abschnitt_2' => ['title' => 'Dritter'],
+        'quatsch' => ['title' => 'gehört nicht dazu'],
+    ]];
+
+    $byIndex = [];
+    foreach ((array) $antwort['sections'] as $key => $content) {
+        if (is_array($content) && preg_match('/^abschnitt_(\d+)$/', (string) $key, $m)) {
+            $byIndex[(int) $m[1]] = $content;
+        }
+    }
+
+    is([0, 2], array_keys($byIndex), 'Die Nummer steckt im Namen');
+    is('Dritter', $byIndex[2]['title'], 'Und zeigt auf den richtigen Inhalt');
+});
+
+// ==================================================================
 test('Die Referenz-Miniatur überlebt den nächsten Tag', function (): void {
     // Früher zeigte preview_path auf /vorschau/<kennung>/. Diesen Ordner
     // räumt der Cron nach 24 Stunden weg – am Tag darauf stand in jeder

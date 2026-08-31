@@ -88,7 +88,37 @@ final class JsonSchema
      */
     public static function pageContent(array $sections): array
     {
-        $items = [];
+        return [
+            'type' => 'object',
+            'properties' => ['sections' => self::sectionSlots($sections)],
+            'required' => ['sections'],
+        ];
+    }
+
+    /**
+     * Ein festes Feld je Abschnitt statt einer Liste mit Auswahl.
+     *
+     * Hier stand einmal eine Liste, deren Einträge über "anyOf" jede der
+     * Abschnittsformen annehmen durften. Das hatte zwei Fehler.
+     *
+     * Der sichtbare: Die Schnittstelle übersetzt das Schema in eine
+     * Grammatik, und "jede Form an jeder Stelle" wächst dabei mit dem
+     * Produkt aus Formen und Stellen. Ab etwa acht Abschnitten wurde die
+     * Anfrage abgewiesen – "the compiled grammar is too large".
+     *
+     * Der stillere, und eigentlich schlimmere: Es war gar nicht gemeint.
+     * Die Reihenfolge der Abschnitte steht längst fest, sie kommt ja als
+     * Parameter herein. "anyOf" erlaubte dem Modell trotzdem, an Position
+     * 3 die Form von Position 5 zu liefern.
+     *
+     * Ein Objekt mit festen Feldern – abschnitt_0, abschnitt_1 … – löst
+     * beides: Die Grammatik wächst nur noch linear, und jede Position hat
+     * genau eine erlaubte Form.
+     */
+    private static function sectionSlots(array $sections): array
+    {
+        $properties = [];
+        $required = [];
 
         foreach ($sections as $index => $section) {
             $type = (string) ($section['type'] ?? '');
@@ -98,31 +128,21 @@ final class JsonSchema
                 continue;
             }
 
-            $items[] = [
-                'type' => 'object',
-                'properties' => [
-                    'index' => ['type' => 'integer', 'description' => 'Nummer des Abschnitts, beginnend bei 0.'],
-                    'section_type' => ['type' => 'string', 'enum' => [$type]],
-                    'content' => self::fields($definition['fields']),
-                ],
-                'required' => ['index', 'section_type', 'content'],
-            ];
+            $key = 'abschnitt_' . (int) $index;
+
+            $properties[$key] = self::fields($definition['fields']);
+            $properties[$key]['description'] = trim(
+                'Abschnitt ' . (int) $index . ' vom Typ "' . $type . '". '
+                . (string) ($properties[$key]['description'] ?? '')
+            );
+
+            $required[] = $key;
         }
 
-        // Die Abschnitte einer Seite haben verschiedene Formen. Statt einer
-        // Auswahl je Eintrag – die manche Modelle schlecht treffen – wird
-        // jede Position einzeln beschrieben.
         return [
             'type' => 'object',
-            'properties' => [
-                'sections' => [
-                    'type' => 'array',
-                    'minItems' => count($items),
-                    'maxItems' => count($items),
-                    'items' => count($items) === 1 ? $items[0] : ['anyOf' => $items],
-                ],
-            ],
-            'required' => ['sections'],
+            'properties' => $properties,
+            'required' => $required,
         ];
     }
 
@@ -294,27 +314,6 @@ final class JsonSchema
      */
     public static function translation(array $sections): array
     {
-        $items = [];
-
-        foreach ($sections as $section) {
-            $type = (string) ($section['type'] ?? '');
-            $definition = Schema::forType($type);
-
-            if ($definition === null) {
-                continue;
-            }
-
-            $items[] = [
-                'type' => 'object',
-                'properties' => [
-                    'index' => ['type' => 'integer'],
-                    'section_type' => ['type' => 'string', 'enum' => [$type]],
-                    'content' => self::fields($definition['fields']),
-                ],
-                'required' => ['index', 'section_type', 'content'],
-            ];
-        }
-
         return [
             'type' => 'object',
             'properties' => [
@@ -329,15 +328,9 @@ final class JsonSchema
                     ],
                     'required' => ['title', 'meta_description'],
                 ],
-                // Dieselbe Form wie bei pageContent(): eine Auswahl statt
-                // prefixItems. Manche Modelle treffen prefixItems schlecht,
-                // und der bestehende Weg ist erprobt.
-                'sections' => [
-                    'type' => 'array',
-                    'minItems' => count($items),
-                    'maxItems' => count($items),
-                    'items' => count($items) === 1 ? $items[0] : ['anyOf' => $items],
-                ],
+                // Dieselbe Form wie bei pageContent(): ein festes Feld je
+                // Abschnitt. Siehe dort, warum keine Liste mit Auswahl.
+                'sections' => self::sectionSlots($sections),
             ],
             'required' => ['page', 'sections'],
         ];

@@ -74,8 +74,10 @@ final class ContentWriter
         $list = [];
         foreach ($sections as $index => $section) {
             $definition = Schema::forType((string) $section['type']);
+            // Der Feldname der Antwort steht dabei, damit nichts
+            // verwechselt werden kann.
             $list[] = sprintf(
-                "%d. %s (%s) – Vorlage: %s. Zweck: %s",
+                "abschnitt_%d: %s (%s) – Vorlage: %s. Zweck: %s",
                 $index,
                 (string) $section['type'],
                 $definition['label'] ?? '',
@@ -109,15 +111,17 @@ final class ContentWriter
             ]
         );
 
+        // Die Antwort trägt ein Feld je Abschnitt: abschnitt_0, abschnitt_1 …
+        // Die Nummer steht im Namen, deshalb braucht es kein Zuordnen mehr
+        // über ein mitgeliefertes "index", das auch falsch sein konnte.
         $byIndex = [];
-        foreach ($response['sections'] ?? [] as $entry) {
-            if (!is_array($entry)) {
+
+        foreach ((array) ($response['sections'] ?? []) as $key => $content) {
+            if (!is_array($content) || !preg_match('/^abschnitt_(\d+)$/', (string) $key, $m)) {
                 continue;
             }
-            $index = (int) ($entry['index'] ?? -1);
-            if ($index >= 0) {
-                $byIndex[$index] = is_array($entry['content'] ?? null) ? $entry['content'] : [];
-            }
+
+            $byIndex[(int) $m[1]] = $content;
         }
 
         return $byIndex;

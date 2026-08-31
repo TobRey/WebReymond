@@ -84,7 +84,8 @@ final class Translator
         $count = 0;
 
         foreach ($sections as $index => $section) {
-            $raw = $translated['sections'][$index]['content'] ?? null;
+            // Ein Feld je Abschnitt, benannt nach seiner Nummer.
+            $raw = $translated['sections']['abschnitt_' . (int) $index] ?? null;
 
             if (!is_array($raw)) {
                 continue;
@@ -115,13 +116,14 @@ final class Translator
 
     private function ask(array $sections, array $page, string $target): array
     {
+        // Dieselben Feldnamen wie in der erwarteten Antwort. So muss das
+        // Modell nichts zuordnen – es füllt aus, was es vor sich sieht.
         $payload = [];
 
         foreach ($sections as $index => $section) {
-            $payload[] = [
-                'index' => $index,
-                'section_type' => (string) $section['type'],
-                'content' => json_decode((string) $section['content'], true) ?: [],
+            $payload['abschnitt_' . (int) $index] = [
+                'typ' => (string) $section['type'],
+                'inhalt' => json_decode((string) $section['content'], true) ?: [],
             ];
         }
 
