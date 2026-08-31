@@ -29,8 +29,12 @@ $render = static function (array $field, string $name, mixed $value, string $inp
             <label class="k-label" for="<?= e($inputId) ?>">
                 <?= e($label) ?>
                 <?php if ($type === 'richtext'): ?>
+                    <?php /* Genau das, was der Renderer wirklich kann. Ein
+                             Hinweis auf Auszeichnungen, die nachher als
+                             Sternchen auf der Seite stünden, wäre schlimmer
+                             als gar keiner. */ ?>
                     <span class="k-hint">
-                        Leerzeile macht einen neuen Absatz. **fett** und *kursiv* sind möglich.
+                        Eine Leerzeile beginnt einen neuen Absatz.
                     </span>
                 <?php endif; ?>
             </label>

@@ -22,13 +22,32 @@ use WebAtze\Core\{Audit, Db, Logger};
 final class ShowcaseBuilder
 {
     /** Wörter, die im Referenztext nichts zu suchen haben. */
-    private const FORBIDDEN = [
-        'ki', 'k.i.', 'künstliche intelligenz', 'kuenstliche intelligenz',
-        'claude', 'anthropic', 'chatgpt', 'gpt', 'llm', 'sprachmodell',
-        'ai-', 'ai ', ' ai', 'automatisch generiert', 'automatisiert erstellt',
-        'generator', 'generiert', 'vorlage verwendet', 'template',
+    /**
+     * Wörter, die für sich stehen müssen.
+     *
+     * "ki" als blosse Zeichenfolge zu suchen, war ein Fehler: Damit fiel
+     * jeder Text über einen Kindergarten oder ein Kino durch, und der
+     * Referenztext wurde stillschweigend verworfen. Geprüft wird deshalb
+     * auf ganze Wörter.
+     */
+    private const FORBIDDEN_WORDS = [
+        'ki', 'ai', 'gpt', 'llm', 'chatgpt', 'claude', 'anthropic',
+        'bot', 'prompt', 'prompts',
+    ];
+
+    /**
+     * Wortteile, die auch mitten im Wort verräterisch sind.
+     *
+     * Deutsch beugt: "künstliche", "künstlicher", "künstlichen". Gesucht
+     * wird deshalb der Stamm, nicht die Wörterbuchform.
+     */
+    private const FORBIDDEN_PARTS = [
+        'künstlich', 'kuenstlich', 'intelligenz', 'sprachmodell',
+        'automatisch generiert', 'automatisiert erstellt', 'automatisch erstellt',
+        'generator', 'generiert', 'generierung',
+        'vorlage verwendet', 'template', 'baukasten',
         'in minuten erstellt', 'in wenigen minuten', 'per knopfdruck',
-        'artificial intelligence', 'machine learning',
+        'artificial intelligence', 'machine learning', 'neuronale',
     ];
 
     public static function create(array $project, bool $publish = true): array
@@ -145,10 +164,21 @@ final class ShowcaseBuilder
     /** Enthält der Text einen Hinweis auf das Vorgehen? */
     public static function leaksMethod(string $text): bool
     {
-        $lower = ' ' . mb_strtolower($text) . ' ';
+        $lower = mb_strtolower($text);
 
-        foreach (self::FORBIDDEN as $needle) {
+        foreach (self::FORBIDDEN_PARTS as $needle) {
             if (str_contains($lower, $needle)) {
+                return true;
+            }
+        }
+
+        // Ganze Wörter: Die Grenzen sind alles, was kein Buchstabe und
+        // keine Ziffer ist. \b von PCRE hilft hier nicht zuverlässig,
+        // weil Umlaute dabei nicht als Buchstaben gelten.
+        $words = preg_split('/[^\p{L}\p{N}]+/u', $lower, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        foreach ($words as $word) {
+            if (in_array($word, self::FORBIDDEN_WORDS, true)) {
                 return true;
             }
         }

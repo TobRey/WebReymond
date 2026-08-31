@@ -1,0 +1,425 @@
+<?php
+
+/**
+ * Der Testlauf.
+ *
+ * Reines PHP, kein Rahmenwerk, kein Server, keine Installation:
+ *
+ *     php tests/run.php
+ *
+ * Geprüft wird das, was wehtut, wenn es kaputtgeht – nicht das, was
+ * sich leicht prüfen lässt. Also die Sicherheitszusagen (kein
+ * Pfadausbruch, kein Zugriff auf das eigene Netz, kein fremdes Projekt),
+ * die Stellen, an denen schon einmal ein Fehler steckte, und die
+ * Zusage, dass eine Änderung nie den Rest der Website berührt.
+ */
+
+declare(strict_types=1);
+
+// SQLite statt MySQL: Der Testlauf soll ohne Datenbankserver auskommen.
+putenv('WEBATZE_TEST=1');
+$_SERVER['WEBATZE_TEST'] = '1';
+
+require __DIR__ . '/harness.php';
+require __DIR__ . '/../public_html/app/bootstrap.php';
+
+use WebAtze\Ai\ClaudeClient;
+use WebAtze\Build\{Theme, ShowcaseBuilder};
+use WebAtze\Core\{Crypto, Http, Request, Router, Validator};
+use WebAtze\Templates\{Catalog, Page, Renderer, Schema};
+
+// ==================================================================
+test('Router: Adressen finden ihr Ziel', function (): void {
+    $router = new Router();
+    $router->get('/', 'SiteController@home');
+    $router->get('/referenzen/{slug}', 'SiteController@reference');
+    $router->get('/vorschau/{token}/{path:.+}', 'PreviewController@file');
+    $router->post('/create/projekt/{id}/bauen', 'ProjectController@rebuild');
+
+    is('SiteController@home', route($router, 'GET', '/'), 'Startseite');
+    is('SiteController@reference', route($router, 'GET', '/referenzen/cafe-nordlicht'), 'Referenz');
+    is('PreviewController@file', route($router, 'GET', '/vorschau/abc/assets/css/site.css'),
+        'Vorschau mit tiefem Pfad');
+    is('ProjectController@rebuild', route($router, 'POST', '/create/projekt/12/bauen'), 'Bauen');
+
+    // Was nicht passt, darf auch nicht passen.
+    is(null, route($router, 'GET', '/gibtsnicht'), 'Unbekannte Adresse');
+    is(null, route($router, 'GET', '/../app/config.php'), 'Pfadausbruch');
+    is(null, route($router, 'POST', '/'), 'Falsche Methode');
+
+    // Der Fehler von damals: preg_quote über das ganze Muster machte
+    // aus {slug} einen Text, der nie passte.
+    is('SiteController@reference', route($router, 'GET', '/referenzen/a-b_c.d'),
+        'Kennung mit Sonderzeichen');
+});
+
+// ==================================================================
+test('Passwörter: Argon2id, und falsche kommen nicht durch', function (): void {
+    $hash = Crypto::hashPassword('ein-gutes-Passwort-2026');
+
+    ok(str_starts_with($hash, '$argon2id$'), 'Argon2id wird benutzt');
+    ok(Crypto::checkPassword('ein-gutes-Passwort-2026', $hash), 'Richtiges Passwort');
+    ok(!Crypto::checkPassword('ein-gutes-Passwort-2025', $hash), 'Falsches Passwort');
+    ok(!Crypto::checkPassword('', $hash), 'Leeres Passwort');
+    ok(!Crypto::checkPassword('x', 'kein-hash'), 'Kaputter Hash wirft nicht');
+
+    // Zweimal dasselbe Passwort ergibt zwei verschiedene Hashes.
+    isnt($hash, Crypto::hashPassword('ein-gutes-Passwort-2026'), 'Salz je Hash');
+});
+
+// ==================================================================
+test('Verschlüsselung: FTP-Zugangsdaten liegen nicht im Klartext', function (): void {
+    $secret = 'ftp-Passwort-des-Kunden';
+    $box = Crypto::encrypt($secret);
+
+    ok(!str_contains($box, $secret), 'Der Klartext steht nicht darin');
+    is($secret, Crypto::decrypt($box), 'Und kommt wieder heraus');
+    is(null, Crypto::decrypt('unsinn'), 'Unsinn ergibt null statt einer Ausnahme');
+
+    // Ein verändertes Zeichen macht den Umschlag ungültig.
+    $verbogen = substr($box, 0, -2) . 'xy';
+    is(null, Crypto::decrypt($verbogen), 'Veränderte Daten werden erkannt');
+});
+
+// ==================================================================
+test('SSRF-Schutz: das eigene Netz bleibt unerreichbar', function (): void {
+    $verboten = [
+        'http://127.0.0.1/admin' => 'Loopback',
+        'http://localhost/' => 'localhost',
+        'http://10.0.0.5/' => 'Privates Netz A',
+        'http://192.168.1.1/' => 'Privates Netz C',
+        'http://172.16.0.1/' => 'Privates Netz B',
+        'http://169.254.169.254/latest/meta-data/' => 'Metadatendienst',
+        'http://100.64.0.1/' => 'Anbieter-internes Netz',
+        'http://[::1]/' => 'Loopback über IPv6',
+        'file:///etc/passwd' => 'Dateizugriff',
+        'gopher://example.com/' => 'Fremdes Protokoll',
+    ];
+
+    foreach ($verboten as $url => $was) {
+        isnt(null, Http::assertPublicUrl($url), $was . ' wird abgewiesen');
+    }
+
+    ok(!Http::isPublicIp('127.0.0.1'), '127.0.0.1 ist nicht öffentlich');
+    ok(!Http::isPublicIp('::1'), '::1 ist nicht öffentlich');
+    ok(Http::isPublicIp('93.184.216.34'), 'Eine echte Adresse ist öffentlich');
+});
+
+// ==================================================================
+test('Ausgabe: nichts kommt ungeprüft in die Seite', function (): void {
+    $böse = '<script>alert(1)</script>';
+
+    is('&lt;script&gt;alert(1)&lt;/script&gt;', e($böse), 'e() entschärft');
+    ok(!str_contains(json_out(['x' => $böse]), '<script'), 'json_out() auch');
+
+    // Der Renderer lässt nur bekannte Auszeichnungen durch.
+    $reich = Renderer::richtext('<p>Ein <strong>fetter</strong> Text.</p><script>alert(1)</script>');
+    ok(str_contains($reich, '<strong>fetter</strong>'), 'Fett bleibt');
+    ok(!str_contains($reich, '<script'), 'Skript verschwindet');
+
+    // Reiner Text wird zu Absätzen – genau das, was dem Kunden im
+    // Bearbeitungsbereich versprochen wird.
+    $absätze = Renderer::richtext("Erster Absatz.\n\nZweiter Absatz.");
+    is(2, substr_count($absätze, '<p>'), 'Leerzeile ergibt einen neuen Absatz');
+
+    // Und nur Adressen, die keine sind, werden zu '#'.
+    is('#', Renderer::safeUrl('javascript:alert(1)'), 'javascript: wird abgewiesen');
+    is('#', Renderer::safeUrl('data:text/html,<script>'), 'data: wird abgewiesen');
+    is('kontakt.html', Renderer::safeUrl('kontakt.html'), 'Seiteninterner Verweis bleibt relativ');
+    is('https://beispiel.ch', Renderer::safeUrl('https://beispiel.ch'), 'https bleibt');
+    is('mailto:a@b.ch', Renderer::safeUrl('mailto:a@b.ch'), 'mailto bleibt');
+});
+
+// ==================================================================
+test('Gestaltungswerte: nur, was in eine CSS-Regel gehört', function (): void {
+    is('2rem', Renderer::cssValue('2rem'), 'Eine Länge');
+    is('#ff0000', Renderer::cssValue('#ff0000'), 'Eine Farbe');
+    is('', Renderer::cssValue('red; background: url(javascript:alert(1))'), 'Eingeschleuste Regel');
+    is('', Renderer::cssValue('expression(alert(1))'), 'Alter Trick mit expression');
+    is('', Renderer::cssValue('url(http://fremd.example/x.png)'), 'Fremde Adresse');
+});
+
+// ==================================================================
+test('Vorlagen: 20 je Abschnittstyp, und jede lässt sich bauen', function (): void {
+    $typen = Schema::types();
+    ok(count($typen) >= 15, 'Mindestens 15 Abschnittstypen (' . count($typen) . ')');
+
+    foreach ($typen as $typ) {
+        $varianten = Catalog::forType($typ);
+        is(20, count($varianten), '20 Varianten für "' . $typ . '"');
+
+        // Jede Variante muss sich rendern lassen – auch mit leerem Inhalt.
+        foreach (array_keys($varianten) as $key) {
+            $html = Renderer::section([
+                'id' => 1,
+                'type' => $typ,
+                'template_key' => $key,
+                'content' => [],
+                'overrides' => [],
+            ], ['brand' => 'Test', 'nav' => [], 'legal' => []]);
+
+            ok($html !== '', $typ . '/' . $key . ' erzeugt HTML');
+        }
+    }
+});
+
+// ==================================================================
+test('Farben: Text bleibt lesbar, auch bei schwieriger Wunschfarbe', function (): void {
+    // Ein sehr helles Gelb als Hauptfarbe: Als Textfarbe unlesbar.
+    $theme = Theme::build(['primary' => '#ffd400', 'secondary' => '#00ff00']);
+    $farben = $theme['colors'];
+
+    $kontrast = contrast($farben['primary'], $farben['bg']);
+    ok($kontrast >= 4.5, sprintf('Textfarbe hat Kontrast %.2f (mindestens 4.5)', $kontrast));
+
+    // Auf der gelben Fläche muss die Schrift dunkel sein.
+    $aufFläche = contrast($farben['on_primary'], $farben['primary_raw']);
+    ok($aufFläche >= 4.5, sprintf('Schrift auf der Fläche hat Kontrast %.2f', $aufFläche));
+
+    // Eine dunkle Farbe darf bleiben, wie sie ist.
+    $dunkel = Theme::build(['primary' => '#2b1b9e'])['colors'];
+    is('#2b1b9e', strtolower($dunkel['primary']), 'Eine dunkle Farbe wird nicht verändert');
+});
+
+// ==================================================================
+test('Referenztexte verraten nicht, wie die Websites entstehen', function (): void {
+    $verräterisch = [
+        'Diese Website wurde mit Claude erstellt.',
+        'Dank KI in wenigen Minuten fertig.',
+        'Automatisch generiert aus einem Template.',
+        'Mit künstlicher Intelligenz gebaut.',
+    ];
+
+    foreach ($verräterisch as $text) {
+        ok(ShowcaseBuilder::leaksMethod($text), 'Erkannt: "' . mb_substr($text, 0, 30) . '..."');
+    }
+
+    $unverfänglich = [
+        'Ein frischer Auftritt für eine Schreinerei aus Olten.',
+        'Klare Struktur, schnelle Ladezeiten, gut auf dem Handy.',
+    ];
+
+    foreach ($unverfänglich as $text) {
+        ok(!ShowcaseBuilder::leaksMethod($text), 'In Ordnung: "' . mb_substr($text, 0, 30) . '..."');
+    }
+});
+
+// ==================================================================
+test('Preise: auf der Website steht keine einzige Zahl', function (): void {
+    $seiten = array_merge(
+        glob(dirname(__DIR__) . '/public_html/app/Views/pages/*.php') ?: [],
+        glob(dirname(__DIR__) . '/public_html/app/Views/partials/*.php') ?: []
+    );
+    ok($seiten !== [], 'Es gibt öffentliche Seiten zum Prüfen');
+
+    foreach ($seiten as $datei) {
+        $inhalt = (string) file_get_contents($datei);
+
+        // Ein Preis sieht so aus: CHF 990, 990.-, 990 Franken, ab 99 €
+        $muster = '/(CHF|Fr\.|EUR|€)\s*\d|(\d+[\.\,]\-)|(\d+\s*(Franken|Euro))/i';
+
+        ok(!preg_match($muster, $inhalt), basename($datei) . ' enthält keinen Preis');
+    }
+});
+
+// ==================================================================
+test('Eingabeprüfung weist ab, was nicht passt', function (): void {
+    $prüfung = Validator::make([
+        'name' => '',
+        'email' => 'keine-adresse',
+        'farbe' => 'rot',
+        'domain' => 'kein domain name',
+    ])
+        ->required('name', 'Name')
+        ->email('email', 'E-Mail')
+        ->hexColor('farbe', 'Farbe')
+        ->domain('domain', 'Domain');
+
+    ok($prüfung->fails(), 'Vier Fehler werden erkannt');
+    is(4, count($prüfung->errors()), 'Und zwar genau vier');
+
+    $gut = Validator::make([
+        'name' => 'Holzwerk Brunner',
+        'email' => 'info@holzwerk-brunner.ch',
+        'farbe' => '#4a6b2a',
+        'domain' => 'holzwerk-brunner.ch',
+    ])
+        ->required('name', 'Name')
+        ->email('email', 'E-Mail')
+        ->hexColor('farbe', 'Farbe')
+        ->domain('domain', 'Domain');
+
+    ok(!$gut->fails(), 'Gültige Eingaben kommen durch');
+});
+
+// ==================================================================
+test('Kostenrechnung: Zahlen stimmen mit der Preisliste überein', function (): void {
+    // 1 Mio. Eingabe- und 1 Mio. Ausgabe-Zeichen bei Opus 5:
+    // 5.00 + 25.00 = 30.00 Dollar.
+    // (Modell, Eingabe, Zwischenspeicher schreiben, lesen, Ausgabe)
+    $kosten = ClaudeClient::costMicroDollars('claude-opus-5', 1_000_000, 0, 0, 1_000_000);
+    is(30_000_000, $kosten, 'Opus 5: 5 Dollar Eingabe plus 25 Ausgabe');
+
+    // Gelesener Zwischenspeicher kostet ein Zehntel der Eingabe.
+    $gelesen = ClaudeClient::costMicroDollars('claude-opus-5', 0, 0, 1_000_000, 0);
+    is(500_000, $gelesen, 'Gelesener Zwischenspeicher: ein Zehntel');
+
+    // Geschriebener Zwischenspeicher kostet ein Viertel mehr.
+    $geschrieben = ClaudeClient::costMicroDollars('claude-opus-5', 0, 1_000_000, 0, 0);
+    is(6_250_000, $geschrieben, 'Geschriebener Zwischenspeicher: ein Viertel mehr');
+
+    // Sonnet ist günstiger als Opus – sonst stimmte die Preisliste nicht.
+    ok(
+        ClaudeClient::costMicroDollars('claude-sonnet-5', 1_000_000, 0, 0, 1_000_000)
+        < ClaudeClient::costMicroDollars('claude-opus-5', 1_000_000, 0, 0, 1_000_000),
+        'Sonnet kostet weniger als Opus'
+    );
+
+    // Ein unbekanntes Modell darf nicht zum Absturz führen.
+    ok(ClaudeClient::costMicroDollars('gibt-es-nicht', 1000, 0, 0, 1000) >= 0,
+        'Unbekanntes Modell ergibt keine Ausnahme');
+});
+
+// ==================================================================
+test('Der Seitenrahmen steht nur an einer Stelle', function (): void {
+    $seite = Page::render(
+        [
+            'brand' => 'Holzwerk Brunner',
+            'locale' => 'de',
+            'theme' => ['colors' => ['primary' => '#4a6b2a']],
+            'pages' => [
+                ['path' => '/', 'title' => 'Start', 'in_navigation' => 1],
+                ['path' => '/kontakt', 'title' => 'Kontakt', 'in_navigation' => 1],
+                ['path' => '/impressum', 'title' => 'Impressum', 'in_navigation' => 1],
+            ],
+            'contact' => ['email' => 'info@holzwerk-brunner.ch'],
+        ],
+        [
+            'path' => '/',
+            'title' => 'Start',
+            'meta_description' => 'Schreinerei aus Olten.',
+            'sections' => [
+                [
+                    'id' => 1,
+                    'type' => 'header',
+                    'template_key' => Catalog::defaultKey('header'),
+                    'content' => [],
+                    'overrides' => [],
+                ],
+                [
+                    'id' => 2,
+                    'type' => 'hero',
+                    'template_key' => Catalog::defaultKey('hero'),
+                    'content' => ['title' => 'Möbel, die bleiben'],
+                    'overrides' => [],
+                ],
+            ],
+        ]
+    );
+
+    ok(str_contains($seite, '<!doctype html>'), 'Ein vollständiges Dokument');
+    ok(str_contains($seite, 'Möbel, die bleiben'), 'Der Inhalt steht darin');
+    ok(str_contains($seite, 'kontakt.html'), 'Verweise sind relativ');
+    ok(!str_contains($seite, 'href="/kontakt.html"'), 'Und nicht absolut');
+
+    // Der Fehler von damals: media="print" mit onload ist ein
+    // Zeilenskript und wird von jeder strengen Richtlinie geblockt.
+    ok(!str_contains($seite, 'onload='), 'Kein Zeilenskript im Kopf');
+    ok(str_contains($seite, '<link rel="stylesheet" href="assets/css/site.css">'),
+        'Das Stylesheet wird gewöhnlich eingebunden');
+
+    // Impressum gehört in den Fussbereich, nicht ins Hauptmenü.
+    $ctx = Page::context([
+        'pages' => [
+            ['path' => '/', 'title' => 'Start', 'in_navigation' => 1],
+            ['path' => '/impressum', 'title' => 'Impressum', 'in_navigation' => 1],
+        ],
+    ], ['path' => '/']);
+
+    is(1, count($ctx['nav']), 'Ein Eintrag im Hauptmenü');
+    is(1, count($ctx['legal']), 'Und einer bei den Rechtlichen');
+});
+
+// ==================================================================
+test('Kundenbackend: eine Änderung erreicht nur ihren Abschnitt', function (): void {
+    require_once dirname(__DIR__) . '/public_html/app/Kit/admin/lib/Fields.php';
+
+    $vorher = [
+        'title' => 'Möbel, die bleiben',
+        'lead' => 'Wir bauen Möbel nach Mass.',
+        'image' => ['src' => 'assets/img/werkstatt.jpg', 'alt' => 'Die Werkstatt'],
+    ];
+
+    // Was der Typ kennt, wird übernommen.
+    $nachher = \WebAtzeKit\Fields::merge('hero', $vorher, [
+        'title' => 'Möbel fürs ganze Leben',
+    ]);
+
+    is('Möbel fürs ganze Leben', $nachher['title'], 'Die Überschrift ist neu');
+    is('Wir bauen Möbel nach Mass.', $nachher['lead'], 'Der Rest bleibt unberührt');
+
+    // Was der Typ nicht kennt, kommt nicht hinein.
+    $versuch = \WebAtzeKit\Fields::merge('hero', $vorher, [
+        'title' => 'Neu',
+        'admin_password_hash' => '$argon2id$boese',
+        'assistant_token' => 'geklaut',
+        'gibt_es_nicht' => 'x',
+    ]);
+
+    ok(!isset($versuch['admin_password_hash']), 'Kein fremdes Feld wird gesetzt');
+    ok(!isset($versuch['assistant_token']), 'Auch kein Kennwort');
+    ok(!isset($versuch['gibt_es_nicht']), 'Und nichts Erfundenes');
+
+    // Der Bildpfad lässt sich über das Formular nicht ändern – nur der
+    // Bildtext. Sonst zeigte ein Bild plötzlich woandershin.
+    $bild = \WebAtzeKit\Fields::merge('hero', $vorher, [
+        'image' => ['src' => '../../../etc/passwd', 'alt' => 'Neuer Text'],
+    ]);
+
+    is('assets/img/werkstatt.jpg', $bild['image']['src'], 'Der Bildpfad bleibt');
+    is('Neuer Text', $bild['image']['alt'], 'Der Bildtext ändert sich');
+
+    // Zu langer Text wird gekürzt statt abgelehnt.
+    $lang = \WebAtzeKit\Fields::merge('hero', $vorher, [
+        'title' => str_repeat('a', 5000),
+    ]);
+    ok(mb_strlen($lang['title']) <= 140, 'Überlange Eingaben werden gekürzt');
+});
+
+// ==================================================================
+test('Kundenbackend: die Ablage überlebt einen Abbruch', function (): void {
+    require_once dirname(__DIR__) . '/public_html/app/Kit/admin/lib/Store.php';
+
+    $dir = sys_get_temp_dir() . '/webatze-test-' . bin2hex(random_bytes(4));
+    mkdir($dir, 0700, true);
+
+    $store = new \WebAtzeKit\Store($dir);
+
+    ok($store->save(['pages' => [['path' => '/', 'title' => 'Start', 'sections' => []]]]),
+        'Speichern klappt');
+
+    // Die Datei beginnt mit einem Abbruch – ein direkter Aufruf gibt
+    // nichts preis.
+    $roh = (string) file_get_contents($dir . '/site.php');
+    ok(str_starts_with($roh, '<?php exit;'), 'Die Ablage schützt sich selbst');
+    ok(str_contains($roh, '"title": "Start"'), 'Und enthält trotzdem die Daten');
+
+    is('Start', $store->pages()[0]['title'], 'Gelesen wird, was geschrieben wurde');
+
+    // Vor jeder Änderung eine Sicherung.
+    $store->save(['pages' => [['path' => '/', 'title' => 'Neu', 'sections' => []]]]);
+    is(1, count($store->backups()), 'Eine Sicherung ist da');
+
+    $name = $store->backups()[0]['name'];
+    ok($store->restore($name), 'Zurückholen klappt');
+    is('Start', $store->pages()[0]['title'], 'Der frühere Stand ist zurück');
+
+    // Über den Namen einer Sicherung darf kein Pfad hinausführen.
+    ok(!$store->restore('../../../etc/passwd'), 'Pfadausbruch wird abgewiesen');
+    ok(!$store->restore('site-99999999-999999.php'), 'Was es nicht gibt, kommt nicht zurück');
+
+    delete_tree($dir);
+});
+
+// ==================================================================
+summary();
