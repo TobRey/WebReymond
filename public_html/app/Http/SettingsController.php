@@ -342,6 +342,34 @@ final class SettingsController
             'hint' => $ki['hint'],
         ];
 
+        // Welcher Schlüssel steckt eigentlich drin? Daran scheitert es
+        // erfahrungsgemäss: Man legt in der Konsole einen neuen an und
+        // trägt den alten ein. Anfang und Ende genügen zum Vergleichen.
+        $maske = ClaudeClient::maskedKey();
+
+        $checks[] = [
+            'label' => 'Verwendeter Schlüssel',
+            'ok' => $maske !== '',
+            'value' => $maske !== '' ? $maske : 'keiner hinterlegt',
+            'hint' => $maske !== ''
+                ? 'Vergleiche das mit der Liste in der Anthropic-Konsole – Anfang und '
+                  . 'Ende müssen zu dem Schlüssel passen, bei dem in der Spalte '
+                  . '"Workspace" ein Arbeitsbereich steht. Geändert wird er in '
+                  . 'app/config.php unter anthropic.api_key.'
+                : 'Gehört in app/config.php unter anthropic.api_key.',
+        ];
+
+        $ws = ClaudeClient::workspaceId();
+
+        $checks[] = [
+            'label' => 'Verwendeter Arbeitsbereich',
+            'ok' => true,
+            'value' => $ws !== '' ? $ws : 'keiner – wird auch nicht gebraucht',
+            'hint' => $ws !== ''
+                ? 'Wird bei jeder Anfrage mitgeschickt. Leeren geht oben im Feld.'
+                : 'Solange der Schlüssel zu einem Arbeitsbereich gehört, ist das richtig so.',
+        ];
+
         $checks[] = [
             'label' => 'PHP-Version',
             'ok' => PHP_VERSION_ID >= 80100,

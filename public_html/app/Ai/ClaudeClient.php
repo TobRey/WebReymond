@@ -639,6 +639,30 @@ final class ClaudeClient
     }
 
     /**
+     * Der hinterlegte Schlüssel, so weit man ihn zeigen darf.
+     *
+     * Anfang und Ende, dazwischen Punkte. Das reicht, um ihn mit dem in
+     * der Konsole zu vergleichen – und genau daran scheitert es
+     * erfahrungsgemäss: Man legt einen neuen an und trägt den alten ein.
+     * Den ganzen Schlüssel anzuzeigen wäre unnötig; wer über die
+     * Schulter schaut, hätte ihn sonst.
+     */
+    public static function maskedKey(): string
+    {
+        $key = trim((string) Config::get('anthropic.api_key', ''));
+
+        if ($key === '') {
+            return '';
+        }
+
+        if (mb_strlen($key) < 20) {
+            return '… (auffällig kurz – ist das der ganze Schlüssel?)';
+        }
+
+        return mb_substr($key, 0, 17) . '…' . mb_substr($key, -4);
+    }
+
+    /**
      * Einmal anklopfen, ohne etwas zu erzeugen.
      *
      * Fragt die Modellliste ab. Das kostet keine Token und beantwortet
