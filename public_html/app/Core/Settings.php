@@ -27,6 +27,9 @@ final class Settings
         'instagram' => '',
         'linkedin' => '',
         'uid' => '',
+        // Für Rechnungen. Ohne IBAN steht auf der Rechnung keine
+        // Zahlungsangabe – das fällt beim ersten Mal auf.
+        'iban' => '',
         'imprint_extra' => '',
         'hero_available' => '1',
     ];

@@ -531,6 +531,203 @@ test('Die Anleitung beschreibt nur, was auch gebaut wurde', function (): void {
 });
 
 // ==================================================================
+test('Geld wird in Rappen gerechnet, nicht in Kommazahlen', function (): void {
+    $r = static fn (string $v): int => \WebAtze\Http\BillingController::toRappen($v);
+
+    is(123450, $r('1234.50'), 'Franken und Rappen');
+    is(1210, $r('12.10'), 'Der Fall, an dem Fliesskomma scheitert');
+    is(123455, $r("1'234.55"), 'Mit Tausendertrennzeichen');
+    is(123455, $r('1234,55'), 'Mit Komma statt Punkt');
+    is(99000, $r('990.-'), 'Die schweizerische Schreibweise');
+    is(99000, $r('990'), 'Ohne Rappen');
+    is(-5025, $r('-50.25'), 'Auch negativ, für einen Abzug');
+    is(0, $r('abc'), 'Unsinn ergibt null');
+    is(0, $r(''), 'Leer ebenfalls');
+
+    // Das ist der Grund für den ganzen Umweg über Zeichenketten.
+    ok($r('12.10') === 1210, 'Zwölf Franken zehn sind 1210 Rappen, nicht 1209');
+
+    // Und die Rückrichtung.
+    is("1'234.55", \WebAtze\Build\DocumentBuilder::money(123455), 'Zurück in Franken, mit Tausendertrennzeichen');
+    is('0.05', \WebAtze\Build\DocumentBuilder::money(5), 'Fünf Rappen');
+
+    // Summe mit Mehrwertsteuer: 2 × 100.00 + 8 % = 216.00
+    $items = [['label' => 'x', 'quantity' => 2, 'price_rappen' => 10000]];
+    is(21600, \WebAtze\Build\DocumentBuilder::total($items, 8), 'Summe mit Mehrwertsteuer');
+    is(20000, \WebAtze\Build\DocumentBuilder::total($items, 0), 'Und ohne');
+});
+
+// ==================================================================
+test('Das PDF ist eine gültige Datei', function (): void {
+    $pdf = new \WebAtze\Core\Pdf('Prüfung');
+    $pdf->text(50, 60, 'Rechnung mit Umlauten: Grüezi, Müller & Söhne', 14, true);
+    $pdf->textRight(545, 90, "1'234.55");
+    $pdf->line(50, 100, 545, 100);
+    $pdf->addPage();
+    $pdf->paragraph(50, 60, 400, "Zweite Seite.\n\nMit Absatz.");
+
+    $bytes = $pdf->output();
+
+    ok(str_starts_with($bytes, '%PDF-1.4'), 'Der Anfang stimmt');
+    ok(str_ends_with(rtrim($bytes), '%%EOF'), 'Das Ende auch');
+    ok(substr_count($bytes, '/Type /Page ') === 2, 'Zwei Seiten');
+
+    // Die Sprungtabelle muss auf die richtigen Stellen zeigen – sonst
+    // öffnet kein Betrachter die Datei.
+    ok(preg_match('/startxref\s+(\d+)/', $bytes, $m) === 1, 'Es gibt eine Sprungtabelle');
+
+    $start = (int) $m[1];
+    is('xref', substr($bytes, $start, 4), 'Und sie liegt dort, wo es heisst');
+
+    preg_match_all('/^(\d{10}) 00000 n $/m', substr($bytes, $start), $offsets);
+
+    $alleRichtig = true;
+    foreach ($offsets[1] as $index => $offset) {
+        $erwartet = ($index + 1) . ' 0 obj';
+        if (substr($bytes, (int) $offset, strlen($erwartet)) !== $erwartet) {
+            $alleRichtig = false;
+        }
+    }
+
+    ok($offsets[1] !== [], 'Die Tabelle ist nicht leer');
+    ok($alleRichtig, 'Jeder Eintrag zeigt auf sein Objekt');
+
+    // Umlaute müssen als WinAnsi im Strom stehen, nicht als UTF-8.
+    ok(str_contains($bytes, "Gr\xFCezi"), 'Umlaute stehen als WinAnsi darin');
+    ok(!str_contains($bytes, "Gr\xC3\xBCezi"), 'Und nicht als UTF-8');
+
+    // Klammern würden den Textbefehl vorzeitig beenden.
+    $klammer = new \WebAtze\Core\Pdf('x');
+    $klammer->text(10, 10, 'Ein (Text) mit \\ Klammern');
+    ok(str_contains($klammer->output(), 'Ein \\(Text\\) mit'), 'Klammern werden entwertet');
+
+    // Ziffern sind gleich breit – nur deshalb stehen Beträge bündig.
+    is(
+        \WebAtze\Core\Pdf::widthOf('11111.11', 10),
+        \WebAtze\Core\Pdf::widthOf('98765.43', 10),
+        'Zwei gleich lange Beträge sind gleich breit'
+    );
+});
+
+// ==================================================================
+test('Rechnungsnummern zählen je Art und Jahr hoch', function (): void {
+    \WebAtze\Core\Db::delete('documents', '1 = 1', []);
+
+    $jahr = date('Y');
+
+    is('O-' . $jahr . '-001', \WebAtze\Build\DocumentBuilder::nextNumber('offer'),
+        'Die erste Offerte des Jahres');
+
+    $id = \WebAtze\Build\DocumentBuilder::create([
+        'kind' => 'offer',
+        'project_id' => null,
+        'title' => 'Website',
+        'recipient' => ['name' => 'Muster AG', 'email' => 'a@b.ch'],
+        'items' => [
+            ['label' => 'Website mit fünf Seiten', 'quantity' => 1, 'price_rappen' => 190000],
+            ['label' => 'Leere Zeile fliegt raus', 'quantity' => 1, 'price_rappen' => 0],
+            ['label' => '', 'quantity' => 1, 'price_rappen' => 5000],
+        ],
+        'intro' => 'Guten Tag',
+        'outro' => 'Freundliche Grüsse',
+        'vat_percent' => 0,
+        'due_days' => 30,
+    ]);
+
+    ok($id > 0, 'Die Offerte wurde angelegt');
+
+    $doc = \WebAtze\Build\DocumentBuilder::find($id);
+
+    is('O-' . $jahr . '-001', (string) $doc['number'], 'Sie trägt die erste Nummer');
+    is(2, count((array) $doc['items']), 'Die Zeile ohne Text fiel weg');
+    is(190000, (int) $doc['total_rappen'], 'Die Summe stimmt');
+    is('draft', (string) $doc['status'], 'Und sie ist ein Entwurf');
+    ok(is_file((string) $doc['file_path']), 'Das PDF liegt da');
+
+    is('O-' . $jahr . '-002', \WebAtze\Build\DocumentBuilder::nextNumber('offer'),
+        'Die nächste Offerte zählt hoch');
+    is('R-' . $jahr . '-001', \WebAtze\Build\DocumentBuilder::nextNumber('invoice'),
+        'Rechnungen zählen getrennt');
+
+    // Aus der Offerte eine Rechnung.
+    $rechnung = \WebAtze\Build\DocumentBuilder::toInvoice($id);
+    $doc2 = \WebAtze\Build\DocumentBuilder::find((int) $rechnung);
+
+    is('R-' . $jahr . '-001', (string) $doc2['number'], 'Die Rechnung bekommt eine eigene Nummer');
+    is(190000, (int) $doc2['total_rappen'], 'Mit demselben Betrag');
+    ok((string) $doc2['due_on'] !== '', 'Und einer Zahlungsfrist');
+
+    // Überfällig wird sie erst, wenn sie verschickt und die Frist um ist.
+    ok(!\WebAtze\Build\DocumentBuilder::isOverdue($doc2), 'Ein Entwurf ist nie überfällig');
+
+    \WebAtze\Core\Db::update('documents',
+        ['status' => 'sent', 'due_on' => date('Y-m-d', strtotime('-1 day'))],
+        'id = :id', ['id' => (int) $rechnung]);
+
+    ok(\WebAtze\Build\DocumentBuilder::isOverdue(
+        \WebAtze\Build\DocumentBuilder::find((int) $rechnung)
+    ), 'Verschickt und Frist vorbei: überfällig');
+
+    \WebAtze\Build\DocumentBuilder::setStatus((int) $rechnung, 'paid');
+    $bezahlt = \WebAtze\Build\DocumentBuilder::find((int) $rechnung);
+
+    ok(!\WebAtze\Build\DocumentBuilder::isOverdue($bezahlt), 'Bezahlt ist nicht mehr überfällig');
+    is(date('Y-m-d'), (string) $bezahlt['paid_on'], 'Und der Tag steht fest');
+
+    \WebAtze\Core\Db::delete('documents', '1 = 1', []);
+});
+
+// ==================================================================
+test('Der Fragebogen nimmt nur an, was hineingehört', function (): void {
+    $neu = \WebAtze\Domain\Questionnaire::create('Muster AG', 'a@b.ch', 'Notiz');
+    $row = \WebAtze\Domain\Questionnaire::byToken($neu['token']);
+
+    ok($row !== null, 'Der Verweis findet den Fragebogen');
+    is(null, \WebAtze\Domain\Questionnaire::byToken('zu-kurz'), 'Ein kurzer Verweis nicht');
+    is(null, \WebAtze\Domain\Questionnaire::byToken(str_repeat('a', 48)), 'Ein erfundener auch nicht');
+
+    // Pflichtfelder.
+    $ergebnis = \WebAtze\Domain\Questionnaire::store($row, ['company_name' => 'Nur der Name']);
+    ok(!$ergebnis['ok'], 'Ohne Beschreibung geht es nicht durch');
+    ok(isset($ergebnis['errors']['description']), 'Und es steht dabei, was fehlt');
+
+    // Eine erfundene Auswahl darf nicht durchkommen.
+    $ergebnis = \WebAtze\Domain\Questionnaire::store($row, [
+        'company_name' => 'Muster AG',
+        'industry' => 'Schreinerei',
+        'description' => str_repeat('Wir bauen Möbel. ', 3),
+        'contact_email' => 'kunde@example.org',
+        'tone' => 'erfunden',
+        'style' => 'clean',
+        'services' => "Küchen\nSchränke",
+    ]);
+
+    ok($ergebnis['ok'], 'Mit allem Nötigen geht es durch');
+
+    $gespeichert = \WebAtze\Domain\Questionnaire::byToken($neu['token']);
+    is('', (string) $gespeichert['answers']['tone'], 'Die erfundene Auswahl wurde verworfen');
+    is('submitted', (string) $gespeichert['status'], 'Der Zustand steht auf ausgefüllt');
+
+    // Eine ungültige E-Mail wird abgewiesen.
+    $ergebnis = \WebAtze\Domain\Questionnaire::store($row, [
+        'company_name' => 'Muster AG',
+        'industry' => 'Schreinerei',
+        'description' => str_repeat('Wir bauen Möbel. ', 3),
+        'contact_email' => 'keine-adresse',
+    ]);
+    ok(!$ergebnis['ok'], 'Eine kaputte E-Mail-Adresse kommt nicht durch');
+
+    // Die Übernahme ins Formular.
+    $brief = \WebAtze\Domain\Questionnaire::toBrief((array) $gespeichert['answers']);
+
+    is('Muster AG', $brief['company_name'], 'Der Name wandert ins Formular');
+    ok(str_contains($brief['extra_notes'], 'Küchen'), 'Das Angebot landet in den Zusatzinfos');
+    ok(str_contains($brief['extra_notes'], 'Angebot:'), 'Mit einer Überschrift davor');
+
+    \WebAtze\Core\Db::delete('questionnaires', 'id = :id', ['id' => (int) $row['id']]);
+});
+
+// ==================================================================
 test('Die Referenz-Miniatur überlebt den nächsten Tag', function (): void {
     // Früher zeigte preview_path auf /vorschau/<kennung>/. Diesen Ordner
     // räumt der Cron nach 24 Stunden weg – am Tag darauf stand in jeder

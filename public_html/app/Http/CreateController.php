@@ -19,7 +19,17 @@ final class CreateController
 {
     public function form(Request $request): Response
     {
-        return $this->render($request, [], []);
+        // Kommt der Aufruf von einem übernommenen Fragebogen, steht die
+        // Vorbelegung in der Sitzung. Sie wird beim Lesen entfernt: Beim
+        // nächsten neuen Projekt sollen nicht die Angaben des vorigen
+        // Kunden im Formular stehen.
+        $prefill = (array) (Session::get('create_prefill') ?? []);
+
+        if ($prefill !== []) {
+            Session::forget('create_prefill');
+        }
+
+        return $this->render($request, $prefill, []);
     }
 
     public function submit(Request $request): Response

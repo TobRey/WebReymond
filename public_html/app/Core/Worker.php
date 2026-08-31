@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Core;
 
 use Throwable;
-use WebAtze\Build\{Backup, Pipeline, VisitCollector};
+use WebAtze\Build\{Backup, Contracts, Pipeline, VisitCollector};
 
 /**
  * Arbeitet die Warteschlange ab.
@@ -92,6 +92,7 @@ final class Worker
         $removedLimits = RateLimit::purgeExpired();
         $removedJobs = Jobs::purgeOld(30);
         $removedDevices = SecondFactor::purgeExpired();
+        $removedForms = \WebAtze\Domain\Questionnaire::purgeExpired();
 
         Db::delete('login_attempts', 'attempted_at < :before', [
             'before' => date('Y-m-d H:i:s', time() - 30 * 86400),
@@ -104,17 +105,23 @@ final class Worker
         // Kundenseite. Alte Stände werden dabei gleich mit aufgeräumt.
         $backup = Backup::tick();
 
+        // Fällige Wartungsverträge: Der Entwurf entsteht, verschickt
+        // wird er von Hand.
+        $billed = Contracts::billDue();
+
         Logger::info('Aufgeräumt', [
             'vorschauen' => $removedPreviews,
             'sitzungen' => $removedSessions,
             'limits' => $removedLimits,
             'auftraege' => $removedJobs,
             'geraete' => $removedDevices,
+            'fragebogen' => $removedForms,
             'besuchszahlen' => $visits['geholt'],
             'berichte' => $visits['berichte'],
             'sicherung_eigen' => $backup['eigen'],
             'sicherung_projekt' => $backup['projekt'],
             'sicherungen_geloescht' => $backup['geloescht'],
+            'wartungsrechnungen' => $billed,
         ]);
 
         return true;

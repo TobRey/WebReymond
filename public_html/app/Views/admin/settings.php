@@ -99,6 +99,16 @@ foreach ($diagnostics as $check) {
                            placeholder="CHE-123.456.789">
                     <span class="wa-label__hint">Nur nötig, wenn im Register eingetragen.</span>
                 </div>
+                <div class="wa-field">
+                    <label class="wa-label" for="iban">IBAN</label>
+                    <input class="wa-input" type="text" id="iban" name="iban"
+                           value="<?= e($s('iban')) ?>"
+                           placeholder="CH00 0000 0000 0000 0000 0" spellcheck="false">
+                    <span class="wa-label__hint">
+                        Steht auf jeder Rechnung. Ohne sie weiss der Kunde nicht, wohin
+                        er zahlen soll.
+                    </span>
+                </div>
             </div>
         </fieldset>
 

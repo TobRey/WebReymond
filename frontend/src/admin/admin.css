@@ -725,6 +725,25 @@ fieldset.wa-fieldset { border: 1px solid var(--wa-border); margin: 0; }
 
 .wa-check__list .wa-badge { flex: none; }
 
+/* ================================================================== */
+/* Rechnungspositionen                                                 */
+/* ================================================================== */
+
+/* Leistung, Menge, Preis nebeneinander – auf dem Telefon untereinander,
+   weil drei Felder in einer Zeile dort nicht lesbar sind. */
+.wa-posten {
+  display: grid;
+  gap: var(--wa-space-2);
+  grid-template-columns: 1fr;
+  margin-block-end: var(--wa-space-2);
+}
+
+@media (min-width: 40rem) {
+  .wa-posten { grid-template-columns: 1fr 6rem 8rem; }
+}
+
+.wa-posten .wa-input--short { inline-size: 100%; }
+
 .wa-code {
   overflow-x: auto;
   margin: 0;

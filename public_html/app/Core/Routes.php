@@ -90,7 +90,13 @@ final class Routes
     {
         $router->group(['csrf'], static function (Router $r): void {
             $r->post('/api/kontakt', 'ContactController@submit');
+
+            // Der Fragebogen. Wer den Verweis hat, darf schreiben – ein
+            // Konto braucht der Kunde dafür nicht.
+            $r->post('/fragebogen/{token}', 'QuestionnaireController@submit');
         });
+
+        $router->get('/fragebogen/{token}', 'QuestionnaireController@show');
     }
 
     // ------------------------------------------------------------------
@@ -162,6 +168,10 @@ final class Routes
             $r->get($base . '/anfragen', 'LeadController@index');
             $r->get($base . '/support', 'SupportAdminController@index');
             $r->get($base . '/referenzen', 'ShowcaseController@index');
+            $r->get($base . '/fragebogen', 'QuestionnaireController@index');
+            $r->get($base . '/rechnungen', 'BillingController@index');
+            $r->get($base . '/rechnungen/{id}/pdf', 'BillingController@download');
+            $r->get($base . '/vertraege', 'BillingController@contracts');
             $r->get($base . '/zahlen', 'MaintenanceController@visits');
             $r->get($base . '/sicherungen', 'MaintenanceController@backups');
             $r->get($base . '/sicherungen/{id}', 'MaintenanceController@downloadBackup');
@@ -187,6 +197,16 @@ final class Routes
             $r->post($base . '/support/{id}/antwort', 'SupportAdminController@reply');
             $r->post($base . '/support/{id}/status', 'SupportAdminController@setStatus');
             $r->post($base . '/referenzen/{id}', 'ShowcaseController@update');
+            $r->post($base . '/fragebogen', 'QuestionnaireController@create');
+            $r->post($base . '/fragebogen/{id}/uebernehmen', 'QuestionnaireController@adopt');
+            $r->post($base . '/fragebogen/{id}/loeschen', 'QuestionnaireController@destroy');
+            $r->post($base . '/rechnungen', 'BillingController@create');
+            $r->post($base . '/rechnungen/{id}/zustand', 'BillingController@setStatus');
+            $r->post($base . '/rechnungen/{id}/rechnung', 'BillingController@convert');
+            $r->post($base . '/rechnungen/{id}/senden', 'BillingController@send');
+            $r->post($base . '/vertraege', 'BillingController@createContract');
+            $r->post($base . '/vertraege/abrechnen', 'BillingController@billContracts');
+            $r->post($base . '/vertraege/{id}/kuendigen', 'BillingController@cancelContract');
             $r->post($base . '/sicherungen', 'MaintenanceController@runBackup');
             $r->post($base . '/zahlen/{id}', 'MaintenanceController@fetchVisits');
             $r->post($base . '/einstellungen', 'SettingsController@save');
