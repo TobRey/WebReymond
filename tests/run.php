@@ -223,6 +223,50 @@ test('Preise: auf der Website steht keine einzige Zahl', function (): void {
 });
 
 // ==================================================================
+test('robots.txt verrät die versteckte Adresse nicht', function (): void {
+    // robots.txt ist öffentlich. Steht der geheime Pfad darin, genügt ein
+    // Aufruf dieser einen Datei, um ihn zu erfahren – dann ist der
+    // versteckte Bereich nur noch dem Namen nach versteckt.
+    $quelle = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Http/SiteController.php'
+    );
+
+    $start = strpos($quelle, 'public function robots(');
+    ok($start !== false, 'Die Methode robots() gibt es');
+
+    $ende = strpos($quelle, 'public function sitemap(', $start ?: 0);
+    $block = substr($quelle, (int) $start, (int) $ende - (int) $start);
+
+    // Der Pfad darf weder fest noch aus der Konfiguration hineingeraten.
+    ok(!str_contains($block, "Config::get('create_path'"),
+        'Der Pfad aus der Konfiguration steht nicht in robots.txt');
+    ok(!preg_match('/Disallow:\s*\/create/', $block),
+        'Auch nicht fest eingetragen');
+
+    // Was dort stehen darf, steht auch weiterhin dort.
+    foreach (['/vorschau/', '/api/', '/assistant/', '/worker/'] as $pfad) {
+        ok(str_contains($block, 'Disallow: ' . $pfad),
+            'Weiterhin gesperrt: ' . $pfad);
+    }
+
+    // Und die Seiten selbst müssen den Index von sich aus fernhalten –
+    // das ist die Zusage, die den Disallow-Eintrag überflüssig macht.
+    $response = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Core/Response.php'
+    );
+    ok(str_contains($response, "'X-Robots-Tag', 'noindex, nofollow, noarchive'"),
+        'noIndex() schickt X-Robots-Tag');
+
+    foreach (['layouts/admin.php', 'layouts/bare.php'] as $layout) {
+        $html = (string) file_get_contents(
+            dirname(__DIR__) . '/public_html/app/Views/' . $layout
+        );
+        ok(str_contains($html, 'name="robots" content="noindex, nofollow, noarchive"'),
+            $layout . ' trägt die Meta-Angabe');
+    }
+});
+
+// ==================================================================
 test('Eingabeprüfung weist ab, was nicht passt', function (): void {
     $prüfung = Validator::make([
         'name' => '',

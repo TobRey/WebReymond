@@ -100,11 +100,23 @@ final class SiteController
 
     public function robots(Request $request): Response
     {
+        // Der versteckte Bereich steht hier bewusst NICHT.
+        //
+        // robots.txt ist für jeden abrufbar. Wer den Pfad hier hineinschreibt,
+        // verrät damit genau die Adresse, die niemand kennen soll – eine
+        // Zeile, und der versteckte Bereich ist nicht mehr versteckt.
+        //
+        // Nötig ist sie auch nicht: Alle Antworten dort tragen
+        // "X-Robots-Tag: noindex, nofollow, noarchive" und die Seiten
+        // zusätzlich dasselbe als Meta-Angabe. Das ist die stärkere Zusage,
+        // denn "Disallow" verhindert nur das Abrufen durch die Suchmaschine,
+        // nicht die Aufnahme einer Adresse, die sie anderswo aufgelesen hat.
+        //
+        // Die übrigen Pfade sind fest und ohnehin bekannt; sie zu nennen
+        // verrät nichts.
         $lines = [
             'User-agent: *',
             'Allow: /',
-            // Der versteckte Bereich und die Vorschauen gehören nicht in den Index.
-            'Disallow: /' . trim((string) Config::get('create_path', 'create'), '/'),
             'Disallow: /vorschau/',
             'Disallow: /api/',
             'Disallow: /assistant/',
