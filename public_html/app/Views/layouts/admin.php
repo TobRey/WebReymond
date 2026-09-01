@@ -18,8 +18,15 @@ use WebAtze\Core\{Assets, Config, Csrf};
 $title = $title ?? 'Verwaltung';
 $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
 
+// Die Navigation in zwei Bloecken: erst das Tagesgeschaeft mit Kunden,
+// dann das Werkzeug fuer die Websites. Wer morgens hereinkommt, will
+// wissen, was ansteht - nicht, welche Vorlage es gibt.
 $nav = [
     ['/start', 'Übersicht', 'grid'],
+    ['/kunden', 'Kunden', 'users'],
+    ['/kalender', 'Kalender', 'calendar'],
+    ['/buchhaltung', 'Buchhaltung', 'coins'],
+    ['/mitarbeitende', 'Mitarbeitende', 'user'],
     ['/neu', 'Neue Website', 'plus'],
     ['/anfragen', 'Anfragen', 'inbox'],
     ['/support', 'Support', 'chat'],

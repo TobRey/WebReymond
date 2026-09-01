@@ -34,6 +34,9 @@ final class Pdf
 
     private string $title;
 
+    /** Die eingebetteten Bilder, nach Name. */
+    private array $images = [];
+
     public function __construct(string $title = '')
     {
         $this->title = $title;
@@ -147,6 +150,93 @@ final class Pdf
     }
 
     /** Die fertige Datei. */
+    /**
+     * Ein Bild setzen – für den Briefkopf.
+     *
+     * Nur JPEG, und das mit Absicht: JPEG-Daten lassen sich unverändert
+     * in ein PDF legen (DCTDecode), ohne dass hier ein Bildformat
+     * nachgebaut werden müsste. Alles andere wird beim Hochladen über
+     * GD nach JPEG umgewandelt – das ist ehrlicher als ein halbfertiger
+     * PNG-Dekodierer, der irgendwann an einer Datei scheitert.
+     *
+     * Masse in Punkten, wie überall in dieser Klasse.
+     *
+     * @param float $breite gewünschte Breite; die Höhe ergibt sich aus
+     *                      dem Seitenverhältnis des Bildes
+     * @return float die belegte Höhe
+     */
+    public function image(string $jpegDaten, float $x, float $top, float $breite): float
+    {
+        $masse = self::jpegSize($jpegDaten);
+
+        if ($masse === null) {
+            return 0.0;
+        }
+
+        [$bx, $by] = $masse;
+        $hoehe = $breite * ($by / max(1, $bx));
+
+        $name = 'Im' . (count($this->images) + 1);
+        $this->images[$name] = $jpegDaten;
+
+        // PDF rechnet von unten, wir von oben.
+        $unten = self::HEIGHT - $top - $hoehe;
+
+        $this->current .= sprintf(
+            "q %.2F 0 0 %.2F %.2F %.2F cm /%s Do Q\n",
+            $breite,
+            $hoehe,
+            $x,
+            $unten,
+            $name
+        );
+
+        return $hoehe;
+    }
+
+    /**
+     * Breite und Höhe eines JPEG, ohne GD.
+     *
+     * Gelesen wird der SOF-Abschnitt. Ohne diese Angaben liesse sich das
+     * Seitenverhältnis nicht halten, und ein verzerrtes Logo im
+     * Briefkopf fällt sofort auf.
+     *
+     * @return array{0:int, 1:int}|null
+     */
+    private static function jpegSize(string $daten): ?array
+    {
+        $laenge = strlen($daten);
+
+        if ($laenge < 4 || substr($daten, 0, 2) !== "\xFF\xD8") {
+            return null;
+        }
+
+        $i = 2;
+
+        while ($i < $laenge - 9) {
+            if ($daten[$i] !== "\xFF") {
+                $i++;
+                continue;
+            }
+
+            $marker = ord($daten[$i + 1]);
+
+            // SOF0 bis SOF15, ohne DHT/JPG/DAC dazwischen.
+            if ($marker >= 0xC0 && $marker <= 0xCF
+                && $marker !== 0xC4 && $marker !== 0xC8 && $marker !== 0xCC) {
+                $hoehe = (ord($daten[$i + 5]) << 8) + ord($daten[$i + 6]);
+                $breite = (ord($daten[$i + 7]) << 8) + ord($daten[$i + 8]);
+
+                return $breite > 0 && $hoehe > 0 ? [$breite, $hoehe] : null;
+            }
+
+            $bloecke = (ord($daten[$i + 2]) << 8) + ord($daten[$i + 3]);
+            $i += 2 + max(2, $bloecke);
+        }
+
+        return null;
+    }
+
     public function output(): string
     {
         $pages = $this->pages;
@@ -173,6 +263,22 @@ final class Pdf
         $fontRegular = 3 + $count * 2;
         $fontBold = $fontRegular + 1;
 
+        // Die Bilder bekommen die Nummern danach.
+        $bildIds = [];
+        $naechste = $fontBold + 1;
+
+        foreach (array_keys($this->images) as $name) {
+            $bildIds[$name] = $naechste++;
+        }
+
+        $xobjects = '';
+
+        foreach ($bildIds as $name => $nummer) {
+            $xobjects .= '/' . $name . ' ' . $nummer . ' 0 R ';
+        }
+
+        $resXObject = $xobjects !== '' ? ' /XObject << ' . trim($xobjects) . ' >>' : '';
+
         $objects[1] = '<< /Type /Catalog /Pages 2 0 R >>';
         $objects[2] = '<< /Type /Pages /Kids [' . implode(' ', $kids) . '] /Count ' . $count . ' >>';
 
@@ -182,7 +288,8 @@ final class Pdf
 
             $objects[$pageId] = '<< /Type /Page /Parent 2 0 R'
                 . sprintf(' /MediaBox [0 0 %.2F %.2F]', self::WIDTH, self::HEIGHT)
-                . ' /Resources << /Font << /F1 ' . $fontRegular . ' 0 R /F2 ' . $fontBold . ' 0 R >> >>'
+                . ' /Resources << /Font << /F1 ' . $fontRegular . ' 0 R /F2 ' . $fontBold . ' 0 R >>'
+                . $resXObject . ' >>'
                 . ' /Contents ' . $contentId . ' 0 R >>';
 
             $objects[$contentId] = '<< /Length ' . strlen($content) . " >>\nstream\n" . $content . "endstream";
@@ -191,7 +298,17 @@ final class Pdf
         $objects[$fontRegular] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
         $objects[$fontBold] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
 
-        $infoId = $fontBold + 1;
+        foreach ($bildIds as $name => $nummer) {
+            $daten = $this->images[$name];
+            $masse = self::jpegSize($daten) ?? [1, 1];
+
+            $objects[$nummer] = '<< /Type /XObject /Subtype /Image'
+                . ' /Width ' . $masse[0] . ' /Height ' . $masse[1]
+                . ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode'
+                . ' /Length ' . strlen($daten) . " >>\nstream\n" . $daten . "\nendstream";
+        }
+
+        $infoId = $naechste;
         $objects[$infoId] = '<< /Title (' . self::escape($this->title) . ') /Producer (WebAtze) /CreationDate (D:'
             . date('YmdHis') . "+00'00') >>";
 

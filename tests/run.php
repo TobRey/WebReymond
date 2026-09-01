@@ -1267,6 +1267,217 @@ test('Ein Abbruch mitten in der Seite wirft nichts weg', function (): void {
 });
 
 // ==================================================================
+test('Monatliche Posten werden jeden Monat wieder faellig', function (): void {
+    // Der Kern der Kundenverwaltung. Ein Kunde hat mehrere Kostenposten
+    // mit eigenem Rhythmus: Aufbau einmal, Domain jaehrlich, Wartung
+    // monatlich. "Zuruecksetzen" waere hier falsch - das wuerde die
+    // Vergangenheit loeschen, und dann liesse sich nicht mehr sagen, ob
+    // der Kunde im Mai bezahlt hat. Stattdessen gibt es je Periode einen
+    // eigenen Eintrag.
+    $kunde = (int) \WebAtze\Core\Db::insert('customers', [
+        'name' => 'Probe ' . bin2hex(random_bytes(3)),
+        'status' => 'aktiv',
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $posten = [];
+
+    foreach ([['Aufbau', 'aufbau', 380000, 'einmalig'],
+              ['Wartung', 'wartung', 4900, 'monatlich'],
+              ['Domain', 'domain', 1800, 'jaehrlich']] as [$l, $a, $b, $i]) {
+        $posten[$i] = (int) \WebAtze\Core\Db::insert('charges', [
+            'customer_id' => $kunde, 'label' => $l, 'kind' => $a,
+            'amount_rappen' => $b, 'interval' => $i, 'active' => 1,
+            'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+        ]);
+    }
+
+    $stand = \WebAtze\Domain\Billing::statusOf($kunde);
+
+    is(386700, $stand['offen_rappen'], 'Am Anfang ist alles offen');
+    is(4900, $stand['monatlich_rappen'], 'Die monatliche Summe stimmt');
+    is(1800, $stand['jaehrlich_rappen'], 'Die jaehrliche auch');
+
+    // Wartung abhaken.
+    \WebAtze\Domain\Billing::markPaid($posten['monatlich']);
+    $stand = \WebAtze\Domain\Billing::statusOf($kunde);
+    is(381800, $stand['offen_rappen'], 'Nach dem Abhaken ist die Wartung raus');
+
+    // Zweimal abhaken darf keine zweite Zahlung erzeugen - sonst stimmt
+    // die Buchhaltung nicht mehr.
+    \WebAtze\Domain\Billing::markPaid($posten['monatlich']);
+    is(1, (int) \WebAtze\Core\Db::value(
+        'SELECT COUNT(*) FROM payments WHERE charge_id = :c',
+        ['c' => $posten['monatlich']], 0
+    ), 'Zweimal abhaken bleibt eine Zahlung');
+
+    // Naechster Monat: wieder offen, aber die Zahlung von diesem Monat
+    // bleibt in der Historie.
+    $naechster = date('Y-m-15', strtotime('+1 month') ?: time());
+    $spaeter = \WebAtze\Domain\Billing::statusOf($kunde, $naechster);
+
+    $wartung = null;
+    foreach ($spaeter['posten'] as $p) {
+        if ((string) $p['kind'] === 'wartung') { $wartung = $p; }
+    }
+
+    ok($wartung !== null && !$wartung['bezahlt'], 'Naechsten Monat ist die Wartung wieder offen');
+    is(1, (int) \WebAtze\Core\Db::value(
+        'SELECT COUNT(*) FROM payments WHERE charge_id = :c',
+        ['c' => $posten['monatlich']], 0
+    ), 'Und die Zahlung von diesem Monat steht noch in der Historie');
+
+    // Das Jahr darauf gilt dasselbe fuer die Domain.
+    \WebAtze\Domain\Billing::markPaid($posten['jaehrlich']);
+    $naechstesJahr = date('Y-m-d', strtotime('+1 year') ?: time());
+    $domain = null;
+
+    foreach (\WebAtze\Domain\Billing::statusOf($kunde, $naechstesJahr)['posten'] as $p) {
+        if ((string) $p['kind'] === 'domain') { $domain = $p; }
+    }
+
+    ok($domain !== null && !$domain['bezahlt'], 'Naechstes Jahr ist die Domain wieder offen');
+
+    // Einmaliges bleibt bezahlt, fuer immer.
+    \WebAtze\Domain\Billing::markPaid($posten['einmalig']);
+    $aufbau = null;
+
+    foreach (\WebAtze\Domain\Billing::statusOf($kunde, $naechstesJahr)['posten'] as $p) {
+        if ((string) $p['kind'] === 'aufbau') { $aufbau = $p; }
+    }
+
+    ok($aufbau !== null && $aufbau['bezahlt'], 'Einmaliges bleibt bezahlt');
+
+    // Ein Posten mit Enddatum in der Vergangenheit faellt nicht mehr an.
+    \WebAtze\Core\Db::update('charges', ['ends_on' => date('Y-m-d', strtotime('-1 day') ?: time())],
+        'id = :id', ['id' => $posten['monatlich']]);
+
+    foreach (\WebAtze\Domain\Billing::statusOf($kunde)['posten'] as $p) {
+        if ((string) $p['kind'] === 'wartung') {
+            ok(!$p['faellig'], 'Ein gekuendigter Posten steht nicht mehr als offen da');
+        }
+    }
+
+    // Rappen rein, Rappen raus.
+    is(125050, \WebAtze\Domain\Billing::toRappen("1'250.50"), 'Betraege werden in Rappen gefuehrt');
+    is(4900, \WebAtze\Domain\Billing::toRappen('49'), 'Auch ohne Nachkommastellen');
+    is("1'250.50", \WebAtze\Domain\Billing::money(125050), 'Und wieder lesbar zurueck');
+
+    \WebAtze\Core\Db::delete('payments', 'customer_id = :c', ['c' => $kunde]);
+    \WebAtze\Core\Db::delete('charges', 'customer_id = :c', ['c' => $kunde]);
+    \WebAtze\Core\Db::delete('customers', 'id = :c', ['c' => $kunde]);
+});
+
+// ==================================================================
+test('Der Kalender ist ein vollstaendiges Raster', function (): void {
+    // Ein Monat als Wochen zu sieben Tagen. Loecher im Raster faellt
+    // sofort auf, deshalb sind die Tage aus Vor- und Folgemonat dabei.
+    foreach (['2026-01', '2026-02', '2026-09', '2027-02'] as $monat) {
+        $wochen = \WebAtze\Domain\Calendar::month($monat);
+
+        ok(count($wochen) >= 4 && count($wochen) <= 6,
+            $monat . ': vier bis sechs Wochen (' . count($wochen) . ')');
+
+        foreach ($wochen as $nummer => $woche) {
+            is(7, count($woche), $monat . ': Woche ' . ($nummer + 1) . ' hat sieben Tage');
+        }
+
+        // Jeder Tag des Monats muss genau einmal vorkommen.
+        $eigene = [];
+
+        foreach ($wochen as $woche) {
+            foreach ($woche as $tag) {
+                if (!$tag['fremd']) { $eigene[] = (int) $tag['nummer']; }
+            }
+        }
+
+        $tageImMonat = (int) date('t', strtotime($monat . '-01') ?: time());
+
+        is($tageImMonat, count($eigene), $monat . ': alle Tage sind da');
+        is(range(1, $tageImMonat), $eigene, $monat . ': und jeder genau einmal, der Reihe nach');
+    }
+
+    // Die Woche beginnt am Montag - in der Schweiz beginnt sie am Montag.
+    $erste = \WebAtze\Domain\Calendar::month('2026-09')[0][0];
+    is('1', date('N', strtotime((string) $erste['datum']) ?: time()),
+        'Die Woche faengt am Montag an');
+
+    is('2025-12', \WebAtze\Domain\Calendar::previous('2026-01'), 'Der Monat davor stimmt');
+    is('2027-01', \WebAtze\Domain\Calendar::next('2026-12'), 'Der danach auch');
+    ok(str_contains(\WebAtze\Domain\Calendar::title('2026-09'), 'September'), 'Der Titel ist lesbar');
+});
+
+// ==================================================================
+test('Die Word-Vorlage wird ausgelesen, nicht nachgebaut', function (): void {
+    // Eine .docx laesst sich auf geteiltem Hosting nicht in ein PDF
+    // verwandeln - dafuer braeuchte es LibreOffice auf dem Server. Also
+    // der ehrliche Weg: Absenderzeilen und Logo herauslesen, den Rest
+    // selbst setzen.
+    $pfad = sys_get_temp_dir() . '/webatze-vorlage-' . bin2hex(random_bytes(4)) . '.docx';
+
+    $zip = new ZipArchive();
+    $zip->open($pfad, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+
+    $absaetze = ['WebAtze', 'Tobias Reymond', 'Musterstrasse 12', '3000 Bern'];
+    $xml = '<?xml version="1.0"?><w:document xmlns:w="x"><w:body>';
+
+    foreach ($absaetze as $a) {
+        // Word zerlegt einen Satz gern in mehrere Stuecke - genau das
+        // muss der Leser wieder zusammensetzen.
+        $xml .= '<w:p><w:r><w:t>' . mb_substr($a, 0, 3) . '</w:t></w:r>'
+            . '<w:r><w:t>' . mb_substr($a, 3) . '</w:t></w:r></w:p>';
+    }
+
+    $zip->addFromString('word/document.xml', $xml . '</w:body></w:document>');
+
+    $bild = imagecreatetruecolor(300, 90);
+    imagefilledrectangle($bild, 0, 0, 300, 90, imagecolorallocate($bild, 43, 27, 158));
+    ob_start();
+    imagepng($bild);
+    $zip->addFromString('word/media/image1.png', (string) ob_get_clean());
+    imagedestroy($bild);
+    $zip->close();
+
+    $vorher = (string) \WebAtze\Core\Settings::get('letterhead_lines', '');
+
+    $ergebnis = \WebAtze\Domain\Letterhead::importTemplate($pfad, 'briefpapier.docx');
+
+    ok($ergebnis['ok'], 'Die Vorlage wird angenommen');
+    is($absaetze, $ergebnis['zeilen'], 'Die zerstueckelten Absaetze werden zusammengesetzt');
+    ok($ergebnis['logo'], 'Und das Logo herausgeholt');
+    ok(\WebAtze\Domain\Letterhead::hasLogo(), 'Es liegt danach bereit');
+    ok(\WebAtze\Domain\Letterhead::hasTemplate(), 'Die Vorlage bleibt hinterlegt');
+
+    // Das Logo muss JPEG sein - nur das wandert unveraendert ins PDF.
+    $logo = \WebAtze\Domain\Letterhead::logoData();
+    is("\xFF\xD8", substr($logo, 0, 2), 'Das Logo wurde nach JPEG gewandelt');
+
+    // Und es muss sich wirklich in ein PDF setzen lassen.
+    $pdf = new \WebAtze\Core\Pdf('Probe');
+    $pdf->addPage();
+    $hoehe = $pdf->image($logo, 56, 56, 120);
+
+    ok($hoehe > 0, 'Das Bild hat eine Hoehe (' . round($hoehe, 1) . ')');
+
+    $daten = $pdf->output();
+
+    ok(str_contains($daten, 'DCTDecode'), 'Das PDF traegt das Bild');
+    ok(str_contains($daten, '/XObject'), 'Und meldet es als Ressource an');
+    ok(str_ends_with(trim($daten), '%%EOF'), 'Das PDF ist vollstaendig');
+
+    // Eine .doc aus alten Word-Fassungen geht nicht - das muss gesagt
+    // werden, nicht stillschweigend scheitern.
+    $alt = \WebAtze\Domain\Letterhead::importTemplate($pfad, 'alt.doc');
+    ok(!$alt['ok'], 'Eine .doc wird abgelehnt');
+    ok(str_contains($alt['meldung'], '.docx'), 'Und der Weg genannt');
+
+    @unlink($pfad);
+    \WebAtze\Domain\Letterhead::removeLogo();
+    \WebAtze\Domain\Letterhead::removeTemplate();
+    \WebAtze\Core\Settings::put('letterhead_lines', $vorher);
+});
+
+// ==================================================================
 test('Der Auftragstext ist vollstaendig', function (): void {
     // Der Weg ohne Schnittstelle: Das Formular erzeugt einen Text, der
     // von Hand eingefuegt wird. Damit faellt die ganze Kette weg, an der

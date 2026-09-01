@@ -175,7 +175,6 @@ foreach ($diagnostics as $check) {
                 </span>
             </div>
         </fieldset>
-
         <?php
             $ueberlebt = (int) \WebAtze\Core\Settings::get('worker_survival_seconds', '0');
             $grenze = (string) ini_get('max_execution_time');
@@ -296,6 +295,95 @@ foreach ($diagnostics as $check) {
         </div>
     </form>
 </section>
+
+<?php $briefkopf = \WebAtze\Domain\Letterhead::current(); ?>
+
+<section class="wa-panel">
+    <h2 class="wa-panel__title">Briefkopf für Offerten und Rechnungen</h2>
+
+    <p class="wa-panel__hint">
+        Lade deine Word-Vorlage hoch &ndash; daraus werden Absenderzeilen und Logo
+        übernommen. Sie bleibt hinterlegt, bis du eine andere hochlädst.
+    </p>
+
+    <p class="wa-panel__hint">
+        <strong>Ehrlich gesagt:</strong> Eine .docx lässt sich auf deinem Hosting nicht
+        in ein PDF verwandeln &ndash; dafür bräuchte es LibreOffice auf dem Server.
+        WebAtze liest deshalb Absender und Logo aus der Vorlage und setzt das PDF
+        selbst. Was dabei nicht stimmt, korrigierst du unten von Hand.
+    </p>
+
+    <form method="post" action="<?= e($base) ?>/einstellungen" enctype="multipart/form-data" class="wa-form">
+        <?= \WebAtze\Core\Csrf::field() ?>
+        <input type="hidden" name="action" value="briefkopf">
+
+        <div class="wa-form__grid">
+            <div class="wa-field">
+                <label class="wa-label" for="vorlage">Word-Vorlage (.docx)</label>
+                <input class="wa-input" type="file" id="vorlage" name="vorlage" accept=".docx">
+                <span class="wa-label__hint">
+                    <?= \WebAtze\Domain\Letterhead::hasTemplate()
+                        ? 'Eine Vorlage ist hinterlegt.' : 'Noch keine hinterlegt.' ?>
+                </span>
+            </div>
+
+            <div class="wa-field">
+                <label class="wa-label" for="logo">Logo einzeln (PNG oder JPEG)</label>
+                <input class="wa-input" type="file" id="logo" name="logo" accept="image/*">
+                <span class="wa-label__hint">
+                    <?= \WebAtze\Domain\Letterhead::hasLogo()
+                        ? 'Ein Logo ist hinterlegt.' : 'Noch keines hinterlegt.' ?>
+                </span>
+            </div>
+
+            <div class="wa-field">
+                <label class="wa-label" for="letterhead_logo_width">Logobreite</label>
+                <input class="wa-input" type="number" id="letterhead_logo_width"
+                       name="letterhead_logo_width" min="40" max="220"
+                       value="<?= (int) $briefkopf['logo_breite'] ?>">
+                <span class="wa-label__hint">In Punkten. 120 ist eine gute Ausgangsgrösse.</span>
+            </div>
+
+            <div class="wa-field wa-field--wide">
+                <label class="wa-label" for="letterhead_lines">Absenderzeilen</label>
+                <textarea class="wa-textarea" id="letterhead_lines" name="letterhead_lines"
+                          rows="6"><?= e(implode("\n", $briefkopf['zeilen'])) ?></textarea>
+                <span class="wa-label__hint">
+                    Eine Zeile je Zeile. Erscheint klein unter dem Logo.
+                </span>
+            </div>
+        </div>
+
+        <div class="wa-form__actions">
+            <button type="submit" class="wa-btn wa-btn--primary">Briefkopf speichern</button>
+        </div>
+    </form>
+
+    <?php if (\WebAtze\Domain\Letterhead::hasLogo() || \WebAtze\Domain\Letterhead::hasTemplate()): ?>
+        <div class="wa-form__actions">
+            <?php if (\WebAtze\Domain\Letterhead::hasLogo()): ?>
+                <form method="post" action="<?= e($base) ?>/einstellungen"
+                      data-confirm="Logo entfernen?">
+                    <?= \WebAtze\Core\Csrf::field() ?>
+                    <input type="hidden" name="action" value="briefkopf">
+                    <input type="hidden" name="entfernen" value="logo">
+                    <button type="submit" class="wa-btn wa-btn--small">Logo entfernen</button>
+                </form>
+            <?php endif; ?>
+
+            <?php if (\WebAtze\Domain\Letterhead::hasTemplate()): ?>
+                <form method="post" action="<?= e($base) ?>/einstellungen"
+                      data-confirm="Vorlage entfernen?">
+                    <?= \WebAtze\Core\Csrf::field() ?>
+                    <input type="hidden" name="action" value="briefkopf">
+                    <input type="hidden" name="entfernen" value="vorlage">
+                    <button type="submit" class="wa-btn wa-btn--small">Vorlage entfernen</button>
+                </form>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+</section>
+
 
 <?php /* ------------------------------------------------------ Zweiter Faktor */ ?>
 <section class="wa-panel">

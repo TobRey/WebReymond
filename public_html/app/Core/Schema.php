@@ -532,6 +532,134 @@ final class Schema
                 ALTER TABLE projects ADD COLUMN report_sent_on {string:10} NOT NULL DEFAULT \'\';
                 ALTER TABLE projects ADD COLUMN visits_synced_at {datetime} NULL;
             ',
+
+            // ------------------------------------------------- Unternehmen
+            //
+            // Bis hierher kannte WebAtze nur Projekte. Ein Kunde ist aber
+            // mehr als ein Projekt: Er hat wiederkehrende Kosten, offene
+            // Aufgaben, Termine, und irgendwann zahlt er - oder eben nicht.
+            // Das alles stand bisher auf Zetteln.
+            '030_customers' => '
+                CREATE TABLE IF NOT EXISTS customers (
+                    id {id},
+                    name {string:191} NOT NULL,
+                    contact_name {string:191} NOT NULL DEFAULT \'\',
+                    email {string:191} NOT NULL DEFAULT \'\',
+                    phone {string:60} NOT NULL DEFAULT \'\',
+                    address {text} NULL,
+                    website {string:191} NOT NULL DEFAULT \'\',
+                    project_id {int} NULL,
+                    employee_id {int} NULL,
+                    status {string:20} NOT NULL DEFAULT \'aktiv\',
+                    notes {text} NULL,
+                    created_at {datetime} NOT NULL,
+                    updated_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_customers_status ON customers (status, name);
+                CREATE INDEX IF NOT EXISTS idx_customers_project ON customers (project_id);
+
+                CREATE TABLE IF NOT EXISTS employees (
+                    id {id},
+                    name {string:191} NOT NULL,
+                    email {string:191} NOT NULL DEFAULT \'\',
+                    phone {string:60} NOT NULL DEFAULT \'\',
+                    role {string:120} NOT NULL DEFAULT \'\',
+                    hourly_rappen {int} NOT NULL DEFAULT 0,
+                    active {bool} NOT NULL DEFAULT 1,
+                    notes {text} NULL,
+                    created_at {datetime} NOT NULL,
+                    updated_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_employees_active ON employees (active, name);
+            ',
+
+            // Ein Kostenposten je Zeile: Aufbau, Domain, Wartung, was auch
+            // immer. Jeder mit eigenem Betrag und eigenem Rhythmus - das
+            // ist der Punkt, an dem eine Tabellenkalkulation aufgibt.
+            '031_charges' => '
+                CREATE TABLE IF NOT EXISTS charges (
+                    id {id},
+                    customer_id {int} NOT NULL,
+                    label {string:191} NOT NULL,
+                    kind {string:30} NOT NULL DEFAULT \'weiteres\',
+                    amount_rappen {int} NOT NULL DEFAULT 0,
+                    interval {string:20} NOT NULL DEFAULT \'einmalig\',
+                    starts_on {string:10} NOT NULL DEFAULT \'\',
+                    ends_on {string:10} NOT NULL DEFAULT \'\',
+                    active {bool} NOT NULL DEFAULT 1,
+                    note {string:255} NOT NULL DEFAULT \'\',
+                    created_at {datetime} NOT NULL,
+                    updated_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_charges_customer ON charges (customer_id, active);
+
+                CREATE TABLE IF NOT EXISTS payments (
+                    id {id},
+                    customer_id {int} NOT NULL,
+                    charge_id {int} NULL,
+                    period {string:7} NOT NULL DEFAULT \'\',
+                    label {string:191} NOT NULL DEFAULT \'\',
+                    amount_rappen {int} NOT NULL DEFAULT 0,
+                    paid_on {string:10} NOT NULL DEFAULT \'\',
+                    method {string:40} NOT NULL DEFAULT \'\',
+                    note {string:255} NOT NULL DEFAULT \'\',
+                    created_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_payments_customer ON payments (customer_id, paid_on);
+                CREATE INDEX IF NOT EXISTS idx_payments_charge ON payments (charge_id, period);
+            ',
+
+            // Rechnungen kannten bisher nur Projekte. Ein Kunde kann aber
+            // mehrere Projekte haben - und eine Rechnung fuer Domain und
+            // Wartung gehoert zu gar keinem.
+            '033_documents_customer' => '
+                ALTER TABLE documents ADD COLUMN customer_id {int} NULL;
+            ',
+
+            '032_tasks' => '
+                CREATE TABLE IF NOT EXISTS todos (
+                    id {id},
+                    customer_id {int} NULL,
+                    employee_id {int} NULL,
+                    title {string:255} NOT NULL,
+                    note {text} NULL,
+                    due_on {string:10} NOT NULL DEFAULT \'\',
+                    priority {string:10} NOT NULL DEFAULT \'normal\',
+                    done_at {datetime} NULL,
+                    created_at {datetime} NOT NULL,
+                    updated_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_todos_customer ON todos (customer_id, done_at);
+                CREATE INDEX IF NOT EXISTS idx_todos_due ON todos (due_on);
+
+                CREATE TABLE IF NOT EXISTS appointments (
+                    id {id},
+                    customer_id {int} NULL,
+                    employee_id {int} NULL,
+                    title {string:255} NOT NULL,
+                    note {text} NULL,
+                    starts_at {string:16} NOT NULL DEFAULT \'\',
+                    ends_at {string:16} NOT NULL DEFAULT \'\',
+                    place {string:191} NOT NULL DEFAULT \'\',
+                    created_at {datetime} NOT NULL,
+                    updated_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_appointments_start ON appointments (starts_at);
+                CREATE INDEX IF NOT EXISTS idx_appointments_customer ON appointments (customer_id);
+
+                CREATE TABLE IF NOT EXISTS expenses (
+                    id {id},
+                    label {string:191} NOT NULL,
+                    category {string:60} NOT NULL DEFAULT \'sonstiges\',
+                    amount_rappen {int} NOT NULL DEFAULT 0,
+                    spent_on {string:10} NOT NULL DEFAULT \'\',
+                    recurring {string:20} NOT NULL DEFAULT \'einmalig\',
+                    note {string:255} NOT NULL DEFAULT \'\',
+                    created_at {datetime} NOT NULL,
+                    updated_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses (spent_on);
+            ',
         ];
     }
 

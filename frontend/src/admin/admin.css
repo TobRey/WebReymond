@@ -1378,3 +1378,333 @@ fieldset.wa-fieldset { border: 1px solid var(--wa-border); margin: 0; }
     transparent 60%
   );
 }
+
+/* ================================================================== */
+/* Unternehmensverwaltung                                              */
+/* ================================================================== */
+
+/* Kennzahlen oben: die drei bis vier Zahlen, wegen denen man die
+   Seite ueberhaupt oeffnet. */
+.wa-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--wa-space-3);
+  margin-block-end: var(--wa-space-5);
+}
+
+.wa-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: var(--wa-space-4);
+  border: 1px solid var(--wa-border);
+  border-radius: var(--wa-radius-sm);
+  background: var(--wa-surface);
+}
+
+.wa-tile--warn { border-color: var(--wa-danger); }
+
+.wa-tile__label {
+  font-size: var(--wa-text-sm);
+  color: var(--wa-text-muted);
+}
+
+.wa-tile__value {
+  font-size: var(--wa-text-xl);
+  font-weight: var(--wa-weight-bold);
+  color: var(--wa-text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tabellen muessen auf dem Handy scrollen duerfen, nicht die Seite. */
+.wa-table-wrap {
+  overflow-x: auto;
+  margin-inline: calc(var(--wa-space-4) * -1);
+  padding-inline: var(--wa-space-4);
+}
+
+.wa-table__num {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.wa-table__main {
+  color: var(--wa-text-strong);
+  font-weight: var(--wa-weight-medium);
+  text-decoration: none;
+}
+
+.wa-table__main:hover { text-decoration: underline; }
+
+.wa-table__quiet {
+  color: var(--wa-text-muted);
+  font-size: var(--wa-text-sm);
+}
+
+.wa-table__actions {
+  display: flex;
+  gap: var(--wa-space-2);
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+tr.is-inactive { opacity: 0.55; }
+
+.wa-warn { color: var(--wa-danger); }
+.wa-ok { color: var(--wa-secondary); font-size: var(--wa-text-sm); }
+
+/* Das Haekchen "bezahlt". Gross genug zum Treffen, auch mit dem
+   Daumen - hier wird oft und schnell geklickt. */
+.wa-check {
+  min-inline-size: 6rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--wa-border);
+  border-radius: var(--wa-radius-full);
+  background: var(--wa-surface-glass);
+  color: var(--wa-text-muted);
+  font-size: var(--wa-text-sm);
+  cursor: pointer;
+  transition: border-color var(--wa-dur-fast) var(--wa-ease-out),
+              color var(--wa-dur-fast) var(--wa-ease-out),
+              background-color var(--wa-dur-fast) var(--wa-ease-out);
+}
+
+.wa-check:hover { border-color: var(--wa-border-strong); color: var(--wa-text-strong); }
+
+.wa-check.is-paid {
+  border-color: var(--wa-secondary);
+  color: var(--wa-secondary);
+  background: color-mix(in srgb, var(--wa-secondary) 10%, transparent);
+}
+
+/* Formulare im Raster: zwei Spalten, auf schmalen Schirmen eine. */
+.wa-form__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--wa-space-4);
+}
+
+@media (min-width: 46rem) {
+  .wa-form__grid { grid-template-columns: 1fr 1fr; }
+  .wa-field--wide { grid-column: 1 / -1; }
+}
+
+.wa-form--inline {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--wa-space-3);
+  align-items: end;
+  padding-block: var(--wa-space-3);
+}
+
+.wa-form--inline .wa-form__actions { grid-column: 1 / -1; }
+
+.wa-form__danger {
+  margin-block-start: var(--wa-space-5);
+  padding-block-start: var(--wa-space-4);
+  border-block-start: 1px solid var(--wa-border);
+}
+
+.wa-btn--danger {
+  border-color: var(--wa-danger);
+  color: var(--wa-danger);
+}
+
+.wa-btn--small {
+  padding: 0.35rem 0.7rem;
+  font-size: var(--wa-text-sm);
+}
+
+.wa-check-line {
+  display: flex;
+  align-items: center;
+  gap: var(--wa-space-2);
+  color: var(--wa-text);
+  font-size: var(--wa-text-sm);
+  cursor: pointer;
+}
+
+.wa-details {
+  margin-block-start: var(--wa-space-4);
+  padding-block-start: var(--wa-space-3);
+  border-block-start: 1px solid var(--wa-border);
+}
+
+.wa-details > summary {
+  cursor: pointer;
+  color: var(--wa-text-muted);
+  font-size: var(--wa-text-sm);
+}
+
+.wa-details > summary:hover { color: var(--wa-text-strong); }
+
+.wa-list { margin: 0; padding: 0; list-style: none; }
+
+.wa-list__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wa-space-3);
+  padding-block: var(--wa-space-3);
+  border-block-start: 1px solid var(--wa-border);
+}
+
+.wa-list__row:first-child { border-block-start: 0; }
+
+/* Aufgaben */
+.wa-todos { margin: 0; padding: 0; list-style: none; }
+
+.wa-todo {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--wa-space-3);
+  padding-block: var(--wa-space-3);
+  border-block-start: 1px solid var(--wa-border);
+}
+
+.wa-todo:first-child { border-block-start: 0; }
+.wa-todo.is-done .wa-todo__title { text-decoration: line-through; color: var(--wa-text-faint); }
+
+.wa-todo__check {
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  flex-shrink: 0;
+  border: 1px solid var(--wa-border-strong);
+  border-radius: var(--wa-radius-sm);
+  background: none;
+  color: var(--wa-secondary);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.wa-todo__body { flex: 1; min-inline-size: 0; }
+.wa-todo__title { color: var(--wa-text-strong); margin-inline-end: var(--wa-space-2); }
+.wa-todo__note { margin: 0.3rem 0 0; color: var(--wa-text-muted); font-size: var(--wa-text-sm); }
+
+/* Kalender */
+.wa-monthnav {
+  display: flex;
+  align-items: center;
+  gap: var(--wa-space-3);
+}
+
+.wa-cal {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--wa-border);
+  border: 1px solid var(--wa-border);
+  border-radius: var(--wa-radius-sm);
+  overflow: hidden;
+}
+
+.wa-cal__head {
+  padding: var(--wa-space-2);
+  background: var(--wa-bg-soft);
+  color: var(--wa-text-muted);
+  font-size: var(--wa-text-sm);
+  text-align: center;
+}
+
+.wa-cal__day {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-block-size: 5.5rem;
+  padding: var(--wa-space-2);
+  background: var(--wa-surface);
+}
+
+.wa-cal__day.is-other { background: var(--wa-bg-soft); }
+.wa-cal__day.is-weekend .wa-cal__num { color: var(--wa-text-faint); }
+
+.wa-cal__day.is-today {
+  outline: 2px solid var(--wa-secondary);
+  outline-offset: -2px;
+}
+
+.wa-cal__num {
+  font-size: var(--wa-text-sm);
+  color: var(--wa-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.wa-cal__day.is-today .wa-cal__num { color: var(--wa-secondary); font-weight: var(--wa-weight-bold); }
+
+.wa-cal__item {
+  display: block;
+  padding: 0.15rem 0.35rem;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--wa-accent) 22%, transparent);
+  color: var(--wa-text-strong);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wa-cal__item--todo { background: color-mix(in srgb, var(--wa-secondary) 20%, transparent); }
+.wa-cal__time { color: var(--wa-text-muted); margin-inline-end: 0.25rem; }
+.wa-cal__who { display: block; color: var(--wa-text-muted); font-size: 0.68rem; }
+
+@media (max-width: 46rem) {
+  .wa-cal__day { min-block-size: 3.6rem; padding: 0.3rem; }
+  .wa-cal__item { font-size: 0.62rem; }
+  .wa-cal__who { display: none; }
+}
+
+/* Der Jahresverlauf. Absichtlich ohne Bibliothek: zwei Balken je
+   Monat sagen alles, was hier zu sagen ist. */
+.wa-bars {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--wa-space-2);
+  align-items: end;
+  block-size: 12rem;
+  margin-block-end: var(--wa-space-3);
+}
+
+.wa-bars__month {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wa-space-2);
+  block-size: 100%;
+  justify-content: flex-end;
+}
+
+.wa-bars__stack {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  block-size: 100%;
+}
+
+.wa-bars__bar {
+  flex: 1;
+  block-size: max(2px, var(--h));
+  border-radius: 2px 2px 0 0;
+}
+
+.wa-bars__bar--in { background: var(--wa-secondary); }
+.wa-bars__bar--out { background: var(--wa-danger); }
+
+.wa-bars__label {
+  text-align: center;
+  font-size: 0.68rem;
+  color: var(--wa-text-muted);
+}
+
+.wa-key {
+  display: inline-block;
+  inline-size: 0.65rem;
+  block-size: 0.65rem;
+  border-radius: 2px;
+  margin-inline: var(--wa-space-2) 0.25rem;
+  vertical-align: middle;
+}
+
+.wa-key--in { background: var(--wa-secondary); }
+.wa-key--out { background: var(--wa-danger); }

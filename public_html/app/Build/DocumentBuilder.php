@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Build;
 
 use WebAtze\Core\{Config, Db, Pdf, Settings};
+use WebAtze\Domain\Letterhead;
 
 /**
  * Offerten und Rechnungen.
@@ -54,6 +55,7 @@ final class DocumentBuilder
         $id = Db::insert('documents', [
             'kind' => $kind,
             'project_id' => ($data['project_id'] ?? null) ?: null,
+            'customer_id' => ($data['customer_id'] ?? null) ?: null,
             'number' => self::nextNumber($kind),
             'title' => mb_substr(trim((string) ($data['title'] ?? '')), 0, 190),
             'recipient' => json_encode(self::cleanRecipient((array) ($data['recipient'] ?? [])), JSON_UNESCAPED_UNICODE),
@@ -94,18 +96,32 @@ final class DocumentBuilder
         $right = Pdf::WIDTH - self::MARGIN;
 
         // --- Kopf --------------------------------------------------------
+        //
+        // Gibt es einen hinterlegten Briefkopf - Logo und Absenderzeilen,
+        // etwa aus einer hochgeladenen Word-Vorlage -, wird der genommen.
+        // Sonst der Absender aus den Einstellungen wie bisher.
+        $briefkopf = Letterhead::current();
         $sender = self::sender();
 
-        $pdf->text(self::MARGIN, $y, (string) $sender['name'], 17, true);
-        $y += 22;
+        if ($briefkopf['logo'] !== '') {
+            $hoehe = $pdf->image($briefkopf['logo'], self::MARGIN, $y, (float) $briefkopf['logo_breite']);
+            $y += $hoehe + 14;
+        } else {
+            $pdf->text(self::MARGIN, $y, (string) $sender['name'], 17, true);
+            $y += 22;
+        }
 
-        foreach (array_slice($sender['lines'], 0, 5) as $line) {
+        $zeilen = $briefkopf['zeilen'] !== [] ? $briefkopf['zeilen'] : $sender['lines'];
+
+        foreach (array_slice($zeilen, 0, 6) as $line) {
             $pdf->text(self::MARGIN, $y, $line, 9, false, [0.42, 0.42, 0.48]);
             $y += 12;
         }
 
         // --- Empfänger ---------------------------------------------------
-        $y = 150.0;
+        // Mindestens dort, wo das Sichtfenster im Couvert liegt - aber
+        // nie im Briefkopf, wenn der hoch ausfällt.
+        $y = max(150.0, $y + 24);
         $recipient = (array) $doc['recipient'];
 
         foreach (['name', 'attn', 'street', 'city', 'country'] as $key) {
@@ -120,7 +136,10 @@ final class DocumentBuilder
         }
 
         // --- Titel und Datum ---------------------------------------------
-        $y = 260.0;
+        // Wie beim Empfaenger: die gewohnte Hoehe, aber niemals in den
+        // Block darueber hinein. Mit einem hohen Briefkopf ruecken beide
+        // gemeinsam nach unten.
+        $y = max(260.0, $y + 30);
 
         $pdf->text(self::MARGIN, $y, self::KINDS[$doc['kind']] . ' ' . $doc['number'], 20, true);
         $pdf->textRight($right, $y + 4, self::date((string) $doc['issued_on']), 10, false, [0.42, 0.42, 0.48]);

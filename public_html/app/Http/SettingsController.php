@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Http;
 
 use WebAtze\Ai\ClaudeClient;
+use WebAtze\Domain\Letterhead;
 use WebAtze\Core\{Audit, Config, Crypto, Db, Request, Response, SecondFactor,
     Session, Settings, Totp, Validator, View};
 
@@ -34,6 +35,12 @@ final class SettingsController
     public function save(Request $request): Response
     {
         $action = $request->input('action', 'settings');
+
+        // Der Briefkopf. Eigener Zweig, weil hier Dateien ankommen und
+        // nicht nur Textfelder.
+        if ($action === 'briefkopf') {
+            return $this->saveLetterhead($request);
+        }
 
         // Eine Kennung ausprobieren, ohne sie zu speichern und ohne einen
         // Auftrag dafür zu starten. Wer sucht, sucht selten beim ersten
@@ -482,6 +489,83 @@ final class SettingsController
 
         return $checks;
     }
+    /**
+     * Briefkopf: Word-Vorlage, Logo, Absenderzeilen.
+     *
+     * Eine .docx laesst sich auf geteiltem Hosting nicht in ein PDF
+     * verwandeln - dafuer braeuchte es LibreOffice auf dem Server. Was
+     * hier passiert, ist ehrlicher: Aus der Vorlage werden
+     * Absenderzeilen und Logo ausgelesen und als Briefkopf uebernommen.
+     * Das Ergebnis setzt WebAtze selbst - verlaesslich und ohne
+     * Abhaengigkeit von etwas, das dort fehlen koennte.
+     */
+    private function saveLetterhead(Request $request): Response
+    {
+        if ($request->input('entfernen') === 'logo') {
+            Letterhead::removeLogo();
+            Session::flash('success', 'Logo entfernt.');
+
+            return $this->back();
+        }
+
+        if ($request->input('entfernen') === 'vorlage') {
+            Letterhead::removeTemplate();
+            Session::flash('success', 'Vorlage entfernt. Der Briefkopf bleibt, wie er ist.');
+
+            return $this->back();
+        }
+
+        // Word-Vorlage
+        $vorlage = $request->file('vorlage');
+
+        if ($vorlage !== null && (int) $vorlage['error'] === UPLOAD_ERR_OK) {
+            $ergebnis = Letterhead::importTemplate(
+                (string) $vorlage['tmp_name'],
+                (string) $vorlage['name']
+            );
+
+            Session::flash($ergebnis['ok'] ? 'success' : 'error', $ergebnis['meldung']);
+
+            if ($ergebnis['ok']) {
+                Audit::log('letterhead.imported', (string) $vorlage['name'], [], $request);
+
+                return $this->back();
+            }
+        }
+
+        // Logo einzeln
+        $logo = $request->file('logo');
+
+        if ($logo !== null && (int) $logo['error'] === UPLOAD_ERR_OK) {
+            $grund = Letterhead::setLogo((string) file_get_contents((string) $logo['tmp_name']));
+
+            if ($grund !== '') {
+                Session::flash('error', $grund);
+
+                return $this->back();
+            }
+
+            Session::flash('success', 'Logo übernommen.');
+        }
+
+        // text() statt input(): input() raeumt Steuerzeichen weg, und
+        // dazu zaehlen die Zeilenumbrueche. Die Absenderzeilen waeren
+        // sonst zu einer einzigen langen Zeile verklebt.
+        $zeilen = $request->text('letterhead_lines', 600);
+
+        if ($zeilen !== '') {
+            Settings::put('letterhead_lines', $zeilen);
+        }
+
+        Settings::put('letterhead_logo_width', (string) max(40, min(220,
+            (int) $request->input('letterhead_logo_width', '120')
+        )));
+
+        Audit::log('letterhead.saved', 'Briefkopf', [], $request);
+        Session::flash('success', 'Briefkopf gespeichert.');
+
+        return $this->back();
+    }
 
     private function back(): Response
     {
@@ -489,4 +573,5 @@ final class SettingsController
             '/' . trim((string) Config::get('create_path', 'create'), '/') . '/einstellungen'
         )->noCache()->noIndex();
     }
+
 }

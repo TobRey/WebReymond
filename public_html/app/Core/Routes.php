@@ -166,6 +166,14 @@ final class Routes
             $r->get($base . '/projekt/{id}/zip/{build}', 'DeployController@download');
 
             // Verwaltung
+            // ------------------------------------------- Unternehmen
+            $r->get($base . '/kunden', 'CustomerController@index');
+            $r->get($base . '/kunden/neu', 'CustomerController@blank');
+            $r->get($base . '/kunden/{id}', 'CustomerController@show');
+            $r->get($base . '/mitarbeitende', 'CompanyController@employees');
+            $r->get($base . '/kalender', 'CompanyController@calendar');
+            $r->get($base . '/buchhaltung', 'CompanyController@books');
+
             $r->get($base . '/anfragen', 'LeadController@index');
             $r->get($base . '/support', 'SupportAdminController@index');
             $r->get($base . '/referenzen', 'ShowcaseController@index');
@@ -193,6 +201,28 @@ final class Routes
             $r->post($base . '/projekt/{id}/domain', 'DomainController@save');
             $r->post($base . '/projekt/{id}/domain/pruefen', 'DomainController@check');
             $r->post($base . '/projekt/{id}/domain/schritt', 'DomainController@step');
+
+            // ------------------------------------------- Unternehmen
+            $r->post($base . '/kunden', 'CustomerController@save');
+            $r->post($base . '/kunden/{id}', 'CustomerController@save');
+            $r->post($base . '/kunden/{id}/loeschen', 'CustomerController@destroy');
+            $r->post($base . '/kunden/{id}/posten', 'CustomerController@saveCharge');
+            $r->post($base . '/kunden/{id}/posten/loeschen', 'CustomerController@deleteCharge');
+            $r->post($base . '/kunden/{id}/bezahlt', 'CustomerController@togglePaid');
+            $r->post($base . '/kunden/{id}/rechnung', 'CustomerController@invoice');
+
+            $r->post($base . '/mitarbeitende', 'CompanyController@saveEmployee');
+            $r->post($base . '/mitarbeitende/loeschen', 'CompanyController@deleteEmployee');
+
+            $r->post($base . '/aufgaben', 'CompanyController@saveTodo');
+            $r->post($base . '/aufgaben/umschalten', 'CompanyController@toggleTodo');
+            $r->post($base . '/aufgaben/loeschen', 'CompanyController@deleteTodo');
+
+            $r->post($base . '/termine', 'CompanyController@saveAppointment');
+            $r->post($base . '/termine/loeschen', 'CompanyController@deleteAppointment');
+
+            $r->post($base . '/ausgaben', 'CompanyController@saveExpense');
+            $r->post($base . '/ausgaben/loeschen', 'CompanyController@deleteExpense');
 
             $r->post($base . '/anfragen/{id}/status', 'LeadController@setStatus');
             $r->post($base . '/support/{id}/antwort', 'SupportAdminController@reply');
