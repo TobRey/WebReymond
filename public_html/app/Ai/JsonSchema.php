@@ -81,6 +81,94 @@ final class JsonSchema
     }
 
     /**
+     * Schema fuer die Seitenliste allein - ohne die Abschnitte.
+     *
+     * Der Plan entstand frueher in einem einzigen Aufruf: zwoelf Seiten
+     * samt allen Abschnitten. Bei einer groesseren Website dauerte der
+     * fast eine Minute. Auf geteiltem Hosting bricht der Server den
+     * Vorgang vorher ab - und ein Aufruf, der nicht in das Zeitfenster
+     * passt, kommt nie zustande, egal wie oft man es versucht.
+     *
+     * Also zwei kleine Aufrufe statt einem grossen: erst die Seiten,
+     * dann je Seite die Abschnitte. Beide sind schnell, und der zweite
+     * laesst sich Seite fuer Seite fortsetzen.
+     */
+    public static function sitePages(): array
+    {
+        return [
+            'type' => 'object',
+            'properties' => [
+                'site_title' => [
+                    'type' => 'string',
+                    'description' => 'Titel der Startseite, 3 bis 8 Wörter.',
+                ],
+                'meta_description' => [
+                    'type' => 'string',
+                    'description' => 'Beschreibung für Suchmaschinen, 120 bis 160 Zeichen.',
+                ],
+                'tone_note' => [
+                    'type' => 'string',
+                    'description' => 'Ein Satz: Wie soll die Seite klingen?',
+                ],
+                'pages' => [
+                    'type' => 'array',
+                    'minItems' => 1,
+                    'maxItems' => 12,
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'path' => [
+                                'type' => 'string',
+                                'description' => 'Adresse, beginnt mit Schrägstrich. Startseite ist "/".',
+                            ],
+                            'title' => ['type' => 'string', 'description' => 'Seitentitel, 1 bis 3 Wörter.'],
+                            'meta_description' => ['type' => 'string'],
+                            'in_navigation' => ['type' => 'boolean'],
+                            'purpose' => [
+                                'type' => 'string',
+                                'description' => 'Ein Satz: Wofür ist diese Seite da?',
+                            ],
+                        ],
+                        'required' => ['path', 'title', 'meta_description', 'in_navigation', 'purpose'],
+                    ],
+                ],
+            ],
+            'required' => ['site_title', 'meta_description', 'tone_note', 'pages'],
+        ];
+    }
+
+    /** Schema fuer die Abschnitte einer einzelnen Seite. */
+    public static function pageSections(): array
+    {
+        return [
+            'type' => 'object',
+            'properties' => [
+                'sections' => [
+                    'type' => 'array',
+                    'minItems' => 3,
+                    'maxItems' => 12,
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'type' => ['type' => 'string', 'enum' => Schema::types()],
+                            'template' => [
+                                'type' => 'string',
+                                'description' => 'Kennung einer Vorlage dieses Typs.',
+                            ],
+                            'purpose' => [
+                                'type' => 'string',
+                                'description' => 'Ein Satz: Was soll dieser Abschnitt bewirken?',
+                            ],
+                        ],
+                        'required' => ['type', 'template', 'purpose'],
+                    ],
+                ],
+            ],
+            'required' => ['sections'],
+        ];
+    }
+
+    /**
      * Schema für die Inhalte einer Seite.
      *
      * Enthält für jeden Abschnitt genau die Felder seines Typs – nicht

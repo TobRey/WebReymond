@@ -105,7 +105,7 @@ final class Pipeline
 
             $state = match ($step) {
                 'analyse' => self::stepAnalyse($project, $brief, $state, $remaining, $job),
-                'plan' => self::stepPlan($project, $brief, $state, $job),
+                'plan' => self::stepPlan($project, $brief, $state, $job, $remaining),
                 'theme' => self::stepTheme($project, $brief, $state),
                 'inhalte' => self::stepContent($project, $brief, $state, $remaining, $job),
                 'bilder' => self::stepImages($project, $state),
@@ -220,10 +220,71 @@ final class Pipeline
     // Schritt 2: Aufbau planen
     // ------------------------------------------------------------------
 
-    private static function stepPlan(array $project, array $brief, array $state, array $job): array
+    private static function stepPlan(array $project, array $brief, array $state, array $job, float $budget): array
     {
         $planner = new SitePlanner((int) $project['id'], (int) $job['id']);
-        $plan = $planner->plan($brief, (string) ($state['old_site']['summary'] ?? ''));
+
+        // Erst die Seitenliste. Ein kleiner Aufruf - frueher entstand
+        // hier der ganze Plan auf einmal, samt allen Abschnitten aller
+        // Seiten, und das dauerte bei einer groesseren Website fast eine
+        // Minute. Auf geteiltem Hosting bricht der Server vorher ab, und
+        // ein Aufruf, der nicht ins Zeitfenster passt, kommt nie
+        // zustande - so oft man es auch versucht. Genau daran blieb der
+        // Bau haengen, bevor ueberhaupt ein Wort geschrieben war.
+        if (!isset($state['plan_pages'])) {
+            $liste = $planner->planPages($brief, (string) ($state['old_site']['summary'] ?? ''));
+
+            $state['plan_pages'] = $liste;
+            $state['plan_index'] = 0;
+            $state['repeat'] = true;
+
+            return $state;
+        }
+
+        $liste = (array) $state['plan_pages'];
+        $seiten = (array) ($liste['pages'] ?? []);
+        $index = (int) ($state['plan_index'] ?? 0);
+
+        $started = microtime(true);
+        $getanNow = 0;
+
+        // Dann je Seite die Abschnitte, einzeln und fortsetzbar. Ein
+        // Abbruch kostet damit hoechstens eine Seite.
+        while ($index < count($seiten)) {
+            if ($getanNow > 0 && microtime(true) - $started > $budget - 30.0) {
+                break;
+            }
+
+            Jobs::progress(
+                (int) $job['id'],
+                'plan',
+                22,
+                sprintf('Aufbau von "%s" (%d von %d)',
+                    (string) ($seiten[$index]['title'] ?? ''), $index + 1, count($seiten)),
+                array_merge($state, ['plan_index' => $index])
+            );
+
+            Jobs::keepAlive((int) $job['id']);
+            Worker::beat();
+
+            $seiten[$index]['sections'] = $planner->planSections($brief, $seiten[$index]);
+
+            $state['plan_pages'] = ['pages' => $seiten] + $liste;
+            $liste = (array) $state['plan_pages'];
+
+            $index++;
+            $getanNow++;
+        }
+
+        $state['plan_index'] = $index;
+
+        if ($index < count($seiten)) {
+            $state['repeat'] = true;
+            return $state;
+        }
+
+        // Fertig - jetzt erst wird daraus der geprüfte Plan.
+        $plan = SitePlanner::sanitise($liste, $brief);
 
         Db::update('projects', [
             'plan' => $plan,
@@ -232,6 +293,9 @@ final class Pipeline
 
         $state['plan'] = $plan;
         $state['page_index'] = 0;
+        $state['group_index'] = 0;
+
+        unset($state['plan_pages'], $state['plan_index']);
 
         return $state;
     }

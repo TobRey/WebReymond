@@ -1259,6 +1259,134 @@ test('Ein Abbruch mitten in der Seite wirft nichts weg', function (): void {
 });
 
 // ==================================================================
+test('Der Fehlerzaehler zaehlt Fehler, nicht Abholungen', function (): void {
+    // Ein Bau laeuft absichtlich in vielen kleinen Takten und wird
+    // deshalb oft abgeholt. Frueher stieg der Zaehler bei jeder
+    // Abholung: Nach drei Takten galt jeder voruebergehende Fehler als
+    // endgueltig, und eine Notbremse, die denselben Zaehler las, hielt
+    // einen kerngesunden Bau an. Genau das ist im Probelauf passiert -
+    // "nach 70 Anlaeufen angehalten", obwohl alles lief.
+    $projectId = (int) \WebAtze\Core\Db::insert('projects', [
+        'name' => 'Zaehlertest', 'slug' => 'zaehler-' . bin2hex(random_bytes(4)),
+        'status' => 'building', 'created_at' => \WebAtze\Core\Db::now(),
+        'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $jobId = \WebAtze\Core\Jobs::enqueue('generate', [], $projectId);
+
+    // Fuenfmal abholen und wieder freigeben - so laeuft ein normaler Bau.
+    for ($i = 0; $i < 5; $i++) {
+        $job = \WebAtze\Core\Jobs::claim();
+        \WebAtze\Core\Jobs::yield((int) $job['id'], ['step' => 'inhalte']);
+    }
+
+    $job = \WebAtze\Core\Db::first('SELECT attempts FROM jobs WHERE id = :id', ['id' => $jobId]);
+    is(0, (int) $job['attempts'], 'Fuenf Abholungen sind kein einziger Fehler');
+
+    // Ein echter Fehlschlag zaehlt dagegen.
+    \WebAtze\Core\Jobs::claim();
+    \WebAtze\Core\Jobs::fail($jobId, 'Etwas ging schief', true);
+
+    $job = \WebAtze\Core\Db::first('SELECT attempts, status FROM jobs WHERE id = :id', ['id' => $jobId]);
+    is(1, (int) $job['attempts'], 'Ein Fehlschlag zaehlt');
+    is('queued', (string) $job['status'], 'Und wird noch einmal versucht');
+
+    // Geht es danach weiter, war der Fehler voruebergehend - der Zaehler
+    // darf zurueck. Sonst summierten sich Fehler ueber Stunden auf.
+    \WebAtze\Core\Jobs::progress($jobId, 'inhalte', 40, 'Weiter geht es', ['step' => 'inhalte']);
+
+    $job = \WebAtze\Core\Db::first('SELECT attempts FROM jobs WHERE id = :id', ['id' => $jobId]);
+    is(0, (int) $job['attempts'], 'Fortschritt setzt den Fehlerzaehler zurueck');
+
+    \WebAtze\Core\Db::delete('jobs', 'project_id = :p', ['p' => $projectId]);
+    \WebAtze\Core\Db::delete('projects', 'id = :p', ['p' => $projectId]);
+
+    // Die Notbremse sieht auf die Uhr, nicht auf den Zaehler.
+    $worker = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Core/Worker.php'
+    );
+    ok(str_contains($worker, 'MAX_RUNTIME_SECONDS'), 'Die Notbremse misst die Laufzeit');
+    ok(!str_contains($worker, 'MAX_TICKS'), 'Und nicht mehr die Zahl der Abholungen');
+});
+
+// ==================================================================
+test('Kein einzelner Aufruf muss gross sein', function (): void {
+    // Der Plan entstand frueher in einem Aufruf: bis zu zwoelf Seiten
+    // samt allen Abschnitten, mit hohem Aufwand gerechnet. Am echten
+    // Dienst gemessen dauerte das 57 Sekunden. Bricht der Server vorher
+    // ab, kommt dieser Aufruf nie zustande - und kein Fortsetzen der
+    // Welt hilft, weil es nichts zum Fortsetzen gibt. Der Bau blieb
+    // haengen, bevor ein einziges Wort geschrieben war.
+    $planer = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Ai/SitePlanner.php'
+    );
+
+    ok(str_contains($planer, 'function planPages'), 'Die Seitenliste ist ein eigener Aufruf');
+    ok(str_contains($planer, 'function planSections'), 'Die Abschnitte je Seite ebenfalls');
+
+    // Und beide muessen klein sein.
+    preg_match_all("/'max_tokens' => (\d+)/", $planer, $t);
+    $groessen = array_map('intval', $t[1]);
+
+    ok($groessen !== [], 'Es gibt Groessenangaben');
+
+    foreach ($groessen as $g) {
+        ok($g <= 3000, 'Ein Planungsaufruf bleibt klein (' . $g . ')');
+    }
+
+    // Der Planungsschritt muss sich Seite fuer Seite fortsetzen lassen.
+    $pipeline = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Build/Pipeline.php'
+    );
+
+    ok(str_contains($pipeline, 'plan_index'), 'Der Planungsschritt merkt sich, wie weit er ist');
+    ok(str_contains($pipeline, 'plan_pages'), 'Und behaelt die bereits geplanten Seiten');
+
+    // Ebenso beim Schreiben und Uebersetzen.
+    foreach (['ContentWriter', 'Translator'] as $datei) {
+        $inhalt = (string) file_get_contents(
+            dirname(__DIR__) . '/public_html/app/Ai/' . $datei . '.php'
+        );
+        preg_match("/'max_tokens' => (\d+)/", $inhalt, $m);
+        ok((int) ($m[1] ?? 99999) <= 8000, $datei . ' fragt in kleinen Haeppchen');
+    }
+});
+
+// ==================================================================
+test('Ein toter Vorgang gibt seinen Auftrag schnell frei', function (): void {
+    // Das war der eigentliche Stillstand: kein Fehler, sondern
+    // Wartezeit. Die Sperre musste lang sein, damit kein zweiter
+    // Arbeiter dazwischenfunkt - und nach jedem Abschuss lag der Auftrag
+    // genau so lange brach. Bei 300 Sekunden hiess das fuenf Minuten je
+    // Gruppe.
+    //
+    // Jetzt haelt ein lebender Vorgang seine Sperre selbst aufrecht
+    // (Worker::beat alle fuenf Sekunden), also darf sie kurz sein.
+    $sperre = (int) \WebAtze\Core\Config::get('job_lock_seconds', 0);
+
+    ok($sperre > 0 && $sperre <= 60,
+        'Die Sperre ist kurz (' . $sperre . 's)');
+
+    $worker = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Core/Worker.php'
+    );
+
+    ok(str_contains($worker, 'Jobs::keepAlive'),
+        'Der Herzschlag zieht die Sperre mit');
+
+    // Und der Herzschlag muss auch waehrend eines laufenden Aufrufs
+    // schlagen - dort stirbt der Vorgang ja.
+    $client = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Ai/ClaudeClient.php'
+    );
+
+    ok(str_contains($client, 'CURLOPT_PROGRESSFUNCTION'),
+        'Auch mitten in einem Aufruf schlaegt das Herz');
+    ok(str_contains($client, 'Worker::beat'),
+        'Und meldet sich beim Arbeiter');
+});
+
+// ==================================================================
 test('Der Arbeiter misst, wie lange der Server ihn leben laesst', function (): void {
     // Auf geteiltem Hosting steht in der php.ini eine Zeitgrenze, und
     // set_time_limit() ist manchmal gesperrt. Wird der Vorgang
@@ -1375,12 +1503,11 @@ test('Ein Server, der immer an derselben Stelle abbricht, wird erkannt', functio
     // zweiter Arbeiter dieselbe Anfrage noch einmal bezahlt.
     ok(str_contains($quelle, 'Jobs::keepAlive'), 'Die Sperre wird waehrend der Arbeit gehalten');
 
-    $jobs = (string) file_get_contents(dirname(__DIR__) . '/public_html/app/Core/Jobs.php');
-    preg_match('/LOCK_SECONDS = (\d+)/', $jobs, $t);
-    $sperre = (int) ($t[1] ?? 0);
+    $sperre = (int) \WebAtze\Core\Config::get('job_lock_seconds', 0);
 
-    ok($sperre >= 90 && $sperre <= 180,
-        'Die Sperre ist laenger als ein Arbeitsschritt, aber kein Stillstand (' . $sperre . 's)');
+    ok($sperre >= 15 && $sperre <= 60,
+        'Die Sperre ist kurz genug, dass es nach einem Abbruch zuegig weitergeht ('
+        . $sperre . 's)');
 });
 
 // ==================================================================

@@ -25,17 +25,44 @@ final class SitePlanner
         $this->claude = (new ClaudeClient())->forProject($projectId, $jobId);
     }
 
+    /**
+     * Der ganze Plan in einem Rutsch.
+     *
+     * Bleibt fuer den Uebungsmodus und die Tests. Im Betrieb geht die
+     * Pipeline den Weg darunter - Seite fuer Seite, damit kein einzelner
+     * Aufruf zu lange dauert.
+     */
     public function plan(array $brief, string $oldSiteSummary = ''): array
     {
-        $plan = ClaudeClient::isConfigured()
-            ? $this->ask($brief, $oldSiteSummary)
-            : self::fallbackPlan($brief);
+        if (!ClaudeClient::isConfigured()) {
+            return self::sanitise(self::fallbackPlan($brief), $brief);
+        }
+
+        $plan = $this->planPages($brief, $oldSiteSummary);
+
+        foreach ($plan['pages'] as $nummer => $seite) {
+            $plan['pages'][$nummer]['sections'] = $this->planSections($brief, $seite);
+        }
 
         return self::sanitise($plan, $brief);
     }
 
-    private function ask(array $brief, string $oldSiteSummary): array
+    /**
+     * Nur die Seitenliste - ohne Abschnitte.
+     *
+     * Frueher entstand der ganze Plan in einem Aufruf: zwoelf Seiten samt
+     * allen Abschnitten, mit hohem Aufwand gerechnet. Bei einer
+     * groesseren Website dauerte das fast eine Minute. Auf geteiltem
+     * Hosting bricht der Server den Vorgang vorher ab - und ein Aufruf,
+     * der nicht in das Zeitfenster passt, kommt nie zustande, so oft man
+     * es auch versucht. Genau daran blieb der Bau haengen.
+     */
+    public function planPages(array $brief, string $oldSiteSummary = ''): array
     {
+        if (!ClaudeClient::isConfigured()) {
+            return self::fallbackPlan($brief);
+        }
+
         $message = "AUFTRAG\n=======\n" . Brief::toPromptText($brief);
 
         if ($oldSiteSummary !== '') {
@@ -46,22 +73,75 @@ final class SitePlanner
                 . $oldSiteSummary;
         }
 
-        $message .= "\n\nVERFÜGBARE VORLAGEN JE TYP\n==========================\n";
+        $message .= "\n\nJETZT NUR DIE SEITEN\n====================\n"
+            . "Welche Seiten braucht diese Website? Nur die Liste - welche\n"
+            . "Abschnitte auf welche Seite gehoeren, wird danach einzeln gefragt.";
+
+        $antwort = $this->claude->structured(
+            'plan',
+            Prompts::planner(),
+            $message,
+            JsonSchema::sitePages(),
+            [
+                'model' => (string) \WebAtze\Core\Config::get('anthropic.model_plan', 'claude-opus-5'),
+                'effort' => 'medium',
+                'max_tokens' => 3000,
+            ]
+        );
+
+        $antwort['pages'] = array_values(array_filter(
+            (array) ($antwort['pages'] ?? []),
+            static fn (mixed $p): bool => is_array($p)
+        ));
+
+        return $antwort;
+    }
+
+    /**
+     * Die Abschnitte einer einzelnen Seite.
+     *
+     * Ein kleiner, schneller Aufruf - und weil er je Seite einzeln
+     * laeuft, kostet ein Abbruch hoechstens eine Seite statt des ganzen
+     * Plans.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function planSections(array $brief, array $seite): array
+    {
+        if (!ClaudeClient::isConfigured()) {
+            return [];
+        }
+
+        $message = "AUFTRAG\n=======\n" . Brief::toPromptText($brief)
+            . "\n\nDIESE SEITE\n===========\n"
+            . 'Adresse: ' . (string) ($seite['path'] ?? '/') . "\n"
+            . 'Titel: ' . (string) ($seite['title'] ?? '') . "\n"
+            . 'Zweck: ' . (string) ($seite['purpose'] ?? '') . "\n\n"
+            . "VERFÜGBARE VORLAGEN JE TYP\n==========================\n";
+
         foreach (Schema::types() as $type) {
             $message .= $type . ': ' . Prompts::templateHints($type) . "\n";
         }
 
-        return $this->claude->structured(
+        $message .= "\nWelche Abschnitte gehoeren auf genau diese Seite, in welcher\n"
+            . "Reihenfolge, mit welcher Vorlage?";
+
+        $antwort = $this->claude->structured(
             'plan',
             Prompts::planner(),
             $message,
-            JsonSchema::sitePlan(),
+            JsonSchema::pageSections(),
             [
                 'model' => (string) \WebAtze\Core\Config::get('anthropic.model_plan', 'claude-opus-5'),
-                'effort' => 'high',
-                'max_tokens' => 8000,
+                'effort' => 'low',
+                'max_tokens' => 2500,
             ]
         );
+
+        return array_values(array_filter(
+            (array) ($antwort['sections'] ?? []),
+            static fn (mixed $a): bool => is_array($a)
+        ));
     }
 
     /**

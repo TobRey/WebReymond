@@ -23,8 +23,8 @@ final class Worker
     /**
      * @return array{jobs:int, seconds:float, housekeeping:bool}
      */
-    /** Nach so vielen Anlaeufen wird ein Auftrag angehalten. */
-    private const MAX_TICKS = 70;
+    /** Laenger als das darf ein einzelner Auftrag nicht brauchen. */
+    private const MAX_RUNTIME_SECONDS = 4 * 3600;
 
     public static function run(?int $budgetSeconds = null): array
     {
@@ -79,19 +79,26 @@ final class Worker
             }
 
             $handled++;
+            self::$currentJob = (int) $job['id'];
 
-            // Notbremse. Ein Auftrag, der nach sehr vielen Anlaeufen
-            // immer noch laeuft, kommt nicht mehr ans Ziel - er dreht
-            // sich im Kreis. Jeder Kreis kostet Geld, deshalb wird hier
-            // angehalten statt weiterprobiert. Bei einem Anlauf je
-            // Minute ist das gut eine Stunde Geduld.
-            if ((int) ($job['attempts'] ?? 0) > self::MAX_TICKS) {
+            // Notbremse nach der Uhr, nicht nach dem Zaehler.
+            //
+            // Wie oft ein Auftrag abgeholt wurde, sagt nichts: Er ist
+            // darauf ausgelegt, in vielen kleinen Takten zu laufen. Wie
+            // lange er insgesamt braucht, sagt sehr wohl etwas. Ein Bau
+            // dauert normal Minuten; wer nach Stunden noch laeuft, dreht
+            // sich im Kreis, und jeder Kreis kostet Geld.
+            $seit = strtotime((string) ($job['started_at'] ?? '')) ?: time();
+
+            if (time() - $seit > self::MAX_RUNTIME_SECONDS) {
                 Jobs::fail(
                     $job['id'],
-                    'Der Auftrag wurde nach ' . self::MAX_TICKS . ' Anlaeufen angehalten, '
-                    . 'weil er nicht weiterkam. Bitte melde dich - so etwas soll nicht vorkommen.',
+                    'Der Auftrag laeuft seit ueber ' . round(self::MAX_RUNTIME_SECONDS / 3600, 1)
+                    . ' Stunden und kommt nicht ans Ziel. Er wurde angehalten, damit er '
+                    . 'nicht weiter Kosten verursacht. Bitte melde dich - so etwas soll '
+                    . 'nicht vorkommen.',
                     false,
-                    'Angehalten - kam nicht weiter.'
+                    'Angehalten - dauerte zu lange.'
                 );
                 continue;
             }
@@ -106,11 +113,15 @@ final class Worker
                     self::describe($e, $id),
                     self::looksTemporary($e),
                     $e instanceof ConfigurationError
-                        ? 'Angehalten – eine Einstellung fehlt.'
+                        ? ($e->field() === 'anthropic_credit'
+                            ? 'Angehalten – das Guthaben ist aufgebraucht.'
+                            : 'Angehalten – eine Einstellung fehlt.')
                         : ''
                 );
             }
         }
+
+        self::$currentJob = null;
 
         // Sauber zu Ende gekommen - der Merker darf weg. Nur wenn er
         // stehen bleibt, weiss der naechste Durchlauf, dass hier etwas
@@ -126,15 +137,31 @@ final class Worker
         ];
     }
 
+    /** Woran gerade gearbeitet wird - fuer den Herzschlag. */
+    private static ?int $currentJob = null;
+
     /**
      * Ein Lebenszeichen setzen.
      *
-     * Wird waehrend der Arbeit regelmaessig gerufen. Stirbt der Vorgang,
-     * steht hier der letzte Zeitpunkt, an dem er noch lebte.
+     * Zwei Aufgaben auf einmal. Erstens: Stirbt der Vorgang, steht hier
+     * der letzte Zeitpunkt, an dem er noch lebte - daraus lernt der
+     * naechste Durchlauf das Zeitfenster dieses Servers.
+     *
+     * Zweitens, und das ist das Wichtigere: Die Sperre des Auftrags wird
+     * mitgezogen. Deshalb darf sie kurz sein. Frueher musste sie lang
+     * sein, damit kein zweiter Arbeiter dazwischenfunkt - und nach jedem
+     * Abschuss lag der Auftrag genau so lange brach. Das war der
+     * Stillstand: nicht ein Fehler, sondern Wartezeit. Jetzt haelt ein
+     * lebender Vorgang seine Sperre selbst aufrecht, und ein toter gibt
+     * sie binnen Sekunden frei.
      */
     public static function beat(): void
     {
         Settings::put('worker_tick_beat', (string) time());
+
+        if (self::$currentJob !== null) {
+            Jobs::keepAlive(self::$currentJob);
+        }
     }
 
     /**

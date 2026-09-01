@@ -115,6 +115,7 @@ final class Config
             ],
             'preview_ttl_hours' => 24,
             'worker_budget_seconds' => 50,
+            'job_lock_seconds' => 30,
         ];
     }
 }

@@ -42,10 +42,17 @@ final class Jobs
      *
      * Nicht zu kurz: Solange gearbeitet wird, verlaengert jeder
      * Fortschritt die Sperre. Sie laeuft also nur ab, wenn wirklich
-     * niemand mehr daran arbeitet. 90 Sekunden sind laenger als jeder
-     * einzelne Arbeitsschritt und kurz genug, dass es zuegig weitergeht.
+     * niemand mehr daran arbeitet.
+     *
+     * Deshalb darf sie kurz sein: Ein lebender Arbeiter frischt sie alle
+     * fuenf Sekunden auf (Worker::beat), ein toter gar nicht mehr. Nach
+     * einem Abschuss ist der Auftrag damit in einer halben Minute wieder
+     * frei statt erst nach Minuten.
      */
-    private const LOCK_SECONDS = 90;
+    private static function lockSeconds(): int
+    {
+        return max(15, min(300, (int) Config::get('job_lock_seconds', 30)));
+    }
 
     /** Neuen Auftrag anlegen. */
     public static function enqueue(string $type, array $payload = [], ?int $projectId = null): int
@@ -112,15 +119,24 @@ final class Jobs
                 return null;
             }
 
+            // attempts zaehlt Fehlschlaege, nicht Abholungen.
+            //
+            // Das war frueher anders und deshalb falsch: Ein Auftrag, der
+            // ueber viele Takte laeuft - und genau so ist er gebaut,
+            // Gruppe fuer Gruppe - wird zwangsläufig oft abgeholt. Der
+            // Zaehler stieg dabei mit, obwohl nichts schiefging. Nach
+            // drei Abholungen galt danach jeder voruebergehende Fehler
+            // als endgueltig, und eine Notbremse, die auf denselben
+            // Zaehler sah, hielt einen kerngesunden Bau an.
+            //
+            // Hochgezaehlt wird jetzt nur noch in fail().
             Db::update('jobs', [
                 'status' => self::RUNNING,
-                'locked_until' => date('Y-m-d H:i:s', time() + self::LOCK_SECONDS),
+                'locked_until' => date('Y-m-d H:i:s', time() + self::lockSeconds()),
                 'started_at' => $row['started_at'] ?? $now,
-                'attempts' => (int) $row['attempts'] + 1,
             ], 'id = :id', ['id' => (int) $row['id']]);
 
             $row['status'] = self::RUNNING;
-            $row['attempts'] = (int) $row['attempts'] + 1;
 
             return self::hydrate($row);
         });
@@ -133,12 +149,17 @@ final class Jobs
             'step' => mb_substr($step, 0, 40),
             'progress' => max(0, min(100, $progress)),
             'message' => mb_substr($message, 0, 250),
-            'locked_until' => date('Y-m-d H:i:s', time() + self::LOCK_SECONDS),
+            'locked_until' => date('Y-m-d H:i:s', time() + self::lockSeconds()),
         ];
 
         if ($state !== []) {
             $data['state'] = $state;
         }
+
+        // Es geht voran - also war der letzte Fehlschlag voruebergehend.
+        // Ohne das summierten sich Fehler ueber Stunden hinweg auf und
+        // liessen einen Bau irgendwann scheitern, der laengst wieder lief.
+        $data['attempts'] = 0;
 
         Db::update('jobs', $data, 'id = :id', ['id' => $id]);
     }
@@ -154,7 +175,7 @@ final class Jobs
     public static function keepAlive(int $id): void
     {
         Db::update('jobs', [
-            'locked_until' => date('Y-m-d H:i:s', time() + self::LOCK_SECONDS),
+            'locked_until' => date('Y-m-d H:i:s', time() + self::lockSeconds()),
         ], 'id = :id', ['id' => $id]);
     }
 
@@ -192,7 +213,9 @@ final class Jobs
     public static function fail(int $id, string $error, bool $retryable = true, string $shortMessage = ''): void
     {
         $job = self::find($id);
-        $attempts = (int) ($job['attempts'] ?? 0);
+        $attempts = (int) ($job['attempts'] ?? 0) + 1;
+
+        Db::update('jobs', ['attempts' => $attempts], 'id = :id', ['id' => $id]);
 
         if ($retryable && $attempts < self::MAX_ATTEMPTS) {
             $wait = 30 * (2 ** ($attempts - 1));

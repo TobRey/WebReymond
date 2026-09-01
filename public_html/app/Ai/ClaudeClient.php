@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Ai;
 
 use RuntimeException;
-use WebAtze\Core\{Config, ConfigurationError, Db, Logger, Settings};
+use WebAtze\Core\{Config, ConfigurationError, Db, Logger, Settings, Worker};
 
 /**
  * Anbindung an die Claude-API von Anthropic.
@@ -205,6 +205,8 @@ final class ClaudeClient
             $result = $this->request($payload, $apiKey, $timeout);
             $duration = (int) round((microtime(true) - $started) * 1000);
 
+            Worker::beat();
+
             // Erfolg
             if ($result['status'] >= 200 && $result['status'] < 300) {
                 $data = $result['data'];
@@ -269,6 +271,21 @@ final class ClaudeClient
                 // der Auftrag hält an, statt es alle halbe Minute erneut
                 // zu versuchen.
                 if ($status >= 400 && $status < 500 && $status !== 408 && $status !== 429) {
+                    // Ein leeres Guthaben ist der haeufigste Fall und
+                    // sieht als "eine Einstellung fehlt" aus wie ein
+                    // Fehler im Programm. Es ist aber keiner - und die
+                    // Loesung dauert eine Minute. Also beim Namen nennen.
+                    if (self::looksLikeNoCredit($apiMessage)) {
+                        throw new ConfigurationError(
+                            'Das Guthaben beim Sprachmodell ist aufgebraucht. '
+                            . 'Der Bau wurde angehalten und wartet - es geht nichts verloren.',
+                            'In der Anthropic-Konsole unter "Plans & Billing" Guthaben '
+                            . 'aufladen, danach den Auftrag im Backend fortsetzen. '
+                            . 'Er macht dort weiter, wo er stehengeblieben ist.',
+                            'anthropic_credit'
+                        );
+                    }
+
                     throw new ConfigurationError(
                         self::friendlyError($status, $apiMessage),
                         self::remedyFor($status),
@@ -307,6 +324,11 @@ final class ClaudeClient
         // Seite. Der Arbeiter haelt den Gesamtrahmen weiter selbst ein.
         @set_time_limit($timeout + 30);
 
+        // Lebenszeichen vor und nach dem Aufruf. Stirbt der Vorgang
+        // dazwischen, weiss der naechste Durchlauf daraus, wie lange
+        // dieser Server ihn leben laesst - und rechnet damit.
+        Worker::beat();
+
         $ch = curl_init();
 
         $headers = [
@@ -335,6 +357,24 @@ final class ClaudeClient
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_HTTPHEADER => $headers,
+
+            // Ein Lebenszeichen waehrend des Aufrufs, nicht nur davor.
+            // Stirbt der Vorgang mitten in der Antwort - und genau dort
+            // stirbt er auf geteiltem Hosting - weiss der naechste
+            // Durchlauf sonst nicht, wie weit er gekommen ist. cURL ruft
+            // diese Funktion regelmaessig auf; geschrieben wird
+            // hoechstens alle fuenf Sekunden, damit es nichts kostet.
+            CURLOPT_NOPROGRESS => false,
+            CURLOPT_PROGRESSFUNCTION => static function (): int {
+                static $zuletzt = 0;
+
+                if (time() - $zuletzt >= 5) {
+                    $zuletzt = time();
+                    Worker::beat();
+                }
+
+                return 0;
+            },
         ]);
 
         $raw = curl_exec($ch);
@@ -1001,6 +1041,21 @@ final class ClaudeClient
     }
 
     /** Was zu tun ist, je nach Fehlercode. */
+    /** Sagt die Antwort, dass das Guthaben leer ist? */
+    private static function looksLikeNoCredit(string $message): bool
+    {
+        $text = mb_strtolower($message);
+
+        foreach (['credit balance', 'insufficient credit', 'guthaben',
+                  'billing', 'quota', 'purchase credits'] as $wort) {
+            if (str_contains($text, $wort)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static function remedyFor(int $status): string
     {
         return match ($status) {
