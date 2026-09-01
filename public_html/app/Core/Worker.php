@@ -29,10 +29,23 @@ final class Worker
     public static function run(?int $budgetSeconds = null): array
     {
         $started = microtime(true);
-        $budget = $budgetSeconds ?? (int) Config::get('worker_budget_seconds', 50);
+        $budget = $budgetSeconds ?? (int) Config::get('worker_budget_seconds', 300);
 
-        // Etwas Luft lassen: die letzte Runde soll noch sauber enden können.
-        $budget = max(5, min($budget, 280));
+        // Fuenf Minuten statt fuenfzig Sekunden.
+        //
+        // Ein Aufruf an die KI dauert 20 bis 30 Sekunden. Bei fuenfzig
+        // Sekunden Zeitfenster schaffte ein Durchlauf also zwei Stueck -
+        // und eine Website mit elf Seiten und drei Sprachen braucht
+        // gegen achtzig. Bei einem Cronjob je Minute sind das vierzig
+        // Minuten. Der Bau war nie kaputt, er war zaeh; wer nach zehn
+        // Minuten abbricht, sieht nur, dass sich nichts tut.
+        //
+        // Laenger ist gefahrlos: Faellt der Cronjob waehrenddessen
+        // erneut, findet der zweite Arbeiter den Auftrag gesperrt und
+        // geht sofort wieder. Und bricht der Server ab, ist nichts
+        // verloren - jede Gruppe ist einzeln abgelegt, und die Messung
+        // unten zieht das Zeitfenster automatisch nach unten.
+        $budget = max(5, min($budget, 900));
 
         // Wie lange laesst dieser Server einen Vorgang leben?
         //
@@ -52,9 +65,27 @@ final class Worker
         $ueberlebt = (int) Settings::get('worker_survival_seconds', '0');
 
         if ($ueberlebt > 0) {
-            // Acht Sekunden Sicherheitsabstand, damit der Durchlauf noch
-            // sauber enden kann statt mittendrin zu sterben.
+            // Der Server hat schon einmal abgebrochen - dann gilt seine
+            // Grenze, mit acht Sekunden Sicherheitsabstand, damit der
+            // Durchlauf noch sauber enden kann statt mittendrin zu
+            // sterben.
             $budget = max(12, min($budget, $ueberlebt - 8));
+        } elseif ($budgetSeconds === null) {
+            // Noch nie ein Abbruch: Dieser Server setzt offenbar keine
+            // Grenze, also darf laenger gearbeitet werden.
+            //
+            // Das ist wichtiger, als es aussieht. Bestehende
+            // Installationen tragen in ihrer config.php noch die alten
+            // fuenfzig Sekunden - und die Datei wird beim Update
+            // absichtlich nicht angefasst. Bei fuenfzig Sekunden schafft
+            // ein Durchlauf zwei Aufrufe, eine groessere Website braucht
+            // achtzig: vierzig Minuten bei einem Cronjob je Minute. Wer
+            // vorher abbricht, sieht nur, dass sich nichts tut.
+            //
+            // Also entscheidet hier die Messung, nicht die Datei. Bricht
+            // der Server doch ab, greift der Zweig darueber ab dem
+            // naechsten Durchlauf.
+            $budget = max($budget, 300);
         }
 
         Settings::put('worker_tick_open', (string) time());

@@ -1259,6 +1259,44 @@ test('Ein Abbruch mitten in der Seite wirft nichts weg', function (): void {
 });
 
 // ==================================================================
+test('Der Arbeiter arbeitet so lange, wie er darf', function (): void {
+    // Das war die eigentliche Ursache, und sie ist unspektakulaer: Der
+    // Arbeiter durfte fuenfzig Sekunden. Ein Aufruf an die KI dauert 20
+    // bis 30 - also zwei Aufrufe je Durchlauf. Eine Website mit elf
+    // Seiten und drei Sprachen braucht gegen achtzig Aufrufe. Bei einem
+    // Cronjob je Minute sind das vierzig Minuten, in denen sich die
+    // Anzeige kaum bewegt. Der Bau war nie kaputt, er war zaeh - und wer
+    // nach zehn Minuten abbricht, sieht nur Stillstand.
+    is(300, (int) \WebAtze\Core\Config::get('worker_budget_seconds', 0),
+        'Fuenf Minuten je Durchlauf statt fuenfzig Sekunden');
+
+    $worker = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Core/Worker.php'
+    );
+
+    // Bestehende Installationen tragen in ihrer config.php noch die
+    // alten fuenfzig Sekunden - und die Datei wird beim Update
+    // absichtlich nicht angefasst. Also darf nicht die Datei
+    // entscheiden, sondern die Messung.
+    ok(str_contains($worker, 'max($budget, 300)'),
+        'Ohne beobachteten Abbruch wird laenger gearbeitet, auch bei alter Konfiguration');
+
+    ok(str_contains($worker, 'min($budget, $ueberlebt - 8)'),
+        'Nach einem Abbruch gilt die gemessene Grenze des Servers');
+
+    // Zwei Arbeiter duerfen sich nicht ins Gehege kommen: Der zweite
+    // findet den Auftrag gesperrt und geht sofort wieder.
+    $jobs = (string) file_get_contents(dirname(__DIR__) . '/public_html/app/Core/Jobs.php');
+    ok(str_contains($jobs, 'locked_until IS NULL OR locked_until <='),
+        'Ein gesperrter Auftrag wird nicht zweimal genommen');
+
+    // Und ein paar Fehlschlaege duerfen keinen halbfertigen Bau wegwerfen.
+    preg_match('/MAX_ATTEMPTS = (\d+)/', $jobs, $t);
+    ok((int) ($t[1] ?? 0) >= 5,
+        'Ein Bau ueberlebt eine voruebergehende Stoerung (' . ($t[1] ?? '?') . ' Versuche)');
+});
+
+// ==================================================================
 test('Ein Schritt haelt den Bau nicht endlos auf', function (): void {
     // Der Kern der Sache. Kommt ein Aufruf nicht durch, wurde bisher
     // derselbe Versuch wiederholt - wieder und wieder, ohne Fehler, ohne

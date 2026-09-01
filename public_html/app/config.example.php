@@ -139,5 +139,5 @@ return [
 
     // Wie viele Sekunden der Worker pro Durchlauf höchstens arbeitet.
     // Muss unter dem PHP-Zeitlimit des Hosters liegen. 50 ist sicher.
-    'worker_budget_seconds' => 50,
+    'worker_budget_seconds' => 300,
 ];

@@ -114,7 +114,7 @@ final class Config
                 'from_name' => 'WebAtze',
             ],
             'preview_ttl_hours' => 24,
-            'worker_budget_seconds' => 50,
+            'worker_budget_seconds' => 300,
             'job_lock_seconds' => 30,
         ];
     }

@@ -22,6 +22,16 @@ declare(strict_types=1);
 
 const PROTOKOLL = __DIR__ . '/anfragen.log';
 
+// Der echte Dienst braucht 15 bis 35 Sekunden je Aufruf. Eine Attrappe,
+// die sofort antwortet, versteckt jedes Zeitproblem - und genau die sind
+// hier das Thema. Ueber WEBATZE_ATTRAPPE_DELAY laesst sich die Dauer
+// vorgeben.
+$verzoegerung = (float) (getenv('WEBATZE_ATTRAPPE_DELAY') ?: '0');
+
+if ($verzoegerung > 0) {
+    usleep((int) ($verzoegerung * 1_000_000));
+}
+
 /** Was die strukturierte Ausgabe nicht kennt. */
 const VERBOTEN = [
     'minItems', 'maxItems', 'uniqueItems', 'contains', 'minContains', 'maxContains',
@@ -236,10 +246,17 @@ function erfinden(array $schema, string $feld = ''): mixed
             }
             return $out;
         })(),
-        'array' => [
-            erfinden(is_array($schema['items'] ?? null) ? $schema['items'] : ['type' => 'string'], $feld),
-            erfinden(is_array($schema['items'] ?? null) ? $schema['items'] : ['type' => 'string'], $feld),
-        ],
+        // Bei Listen so viele Eintraege, wie eine echte Website haette.
+        // Zwei Seiten sind kein Probelauf - der Unterschied zwischen
+        // zwei und elf Seiten ist genau der zwischen "laeuft" und
+        // "dauert vierzig Minuten".
+        'array' => array_map(
+            static fn (): mixed => erfinden(
+                is_array($schema['items'] ?? null) ? $schema['items'] : ['type' => 'string'],
+                $feld
+            ),
+            range(1, (int) (getenv('WEBATZE_ATTRAPPE_LISTE') ?: '2'))
+        ),
         'integer' => 1,
         'number' => 1.0,
         'boolean' => true,

@@ -31,7 +31,15 @@ final class Jobs
     public const FAILED = 'failed';
     public const CANCELLED = 'cancelled';
 
-    private const MAX_ATTEMPTS = 3;
+    /**
+     * So viele Fehlschlaege am Stueck darf ein Auftrag haben.
+     *
+     * Am Stueck ist hier wichtig: Jeder Fortschritt setzt den Zaehler
+     * zurueck. Acht bedeutet also acht Versuche, ohne dass irgendetwas
+     * gelingt - eine vorruebergehende Stoerung beim Anbieter wirft damit
+     * nicht mehr einen halbfertigen Bau weg.
+     */
+    private const MAX_ATTEMPTS = 8;
     /**
      * Wie lange ein Auftrag einem Arbeiter gehoert.
      *
