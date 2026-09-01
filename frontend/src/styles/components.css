@@ -161,37 +161,6 @@
 }
 
 /* Menüknopf für schmale Bildschirme */
-.wa-burger {
-  display: inline-flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 5px;
-  inline-size: 2.4rem;
-  block-size: 2.4rem;
-  padding: 0.55rem;
-  border: 1px solid var(--wa-border);
-  border-radius: var(--wa-radius-full);
-  background: var(--wa-surface-glass);
-}
-
-@media (min-width: 62rem) {
-  .wa-burger { display: none; }
-}
-
-.wa-burger span {
-  display: block;
-  block-size: 2px;
-  inline-size: 100%;
-  border-radius: 2px;
-  background: var(--wa-text);
-  transition: transform var(--wa-dur-base) var(--wa-ease-spring),
-              opacity var(--wa-dur-fast) var(--wa-ease-out);
-}
-
-.wa-burger[aria-expanded='true'] span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-.wa-burger[aria-expanded='true'] span:nth-child(2) { opacity: 0; transform: scaleX(0.3); }
-.wa-burger[aria-expanded='true'] span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-
 /* ------------------------------------------------------------------ */
 /* Menü auf schmalen Bildschirmen                                      */
 /* ------------------------------------------------------------------ */

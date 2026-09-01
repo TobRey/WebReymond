@@ -179,6 +179,34 @@
   cursor: pointer;
 }
 
+/* Die aufgeklappte Liste zeichnet das Betriebssystem, nicht die Seite.
+   Sie erbt zwar die Schriftfarbe des Feldes -- hier also hell, passend
+   zur dunklen Oberfläche -- setzt aber ihren eigenen, meist weissen
+   Hintergrund. Das ergab weisse Schrift auf Weiss: Die Auswahl war
+   erst zu sehen, wenn der Zeiger eine Zeile markierte.
+
+   Zwei Dinge helfen. color-scheme sagt dem System, in welchem Modus es
+   zeichnen soll; die Regeln darunter setzen zusätzlich eine
+   undurchsichtige Fläche für jene Browser, die trotzdem hell bleiben.
+   Wichtig ist "undurchsichtig": --wa-surface-glass ist durchscheinend
+   und läge im Aufklappmenü wieder auf Weiss. */
+.wa-select,
+.wa-input,
+.wa-textarea {
+  color-scheme: inherit;
+}
+
+.wa-select option,
+.wa-select optgroup {
+  background-color: var(--wa-surface);
+  color: var(--wa-text-strong);
+}
+
+.wa-select option:checked {
+  background-color: var(--wa-surface-2);
+  color: var(--wa-text-strong);
+}
+
 .wa-input[aria-invalid='true'],
 .wa-textarea[aria-invalid='true'],
 .wa-select[aria-invalid='true'] {
@@ -243,3 +271,47 @@
 
 .wa-note strong { display: block; color: var(--wa-text-strong); }
 
+
+
+/* ================================================================== */
+/* Menueschaltflaeche                                                  */
+/* ================================================================== */
+
+/* Diese Regeln standen frueher in components.css. Die wird nur von der
+   oeffentlichen Website geladen, nicht vom Verwaltungsbereich - dort
+   hatte die Schaltflaeche deshalb ueberhaupt kein Aussehen: null mal
+   null Pixel, keine Striche, nichts zum Antippen. Auf dem Handy war das
+   Menue damit unerreichbar. controls.css laden beide Seiten. */
+
+.wa-burger {
+  display: inline-flex;
+  cursor: pointer;
+  flex-shrink: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  inline-size: 2.4rem;
+  block-size: 2.4rem;
+  padding: 0.55rem;
+  border: 1px solid var(--wa-border);
+  border-radius: var(--wa-radius-full);
+  background: var(--wa-surface-glass);
+}
+
+@media (min-width: 62rem) {
+  .wa-burger { display: none; }
+}
+
+.wa-burger span {
+  display: block;
+  block-size: 2px;
+  inline-size: 100%;
+  border-radius: 2px;
+  background: var(--wa-text);
+  transition: transform var(--wa-dur-base) var(--wa-ease-spring),
+              opacity var(--wa-dur-fast) var(--wa-ease-out);
+}
+
+.wa-burger[aria-expanded='true'] span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.wa-burger[aria-expanded='true'] span:nth-child(2) { opacity: 0; transform: scaleX(0.3); }
+.wa-burger[aria-expanded='true'] span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }

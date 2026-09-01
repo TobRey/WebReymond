@@ -1259,6 +1259,106 @@ test('Ein Abbruch mitten in der Seite wirft nichts weg', function (): void {
 });
 
 // ==================================================================
+test('Das Aussehen erreicht auch den Verwaltungsbereich', function (): void {
+    // Die Menueschaltflaeche stand in components.css. Die laedt nur die
+    // oeffentliche Website. Im Verwaltungsbereich hatte sie deshalb gar
+    // kein Aussehen - null mal null Pixel, nichts zum Antippen: Auf dem
+    // Handy kam man nicht mehr ins Menue.
+    $verzeichnis = dirname(__DIR__) . '/frontend/src';
+
+    $admin = (string) file_get_contents($verzeichnis . '/admin/admin.css');
+    $app = (string) file_get_contents($verzeichnis . '/styles/app.css');
+
+    // Welche Bausteine bindet welche Seite ein?
+    $importe = static function (string $inhalt): array {
+        preg_match_all("/@import\s+'([^']+)'/", $inhalt, $t);
+        return array_map(static fn (string $x): string => basename($x), $t[1]);
+    };
+
+    $adminTeile = $importe($admin);
+    $appTeile = $importe($app);
+
+    ok(in_array('controls.css', $adminTeile, true), 'Der Verwaltungsbereich laedt controls.css');
+    ok(in_array('controls.css', $appTeile, true), 'Die Website ebenfalls');
+
+    // Klassen, die in beiden Oberflaechen vorkommen, gehoeren in eine
+    // Datei, die beide laden. Sonst fehlt das Aussehen auf einer Seite.
+    $gemeinsam = ['wa-burger', 'wa-input', 'wa-select', 'wa-btn'];
+
+    $controls = (string) file_get_contents($verzeichnis . '/styles/controls.css');
+    $components = (string) file_get_contents($verzeichnis . '/styles/components.css');
+
+    foreach ($gemeinsam as $klasse) {
+        $inGeteilt = str_contains($controls, '.' . $klasse) || str_contains($admin, '.' . $klasse);
+        $nurInComponents = str_contains($components, '.' . $klasse) && !$inGeteilt;
+
+        ok(!$nurInComponents, 'Nicht nur in components.css: .' . $klasse);
+    }
+
+    // Und die Schaltflaeche braucht eine Groesse - ein <label> hat von
+    // sich aus keine.
+    preg_match('/\.wa-burger\s*\{([^}]*)\}/', $controls, $regel);
+    $block = (string) ($regel[1] ?? '');
+
+    ok(str_contains($block, 'display'), 'Die Menueschaltflaeche bekommt ein display');
+    ok(str_contains($block, 'inline-size') || str_contains($block, 'width'),
+        'Und eine Breite - sonst ist sie null Pixel gross');
+});
+
+// ==================================================================
+test('Das Menue geht auch ohne JavaScript auf', function (): void {
+    // Eine Verwaltung, deren Navigation an einem Skript haengt, ist
+    // unbedienbar, sobald das Skript einmal nicht ankommt: alte Datei im
+    // Zwischenspeicher, blockierte Adresse, abgeschaltetes JavaScript.
+    // Deshalb schaltet ein Kaestchen die Leiste, rein ueber CSS.
+    $layout = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Views/layouts/admin.php'
+    );
+
+    ok(str_contains($layout, 'id="wa-admin-nav"'), 'Es gibt ein Kaestchen zum Schalten');
+    ok(str_contains($layout, 'for="wa-admin-nav"'), 'Und eine Beschriftung, die darauf zeigt');
+
+    // Das Kaestchen muss VOR der Leiste stehen, sonst greift der
+    // Geschwister-Wahlschalter nicht.
+    $kaestchen = strpos($layout, 'id="wa-admin-nav"');
+    $leiste = strpos($layout, 'class="wa-admin__side"');
+
+    ok($kaestchen !== false && $leiste !== false && $kaestchen < $leiste,
+        'Das Kaestchen steht vor der Leiste');
+
+    $css = (string) file_get_contents(dirname(__DIR__) . '/frontend/src/admin/admin.css');
+
+    ok(str_contains($css, '.wa-admin__nav-state:checked ~ .wa-admin__side'),
+        'CSS oeffnet die Leiste ueber das Kaestchen');
+    ok(!str_contains($css, '.wa-admin__nav-state { display: none'),
+        'Das Kaestchen bleibt mit der Tabulatortaste erreichbar');
+});
+
+// ==================================================================
+test('Auswahllisten sind auch aufgeklappt lesbar', function (): void {
+    // Die aufgeklappte Liste zeichnet das Betriebssystem. Sie erbt die
+    // helle Schriftfarbe des Feldes, setzt aber ihren eigenen, meist
+    // weissen Hintergrund: weisse Schrift auf Weiss. Zu sehen war die
+    // Auswahl erst, wenn der Zeiger eine Zeile markierte.
+    $controls = (string) file_get_contents(
+        dirname(__DIR__) . '/frontend/src/styles/controls.css'
+    );
+
+    ok(str_contains($controls, '.wa-select option'), 'Die Optionen bekommen eigene Farben');
+
+    preg_match('/\.wa-select option,?\s*\.wa-select optgroup\s*\{([^}]*)\}/', $controls, $t);
+    $block = (string) ($t[1] ?? '');
+
+    ok(str_contains($block, 'background-color'), 'Mit eigener Flaeche');
+    ok(str_contains($block, 'color'), 'Und eigener Schriftfarbe');
+
+    // Entscheidend: undurchsichtig. Eine durchscheinende Flaeche laege
+    // im Aufklappmenue wieder auf Weiss.
+    ok(!str_contains($block, 'glass') && !str_contains($block, 'rgb(255 255 255 /'),
+        'Die Flaeche ist undurchsichtig, nicht durchscheinend');
+});
+
+// ==================================================================
 test('Jede benutzte Klasse ist auch eingebunden', function (): void {
     // Der Übersetzungsschritt scheiterte im Betrieb an einem fehlenden
     // "use": Translator liegt in Ai, Pipeline in Build. PHP merkt das

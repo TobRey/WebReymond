@@ -49,30 +49,44 @@ export async function api(url, { method = 'POST', data = null } = {}) {
 /* ------------------------------------------------------------------ */
 
 function initSidebar() {
-  const button = document.querySelector('[data-admin-nav-toggle]');
+  // Geöffnet und geschlossen wird über ein Kästchen im Markup, rein per
+  // CSS. Ohne JavaScript funktioniert das Menü damit weiterhin – das ist
+  // der Punkt: Eine Verwaltung, deren Navigation an einem Skript hängt,
+  // ist unbedienbar, sobald das Skript einmal nicht ankommt.
+  //
+  // Hier kommt nur die Zugabe dazu: das Verdunkeln dahinter, Schliessen
+  // per Klick daneben und mit der Escape-Taste.
+  const state = document.getElementById('wa-admin-nav');
   const side = document.querySelector('.wa-admin__side');
-  if (!button || !side) return;
+  if (!state || !side) return;
 
   const scrim = document.createElement('div');
   scrim.className = 'wa-admin__scrim';
   document.body.append(scrim);
 
-  const close = () => {
-    side.classList.remove('is-open');
-    scrim.classList.remove('is-open');
-    button.setAttribute('aria-expanded', 'false');
+  const sync = () => {
+    scrim.classList.toggle('is-open', state.checked);
   };
 
-  button.addEventListener('click', () => {
-    const open = side.classList.toggle('is-open');
-    scrim.classList.toggle('is-open', open);
-    button.setAttribute('aria-expanded', open ? 'true' : 'false');
-  });
+  const close = () => {
+    state.checked = false;
+    sync();
+  };
 
+  state.addEventListener('change', sync);
   scrim.addEventListener('click', close);
+
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') close();
   });
+
+  // Nach einem Klick auf einen Eintrag soll die Leiste zugehen – sonst
+  // steht sie beim Zurückgehen im Verlauf wieder offen da.
+  side.addEventListener('click', (event) => {
+    if (event.target.closest('a, button')) close();
+  });
+
+  sync();
 }
 
 /* ------------------------------------------------------------------ */

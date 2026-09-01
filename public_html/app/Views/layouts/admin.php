@@ -57,6 +57,16 @@ $nav = [
 
 <a class="wa-skip" href="#admin-inhalt">Direkt zum Inhalt</a>
 
+<?php /*
+    Das Menue auf dem Handy haengt bewusst nicht an JavaScript. Ein
+    Verwaltungsbereich, dessen Navigation verschwindet, sobald ein
+    Skript nicht laedt - zwischengespeicherte alte Datei, blockierte
+    Adresse, abgeschaltetes JavaScript - ist unbedienbar. Deshalb
+    schaltet ein Kaestchen die Leiste, rein ueber CSS. Das Skript
+    ergaenzt nur noch das Verdunkeln und die Escape-Taste.
+*/ ?>
+<input type="checkbox" id="wa-admin-nav" class="wa-admin__nav-state" aria-label="Menue anzeigen">
+
 <aside class="wa-admin__side">
     <a class="wa-admin__brand" href="<?= e($base) ?>/start">
         <?= View_partial('partials/logo', ['size' => 1.8, 'markOnly' => true]) ?>
@@ -91,10 +101,9 @@ $nav = [
 
 <div class="wa-admin__main">
     <header class="wa-admin__topbar">
-        <button type="button" class="wa-burger wa-admin__burger" data-admin-nav-toggle
-                aria-expanded="false" aria-label="Menü">
+        <label for="wa-admin-nav" class="wa-burger wa-admin__burger" data-admin-nav-toggle>
             <span></span><span></span><span></span>
-        </button>
+        </label>
         <h1 class="wa-admin__title"><?= e($title) ?></h1>
         <?php if (!empty($headerActions)): ?>
             <div class="wa-admin__actions"><?= $headerActions ?></div>

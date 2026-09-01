@@ -93,6 +93,43 @@
 
 .wa-admin__side.is-open { transform: translateX(0); }
 
+/* Das Kaestchen ist die eigentliche Schaltung. Es liegt vor der Leiste
+   im Markup, deshalb erreicht der Geschwister-Wahlschalter sie. So
+   laesst sich das Menue auch dann oeffnen, wenn kein JavaScript laeuft.
+   Sichtbar ist es nicht, aber es bleibt mit der Tabulatortaste
+   erreichbar - "display: none" waere hier falsch. */
+.wa-admin__nav-state {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.wa-admin__nav-state:checked ~ .wa-admin__side { transform: translateX(0); }
+
+.wa-admin__nav-state:checked ~ .wa-admin__main .wa-admin__burger span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+.wa-admin__nav-state:checked ~ .wa-admin__main .wa-admin__burger span:nth-child(2) {
+  opacity: 0;
+  transform: scaleX(0.3);
+}
+.wa-admin__nav-state:checked ~ .wa-admin__main .wa-admin__burger span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* Der Fokusrahmen gehoert sichtbar an die Schaltflaeche, nicht an das
+   unsichtbare Kaestchen. */
+.wa-admin__nav-state:focus-visible ~ .wa-admin__main .wa-admin__burger {
+  outline: 2px solid var(--wa-focus);
+  outline-offset: 3px;
+}
+
 @media (min-width: 62rem) {
   .wa-admin__side { position: sticky; block-size: 100dvh; transform: none; }
 }
@@ -211,7 +248,8 @@
   transition: opacity var(--wa-dur-base) var(--wa-ease-out), visibility var(--wa-dur-base);
 }
 
-.wa-admin__scrim.is-open { opacity: 1; visibility: visible; }
+.wa-admin__scrim.is-open,
+.wa-admin__nav-state:checked ~ .wa-admin__scrim { opacity: 1; visibility: visible; }
 
 @media (min-width: 62rem) {
   .wa-admin__scrim { display: none; }
