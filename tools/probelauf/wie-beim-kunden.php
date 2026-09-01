@@ -34,11 +34,13 @@ foreach ($argv as $arg) {
 $takte = max(1, (int) ($argumente['takte'] ?? 60));
 $abschuss = (int) ($argumente['abschuss'] ?? 0);
 $pause = max(0, (int) ($argumente['pause'] ?? 1));
+$ueberlappend = in_array('--ueberlappend', $argv, true);
 
 $worker = BASE_DIR . '/worker.php';
 
 echo "worker.php als eigener Prozess, {$takte} Takte";
 echo $abschuss > 0 ? ", Abschuss nach {$abschuss}s" : ', ohne Zeitgrenze';
+echo $ueberlappend ? ', ueberlappend wie ein echter Cronjob' : ', einer nach dem anderen';
 echo ", {$pause}s Pause.\n\n";
 
 printf("%-5s %-7s %-11s %-5s %-8s %-8s %s\n",
@@ -57,7 +59,18 @@ for ($takt = 1; $takt <= $takte; $takt++) {
         ? sprintf('timeout -s KILL %d %s %s', $abschuss, PHP_BINARY, escapeshellarg($worker))
         : sprintf('%s %s', PHP_BINARY, escapeshellarg($worker));
 
-    exec($befehl . ' > /dev/null 2>&1', $_, $code);
+    if ($ueberlappend) {
+        // So arbeitet ein Cronjob wirklich: Er startet jede Minute einen
+        // neuen Vorgang und wartet nicht, ob der vorige fertig ist.
+        // Laeuft ein Durchlauf laenger als eine Minute - und das tut er
+        // seit dem groesseren Zeitfenster - arbeiten mehrere
+        // gleichzeitig. Wer das nicht nachstellt, sieht nie, ob sie sich
+        // ins Gehege kommen.
+        exec($befehl . ' > /dev/null 2>&1 &');
+        $code = 0;
+    } else {
+        exec($befehl . ' > /dev/null 2>&1', $_, $code);
+    }
 
     $dauer = round(microtime(true) - $start);
     $job = Db::first('SELECT * FROM jobs ORDER BY id DESC LIMIT 1');

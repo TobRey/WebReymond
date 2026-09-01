@@ -128,6 +128,18 @@ final class CreateController
             'mit_backend' => $brief['wants_admin'],
         ], $request);
 
+        // Sagen, wie lange das dauert.
+        //
+        // Ein Aufruf an die KI braucht zwanzig bis dreissig Sekunden, und
+        // eine Website besteht aus vielen. Wer das nicht weiss, haelt
+        // eine Anzeige, die sich zwei Minuten nicht ruehrt, fuer einen
+        // Defekt - bricht ab, faengt neu an und zahlt alles noch einmal.
+        Session::flash('success', sprintf(
+            'Der Bau läuft. Das dauert etwa %s – die Seite zeigt laufend, woran gerade '
+            . 'gearbeitet wird. Du kannst sie ruhig schliessen, es läuft weiter.',
+            self::dauerSchaetzen($brief)
+        ));
+
         // Nicht auf den nächsten Cron-Lauf warten.
         Jobs::nudge();
 
@@ -135,6 +147,42 @@ final class CreateController
     }
 
     // ------------------------------------------------------------------
+
+    /**
+     * Wie lange dauert dieser Bau ungefaehr?
+     *
+     * Gerechnet wird in Aufrufen an die KI: einer fuer die Seitenliste,
+     * einer je Seite fuer den Aufbau, ein bis zwei je Seite fuer die
+     * Texte, und dasselbe noch einmal je zusaetzlicher Sprache. Bei
+     * ungefaehr zwei Aufrufen je Minute ergibt das eine brauchbare
+     * Hausnummer - bewusst grosszuegig, denn zu frueh Gesagtes enttaeuscht.
+     */
+    private static function dauerSchaetzen(array $brief): string
+    {
+        $seiten = match ((string) ($brief['scope'] ?? 'small')) {
+            'large' => 11,
+            'medium' => 7,
+            default => 5,
+        };
+
+        $sprachen = max(1, count(array_filter(explode(',', (string) ($brief['locales'] ?? 'de')))));
+
+        // Aufbau je Seite, Texte je Seite, und beides je Sprache erneut
+        // fuer die Uebersetzung.
+        $aufrufe = 1 + $seiten + ($seiten * 2) + (($sprachen - 1) * $seiten * 2);
+        $minuten = (int) ceil($aufrufe / 2);
+
+        if ($minuten <= 5) {
+            return 'fünf Minuten';
+        }
+
+        // Auf Viertelstunden runden, damit es nach Schaetzung klingt und
+        // nicht nach Versprechen.
+        $von = max(5, (int) (floor($minuten / 5) * 5));
+        $bis = $von + 10;
+
+        return $von . ' bis ' . $bis . ' Minuten';
+    }
 
     private function render(Request $request, array $values, array $errors): Response
     {

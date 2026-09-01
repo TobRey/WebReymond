@@ -1286,3 +1286,43 @@ fieldset.wa-fieldset { border: 1px solid var(--wa-border); margin: 0; }
   border-color: var(--wa-secondary);
   color: var(--wa-text-strong);
 }
+
+/* ================================================================== */
+/* Lebenszeichen eines laufenden Auftrags                              */
+/* ================================================================== */
+
+/* Ein Bau dauert je nach Umfang zwanzig Minuten, und ein einzelner
+   Aufruf an die KI zwanzig bis dreissig Sekunden. Die Prozentzahl steht
+   deshalb minutenlang still, ohne dass etwas kaputt waere. Diese Zeile
+   sagt den Unterschied zwischen "arbeitet gerade" und "haengt fest". */
+.wa-job__puls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--wa-text-sm);
+  color: var(--wa-text-muted);
+}
+
+.wa-job__puls::before {
+  content: '';
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 50%;
+  background: var(--wa-secondary);
+  animation: wa-puls 1.8s var(--wa-ease-out) infinite;
+}
+
+.wa-job__puls[data-state='still'] { color: var(--wa-danger); }
+.wa-job__puls[data-state='still']::before {
+  background: var(--wa-danger);
+  animation: none;
+}
+
+@keyframes wa-puls {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.35; transform: scale(0.7); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wa-job__puls::before { animation: none; }
+}

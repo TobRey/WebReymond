@@ -25,6 +25,29 @@ final class JobController
             $redirect = (string) ($job['state']['redirect'] ?? '');
         }
 
+        // Lebt er noch?
+        //
+        // Das ist die wichtigste Angabe auf dieser Seite, und sie fehlte.
+        // Ein Bau braucht je nach Umfang zwanzig Minuten und mehr; die
+        // Anzeige steht dabei minutenlang auf derselben Zahl, weil ein
+        // einzelner Aufruf an die KI zwanzig bis dreissig Sekunden
+        // dauert. Von "arbeitet gerade" war "haengt fest" nicht zu
+        // unterscheiden - und wer abbricht und neu anfaengt, zahlt alles
+        // noch einmal.
+        //
+        // Deshalb steht hier jetzt, wann zuletzt etwas passiert ist.
+        $zuletzt = strtotime((string) ($job['updated_at'] ?? '')) ?: time();
+        $stillSeit = max(0, time() - $zuletzt);
+
+        $projektId = (int) ($job['project_id'] ?? 0);
+
+        $aufrufe = $projektId > 0
+            ? (int) (Db::first(
+                'SELECT COUNT(*) c FROM ai_calls WHERE project_id = :p',
+                ['p' => $projektId]
+            )['c'] ?? 0)
+            : 0;
+
         return Response::json([
             'ok' => true,
             'job' => [
@@ -37,6 +60,9 @@ final class JobController
                 'error' => (string) ($job['error'] ?? ''),
                 'attempts' => $job['attempts'],
                 'redirect' => $redirect,
+                'still_seit' => $stillSeit,
+                'aufrufe' => $aufrufe,
+                'lebt' => $stillSeit < 180,
             ],
         ])->noCache();
     }

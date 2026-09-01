@@ -46,6 +46,7 @@ $statusLabels = [
                      style="--value: <?= (int) $job['progress'] ?>%"></div></div>
                 <div class="wa-job__row">
                     <span class="wa-job__step" data-job-step><?= e((string) $job['message']) ?></span>
+                <span class="wa-job__puls" data-job-puls data-state="lebt">arbeitet …</span>
                     <form method="post" action="/api/jobs/<?= (int) $job['id'] ?>/abbrechen"
                           data-confirm="Diesen Auftrag wirklich abbrechen?">
                         <?= Csrf::field() ?>

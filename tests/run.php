@@ -1259,6 +1259,61 @@ test('Ein Abbruch mitten in der Seite wirft nichts weg', function (): void {
 });
 
 // ==================================================================
+test('Ein laufender Auftrag zeigt, dass er lebt', function (): void {
+    // Das eigentliche Aergernis, und es war nie ein Defekt: Ein Bau
+    // dauert je nach Umfang zwanzig Minuten, ein einzelner Aufruf an die
+    // KI zwanzig bis dreissig Sekunden. Die Prozentzahl steht deshalb
+    // minutenlang still - und "arbeitet gerade" war von "haengt fest"
+    // nicht zu unterscheiden. Wer abbricht und neu anfaengt, zahlt alles
+    // noch einmal.
+    $controller = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Http/JobController.php'
+    );
+
+    ok(str_contains($controller, 'still_seit'), 'Die Antwort sagt, wann zuletzt etwas passierte');
+    ok(str_contains($controller, "'lebt'"), 'Und ob das noch als lebendig gilt');
+    ok(str_contains($controller, 'aufrufe'), 'Dazu, wie viele Schritte schon erledigt sind');
+
+    // Kein Schritt darf minutenlang auf derselben Zahl stehen.
+    $pipeline = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Build/Pipeline.php'
+    );
+
+    foreach ([
+        'plan' => '12 + (int) round(14 *',
+        'inhalte' => '28 + (int) round(34 *',
+        'sprachen' => '70 + (int) round(12 *',
+    ] as $schritt => $formel) {
+        ok(str_contains($pipeline, $formel),
+            'Der Schritt "' . $schritt . '" hat eine eigene Spanne statt einer festen Zahl');
+    }
+
+    // Und die Anzeige braucht die Stelle dafuer.
+    foreach (['project', 'dashboard', 'deploy'] as $seite) {
+        $ansicht = (string) file_get_contents(
+            dirname(__DIR__) . '/public_html/app/Views/admin/' . $seite . '.php'
+        );
+        ok(str_contains($ansicht, 'data-job-puls'), $seite . ': zeigt das Lebenszeichen');
+    }
+
+    // Die Schaetzung muss mit dem Umfang wachsen, sonst ist sie wertlos.
+    $schaetzen = new ReflectionMethod(\WebAtze\Http\CreateController::class, 'dauerSchaetzen');
+    $schaetzen->setAccessible(true);
+
+    $klein = (string) $schaetzen->invoke(null, ['scope' => 'small', 'locales' => 'de']);
+    $gross = (string) $schaetzen->invoke(null, ['scope' => 'large', 'locales' => 'de,en,fr']);
+
+    ok($klein !== '', 'Eine kleine Website bekommt eine Schaetzung');
+    ok($gross !== '', 'Eine grosse auch');
+    ok($klein !== $gross, 'Und sie unterscheiden sich (' . $klein . ' / ' . $gross . ')');
+
+    preg_match('/(\d+)/', $gross, $g);
+    preg_match('/(\d+)/', $klein, $k);
+    ok((int) ($g[1] ?? 0) >= (int) ($k[1] ?? 0),
+        'Die grosse Website dauert laenger, nicht kuerzer');
+});
+
+// ==================================================================
 test('Der Verbindungstest stuerzt nie ab', function (): void {
     // Hier stand ein Aufruf von ftp_connect() ohne die Pruefung, ob es
     // die FTP-Erweiterung auf diesem Server ueberhaupt gibt. Fehlt sie -

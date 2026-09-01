@@ -639,12 +639,27 @@ final class Pipeline
                     return $state;
                 }
 
+                // Eine eigene Spanne statt einer festen Zahl. Vorher
+                // stand hier minutenlang 76 Prozent, egal wie viele
+                // Seiten schon uebersetzt waren - und eine Anzeige, die
+                // sich nicht ruehrt, ist von einem Stillstand nicht zu
+                // unterscheiden.
+                $gesamt = max(1, count($pages) * count($extra));
+                $anteil = count($done) / $gesamt;
+
                 Jobs::progress(
                     (int) $job['id'],
                     'sprachen',
-                    self::STEPS['sprachen']['progress'],
-                    sprintf('%s auf %s', (string) $page['title'], Translator::NAMES[$locale] ?? $locale)
+                    70 + (int) round(12 * $anteil),
+                    sprintf('%s auf %s (%d von %d)',
+                        (string) $page['title'],
+                        Translator::NAMES[$locale] ?? $locale,
+                        count($done) + 1,
+                        $gesamt)
                 );
+
+                Jobs::keepAlive((int) $job['id']);
+                Worker::beat();
 
                 $translator->translatePage((int) $page['id'], $locale);
 

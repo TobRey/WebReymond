@@ -170,6 +170,7 @@ function initJobWatchers() {
     const bar = element.querySelector('[data-job-bar]');
     const label = element.querySelector('[data-job-label]');
     const step = element.querySelector('[data-job-step]');
+    const puls = element.querySelector('[data-job-puls]');
 
     let delay = 1200;
     let stopped = false;
@@ -183,6 +184,30 @@ function initJobWatchers() {
         if (bar) bar.style.setProperty('--value', `${job.progress}%`);
         if (label) label.textContent = `${job.progress}%`;
         if (step) step.textContent = job.message || job.step || '';
+
+        // Lebt er noch?
+        //
+        // Ein Bau dauert je nach Umfang zwanzig Minuten und mehr, und ein
+        // einzelner Aufruf an die KI zwanzig bis dreissig Sekunden. Die
+        // Prozentzahl steht deshalb minutenlang still, ohne dass etwas
+        // kaputt waere. Von aussen war "arbeitet gerade" nicht von
+        // "haengt fest" zu unterscheiden - und wer abbricht und neu
+        // anfaengt, zahlt alles noch einmal.
+        if (puls) {
+          const still = job.still_seit ?? 0;
+          const aufrufe = job.aufrufe ?? 0;
+
+          if (job.lebt) {
+            puls.dataset.state = 'lebt';
+            puls.textContent = still < 5
+              ? `arbeitet gerade · ${aufrufe} Schritte erledigt`
+              : `arbeitet · letzte Regung vor ${still} s · ${aufrufe} Schritte erledigt`;
+          } else {
+            puls.dataset.state = 'still';
+            const minuten = Math.round(still / 60);
+            puls.textContent = `seit ${minuten} Minuten keine Regung · ${aufrufe} Schritte erledigt`;
+          }
+        }
 
         element.dataset.jobStatus = job.status;
 

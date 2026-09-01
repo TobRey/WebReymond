@@ -83,6 +83,7 @@ $latestBuild = $builds[0] ?? null;
             </div>
             <div class="wa-job__row">
                 <span class="wa-job__step" data-job-step><?= e((string) $job['message']) ?></span>
+                <span class="wa-job__puls" data-job-puls data-state="lebt">arbeitet …</span>
                 <div class="wa-panel__actions">
                     <?php /* Der Zwischenstand bleibt erhalten. Wer eine fehlende
                              Einstellung nachträgt, macht dort weiter, wo es

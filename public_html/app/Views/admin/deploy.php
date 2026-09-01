@@ -39,6 +39,7 @@ $latest = $builds[0] ?? null;
             </div>
             <div class="wa-job__row">
                 <span class="wa-job__step" data-job-step><?= e((string) $job['message']) ?></span>
+                <span class="wa-job__puls" data-job-puls data-state="lebt">arbeitet …</span>
             </div>
         </div>
     </section>
