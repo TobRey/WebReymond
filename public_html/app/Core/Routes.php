@@ -159,6 +159,7 @@ final class Routes
             // Neues Projekt
             $r->get($base . '/neu', 'CreateController@form');
             $r->get($base . '/projekt/{id}', 'ProjectController@show');
+            $r->get($base . '/projekt/{id}/auftrag', 'ProjectController@prompt');
             $r->get($base . '/projekt/{id}/sections', 'ProjectController@sections');
             $r->get($base . '/projekt/{id}/domain', 'DomainController@show');
             $r->get($base . '/projekt/{id}/veroeffentlichen', 'DeployController@show');

@@ -68,6 +68,61 @@ function initFill() {
   });
 }
 
+/**
+ * Einen Text in die Zwischenablage legen.
+ *
+ * Mit Rueckfall: Die moderne Schnittstelle gibt es nur ueber HTTPS. Wer
+ * das Backend ueber eine unverschluesselte Verbindung oeffnet, bekaeme
+ * sonst eine Schaltflaeche, die nichts tut - und wuesste nicht, warum.
+ */
+function initCopy() {
+  document.querySelectorAll('[data-copy]').forEach((button) => {
+    const quelle = document.querySelector(button.dataset.copy);
+    if (!quelle) return;
+
+    const urText = button.textContent;
+
+    button.addEventListener('click', async () => {
+      const text = quelle.value ?? quelle.textContent ?? '';
+      let geklappt = false;
+
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+          geklappt = true;
+        }
+      } catch {
+        geklappt = false;
+      }
+
+      if (!geklappt) {
+        // Der alte Weg: markieren und kopieren lassen.
+        quelle.removeAttribute('readonly');
+        quelle.select();
+        quelle.setSelectionRange(0, text.length);
+        geklappt = document.execCommand('copy');
+        quelle.setAttribute('readonly', 'readonly');
+      }
+
+      if (geklappt) {
+        button.textContent = button.dataset.copyDone ?? 'Kopiert';
+        button.classList.add('is-done');
+        setTimeout(() => {
+          button.textContent = urText;
+          button.classList.remove('is-done');
+        }, 2400);
+        return;
+      }
+
+      // Auch das ging nicht - dann wenigstens markieren, damit der
+      // Betreiber selbst kopieren kann.
+      quelle.focus();
+      quelle.select();
+      toast('Kopieren ging nicht. Der Text ist markiert – mit Strg+C kopieren.', 'danger');
+    });
+  });
+}
+
 function initSidebar() {
   // Geöffnet und geschlossen wird über ein Kästchen im Markup, rein per
   // CSS. Ohne JavaScript funktioniert das Menü damit weiterhin – das ist
@@ -460,6 +515,7 @@ function initPasswordGenerator() {
 function boot() {
   initSidebar();
   initFill();
+  initCopy();
   initConfirms();
   initJobWatchers();
   initSubmitGuards();

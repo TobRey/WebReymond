@@ -120,30 +120,27 @@ final class CreateController
             return $this->render($request, Brief::withoutSecrets($brief), []);
         }
 
-        $jobId = Jobs::enqueue('generate', [], $projectId);
-
         Audit::log('project.created', $brief['company_name'], [
             'id' => $projectId,
             'umfang' => $brief['scope'],
             'mit_backend' => $brief['wants_admin'],
         ], $request);
 
-        // Sagen, wie lange das dauert.
+        // Kein Bauauftrag mehr.
         //
-        // Ein Aufruf an die KI braucht zwanzig bis dreissig Sekunden, und
-        // eine Website besteht aus vielen. Wer das nicht weiss, haelt
-        // eine Anzeige, die sich zwei Minuten nicht ruehrt, fuer einen
-        // Defekt - bricht ab, faengt neu an und zahlt alles noch einmal.
-        Session::flash('success', sprintf(
-            'Der Bau läuft. Das dauert etwa %s – die Seite zeigt laufend, woran gerade '
-            . 'gearbeitet wird. Du kannst sie ruhig schliessen, es läuft weiter.',
-            self::dauerSchaetzen($brief)
-        ));
+        // Frueher lief hier eine Warteschlange an: rund achtzig Anfragen
+        // an die Schnittstelle, verteilt ueber vierzig Cron-Laeufe. Jeder
+        // dieser Uebergaenge war eine Stelle, an der etwas haengenbleiben
+        // konnte - und es blieb haengen, immer wieder, jedes Mal woanders.
+        //
+        // Jetzt entsteht ein Text. Kopieren, einfuegen, fertig. Wer den
+        // Bau trotzdem automatisch will, findet die Schaltflaeche auf der
+        // Auftragsseite.
+        Session::flash('success',
+            'Das Projekt ist angelegt. Hier ist der fertige Auftrag zum Kopieren.');
 
-        // Nicht auf den nächsten Cron-Lauf warten.
-        Jobs::nudge();
-
-        return Response::redirect($this->base() . '/projekt/' . $projectId)->noCache()->noIndex();
+        return Response::redirect($this->base() . '/projekt/' . $projectId . '/auftrag')
+            ->noCache()->noIndex();
     }
 
     // ------------------------------------------------------------------

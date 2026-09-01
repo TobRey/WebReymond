@@ -1267,6 +1267,106 @@ test('Ein Abbruch mitten in der Seite wirft nichts weg', function (): void {
 });
 
 // ==================================================================
+test('Der Auftragstext ist vollstaendig', function (): void {
+    // Der Weg ohne Schnittstelle: Das Formular erzeugt einen Text, der
+    // von Hand eingefuegt wird. Damit faellt die ganze Kette weg, an der
+    // es immer wieder haengenblieb - aber der Text muss dafuer alleine
+    // tragen. Wer ihn einfuegt, hat das Formular nicht gesehen und kann
+    // nicht nachfragen. Was fehlt, wird erfunden.
+    $g = \WebAtze\Domain\Brief::validate([
+        'company_name' => 'Bergstern Reisen AG',
+        'slogan' => 'Die Alpen, wie sie wirklich sind',
+        'industry' => 'Reiseveranstalter und Bergsport',
+        'description' => 'Gefuehrte Wanderreisen und Skitouren in den Schweizer Alpen.',
+        'audience' => 'Erfahrene Wanderer aus der Schweiz.',
+        'style' => 'natural', 'tone' => 'sie', 'scope' => 'medium', 'locales' => 'de,fr',
+        'color_mode' => 'manual',
+        'color_primary' => '#14532D', 'color_secondary' => '#0C2A18', 'color_accent' => '#E8A33D',
+        'contact_email' => 'info@bergstern.example',
+        'contact_phone' => '081 250 40 40',
+        'contact_address' => "Bahnhofplatz 4\n7000 Chur",
+        'opening_hours' => 'Mo-Fr 08:00-18:00',
+        'domain' => 'bergstern.example',
+        'wants_admin' => '1', 'admin_username' => 'bergstern',
+        'admin_password' => 'ein-langes-Testpasswort-2026',
+        'wants_stats' => '1', 'wants_docs' => '1',
+        'report_email' => 'info@bergstern.example',
+        'wanted_pages' => 'Touren, Lawinenkurse, Ueber uns',
+        'extra_notes' => 'Gaeste sollen online einen Platz auf einer Tour buchen koennen.',
+    ]);
+
+    ok($g['ok'], 'Die Probeeingaben sind gueltig');
+
+    $brief = $g['data'];
+    $text = \WebAtze\Domain\PromptText::build($brief);
+
+    // Jede Angabe aus dem Formular muss vorkommen - sonst fehlt sie beim
+    // Bauen und wird erfunden.
+    foreach ([
+        'Firmenname' => 'Bergstern Reisen AG',
+        'Slogan' => 'Die Alpen, wie sie wirklich sind',
+        'Branche' => 'Reiseveranstalter',
+        'Beschreibung' => 'Gefuehrte Wanderreisen',
+        'Zielgruppe' => 'Erfahrene Wanderer',
+        'E-Mail' => 'info@bergstern.example',
+        'Telefon' => '081 250 40 40',
+        'Adresse' => 'Bahnhofplatz 4',
+        'Oeffnungszeiten' => 'Mo-Fr 08:00-18:00',
+        'Domain' => 'bergstern.example',
+        'Hauptfarbe' => '#14532d',
+        'Akzentfarbe' => '#e8a33d',
+        'Wunschseiten' => 'Lawinenkurse',
+        'Zusatzwunsch' => 'Platz auf einer Tour',
+        'Sprachen' => 'Französisch',
+        'Bearbeitungsbereich' => 'bergstern',
+    ] as $was => $erwartet) {
+        ok(str_contains($text, $erwartet), $was . ' steht im Auftrag');
+    }
+
+    // Das Passwort gehoert NICHT hinein - der Text wird kopiert und
+    // weitergereicht.
+    ok(!str_contains($text, 'ein-langes-Testpasswort-2026'),
+        'Das Kennwort steht NICHT im Auftrag');
+
+    // Die zwei Regeln, die nicht verhandelbar sind.
+    ok(str_contains($text, 'Erfinde nichts über diese Firma'),
+        'Der Auftrag verbietet Erfundenes');
+    ok(str_contains($text, 'wie diese Website'),
+        'Und jeden Hinweis auf die Entstehung');
+    ok(str_contains($text, 'ss statt ß'), 'Schweizer Rechtschreibung wird verlangt');
+
+    // Der Text selbst darf nirgends verraten, womit er gebaut wird.
+    foreach (['claude', 'anthropic', 'gpt', 'openai', 'sprachmodell'] as $wort) {
+        ok(!str_contains(mb_strtolower($text), $wort),
+            'Kein Hinweis auf "' . $wort . '" im Auftrag');
+    }
+
+    // Angehakte Zusatzwuensche muessen als Auftrag dastehen.
+    ok(str_contains($text, 'Besucherzählung gewünscht'), 'Die Besucherzählung ist beauftragt');
+    ok(str_contains($text, 'Anleitung gewünscht'), 'Die Anleitung ebenfalls');
+    ok(str_contains($text, 'Bearbeitungsbereich gewünscht'), 'Und der Bearbeitungsbereich');
+
+    // Ohne Haken darf nichts davon dastehen.
+    $ohne = $brief;
+    $ohne['wants_admin'] = false;
+    $ohne['wants_stats'] = false;
+    $ohne['wants_docs'] = false;
+
+    $schlicht = \WebAtze\Domain\PromptText::build($ohne);
+
+    ok(!str_contains($schlicht, 'Besucherzählung gewünscht'),
+        'Ohne Haken keine Besucherzählung');
+    ok(!str_contains($schlicht, 'Bearbeitungsbereich gewünscht'),
+        'Ohne Haken kein Bearbeitungsbereich');
+
+    // Der Dateiname fuers Herunterladen.
+    is('auftrag-bergstern-reisen-ag.md', \WebAtze\Domain\PromptText::filename($brief),
+        'Der Dateiname passt zur Firma');
+
+    ok(mb_strlen($text) > 3000, 'Der Auftrag hat Substanz (' . mb_strlen($text) . ' Zeichen)');
+});
+
+// ==================================================================
 test('Eine Seite kostet einen Aufruf, nicht drei', function (): void {
     // Der Umbau in einem Satz: Aus achtzig Aufrufen ueber vierzig
     // Prozessstarts wurden dreissig in einem Prozess. Nicht weil die

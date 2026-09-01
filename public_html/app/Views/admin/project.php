@@ -66,7 +66,17 @@ $latestBuild = $builds[0] ?? null;
 
 <?php /* -------------------------------------------------- Laufender Auftrag */ ?>
 <?php if ($job !== null): ?>
-    <section class="wa-panel">
+    <section class="wa-panel wa-panel--accent">
+    <h2 class="wa-panel__title">Auftrag zum Kopieren</h2>
+    <p class="wa-panel__hint">
+        Der fertige Text für Claude Code &ndash; alles aus dem Formular darin.
+    </p>
+    <a class="wa-btn wa-btn--primary" href="<?= e($base) ?>/projekt/<?= $id ?>/auftrag">
+        Auftrag anzeigen
+    </a>
+</section>
+
+<section class="wa-panel">
         <div class="wa-panel__head">
             <h2 class="wa-panel__title">
                 <?= (string) $job['status'] === 'failed' ? 'Abgebrochen' : 'Läuft gerade' ?>

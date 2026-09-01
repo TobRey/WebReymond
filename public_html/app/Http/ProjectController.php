@@ -6,12 +6,41 @@ namespace WebAtze\Http;
 
 use WebAtze\Build\{Pipeline, SiteBuilder, SiteChecker, ZipExporter};
 use WebAtze\Core\{Audit, Config, Db, Jobs, Request, Response, Session, View};
+use WebAtze\Domain\PromptText;
 
 /**
  * Ein einzelnes Projekt: Stand, Abschnitte, Verlauf, Neubau, Löschen.
  */
 final class ProjectController
 {
+    /**
+     * Der fertige Auftrag zum Kopieren.
+     *
+     * Der Weg ohne Schnittstelle: Das Formular erzeugt einen Text, der
+     * von Hand eingefuegt wird. Eine Anfrage, eine Antwort - und keine
+     * Warteschlange, kein Cronjob, keine achtzig Aufrufe, die
+     * hintereinander klappen muessen.
+     */
+    public function prompt(Request $request): Response
+    {
+        $project = self::find($request->paramInt('id'));
+
+        if ($project === null) {
+            return Response::notFound();
+        }
+
+        $brief = json_decode((string) $project['brief'], true) ?: [];
+
+        return Response::html(View::partial('layouts/admin', [
+            'title' => 'Auftrag: ' . (string) $project['name'],
+            'content' => View::partial('admin/prompt', [
+                'project' => $project,
+                'prompt' => PromptText::build($brief),
+                'dateiname' => PromptText::filename($brief),
+            ]),
+        ]))->noCache()->noIndex();
+    }
+
     public function show(Request $request): Response
     {
         $project = self::find($request->paramInt('id'));
