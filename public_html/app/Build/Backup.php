@@ -19,10 +19,17 @@ use ZipArchive;
  * einmal zu verlangen – auf einem gemieteten Hosting ist das der
  * Unterschied zwischen "läuft" und "Zeitlimit".
  *
- * Aufbewahrt werden die letzten 14 Tage, dazu je der Monatserste der
- * letzten sechs Monate. Alles andere wird gelöscht. Zwei Wochen decken
- * den Normalfall ab ("gestern war noch alles gut"), die Monatsstände
- * den seltenen ("das ist schon seit Februar falsch").
+ * Von der eigenen Datenbank bleiben die letzten 14 Tage liegen, dazu je
+ * der Monatserste der letzten sechs Monate. Zwei Wochen decken den
+ * Normalfall ab ("gestern war noch alles gut"), die Monatsstände den
+ * seltenen ("das ist schon seit Februar falsch"). Sie ist klein genug
+ * dafür.
+ *
+ * Von einer Kundenwebsite bleiben nur die neuesten Stände – wie viele,
+ * steht im Wartungscenter, Standard sind zwei. Beim Anlegen einer neuen
+ * Sicherung fällt die älteste weg. Eins wäre auch möglich, ist aber
+ * riskant: Wird eine schon beschädigte Seite gesichert, überschreibt sie
+ * den letzten guten Stand.
  */
 final class Backup
 {
@@ -338,22 +345,39 @@ final class Backup
             $groups[$key][] = $row;
         }
 
-        foreach ($groups as $rows) {
+        // Wie viele Staende einer Kundenwebsite bleiben. Einstellbar,
+        // weil eine Website je nach Umfang schnell hundert Megabyte hat
+        // und der Speicherplatz auf gemietetem Hosting endlich ist.
+        $proSeite = max(1, min(30, (int) Settings::get('backup_keep_per_site', '2')));
+
+        foreach ($groups as $key => $rows) {
+            $eigene = str_starts_with($key, 'self:');
             $daily = 0;
             $monthly = 0;
 
             foreach ($rows as $row) {
-                $day = substr((string) $row['created_at'], 0, 10);
-                $isFirst = str_ends_with($day, '-01');
-
                 $keep = false;
 
-                if ($daily < self::KEEP_DAILY) {
-                    $daily++;
-                    $keep = true;
-                } elseif ($isFirst && $monthly < self::KEEP_MONTHLY) {
-                    $monthly++;
-                    $keep = true;
+                if (!$eigene) {
+                    // Kundenwebsites: nur die neuesten Staende.
+                    if ($daily < $proSeite) {
+                        $daily++;
+                        $keep = true;
+                    }
+                } else {
+                    // Die eigene Datenbank bleibt laenger liegen. Sie ist
+                    // winzig im Vergleich, und genau sie braucht man,
+                    // wenn etwas seit Wochen unbemerkt schieflaeuft.
+                    $day = substr((string) $row['created_at'], 0, 10);
+                    $isFirst = str_ends_with($day, '-01');
+
+                    if ($daily < self::KEEP_DAILY) {
+                        $daily++;
+                        $keep = true;
+                    } elseif ($isFirst && $monthly < self::KEEP_MONTHLY) {
+                        $monthly++;
+                        $keep = true;
+                    }
                 }
 
                 if ($keep) {

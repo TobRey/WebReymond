@@ -12,6 +12,8 @@ use WebAtze\Core\{Config, Csrf};
 use WebAtze\Domain\Calendar;
 
 /** @var string $monat */
+/** @var string $abo */
+/** @var string $aboWebcal */
 /** @var array<int, array<int, array<string, mixed>>> $wochen */
 /** @var array<int, array<string, mixed>> $kunden */
 /** @var array<int, array<string, mixed>> $mitarbeitende */
@@ -167,4 +169,66 @@ $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
             <?php endforeach; ?>
         </ul>
     <?php endif; ?>
+</section>
+
+<section class="wa-panel">
+    <header class="wa-panel__head">
+        <h2 class="wa-panel__title">Auf dem Telefon</h2>
+    </header>
+
+    <p class="wa-panel__hint">
+        Das iPhone kann diesen Kalender abonnieren. Termine und Aufgaben mit Frist stehen
+        dann zwischen allen anderen Terminen, und das Telefon erinnert von selbst –
+        30 Minuten vor einem Termin, morgens um 8 bei einer fälligen Aufgabe. Eine App
+        braucht es dafür nicht.
+    </p>
+
+    <div class="wa-copybox">
+        <input class="wa-input" type="text" id="kalender-adresse" readonly
+               value="<?= e($abo) ?>" aria-label="Kalenderadresse zum Abonnieren">
+        <button type="button" class="wa-btn wa-btn--primary" data-copy="#kalender-adresse">
+            Adresse kopieren
+        </button>
+        <a class="wa-btn" href="<?= e($aboWebcal) ?>">Direkt abonnieren</a>
+    </div>
+
+    <details class="wa-details">
+        <summary>So richtest du es auf dem iPhone ein</summary>
+        <ol class="wa-steps">
+            <li>Adresse oben kopieren und sich selbst per Nachricht oder E-Mail schicken.</li>
+            <li>
+                Auf dem iPhone: <strong>Einstellungen → Apps → Kalender → Accounts →
+                Account hinzufügen → Andere → Kalenderabo hinzufügen</strong>.
+                Die Adresse einsetzen, auf Weiter, auf Sichern.
+            </li>
+            <li>
+                <strong>Wichtig für die Erinnerungen:</strong> In den Einstellungen dieses
+                Abonnements steht <em>Erinnerungen entfernen</em>. Das muss
+                <strong>aus</strong> sein. iOS wirft die Erinnerungen abonnierter Kalender
+                sonst weg – und dann meldet sich das Telefon nie.
+            </li>
+            <li>
+                Fertig. Das iPhone sieht etwa stündlich nach. Ein eben eingetragener Termin
+                ist also nicht in derselben Sekunde dort.
+            </li>
+        </ol>
+
+        <p class="wa-hint">
+            Die Verbindung geht nur in eine Richtung: Das Telefon liest mit. Ein Termin, den
+            du direkt auf dem iPhone einträgst, kommt nicht hierher zurück – dafür bräuchte es
+            einen eigenen Serverdienst, den geteiltes Hosting nicht anbietet. Trage Termine
+            also hier ein, dann stehen sie überall.
+        </p>
+
+        <p class="wa-hint">
+            Wer die Adresse hat, sieht die Termine. Sie enthält deshalb ein langes Zufallswort
+            und gehört nicht weitergegeben. Falls sie doch einmal irgendwo landet:
+        </p>
+
+        <form method="post" action="<?= e($base) ?>/kalender/neue-adresse"
+              data-confirm="Neue Adresse erzeugen? Das bestehende Abonnement auf dem Telefon hört dann auf zu arbeiten und muss neu eingerichtet werden.">
+            <?= Csrf::field() ?>
+            <button type="submit" class="wa-btn wa-btn--small">Neue Adresse erzeugen</button>
+        </form>
+    </details>
 </section>

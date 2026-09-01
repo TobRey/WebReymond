@@ -278,13 +278,18 @@ $neu = $id === 0;
 <section class="wa-panel">
     <header class="wa-panel__head">
         <h2 class="wa-panel__title">Zahlungshistorie</h2>
-        <form method="post" action="<?= e($base) ?>/kunden/<?= $id ?>/rechnung">
-            <?= Csrf::field() ?>
-            <button type="submit" class="wa-btn wa-btn--primary"
-                    <?= $stand['offen_rappen'] > 0 ? '' : 'disabled' ?>>
-                Rechnung aus offenen Posten
-            </button>
-        </form>
+        <div class="wa-panel__actions">
+            <a class="wa-btn" href="<?= e($base) ?>/rechnungen?art=offer&amp;kunde=<?= $id ?>">
+                Offerte schreiben
+            </a>
+            <form method="post" action="<?= e($base) ?>/kunden/<?= $id ?>/rechnung">
+                <?= Csrf::field() ?>
+                <button type="submit" class="wa-btn wa-btn--primary"
+                        <?= $stand['offen_rappen'] > 0 ? '' : 'disabled' ?>>
+                    Rechnung aus offenen Posten
+                </button>
+            </form>
+        </div>
     </header>
 
     <?php if ($historie === []): ?>

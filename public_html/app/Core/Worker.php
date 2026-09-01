@@ -118,7 +118,9 @@ final class Worker
             $job = Jobs::claim();
 
             if ($job === null) {
-                // Nichts zu tun – dann die Gelegenheit zum Aufräumen nutzen.
+                // Nichts zu tun – dann die Gelegenheit nutzen: erst die
+                // Kundenwebsites anschauen, dann aufräumen.
+                self::watchSites();
                 $housekeeping = self::housekeeping();
                 break;
             }
@@ -304,6 +306,42 @@ final class Worker
         ]);
 
         return true;
+    }
+
+    /**
+     * Nachsehen, ob die überwachten Kundenwebsites noch laufen.
+     *
+     * Bewusst nicht im stündlichen Aufräumen: Eine Website, die seit
+     * einer Stunde nicht antwortet, hat der Kunde längst selbst
+     * gemerkt. Deshalb läuft das hier bei jedem Takt mit, wenn gerade
+     * kein Auftrag wartet – aber immer nur für ein paar Seiten, damit
+     * ein Cron-Lauf davon nicht länger dauert als er darf.
+     */
+    public static function watchSites(int $max = 4): int
+    {
+        $letzte = (int) Settings::get('guard_tick_at', '0');
+
+        if (time() - $letzte < 55) {
+            return 0;
+        }
+
+        Settings::put('guard_tick_at', (string) time());
+
+        try {
+            $ergebnis = \WebAtze\Domain\Monitor::tick($max);
+        } catch (Throwable $e) {
+            // Die Überwachung darf den Worker nie mitreissen. Sie ist
+            // Beiwerk; die Aufträge sind die Arbeit.
+            Logger::exception($e);
+
+            return 0;
+        }
+
+        if ($ergebnis['geprueft'] > 0) {
+            Logger::info('Websites geprüft', $ergebnis);
+        }
+
+        return $ergebnis['geprueft'];
     }
 
     /**

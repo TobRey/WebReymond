@@ -25,17 +25,20 @@ $nav = [
     ['/start', 'Übersicht', 'grid'],
     ['/kunden', 'Kunden', 'users'],
     ['/kalender', 'Kalender', 'calendar'],
+    ['/kundensuche', 'Kundensuche', 'search'],
+    ['/potenzielle-kunden', 'Potenzielle Kunden', 'inbox'],
     ['/buchhaltung', 'Buchhaltung', 'coins'],
+    ['/rechnungen', 'Rechnungen', 'tag'],
+    ['/vertraege', 'Verträge', 'refresh'],
     ['/mitarbeitende', 'Mitarbeitende', 'user'],
     ['/neu', 'Neue Website', 'plus'],
+    ['/wartung', 'Wartungscenter', 'shield'],
+    ['/passwoerter', 'Passwörter', 'key'],
     ['/anfragen', 'Anfragen', 'inbox'],
     ['/support', 'Support', 'chat'],
     ['/fragebogen', 'Fragebögen', 'document'],
     ['/referenzen', 'Referenzen', 'star'],
     ['/zahlen', 'Besucher', 'chart'],
-    ['/sicherungen', 'Sicherungen', 'shield'],
-    ['/rechnungen', 'Rechnungen', 'tag'],
-    ['/vertraege', 'Verträge', 'refresh'],
     ['/kosten', 'Kosten', 'coins'],
     ['/protokoll', 'Protokoll', 'list'],
     ['/einstellungen', 'Einstellungen', 'gear'],
@@ -83,8 +86,14 @@ $nav = [
     <nav class="wa-admin__nav" aria-label="Verwaltung">
         <?php foreach ($nav as [$path, $label, $icon]): ?>
             <?php $href = $base . $path; ?>
+            <?php
+                /* Nicht nur str_starts_with: '/create/kundensuche' beginnt
+                   mit '/create/kunden', und dann leuchteten beide Eintraege.
+                   Es zaehlt der Eintrag selbst oder ein Pfad darunter. */
+                $hier = $currentPath === $href || str_starts_with($currentPath, $href . '/');
+            ?>
             <a class="wa-admin__link" href="<?= e($href) ?>"
-               <?= str_starts_with($currentPath, $href) ? 'aria-current="page"' : '' ?>>
+               <?= $hier ? 'aria-current="page"' : '' ?>>
                 <?= View_partial('partials/admin-icons', ['name' => $icon]) ?>
                 <span><?= e($label) ?></span>
             </a>

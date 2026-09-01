@@ -660,6 +660,106 @@ final class Schema
                 );
                 CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses (spent_on);
             ',
+
+            // ------------------------------------------------ Kundensuche
+            //
+            // Eine Firma, die noch kein Kunde ist, ist etwas anderes als
+            // eine Anfrage: Sie hat sich nicht gemeldet. Deshalb eine
+            // eigene Tabelle - mit dem Recherchetext, damit beim Anrufen
+            // alles beisammen liegt, und mit 'nie', damit eine einmal
+            // weggeschobene Firma nie wieder auftaucht.
+            '034_prospects' => '
+                CREATE TABLE IF NOT EXISTS prospects (
+                    id {id},
+                    name {string:191} NOT NULL,
+                    branch {string:120} NOT NULL DEFAULT \'\',
+                    place {string:120} NOT NULL DEFAULT \'\',
+                    website {string:191} NOT NULL DEFAULT \'\',
+                    email {string:191} NOT NULL DEFAULT \'\',
+                    phone {string:60} NOT NULL DEFAULT \'\',
+                    address {string:255} NOT NULL DEFAULT \'\',
+                    contact_name {string:191} NOT NULL DEFAULT \'\',
+                    site_state {string:30} NOT NULL DEFAULT \'\',
+                    reason {text} NULL,
+                    research {text} NULL,
+                    score {int} NOT NULL DEFAULT 0,
+                    source {string:20} NOT NULL DEFAULT \'auftrag\',
+                    status {string:20} NOT NULL DEFAULT \'neu\',
+                    note {text} NULL,
+                    customer_id {int} NULL,
+                    decided_at {datetime} NULL,
+                    created_at {datetime} NOT NULL,
+                    updated_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_prospects_status ON prospects (status, id);
+                CREATE INDEX IF NOT EXISTS idx_prospects_name ON prospects (name);
+            ',
+
+            // ------------------------------------------- Hosting-Aufsicht
+            //
+            // Der Verlauf steht getrennt, weil er wachst und der Zustand
+            // nicht. Wer wissen will, ob eine Seite lauft, will eine
+            // Zeile lesen und nicht zehntausend.
+            '035_monitors' => '
+                CREATE TABLE IF NOT EXISTS monitors (
+                    id {id},
+                    customer_id {int} NULL,
+                    project_id {int} NULL,
+                    label {string:191} NOT NULL DEFAULT \'\',
+                    url {string:255} NOT NULL,
+                    expect {string:191} NOT NULL DEFAULT \'\',
+                    active {bool} NOT NULL DEFAULT 1,
+                    every_minutes {int} NOT NULL DEFAULT 15,
+                    last_checked_at {datetime} NULL,
+                    last_ok {bool} NOT NULL DEFAULT 1,
+                    last_code {int} NOT NULL DEFAULT 0,
+                    last_ms {int} NOT NULL DEFAULT 0,
+                    last_note {string:255} NOT NULL DEFAULT \'\',
+                    fail_streak {int} NOT NULL DEFAULT 0,
+                    down_since {datetime} NULL,
+                    cert_expires_on {string:10} NOT NULL DEFAULT \'\',
+                    notify {bool} NOT NULL DEFAULT 1,
+                    notified_at {datetime} NULL,
+                    created_at {datetime} NOT NULL,
+                    updated_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_monitors_active ON monitors (active, last_checked_at);
+                CREATE INDEX IF NOT EXISTS idx_monitors_customer ON monitors (customer_id);
+
+                CREATE TABLE IF NOT EXISTS monitor_checks (
+                    id {id},
+                    monitor_id {int} NOT NULL,
+                    checked_at {datetime} NOT NULL,
+                    ok {bool} NOT NULL DEFAULT 1,
+                    code {int} NOT NULL DEFAULT 0,
+                    ms {int} NOT NULL DEFAULT 0,
+                    note {string:255} NOT NULL DEFAULT \'\'
+                );
+                CREATE INDEX IF NOT EXISTS idx_checks_monitor ON monitor_checks (monitor_id, checked_at);
+            ',
+
+            // -------------------------------------------------- Der Tresor
+            //
+            // Das Passwort steht ausschliesslich verschlusselt in
+            // secret_enc. Der Schlussel dazu liegt in config.php, nicht in
+            // der Datenbank - eine gestohlene Datenbanksicherung allein
+            // gibt nichts her.
+            '036_secrets' => '
+                CREATE TABLE IF NOT EXISTS secrets (
+                    id {id},
+                    customer_id {int} NULL,
+                    label {string:191} NOT NULL,
+                    kind {string:30} NOT NULL DEFAULT \'weiteres\',
+                    username {string:191} NOT NULL DEFAULT \'\',
+                    secret_enc {text} NULL,
+                    url {string:255} NOT NULL DEFAULT \'\',
+                    note {text} NULL,
+                    opened_at {datetime} NULL,
+                    created_at {datetime} NOT NULL,
+                    updated_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_secrets_customer ON secrets (customer_id, label);
+            ',
         ];
     }
 

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Http;
 
 use WebAtze\Core\{Audit, Config, Db, Request, Response, Session, View};
-use WebAtze\Domain\{Billing, Calendar};
+use WebAtze\Domain\{Billing, Calendar, IcsFeed};
 
 /**
  * Mitarbeitende, Aufgaben, Termine und die Buchhaltung.
@@ -146,7 +146,7 @@ final class CompanyController
             'updated_at' => Db::now(),
         ], 'id = :id', ['id' => $id]);
 
-        return self::backTo($todo['customer_id'] !== null ? (int) $todo['customer_id'] : null);
+        return self::backTo($todo['customer_id'] !== null ? (int) $todo['customer_id'] : null, $request);
     }
 
     public function deleteTodo(Request $request): Response
@@ -179,8 +179,51 @@ final class CompanyController
                 'kunden' => Db::all('SELECT id, name FROM customers ORDER BY name'),
                 'mitarbeitende' => Db::all('SELECT id, name FROM employees WHERE active = 1 ORDER BY name'),
                 'naechste' => Calendar::upcoming(20),
+                'abo' => IcsFeed::url($request->baseUrl()),
+                'aboWebcal' => IcsFeed::webcalUrl($request->baseUrl()),
             ]),
         ]))->noCache()->noIndex();
+    }
+
+    // ------------------------------------------------- Kalender aufs Telefon
+
+    /**
+     * Der abonnierbare Kalender.
+     *
+     * Diese Adresse liegt bewusst ausserhalb der Anmeldung: Das iPhone
+     * holt die Datei selbst, und dabei kann es sich nirgends anmelden.
+     * Der Schutz steckt im Zufallswort in der Adresse. Wer es hat, sieht
+     * die Termine – deshalb steht neben dem Verweis im Kalender ein
+     * Knopf, der ein neues erzeugt.
+     */
+    public function feed(Request $request): Response
+    {
+        if (!IcsFeed::tokenMatches((string) $request->param('token'))) {
+            // Bewusst dieselbe Antwort wie fuer eine unbekannte Seite:
+            // Ein "falsches Token" waere die Bestaetigung, dass es hier
+            // ueberhaupt etwas gibt.
+            return Response::text('Nicht gefunden.', 404)->noCache()->noIndex();
+        }
+
+        return Response::make(IcsFeed::build())
+            ->header('Content-Type', 'text/calendar; charset=utf-8')
+            ->noCache()
+            ->noIndex();
+    }
+
+    /** Ein neues Zufallswort – die alte Adresse gilt dann nicht mehr. */
+    public function newFeedToken(Request $request): Response
+    {
+        IcsFeed::newToken();
+        Audit::log('calendar.token.new', '', [], $request);
+
+        Session::flash(
+            'success',
+            'Neue Adresse erzeugt. Das alte Abonnement auf dem Telefon zeigt nichts mehr '
+            . 'und muss einmal neu eingerichtet werden.'
+        );
+
+        return self::to('/kalender');
     }
 
     public function saveAppointment(Request $request): Response
@@ -349,8 +392,22 @@ final class CompanyController
         return Response::redirect(self::base() . $pfad)->noCache()->noIndex();
     }
 
-    private static function backTo(?int $kunde): Response
+    /**
+     * Zurück, wo man hergekommen ist.
+     *
+     * Ein Feld '_back' im Formular schlaegt alles andere: Wer eine
+     * Aufgabe auf der Uebersicht abhakt, will dort bleiben und nicht im
+     * Kalender landen. Erlaubt sind nur eigene Pfade - ein '_back' aus
+     * dem Formular ist Eingabe und keine Anweisung.
+     */
+    private static function backTo(?int $kunde, ?Request $request = null): Response
     {
+        $zurueck = $request !== null ? trim((string) $request->input('_back', '')) : '';
+
+        if ($zurueck !== '' && preg_match('#^/[A-Za-z0-9/_-]{0,60}$#', $zurueck) === 1) {
+            return self::to($zurueck);
+        }
+
         return $kunde !== null && $kunde > 0
             ? self::to('/kunden/' . $kunde)
             : self::to('/kalender');

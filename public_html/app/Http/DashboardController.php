@@ -4,43 +4,84 @@ declare(strict_types=1);
 
 namespace WebAtze\Http;
 
-use WebAtze\Core\{Audit, Config, Db, Request, Response, View};
+use WebAtze\Core\{Audit, Db, Request, Response, View};
+use WebAtze\Domain\{Billing, Calendar, Monitor, Prospects};
 
 /**
  * Übersicht, Kostenaufstellung und Protokoll.
  */
 final class DashboardController
 {
+    /**
+     * Die Übersicht.
+     *
+     * Oben steht, was heute zu tun ist, und was gerade nicht läuft.
+     * Darunter das Geld. Ganz unten die Projekte. Die Reihenfolge ist
+     * die eines Arbeitstags, nicht die der Datenbank: Wer morgens
+     * hereinkommt, will nicht zuerst wissen, wie viele Projekte es gibt.
+     */
     public function index(Request $request): Response
     {
-        $projects = Db::all(
-            'SELECT p.*,
-                    (SELECT COUNT(*) FROM project_pages WHERE project_id = p.id) AS page_count,
-                    (SELECT MAX(version) FROM builds WHERE project_id = p.id) AS build_version
-             FROM projects p
-             ORDER BY p.updated_at DESC, p.id DESC
-             LIMIT 60'
-        );
+        $heute = date('Y-m-d');
 
-        $activeJobs = Db::all(
-            "SELECT j.*, p.name AS project_name, p.slug AS project_slug
-             FROM jobs j LEFT JOIN projects p ON p.id = j.project_id
-             WHERE j.status IN ('queued', 'running')
-             ORDER BY j.id DESC LIMIT 10"
-        );
+        // Einmal holen, zweimal verwenden: die Liste und ihre Summe.
+        // openItems() geht jeden Kunden einzeln durch - das soll nicht
+        // zweimal je Seitenaufruf passieren.
+        $offen = Billing::openItems();
+        $offenSumme = 0;
 
-        $failedJobs = Db::all(
-            "SELECT j.*, p.name AS project_name
-             FROM jobs j LEFT JOIN projects p ON p.id = j.project_id
-             WHERE j.status = 'failed' AND j.finished_at > :since
-             ORDER BY j.id DESC LIMIT 10",
-            ['since' => date('Y-m-d H:i:s', time() - 7 * 86400)]
-        );
+        foreach ($offen as $posten) {
+            $offenSumme += (int) $posten['amount_rappen'];
+        }
 
         return $this->page('Übersicht', 'admin/dashboard', [
-            'projects' => $projects,
-            'activeJobs' => $activeJobs,
-            'failedJobs' => $failedJobs,
+            'heute' => $heute,
+            'termine' => Calendar::between($heute, date('Y-m-d', time() + 7 * 86400)),
+            'aufgaben' => Db::all(
+                "SELECT t.*, c.name AS kunde FROM todos t
+                 LEFT JOIN customers c ON c.id = t.customer_id
+                 WHERE t.done_at IS NULL AND (t.due_on = :leer OR t.due_on <= :bald)
+                 ORDER BY CASE WHEN t.due_on = :leer THEN 1 ELSE 0 END,
+                          t.due_on ASC, t.priority DESC LIMIT 12",
+                ['leer' => '', 'bald' => date('Y-m-d', time() + 7 * 86400)]
+            ),
+            'ueberfaellig' => (int) Db::value(
+                "SELECT COUNT(*) FROM todos WHERE done_at IS NULL AND due_on <> :leer AND due_on < :heute",
+                ['leer' => '', 'heute' => $heute],
+                0
+            ),
+            'ausfaelle' => Monitor::down(),
+            'wache' => Monitor::summary(),
+            'offen' => array_slice($offen, 0, 8),
+            'offenSumme' => $offenSumme,
+            'offenAnzahl' => count($offen),
+            'monat' => (int) Db::value(
+                'SELECT COALESCE(SUM(amount_rappen), 0) FROM payments WHERE paid_on >= :von',
+                ['von' => date('Y-m') . '-01'],
+                0
+            ),
+            'stapel' => Prospects::counts(),
+            'activeJobs' => Db::all(
+                "SELECT j.*, p.name AS project_name, p.slug AS project_slug
+                 FROM jobs j LEFT JOIN projects p ON p.id = j.project_id
+                 WHERE j.status IN ('queued', 'running')
+                 ORDER BY j.id DESC LIMIT 10"
+            ),
+            'failedJobs' => Db::all(
+                "SELECT j.*, p.name AS project_name
+                 FROM jobs j LEFT JOIN projects p ON p.id = j.project_id
+                 WHERE j.status = 'failed' AND j.finished_at > :since
+                 ORDER BY j.id DESC LIMIT 5",
+                ['since' => date('Y-m-d H:i:s', time() - 7 * 86400)]
+            ),
+            'projects' => Db::all(
+                'SELECT p.*,
+                        (SELECT COUNT(*) FROM project_pages WHERE project_id = p.id) AS page_count,
+                        (SELECT MAX(version) FROM builds WHERE project_id = p.id) AS build_version
+                 FROM projects p
+                 ORDER BY p.updated_at DESC, p.id DESC
+                 LIMIT 12'
+            ),
             'stats' => $this->stats(),
         ]);
     }
@@ -122,6 +163,7 @@ final class DashboardController
             'projects' => (int) Db::value('SELECT COUNT(*) FROM projects', [], 0),
             'live' => (int) Db::value("SELECT COUNT(*) FROM projects WHERE status = 'live'", [], 0),
             'leads_new' => (int) Db::value("SELECT COUNT(*) FROM leads WHERE status = 'new'", [], 0),
+            'kunden' => (int) Db::value("SELECT COUNT(*) FROM customers WHERE status = 'aktiv'", [], 0),
             'cost_month' => $costThisMonth,
         ];
     }

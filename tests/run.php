@@ -23,6 +23,33 @@ $_SERVER['WEBATZE_TEST'] = '1';
 require __DIR__ . '/harness.php';
 require __DIR__ . '/../public_html/app/bootstrap.php';
 
+// Der Testlauf bekommt eine eigene, leere Datenbank.
+//
+// Das ist keine Bequemlichkeit, sondern eine Sicherung: Die Prüfungen
+// legen Daten an und räumen sie wieder weg. Liefen sie gegen die
+// konfigurierte Datenbank, würde ein Testlauf auf dem Hosting echte
+// Kundendaten löschen. Er wird dort niemand aufrufen – aber "niemand
+// wird das tun" ist keine Zusage, die man geben sollte.
+$testDatei = sys_get_temp_dir() . '/webatze-test-' . getmypid() . '.sqlite';
+@unlink($testDatei);
+
+\WebAtze\Core\Db::setConnection((static function () use ($testDatei): PDO {
+    $pdo = new PDO('sqlite:' . $testDatei, null, null, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false,
+    ]);
+    $pdo->exec('PRAGMA foreign_keys = ON');
+
+    return $pdo;
+})());
+
+// Und am Ende wieder weg, auch wenn eine Prüfung abbricht.
+register_shutdown_function(static function () use ($testDatei): void {
+    \WebAtze\Core\Db::setConnection(null);
+    @unlink($testDatei);
+});
+
 use WebAtze\Ai\ClaudeClient;
 use WebAtze\Build\{Theme, ShowcaseBuilder};
 use WebAtze\Core\{Crypto, Http, Request, Router, Validator};
@@ -2686,6 +2713,419 @@ test('Kundenbackend: die Ablage überlebt einen Abbruch', function (): void {
     ok(!$store->restore('site-99999999-999999.php'), 'Was es nicht gibt, kommt nicht zurück');
 
     delete_tree($dir);
+});
+
+
+// ==================================================================
+// Kundensuche
+// ==================================================================
+
+test('Kundensuche: eingefügte Antworten werden vorsichtig gelesen', function (): void {
+    \WebAtze\Core\Db::run('DELETE FROM prospects');
+
+    // Der Normalfall: sauberes JSON.
+    $ergebnis = \WebAtze\Domain\Prospects::import(
+        '[{"name":"Muster AG","place":"Bern","score":70,"site_state":"veraltet"}]'
+    );
+    ok($ergebnis['ok'], 'Saubere Antwort wird gelesen');
+    is(1, $ergebnis['neu'], 'Eine Firma angelegt');
+
+    // Mit Code-Rahmen und einleitendem Satz drumherum - genau so kommt
+    // es aus einem Chatfenster zurueck.
+    $ergebnis = \WebAtze\Domain\Prospects::import(
+        "Gerne! Hier die Firmen:\n\n```json\n[{\"name\":\"Zweite GmbH\",\"place\":\"Thun\"}]\n```\nViel Erfolg!"
+    );
+    ok($ergebnis['ok'], 'Auch mit Rahmen und Text drumherum');
+    is(1, $ergebnis['neu'], 'Die zweite Firma ist da');
+
+    // Fremde Feldnamen.
+    \WebAtze\Domain\Prospects::import('[{"firma":"Dritte AG","stadt":"Chur","telefon":"081 000"}]');
+    $dritte = \WebAtze\Core\Db::first("SELECT * FROM prospects WHERE name = 'Dritte AG'");
+    is('Chur', $dritte['place'] ?? '', 'stadt wird zu place');
+    is('081 000', $dritte['phone'] ?? '', 'telefon wird zu phone');
+
+    // Dieselbe Firma kommt nicht zweimal herein.
+    $ergebnis = \WebAtze\Domain\Prospects::import('[{"name":"Muster AG","place":"Bern"}]');
+    is(0, $ergebnis['neu'], 'Doppelte werden erkannt');
+    is(1, $ergebnis['bekannt'], 'Und als bekannt gezaehlt');
+
+    // Unsinn wird nicht angelegt.
+    ok(!\WebAtze\Domain\Prospects::import('völliger Unsinn')['ok'], 'Unlesbares wird abgewiesen');
+    ok(!\WebAtze\Domain\Prospects::import('')['ok'], 'Leeres ebenso');
+
+    // Eine Website ohne Vorsilbe bekommt eine.
+    \WebAtze\Domain\Prospects::import('[{"name":"Vierte AG","website":"vierte.ch"}]');
+    is(
+        'https://vierte.ch',
+        \WebAtze\Core\Db::value("SELECT website FROM prospects WHERE name = 'Vierte AG'"),
+        'Die Adresse wird vervollstaendigt'
+    );
+});
+
+test('Kundensuche: weggelegte Firmen kommen nicht wieder', function (): void {
+    \WebAtze\Core\Db::run('DELETE FROM prospects');
+
+    \WebAtze\Domain\Prospects::import('[{"name":"Nie Wieder AG","place":"Zug"}]');
+    $id = (int) \WebAtze\Core\Db::value("SELECT id FROM prospects WHERE name = 'Nie Wieder AG'");
+
+    ok(\WebAtze\Domain\Prospects::decide($id, 'nie'), 'Weglegen klappt');
+    is(null, \WebAtze\Domain\Prospects::next(), 'Der Stapel ist leer');
+
+    // Und beim naechsten Suchlauf taucht sie nicht wieder auf. Genau
+    // dafuer werden abgelehnte Firmen aufbewahrt statt geloescht.
+    $ergebnis = \WebAtze\Domain\Prospects::import('[{"name":"Nie Wieder AG","place":"Zug"}]');
+    is(0, $ergebnis['neu'], 'Sie kommt nicht zurueck');
+});
+
+test('Kundensuche: aus einer Firma wird ein Kunde', function (): void {
+    \WebAtze\Core\Db::run('DELETE FROM prospects');
+    \WebAtze\Core\Db::run("DELETE FROM customers WHERE name = 'Wird Kunde AG'");
+
+    \WebAtze\Domain\Prospects::import(
+        '[{"name":"Wird Kunde AG","place":"Basel","phone":"061 000","email":"a@b.ch",'
+        . '"reason":"Alte Seite","research":"Zehn Leute, seit 1990."}]'
+    );
+    $id = (int) \WebAtze\Core\Db::value("SELECT id FROM prospects WHERE name = 'Wird Kunde AG'");
+
+    $kunde = \WebAtze\Domain\Prospects::toCustomer($id);
+    ok($kunde !== null && $kunde > 0, 'Ein Kunde entsteht');
+
+    $zeile = \WebAtze\Core\Db::first('SELECT * FROM customers WHERE id = :id', ['id' => $kunde]);
+    is('061 000', $zeile['phone'] ?? '', 'Die Telefonnummer wandert mit');
+    ok(str_contains((string) ($zeile['notes'] ?? ''), 'Zehn Leute'), 'Die Recherche geht nicht verloren');
+
+    // Zweimal uebernehmen legt keinen zweiten Kunden an.
+    is($kunde, \WebAtze\Domain\Prospects::toCustomer($id), 'Ein zweites Mal gibt denselben Kunden');
+});
+
+test('Kundensuche: der Suchauftrag ist vollständig', function (): void {
+    $auftrag = \WebAtze\Domain\SearchOrder::build([
+        'region' => 'im Kanton Zug',
+        'branch' => 'Schreinerei',
+        'count' => 7,
+        'criteria' => ['keine', 'veraltet'],
+    ]);
+
+    ok(str_contains($auftrag, 'im Kanton Zug'), 'Die Gegend steht drin');
+    ok(str_contains($auftrag, 'Schreinerei'), 'Die Branche auch');
+    ok(str_contains($auftrag, '7 echten'), 'Und die Anzahl');
+    ok(str_contains($auftrag, 'Erfinde nichts'), 'Die wichtigste Regel fehlt nie');
+    ok(str_contains($auftrag, 'site_state'), 'Das Antwortformat ist beschrieben');
+
+    // Das Beispiel im Auftrag muss sich auch wirklich einlesen lassen -
+    // sonst beschreibt der Auftrag ein Format, das das Programm gar
+    // nicht versteht.
+    ok(preg_match('/\[\s*\{.+?\}\s*\]/s', $auftrag, $treffer) === 1, 'Ein Beispiel ist dabei');
+    $beispiel = json_decode($treffer[0], true);
+    ok(is_array($beispiel) && isset($beispiel[0]['name']), 'Das Beispiel ist lesbares JSON');
+    ok(
+        isset(\WebAtze\Domain\Prospects::SITE_STATES[$beispiel[0]['site_state']]),
+        'Und benutzt einen Zustand, den das Programm kennt'
+    );
+});
+
+// ==================================================================
+// Hosting-Überwachung
+// ==================================================================
+
+test('Überwachung: das eigene Netz bleibt auch hier tabu', function (): void {
+    // Dieselbe Sperre wie beim Einlesen alter Websites. Eine
+    // Ueberwachung, die auf 127.0.0.1 zeigen darf, waere ein Fenster
+    // in das Netz des Hosters.
+    foreach (['http://127.0.0.1/', 'http://192.168.1.1/', 'http://localhost/'] as $adresse) {
+        $ergebnis = \WebAtze\Domain\Monitor::save(['url' => $adresse, 'label' => 'test']);
+        ok(!$ergebnis['ok'], 'Abgewiesen: ' . $adresse);
+    }
+
+    $ergebnis = \WebAtze\Domain\Monitor::save(['url' => 'file:///etc/passwd']);
+    ok(!$ergebnis['ok'], 'Und Dateipfade erst recht');
+
+    // Die Pruefung selbst antwortet ebenfalls mit einem Fehlschlag,
+    // statt die Adresse abzurufen.
+    $probe = \WebAtze\Domain\Monitor::probe('http://127.0.0.1/');
+    ok(!$probe['ok'], 'Eine Pruefung ins eigene Netz schlaegt fehl');
+    is(0, $probe['code'], 'Und ruft gar nichts erst ab');
+});
+
+test('Überwachung: Zustand und Verlauf werden festgehalten', function (): void {
+    \WebAtze\Core\Db::run('DELETE FROM monitors');
+    \WebAtze\Core\Db::run('DELETE FROM monitor_checks');
+
+    $ergebnis = \WebAtze\Domain\Monitor::save([
+        'url' => 'example.com',
+        'label' => '',
+        'active' => true,
+        'every_minutes' => 3,
+    ]);
+    ok($ergebnis['ok'], 'Eine oeffentliche Adresse wird angenommen');
+
+    $zeile = \WebAtze\Domain\Monitor::find($ergebnis['id']);
+    is('https://example.com', $zeile['url'] ?? '', 'https wird ergaenzt');
+    is('example.com', $zeile['label'] ?? '', 'Ohne Namen wird der Domainname genommen');
+    is(5, (int) ($zeile['every_minutes'] ?? 0), 'Unter fuenf Minuten geht nicht');
+
+    // Ein Ausfall wird gezaehlt, ohne dass dafuer das Netz gebraucht wird.
+    \WebAtze\Core\Db::update('monitors', [
+        'last_ok' => 0,
+        'fail_streak' => 3,
+        'last_checked_at' => \WebAtze\Core\Db::now(),
+    ], 'id = :id', ['id' => $ergebnis['id']]);
+
+    is(1, \WebAtze\Domain\Monitor::summary()['unten'], 'Der Ausfall taucht in der Uebersicht auf');
+    is(1, count(\WebAtze\Domain\Monitor::down()), 'Und in der Liste');
+
+    is(null, \WebAtze\Domain\Monitor::uptime($ergebnis['id']), 'Ohne Pruefung keine erfundene Quote');
+
+    \WebAtze\Core\Db::insert('monitor_checks', [
+        'monitor_id' => $ergebnis['id'], 'checked_at' => \WebAtze\Core\Db::now(),
+        'ok' => 1, 'code' => 200, 'ms' => 120, 'note' => '',
+    ]);
+    \WebAtze\Core\Db::insert('monitor_checks', [
+        'monitor_id' => $ergebnis['id'], 'checked_at' => \WebAtze\Core\Db::now(),
+        'ok' => 0, 'code' => 500, 'ms' => 90, 'note' => 'kaputt',
+    ]);
+
+    is(50.0, \WebAtze\Domain\Monitor::uptime($ergebnis['id']), 'Eine von zwei Pruefungen sind 50 Prozent');
+
+    // Dieselbe Domain wird nicht zweimal aufgenommen.
+    \WebAtze\Domain\Monitor::adopt('https://example.com/start');
+    is(1, \WebAtze\Domain\Monitor::summary()['gesamt'], 'Keine doppelte Ueberwachung');
+});
+
+// ==================================================================
+// Der Tresor
+// ==================================================================
+
+test('Tresor: Passwörter liegen nie im Klartext und nie in der Seite', function (): void {
+    \WebAtze\Core\Db::run('DELETE FROM secrets');
+
+    $ergebnis = \WebAtze\Domain\Vault::save([
+        'label' => 'Muster AG – cPanel',
+        'kind' => 'cpanel',
+        'username' => 'muster',
+        'secret' => 'Geheim-1234!',
+    ]);
+    ok($ergebnis['ok'], 'Der Zugang wird angelegt');
+
+    $roh = (string) \WebAtze\Core\Db::value(
+        'SELECT secret_enc FROM secrets WHERE id = :id',
+        ['id' => $ergebnis['id']]
+    );
+    isnt('Geheim-1234!', $roh, 'In der Datenbank steht kein Klartext');
+    ok(str_starts_with($roh, 'v1.'), 'Sondern ein verschluesselter Wert');
+    is('Geheim-1234!', \WebAtze\Core\Crypto::decrypt($roh), 'Der sich zurueckholen laesst');
+
+    // Die Liste fuer die Seite enthaelt das Geheimnis nicht - auch nicht
+    // verschluesselt. Was nicht in der Seite steht, kann auch nicht
+    // ueber "Quelltext anzeigen" abhandenkommen.
+    $liste = \WebAtze\Domain\Vault::listAll();
+    is(1, count($liste), 'Ein Eintrag in der Liste');
+    ok(!array_key_exists('secret_enc', $liste[0]), 'Ohne das Geheimnis');
+    is(1, (int) $liste[0]['hat_geheimnis'], 'Aber mit dem Hinweis, dass eines da ist');
+
+    // Ein leeres Passwortfeld beim Aendern loescht nichts.
+    \WebAtze\Domain\Vault::save(['label' => 'Muster AG – cPanel neu', 'secret' => ''], $ergebnis['id']);
+    is(
+        'Geheim-1234!',
+        \WebAtze\Core\Crypto::decrypt((string) \WebAtze\Core\Db::value(
+            'SELECT secret_enc FROM secrets WHERE id = :id',
+            ['id' => $ergebnis['id']]
+        )),
+        'Das bisherige Passwort bleibt stehen'
+    );
+
+    // Ohne Namen kein Eintrag.
+    ok(!\WebAtze\Domain\Vault::save(['label' => '', 'secret' => 'x'])['ok'], 'Ohne Namen geht es nicht');
+});
+
+test('Tresor: aufschliessen geht nur mit dem eigenen Passwort', function (): void {
+    // Der Testlauf hat diesen Fehler einmal uebersehen: Session::user()
+    // gibt den Passwort-Abdruck bewusst nicht mit, und der Tresor las
+    // ihn genau von dort. Aufschliessen war damit unmoeglich.
+    \WebAtze\Core\Db::run("DELETE FROM users WHERE username = 'tresorprobe'");
+    \WebAtze\Core\Db::run('DELETE FROM auth_sessions');
+    \WebAtze\Core\Db::run('DELETE FROM rate_limits');
+
+    $id = \WebAtze\Core\Db::insert('users', [
+        'username' => 'tresorprobe',
+        'password_hash' => \WebAtze\Core\Crypto::hashPassword('Richtig-1234!'),
+        'display_name' => 'Probe',
+        'role' => 'owner',
+        'created_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $sitzung = bin2hex(random_bytes(32));
+    \WebAtze\Core\Db::insert('auth_sessions', [
+        'id' => $sitzung,
+        'user_id' => $id,
+        'created_at' => \WebAtze\Core\Db::now(),
+        'last_seen_at' => \WebAtze\Core\Db::now(),
+        'expires_at' => date('Y-m-d H:i:s', time() + 3600),
+    ]);
+
+    $_SESSION['_wa_sid'] = $sitzung;
+
+    // Den zwischengespeicherten Benutzer zuruecksetzen.
+    $feld = (new ReflectionClass(\WebAtze\Core\Session::class))->getProperty('user');
+    $feld->setAccessible(true);
+    $feld->setValue(null, null);
+
+    \WebAtze\Domain\Vault::lock();
+
+    ok(!\WebAtze\Domain\Vault::unlock('falsch', '203.0.113.9')['ok'], 'Falsches Passwort geht nicht');
+    ok(!\WebAtze\Domain\Vault::isOpen(), 'Und der Tresor bleibt zu');
+
+    ok(\WebAtze\Domain\Vault::unlock('Richtig-1234!', '203.0.113.9')['ok'], 'Das richtige schliesst auf');
+    ok(\WebAtze\Domain\Vault::isOpen(), 'Der Tresor ist offen');
+    ok(\WebAtze\Domain\Vault::openSecondsLeft() > 800, 'Und bleibt es eine Weile');
+
+    \WebAtze\Domain\Vault::lock();
+    ok(!\WebAtze\Domain\Vault::isOpen(), 'Zuschliessen wirkt sofort');
+
+    \WebAtze\Core\Db::delete('auth_sessions', 'id = :id', ['id' => $sitzung]);
+    \WebAtze\Core\Db::delete('users', 'id = :id', ['id' => $id]);
+    $feld->setValue(null, null);
+    unset($_SESSION['_wa_sid']);
+});
+
+test('Tresor: geschlossen gibt er nichts heraus', function (): void {
+    \WebAtze\Core\Db::run('DELETE FROM secrets');
+
+    $ergebnis = \WebAtze\Domain\Vault::save(['label' => 'Test', 'secret' => 'streng-geheim']);
+
+    \WebAtze\Domain\Vault::lock();
+    ok(!\WebAtze\Domain\Vault::isOpen(), 'Der Tresor ist zu');
+
+    $antwort = \WebAtze\Domain\Vault::reveal($ergebnis['id']);
+    ok(!$antwort['ok'], 'Und gibt nichts heraus');
+    is('', $antwort['geheimnis'], 'Wirklich nichts');
+
+    // Aufgeschlossen dann schon.
+    \WebAtze\Core\Session::put('vault_open_until', time() + 300);
+    $antwort = \WebAtze\Domain\Vault::reveal($ergebnis['id']);
+    ok($antwort['ok'], 'Offen gibt er das Passwort heraus');
+    is('streng-geheim', $antwort['geheimnis'], 'Und zwar das richtige');
+
+    \WebAtze\Domain\Vault::lock();
+});
+
+test('Tresor: der Vorschlag lässt sich diktieren', function (): void {
+    $wort = \WebAtze\Domain\Vault::suggest(20);
+    is(20, strlen($wort), 'Die gewuenschte Laenge');
+
+    // Zeichen, die am Telefon oder auf Papier verwechselt werden,
+    // kommen nicht vor.
+    foreach (['l', '1', 'O', '0', 'I'] as $heikel) {
+        ok(!str_contains($wort, $heikel), 'Kein ' . $heikel . ' im Vorschlag');
+    }
+
+    isnt(\WebAtze\Domain\Vault::suggest(), \WebAtze\Domain\Vault::suggest(), 'Zweimal nicht dasselbe');
+    is(12, strlen(\WebAtze\Domain\Vault::suggest(4)), 'Kuerzer als zwoelf gibt es nicht');
+});
+
+// ==================================================================
+// Der Kalender fürs Telefon
+// ==================================================================
+
+test('Kalender: die Datei entspricht der Norm', function (): void {
+    \WebAtze\Core\Db::run('DELETE FROM appointments');
+    \WebAtze\Core\Db::run('DELETE FROM todos');
+
+    \WebAtze\Core\Db::insert('appointments', [
+        'title' => 'Besprechung; mit, Komma',
+        'note' => "Zeile eins\nZeile zwei",
+        'starts_at' => date('Y-m-d', time() + 86400) . ' 14:30',
+        'ends_at' => date('Y-m-d', time() + 86400) . ' 15:30',
+        'place' => 'Bern',
+        'created_at' => \WebAtze\Core\Db::now(),
+        'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    \WebAtze\Core\Db::insert('todos', [
+        'title' => 'Rechnung schreiben',
+        'due_on' => date('Y-m-d', time() + 2 * 86400),
+        'priority' => 'normal',
+        'created_at' => \WebAtze\Core\Db::now(),
+        'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $ics = \WebAtze\Domain\IcsFeed::build();
+
+    ok(str_starts_with($ics, "BEGIN:VCALENDAR\r\n"), 'Beginnt richtig');
+    ok(str_ends_with($ics, "END:VCALENDAR\r\n"), 'Und endet richtig');
+    is(
+        substr_count($ics, 'BEGIN:VEVENT'),
+        substr_count($ics, 'END:VEVENT'),
+        'Jeder Termin wird geschlossen'
+    );
+    ok(substr_count($ics, 'BEGIN:VEVENT') === 2, 'Termin und Aufgabe sind drin');
+
+    // Ohne VALARM meldet sich das Telefon nie - das ist der Punkt der
+    // ganzen Uebung.
+    ok(str_contains($ics, 'BEGIN:VALARM'), 'Mit Erinnerung');
+    ok(str_contains($ics, 'TRIGGER:-PT30M'), 'Eine halbe Stunde vorher');
+
+    // Sonderzeichen muessen maskiert sein, sonst zerfaellt die Datei.
+    ok(str_contains($ics, 'Besprechung\;'), 'Semikolon maskiert');
+    ok(str_contains($ics, 'mit\, Komma'), 'Komma maskiert');
+    ok(str_contains($ics, 'Zeile eins\nZeile zwei'), 'Zeilenumbruch maskiert');
+    ok(!str_contains($ics, "DESCRIPTION:Zeile eins\r\nZeile"), 'Kein echter Umbruch im Text');
+
+    // Keine Zeile laenger als 75 Zeichen - so will es die Norm.
+    foreach (explode("\r\n", $ics) as $zeile) {
+        if (strlen($zeile) > 75) {
+            fehler('Zeile zu lang: ' . substr($zeile, 0, 40));
+            return;
+        }
+    }
+    bestanden('Keine Zeile ist zu lang');
+});
+
+test('Kalender: die Adresse ist nicht zu erraten', function (): void {
+    $token = \WebAtze\Domain\IcsFeed::token();
+
+    ok(strlen($token) >= 32, 'Das Zufallswort ist lang genug');
+    ok(\WebAtze\Domain\IcsFeed::tokenMatches($token), 'Das richtige passt');
+    ok(!\WebAtze\Domain\IcsFeed::tokenMatches('falsch'), 'Ein falsches nicht');
+    ok(!\WebAtze\Domain\IcsFeed::tokenMatches(''), 'Und ein leeres erst recht nicht');
+
+    $neu = \WebAtze\Domain\IcsFeed::newToken();
+    isnt($token, $neu, 'Ein neues ist ein anderes');
+    ok(!\WebAtze\Domain\IcsFeed::tokenMatches($token), 'Das alte gilt danach nicht mehr');
+
+    ok(
+        str_starts_with(\WebAtze\Domain\IcsFeed::webcalUrl('https://webatze.ch'), 'webcal://'),
+        'Fuers iPhone gibt es webcal://'
+    );
+});
+
+test('Kalender: die Adresse gibt ohne gültiges Wort nichts preis', function (): void {
+    $router = new Router();
+    \WebAtze\Core\Routes::register($router);
+
+    is(
+        'CompanyController@feed',
+        route($router, 'GET', '/kalender/' . \WebAtze\Domain\IcsFeed::token() . '.ics'),
+        'Die Kalenderadresse fuehrt zum Kalender'
+    );
+
+    // Und sie liegt ausserhalb der Anmeldung - sonst koennte das
+    // Telefon sie nie abrufen.
+    $waechter = route_middleware($router, 'GET', '/kalender/' . \WebAtze\Domain\IcsFeed::token() . '.ics');
+    ok($waechter !== null, 'Sie wird gefunden');
+    ok(!in_array('auth', (array) $waechter, true), 'Ohne Anmeldung erreichbar');
+
+    // Wer kein gueltiges Wort hat, bekommt dieselbe Antwort wie fuer
+    // eine unbekannte Seite - kein Hinweis, dass es hier etwas gibt.
+    $antwort = (new \WebAtze\Http\CompanyController())->feed(
+        (static function (): \WebAtze\Core\Request {
+            $anfrage = \WebAtze\Core\Request::capture();
+            $anfrage->setRouteParams(['token' => str_repeat('a', 40)]);
+
+            return $anfrage;
+        })()
+    );
+    is(404, $antwort->getStatus(), 'Ein falsches Wort fuehrt ins Leere');
 });
 
 // ==================================================================

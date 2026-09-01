@@ -511,6 +511,86 @@ function initPasswordGenerator() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Der Tresor                                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Ein Passwort holen und in die Zwischenablage legen.
+ *
+ * Das Passwort steht nie in der Seite. Es wird einzeln geholt, sofort
+ * kopiert und danach nicht behalten - weder in einer Variablen, die
+ * herumliegt, noch im Text der Schaltflaeche.
+ *
+ * Nach 45 Sekunden wird die Zwischenablage ueberschrieben. Das ist kein
+ * perfekter Schutz - ein anderes Programm kann in der Zwischenzeit
+ * mitgelesen haben -, aber es verhindert den haeufigsten Fall: dass das
+ * Passwort Stunden spaeter versehentlich irgendwo eingefuegt wird.
+ */
+function initVault() {
+  const CLEAR_AFTER = 45000;
+
+  document.querySelectorAll('[data-reveal]').forEach((button) => {
+    const urText = button.textContent;
+
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+
+      try {
+        const antwort = await api(button.dataset.reveal, {
+          data: { secret_id: button.dataset.secretId },
+        });
+
+        let geklappt = false;
+
+        try {
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(antwort.geheimnis);
+            geklappt = true;
+          }
+        } catch {
+          geklappt = false;
+        }
+
+        if (!geklappt) {
+          // Ohne HTTPS geht die Zwischenablage nicht. Dann bleibt nur,
+          // das Passwort kurz zu zeigen - besser als eine Schaltflaeche,
+          // die nichts tut.
+          const feld = document.querySelector(button.dataset.revealInto);
+          if (feld) {
+            feld.value = antwort.geheimnis;
+            feld.hidden = false;
+            feld.select();
+            setTimeout(() => {
+              feld.value = '';
+              feld.hidden = true;
+            }, CLEAR_AFTER);
+          }
+          toast('Die Zwischenablage braucht HTTPS. Das Passwort ist markiert.', 'info');
+          return;
+        }
+
+        button.textContent = 'Kopiert';
+        button.classList.add('is-done');
+        toast('Kopiert. Die Zwischenablage wird in 45 Sekunden geleert.', 'success');
+
+        setTimeout(() => {
+          button.textContent = urText;
+          button.classList.remove('is-done');
+        }, 2400);
+
+        setTimeout(() => {
+          navigator.clipboard?.writeText(' ').catch(() => {});
+        }, CLEAR_AFTER);
+      } catch (fehler) {
+        toast(fehler.message, 'danger');
+      } finally {
+        button.disabled = false;
+      }
+    });
+  });
+}
+
+/* ------------------------------------------------------------------ */
 
 function boot() {
   initSidebar();
@@ -523,6 +603,7 @@ function boot() {
   initColours();
   initHostingHelp();
   initPasswordGenerator();
+  initVault();
 }
 
 if (document.readyState === 'loading') {

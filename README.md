@@ -99,14 +99,57 @@ der Kunde bekäme sonst wegen eines Tippfehlers gar keine Website.
 
 * **Sicherungen** – einmal am Tag WebAtze selbst (Datenbank als SQL plus
   Uploads), bei jedem Durchgang zusätzlich die Kundenwebsite, deren
-  Sicherung am längsten zurückliegt. Aufbewahrt werden 14 Tage und je
-  der Monatserste der letzten sechs Monate. `app/config.php` ist
-  absichtlich nicht dabei: Läge der Schlüssel in der Sicherung, wäre die
+  Sicherung am längsten zurückliegt. Von der eigenen Datenbank bleiben
+  14 Tage und je der Monatserste der letzten sechs Monate liegen; von
+  einer Kundenwebsite nur die neuesten Stände – wie viele, steht im
+  Wartungscenter, Standard sind zwei. `app/config.php` ist absichtlich
+  nicht dabei: Läge der Schlüssel in der Sicherung, wäre die
   Verschlüsselung der FTP-Zugänge wertlos.
+* **Hosting-Überwachung** – jede eingetragene Kundenwebsite wird alle
+  paar Minuten aufgerufen. Gemeldet wird beim zweiten Fehlschlag in
+  Folge, nicht beim ersten; ein einzelner Aussetzer ist meistens das
+  Netz. Der Ablauf des Sicherheitszertifikats wird mitgelesen. Eine
+  frisch hochgeladene Website nimmt sich die Aufsicht von selbst vor.
 * **Besucherzahlen** – einmal täglich bei jeder Website abgeholt,
   montags als Bericht verschickt.
 * **Wartungsverträge** – am Fälligkeitstag entsteht ein
   Rechnungsentwurf. Verschickt wird er von Hand.
+
+### Der Betrieb rundherum
+
+Neben dem Bauen von Websites verwaltet `/create` auch das Geschäft:
+
+* **Kunden, Kosten, Zahlungen** – ein Posten je Zeile mit eigenem
+  Rhythmus (einmalig, monatlich, jährlich). Bezahlt wird je Periode
+  abgehakt, nichts wird zurückgesetzt, und die Geschichte bleibt lesbar.
+* **Kundensuche** – WebAtze schreibt den Suchauftrag, du lässt ihn dort
+  laufen, wo eine KI mit Websuche zur Verfügung steht, und fügst die
+  Antwort wieder ein. Danach eine Firma nach der anderen ansehen:
+  annehmen, weglegen, oder für immer wegräumen. Weggelegte werden
+  aufbewahrt, damit sie beim nächsten Suchlauf nicht wieder auftauchen.
+  Dieser Server durchsucht Google **nicht** selbst – das verstösst gegen
+  die Nutzungsbedingungen und liefert von einem Mietserver aus ohnehin
+  meist eine Sperrseite.
+* **Tresor** – alle Kundenzugänge, mit libsodium verschlüsselt. Kein
+  Passwort steht je im Quelltext einer Seite; es wird einzeln geholt und
+  geht direkt in die Zwischenablage, die nach 45 Sekunden geleert wird.
+  Vor dem ersten Ansehen wird das Anmeldepasswort erneut verlangt, der
+  Tresor bleibt danach 15 Minuten offen, falsche Versuche werden
+  gebremst, und jeder Blick landet im Protokoll. Der Schlüssel steht in
+  `app/config.php`, nicht in der Datenbank – eine gestohlene
+  Datenbanksicherung allein ist damit wertlos.
+* **Kalender aufs Telefon** – unter *Kalender* steht eine Adresse, die
+  ein iPhone abonnieren kann (`.ics`). Termine und Aufgaben mit Frist
+  erscheinen dann im Telefonkalender, mit Erinnerung 30 Minuten vorher
+  beziehungsweise morgens um 8. Zwei Dinge dazu, die man wissen muss:
+  iOS wirft die Erinnerungen abonnierter Kalender standardmässig weg –
+  in den Einstellungen des Abonnements muss *Erinnerungen entfernen*
+  ausgeschaltet werden. Und die Verbindung geht nur in eine Richtung:
+  Ein Termin, der auf dem Telefon eingetragen wird, kommt nicht hierher
+  zurück; dafür bräuchte es CalDAV, also einen eigenen Serverdienst, den
+  geteiltes Hosting nicht anbietet. Wer die Adresse hat, sieht die
+  Termine – sie enthält deshalb ein langes Zufallswort und lässt sich
+  jederzeit neu erzeugen.
 
 ## Entwickeln
 

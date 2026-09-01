@@ -17,6 +17,7 @@ final class Routes
         self::publicPages($router);
         self::machineFiles($router);
         self::api($router);
+        self::calendarFeed($router);
         self::preview($router);
         self::assistant($router);
         self::hiddenArea($router);
@@ -100,6 +101,22 @@ final class Routes
     }
 
     // ------------------------------------------------------------------
+    // Der Kalender fürs Telefon
+    // ------------------------------------------------------------------
+
+    /**
+     * Der abonnierbare Kalender.
+     *
+     * Ohne Anmeldung, weil ein Telefon sich nicht anmelden kann. Der
+     * Schutz steckt im Zufallswort in der Adresse; die Antwort auf ein
+     * falsches ist dieselbe wie auf eine unbekannte Seite.
+     */
+    private static function calendarFeed(Router $router): void
+    {
+        $router->get('/kalender/{token:[a-f0-9]+}.ics', 'CompanyController@feed');
+    }
+
+    // ------------------------------------------------------------------
     // Vorschau der erstellten Kundenwebsites
     // ------------------------------------------------------------------
 
@@ -174,6 +191,16 @@ final class Routes
             $r->get($base . '/kalender', 'CompanyController@calendar');
             $r->get($base . '/buchhaltung', 'CompanyController@books');
 
+            // ------------------------------------------- Kundensuche
+            $r->get($base . '/kundensuche', 'ProspectController@index');
+            $r->get($base . '/potenzielle-kunden', 'ProspectController@shortlist');
+
+            // ------------------------------------------- Wartung und Tresor
+            $r->get($base . '/wartung', 'GuardController@index');
+            $r->get($base . '/wartung/sicherung/{id}', 'GuardController@downloadBackup');
+            $r->get($base . '/wartung/{id}', 'GuardController@show');
+            $r->get($base . '/passwoerter', 'VaultController@index');
+
             $r->get($base . '/anfragen', 'LeadController@index');
             $r->get($base . '/support', 'SupportAdminController@index');
             $r->get($base . '/referenzen', 'ShowcaseController@index');
@@ -182,8 +209,10 @@ final class Routes
             $r->get($base . '/rechnungen/{id}/pdf', 'BillingController@download');
             $r->get($base . '/vertraege', 'BillingController@contracts');
             $r->get($base . '/zahlen', 'MaintenanceController@visits');
-            $r->get($base . '/sicherungen', 'MaintenanceController@backups');
-            $r->get($base . '/sicherungen/{id}', 'MaintenanceController@downloadBackup');
+            // Die alten Adressen bleiben gueltig - Lesezeichen sollen nicht
+            // ins Leere laufen, nur weil die Seite umgezogen ist.
+            $r->get($base . '/sicherungen', 'GuardController@index');
+            $r->get($base . '/sicherungen/{id}', 'GuardController@downloadBackup');
             $r->get($base . '/kosten', 'DashboardController@costs');
             $r->get($base . '/protokoll', 'DashboardController@auditLog');
             $r->get($base . '/einstellungen', 'SettingsController@index');
@@ -224,6 +253,34 @@ final class Routes
             $r->post($base . '/ausgaben', 'CompanyController@saveExpense');
             $r->post($base . '/ausgaben/loeschen', 'CompanyController@deleteExpense');
 
+            // ------------------------------------------- Kundensuche
+            $r->post($base . '/kundensuche/auftrag', 'ProspectController@order');
+            $r->post($base . '/kundensuche/einlesen', 'ProspectController@import');
+            $r->post($base . '/kundensuche/entscheiden', 'ProspectController@decide');
+            $r->post($base . '/potenzielle-kunden', 'ProspectController@add');
+            $r->post($base . '/potenzielle-kunden/status', 'ProspectController@setStatus');
+            $r->post($base . '/potenzielle-kunden/notiz', 'ProspectController@note');
+            $r->post($base . '/potenzielle-kunden/loeschen', 'ProspectController@destroy');
+            $r->post($base . '/potenzielle-kunden/uebernehmen', 'ProspectController@convert');
+
+            // ------------------------------------------- Wartung
+            $r->post($base . '/wartung/waechter', 'GuardController@save');
+            $r->post($base . '/wartung/pruefen', 'GuardController@check');
+            $r->post($base . '/wartung/alle-pruefen', 'GuardController@checkAll');
+            $r->post($base . '/wartung/entfernen', 'GuardController@destroy');
+            $r->post($base . '/wartung/sichern', 'GuardController@runBackup');
+            $r->post($base . '/wartung/aufbewahrung', 'GuardController@saveRetention');
+
+            // ------------------------------------------- Tresor
+            $r->post($base . '/passwoerter/oeffnen', 'VaultController@unlock');
+            $r->post($base . '/passwoerter/schliessen', 'VaultController@lock');
+            $r->post($base . '/passwoerter/speichern', 'VaultController@save');
+            $r->post($base . '/passwoerter/loeschen', 'VaultController@destroy');
+            $r->post($base . '/passwoerter/uebernehmen', 'VaultController@adopt');
+            $r->post($base . '/passwoerter/zeigen', 'VaultController@reveal');
+
+            $r->post($base . '/kalender/neue-adresse', 'CompanyController@newFeedToken');
+
             $r->post($base . '/anfragen/{id}/status', 'LeadController@setStatus');
             $r->post($base . '/support/{id}/antwort', 'SupportAdminController@reply');
             $r->post($base . '/support/{id}/status', 'SupportAdminController@setStatus');
@@ -238,7 +295,7 @@ final class Routes
             $r->post($base . '/vertraege', 'BillingController@createContract');
             $r->post($base . '/vertraege/abrechnen', 'BillingController@billContracts');
             $r->post($base . '/vertraege/{id}/kuendigen', 'BillingController@cancelContract');
-            $r->post($base . '/sicherungen', 'MaintenanceController@runBackup');
+            $r->post($base . '/sicherungen', 'GuardController@runBackup');
             $r->post($base . '/zahlen/{id}', 'MaintenanceController@fetchVisits');
             $r->post($base . '/einstellungen', 'SettingsController@save');
         });

@@ -57,6 +57,31 @@ $badge = [
     </div>
 <?php endif; ?>
 
+<?php
+/*
+ * Kommt der Aufruf von einer Kundenseite, sind Name und Adresse
+ * bekannt. Die Adresse steht dort als freier Text - die erste Zeile ist
+ * fast immer die Strasse, die letzte PLZ und Ort. Wo das nicht stimmt,
+ * korrigiert man es im Feld; besser als jedes Mal alles abzutippen.
+ */
+$empfaenger = ['name' => '', 'attn' => '', 'street' => '', 'city' => '', 'email' => ''];
+
+if (($kunde ?? null) !== null) {
+    $zeilen = array_values(array_filter(array_map(
+        'trim',
+        preg_split('/\R+/', (string) ($kunde['address'] ?? '')) ?: []
+    )));
+
+    $empfaenger = [
+        'name' => (string) $kunde['name'],
+        'attn' => (string) $kunde['contact_name'],
+        'street' => $zeilen[0] ?? '',
+        'city' => count($zeilen) > 1 ? (string) end($zeilen) : '',
+        'email' => (string) $kunde['email'],
+    ];
+}
+?>
+
 <section class="wa-panel wa-panel--neu">
     <div class="wa-panel__head">
         <h2 class="wa-panel__title">Neu anlegen</h2>
@@ -73,7 +98,21 @@ $badge = [
                 <label class="wa-label" for="d-kind">Art</label>
                 <select class="wa-input" id="d-kind" name="kind">
                     <?php foreach (DocumentBuilder::KINDS as $key => $label): ?>
-                        <option value="<?= e($key) ?>"><?= e($label) ?></option>
+                        <option value="<?= e($key) ?>"<?= $vorgabe === $key ? ' selected' : '' ?>>
+                            <?= e($label) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="wa-field">
+                <label class="wa-label" for="d-customer">Kunde</label>
+                <select class="wa-input" id="d-customer" name="customer_id">
+                    <option value="0">– kein Kunde –</option>
+                    <?php foreach ($kunden as $k): ?>
+                        <option value="<?= (int) $k['id'] ?>"
+                            <?= $kunde !== null && (int) $kunde['id'] === (int) $k['id'] ? ' selected' : '' ?>>
+                            <?= e((string) $k['name']) ?>
+                        </option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -82,7 +121,11 @@ $badge = [
                 <select class="wa-input" id="d-project" name="project_id">
                     <option value="0">– keine Website –</option>
                     <?php foreach ($projects as $project): ?>
-                        <option value="<?= (int) $project['id'] ?>"><?= e((string) $project['name']) ?></option>
+                        <option value="<?= (int) $project['id'] ?>"
+                            <?= $kunde !== null && (int) ($kunde['project_id'] ?? 0) === (int) $project['id']
+                                ? ' selected' : '' ?>>
+                            <?= e((string) $project['name']) ?>
+                        </option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -103,24 +146,29 @@ $badge = [
             <div class="wa-field">
                 <label class="wa-label" for="d-rname">Empfänger</label>
                 <input class="wa-input" type="text" id="d-rname" name="recipient_name" maxlength="190"
+                       value="<?= e($empfaenger['name']) ?>"
                        placeholder="Schreinerei Muster AG">
             </div>
             <div class="wa-field">
                 <label class="wa-label" for="d-rattn">Zu Handen von</label>
                 <input class="wa-input" type="text" id="d-rattn" name="recipient_attn" maxlength="190"
+                       value="<?= e($empfaenger['attn']) ?>"
                        placeholder="Herr Peter Muster">
             </div>
             <div class="wa-field">
                 <label class="wa-label" for="d-rstreet">Strasse</label>
-                <input class="wa-input" type="text" id="d-rstreet" name="recipient_street" maxlength="190">
+                <input class="wa-input" type="text" id="d-rstreet" name="recipient_street" maxlength="190"
+                       value="<?= e($empfaenger['street']) ?>">
             </div>
             <div class="wa-field">
                 <label class="wa-label" for="d-rcity">PLZ und Ort</label>
-                <input class="wa-input" type="text" id="d-rcity" name="recipient_city" maxlength="190">
+                <input class="wa-input" type="text" id="d-rcity" name="recipient_city" maxlength="190"
+                       value="<?= e($empfaenger['city']) ?>">
             </div>
             <div class="wa-field">
                 <label class="wa-label" for="d-remail">E-Mail des Empfängers</label>
-                <input class="wa-input" type="email" id="d-remail" name="recipient_email" maxlength="190">
+                <input class="wa-input" type="email" id="d-remail" name="recipient_email" maxlength="190"
+                       value="<?= e($empfaenger['email']) ?>">
             </div>
             <div class="wa-field">
                 <label class="wa-label" for="d-due">Zahlungsfrist in Tagen</label>

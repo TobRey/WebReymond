@@ -22,6 +22,16 @@ final class BillingController
         $kind = $request->query('art');
         $kind = isset(DocumentBuilder::KINDS[$kind]) ? $kind : '';
 
+        // Kommt der Aufruf von einer Kundenseite, ist der Empfänger
+        // schon bekannt. Ihn abzutippen wäre reine Fleissarbeit - und
+        // Fleissarbeit erzeugt Tippfehler in Adressen.
+        $kunde = null;
+        $kundeId = $request->int('kunde');
+
+        if ($kundeId > 0) {
+            $kunde = Db::first('SELECT * FROM customers WHERE id = :id', ['id' => $kundeId]);
+        }
+
         return Response::html(View::partial('layouts/admin', [
             'title' => 'Offerten und Rechnungen',
             'content' => View::partial('admin/billing', [
@@ -29,6 +39,9 @@ final class BillingController
                 'kind' => $kind,
                 'summary' => DocumentBuilder::summary(),
                 'projects' => Db::all('SELECT id, name FROM projects ORDER BY name ASC LIMIT 300'),
+                'kunden' => Db::all('SELECT id, name FROM customers ORDER BY name ASC LIMIT 300'),
+                'kunde' => $kunde,
+                'vorgabe' => $request->query('art') === 'offer' ? 'offer' : '',
                 'ibanMissing' => trim(Settings::get('iban', '')) === '',
             ]),
         ]))->noCache()->noIndex();
@@ -62,6 +75,7 @@ final class BillingController
         $id = DocumentBuilder::create([
             'kind' => $request->input('kind'),
             'project_id' => $request->int('project_id') ?: null,
+            'customer_id' => $request->int('customer_id') ?: null,
             'title' => $request->input('title'),
             'recipient' => [
                 'name' => $request->input('recipient_name'),

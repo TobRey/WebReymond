@@ -98,6 +98,27 @@ function route(\WebAtze\Core\Router $router, string $method, string $path): ?str
     return null;
 }
 
+/**
+ * Die Wächter einer Adresse – dieselbe Suche, nur mit der anderen
+ * Antwort. Damit lässt sich prüfen, ob eine Adresse hinter der
+ * Anmeldung liegt oder davor.
+ *
+ * @return list<string>|null
+ */
+function route_middleware(\WebAtze\Core\Router $router, string $method, string $path): ?array
+{
+    $property = (new \ReflectionClass($router))->getProperty('routes');
+    $property->setAccessible(true);
+
+    foreach ($property->getValue($router) as $route) {
+        if ($route['method'] === $method && preg_match($route['regex'], $path)) {
+            return $route['middleware'] ?? [];
+        }
+    }
+
+    return null;
+}
+
 /** Kontrastverhältnis zweier Farben nach WCAG. */
 function contrast(string $a, string $b): float
 {

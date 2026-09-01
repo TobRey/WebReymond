@@ -939,6 +939,27 @@ final class Pipeline
         ], 'id = :id', ['id' => (int) $project['id']]);
 
         Audit::log('project.deployed', (string) $project['name'], ['dateien' => $result['files']]);
+
+        // Wer eine Website veröffentlicht, will sie überwacht haben,
+        // ohne daran denken zu müssen. Steht sie schon in der Aufsicht,
+        // passiert hier nichts.
+        $adresse = trim((string) ($project['domain'] ?? ''));
+
+        if ($adresse !== '') {
+            try {
+                \WebAtze\Domain\Monitor::adopt(
+                    $adresse,
+                    (string) $project['name'],
+                    null,
+                    (int) $project['id']
+                );
+            } catch (\Throwable $e) {
+                // Die Aufsicht ist Beiwerk. Ein Hochladen, das
+                // deswegen als gescheitert gilt, wäre schlimmer als
+                // eine Seite ohne Aufsicht.
+                Logger::exception($e);
+            }
+        }
     }
 
     // ==================================================================

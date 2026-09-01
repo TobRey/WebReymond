@@ -1708,3 +1708,334 @@ tr.is-inactive { opacity: 0.55; }
 
 .wa-key--in { background: var(--wa-secondary); }
 .wa-key--out { background: var(--wa-danger); }
+
+/* ================================================================== */
+/* Kundensuche                                                         */
+/* ================================================================== */
+
+/* Eine Firma, gross, mit Rand. Der Stapel soll aussehen wie ein
+   Stapel - deshalb die beiden angedeuteten Karten dahinter. */
+.wa-card-stack {
+  position: relative;
+  margin-block-end: var(--wa-space-5);
+}
+
+.wa-card-stack::before,
+.wa-card-stack::after {
+  content: '';
+  position: absolute;
+  inset-inline: 1.2rem;
+  block-size: 1rem;
+  border: 1px solid var(--wa-border);
+  border-block-end: 0;
+  border-radius: var(--wa-radius) var(--wa-radius) 0 0;
+  background: var(--wa-bg-soft);
+  pointer-events: none;
+}
+
+.wa-card-stack::before { inset-block-start: -0.5rem; opacity: 0.7; }
+.wa-card-stack::after  { inset-block-start: -0.9rem; inset-inline: 2.4rem; opacity: 0.4; }
+
+.wa-lead {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--wa-space-4);
+  padding: var(--wa-space-5);
+  border: 1px solid var(--wa-border);
+  border-radius: var(--wa-radius);
+  background: var(--wa-surface);
+}
+
+.wa-lead__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--wa-space-4);
+}
+
+.wa-lead__name {
+  margin: 0;
+  font-size: clamp(1.3rem, 3vw, 1.8rem);
+  line-height: 1.2;
+  color: var(--wa-text-strong);
+}
+
+.wa-lead__where {
+  margin: 0.2rem 0 0;
+  color: var(--wa-text-muted);
+  font-size: var(--wa-text-sm);
+}
+
+.wa-score {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 3.6rem;
+  block-size: 3.6rem;
+  border-radius: 50%;
+  border: 2px solid var(--wa-secondary);
+  color: var(--wa-secondary);
+  font-weight: 700;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.wa-score small { display: block; font-size: 0.5rem; font-weight: 400; opacity: 0.75; }
+
+.wa-lead__state {
+  margin: 0;
+  align-self: flex-start;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--wa-warning) 18%, transparent);
+  color: var(--wa-text-strong);
+  font-size: var(--wa-text-sm);
+}
+
+.wa-lead__reason {
+  margin: 0;
+  font-size: 1.02rem;
+  color: var(--wa-text-strong);
+}
+
+.wa-lead__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--wa-space-3);
+  margin: 0;
+}
+
+.wa-lead__facts dt {
+  color: var(--wa-text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.wa-lead__facts dd { margin: 0.15rem 0 0; overflow-wrap: anywhere; }
+
+.wa-lead__research {
+  padding: var(--wa-space-4);
+  border-radius: var(--wa-radius-sm);
+  background: var(--wa-bg-soft);
+  color: var(--wa-text);
+  font-size: var(--wa-text-sm);
+  line-height: 1.6;
+}
+
+.wa-lead__research p { margin: 0 0 0.6rem; }
+.wa-lead__research p:last-child { margin-block-end: 0; }
+
+.wa-lead__links { display: flex; flex-wrap: wrap; gap: var(--wa-space-2); }
+
+.wa-lead__decide form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--wa-space-3);
+}
+
+/* Die drei Knoepfe sind absichtlich gross: Sie sind der einzige Grund,
+   warum man auf dieser Seite ist, und am Handy trifft man sie so auch
+   mit dem Daumen. */
+.wa-swipe {
+  padding: var(--wa-space-4);
+  border: 1px solid var(--wa-border);
+  border-radius: var(--wa-radius-sm);
+  background: var(--wa-bg-soft);
+  color: var(--wa-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.wa-swipe:hover { border-color: currentcolor; }
+
+.wa-swipe--yes {
+  border-color: var(--wa-success);
+  color: var(--wa-success);
+}
+
+.wa-swipe--yes:hover { background: color-mix(in srgb, var(--wa-success) 14%, transparent); }
+
+.wa-swipe--no:hover { background: color-mix(in srgb, var(--wa-text-muted) 14%, transparent); }
+
+.wa-swipe--never {
+  border-color: color-mix(in srgb, var(--wa-danger) 45%, transparent);
+  color: var(--wa-danger);
+}
+
+.wa-swipe--never:hover { background: color-mix(in srgb, var(--wa-danger) 12%, transparent); }
+
+.wa-checks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--wa-space-2);
+}
+
+.wa-table__sub > td { padding-block-start: 0; border-block-start: 0; }
+
+/* ================================================================== */
+/* Wartungscenter                                                      */
+/* ================================================================== */
+
+.wa-panel--alarm {
+  border-color: var(--wa-danger);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--wa-danger) 10%, transparent),
+    transparent 60%
+  );
+}
+
+.wa-alarms { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--wa-space-3); }
+
+.wa-alarm {
+  padding: var(--wa-space-3) var(--wa-space-4);
+  border-inline-start: 3px solid var(--wa-danger);
+  border-radius: 0 var(--wa-radius-sm) var(--wa-radius-sm) 0;
+  background: var(--wa-bg-soft);
+}
+
+.wa-alarm p { margin: 0.25rem 0 0; color: var(--wa-text-muted); font-size: var(--wa-text-sm); }
+.wa-alarm .wa-btn { margin-block-start: var(--wa-space-2); }
+
+.wa-badge--ok  { color: var(--wa-success); border-color: color-mix(in srgb, var(--wa-success) 40%, transparent); }
+.wa-badge--bad { color: var(--wa-danger);  border-color: color-mix(in srgb, var(--wa-danger) 40%, transparent); }
+
+/* Der Verlauf als Balkenreihe. Ob eine Seite "meistens laeuft" oder
+   "staendig aussetzt", sieht man so auf einen Blick - in einer Tabelle
+   nie. */
+.wa-uptime {
+  display: flex;
+  gap: 2px;
+  align-items: stretch;
+  block-size: 3rem;
+  margin-block-end: var(--wa-space-4);
+  padding: var(--wa-space-2);
+  border-radius: var(--wa-radius-sm);
+  background: var(--wa-bg-soft);
+  overflow-x: auto;
+}
+
+.wa-uptime__bar {
+  flex: 1 0 4px;
+  min-inline-size: 4px;
+  border-radius: 2px;
+  background: var(--wa-success);
+}
+
+.wa-uptime__bar.is-bad { background: var(--wa-danger); }
+
+.wa-alert {
+  margin: 0 0 var(--wa-space-4);
+  padding: var(--wa-space-3) var(--wa-space-4);
+  border-radius: var(--wa-radius-sm);
+  font-size: var(--wa-text-sm);
+}
+
+.wa-alert--bad {
+  border-inline-start: 3px solid var(--wa-danger);
+  background: color-mix(in srgb, var(--wa-danger) 12%, transparent);
+  color: var(--wa-text-strong);
+}
+
+/* ================================================================== */
+/* Tresor                                                              */
+/* ================================================================== */
+
+.wa-panel--locked {
+  border-color: var(--wa-warning);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--wa-warning) 10%, transparent),
+    transparent 60%
+  );
+}
+
+.wa-copybox {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wa-space-2);
+  align-items: center;
+  margin-block-end: var(--wa-space-4);
+}
+
+.wa-copybox .wa-input { flex: 1 1 20rem; font-family: var(--wa-font-mono, monospace); font-size: 0.8rem; }
+
+/* ================================================================== */
+/* Uebersicht                                                          */
+/* ================================================================== */
+
+.wa-today {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: var(--wa-space-4);
+}
+
+.wa-panel__sub {
+  margin: var(--wa-space-4) 0 var(--wa-space-2);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--wa-text-muted);
+}
+
+.wa-agenda { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--wa-space-2); }
+
+.wa-agenda__item {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  gap: var(--wa-space-3);
+  align-items: baseline;
+  padding-block: 0.35rem;
+  border-block-end: 1px solid var(--wa-border-quiet, var(--wa-border));
+}
+
+.wa-agenda__item:last-child { border-block-end: 0; }
+
+.wa-agenda__time {
+  font-variant-numeric: tabular-nums;
+  color: var(--wa-text-muted);
+  font-size: var(--wa-text-sm);
+}
+
+.wa-agenda__what strong { display: block; color: var(--wa-text-strong); }
+.wa-agenda__what .wa-table__quiet { display: block; }
+
+.wa-agenda--quiet .wa-agenda__what { color: var(--wa-text-muted); }
+
+.wa-todos { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--wa-space-2); }
+
+.wa-todo {
+  display: flex;
+  gap: var(--wa-space-3);
+  align-items: flex-start;
+  padding-block: 0.35rem;
+  border-block-end: 1px solid var(--wa-border-quiet, var(--wa-border));
+}
+
+.wa-todo:last-child { border-block-end: 0; }
+
+/* In der Uebersicht steht im Haekchen nur ein Zeichen, kein Wort.
+   Die Mindestbreite von 6rem waere dort ein Balken. */
+.wa-todo .wa-check {
+  flex: none;
+  min-inline-size: 0;
+  inline-size: 2rem;
+  block-size: 2rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.wa-todo .wa-check:hover { color: var(--wa-success); border-color: var(--wa-success); }
+.wa-todo.is-late .wa-todo__text { color: var(--wa-danger); }
+.wa-todo__text { flex: 1; }
+.wa-todo__text .wa-table__quiet { margin-inline-start: 0.4rem; }
+
+@media (max-width: 34rem) {
+  .wa-agenda__item { grid-template-columns: 1fr; gap: 0.15rem; }
+  .wa-lead__decide form { grid-template-columns: 1fr; }
+}
