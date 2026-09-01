@@ -1259,6 +1259,51 @@ test('Ein Abbruch mitten in der Seite wirft nichts weg', function (): void {
 });
 
 // ==================================================================
+test('Ein Server, der immer an derselben Stelle abbricht, wird erkannt', function (): void {
+    // Der teuerste Fall: Der Cronjob ruft die Adresse per curl auf, also
+    // gilt die Zeitgrenze des Webservers. Die ist kuerzer als eine
+    // Anfrage an die KI dauert. Der Vorgang stirbt jedes Mal an
+    // derselben Stelle, der Auftrag faengt sie jedes Mal neu an, und
+    // bezahlt wird jedes Mal. Von aussen sieht das aus wie Stillstand.
+    //
+    // Nach drei Anlaeufen an derselben Gruppe wird deshalb angehalten -
+    // mit einer Meldung, die sagt, was in cPanel zu aendern ist.
+    $quelle = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Build/Pipeline.php'
+    );
+
+    ok(str_contains($quelle, 'gruppe_versuche'), 'Die Anlaeufe je Gruppe werden gezaehlt');
+    ok(str_contains($quelle, '$versuche > 3'), 'Nach dem dritten ist Schluss');
+
+    // Die Meldung muss brauchbar sein, nicht nur richtig.
+    ok(str_contains($quelle, 'worker.php'), 'Sie nennt die Datei fuer den Cronjob');
+    ok(str_contains($quelle, 'curl'), 'Und den wahrscheinlichen Grund');
+
+    // Ein ConfigurationError haelt an, statt alle 30 Sekunden neu zu
+    // probieren - sonst waere die Bremse wirkungslos.
+    $stelle = strpos($quelle, '$versuche > 3');
+    $danach = substr($quelle, (int) $stelle, 400);
+    ok(str_contains($danach, 'ConfigurationError'),
+        'Und der Auftrag haelt an, statt weiter Geld auszugeben');
+
+    // Der Zaehler muss nach einer geschafften Gruppe zurueckgesetzt
+    // werden, sonst haelt ein langsamer, aber gesunder Bau faelschlich an.
+    ok(str_contains($quelle, "\$state['gruppe_versuche'] = [];"),
+        'Nach einer geschafften Gruppe faengt die Zaehlung von vorn an');
+
+    // Und die Sperre wird vor jedem Aufruf aufgefrischt, damit kein
+    // zweiter Arbeiter dieselbe Anfrage noch einmal bezahlt.
+    ok(str_contains($quelle, 'Jobs::keepAlive'), 'Die Sperre wird waehrend der Arbeit gehalten');
+
+    $jobs = (string) file_get_contents(dirname(__DIR__) . '/public_html/app/Core/Jobs.php');
+    preg_match('/LOCK_SECONDS = (\d+)/', $jobs, $t);
+    $sperre = (int) ($t[1] ?? 0);
+
+    ok($sperre >= 90 && $sperre <= 180,
+        'Die Sperre ist laenger als ein Arbeitsschritt, aber kein Stillstand (' . $sperre . 's)');
+});
+
+// ==================================================================
 test('Das Aussehen erreicht auch den Verwaltungsbereich', function (): void {
     // Die Menueschaltflaeche stand in components.css. Die laedt nur die
     // oeffentliche Website. Im Verwaltungsbereich hatte sie deshalb gar

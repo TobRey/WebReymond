@@ -6,7 +6,7 @@ namespace WebAtze\Build;
 
 use RuntimeException;
 use WebAtze\Ai\{ClaudeClient, ContentWriter, JsonSchema, Prompts, SitePlanner, Translator};
-use WebAtze\Core\{Audit, Config, Db, Jobs, Logger};
+use WebAtze\Core\{Audit, Config, ConfigurationError, Db, Jobs, Logger};
 use WebAtze\Domain\Brief;
 
 /**
@@ -334,6 +334,36 @@ final class Pipeline
                 array_merge($state, ['page_index' => $index, 'group_index' => $gruppe])
             );
 
+            // Waechter: Vor jeder Gruppe festhalten, dass sie begonnen
+            // wurde. Kommt dieselbe Gruppe zum vierten Mal dran, ohne je
+            // fertig geworden zu sein, bricht der Server den Vorgang
+            // immer an derselben Stelle ab. Weiterprobieren kostet dann
+            // nur noch Geld - besser einmal deutlich sagen, woran es
+            // liegt.
+            $marke = $index . ':' . $gruppe;
+            $versuche = (int) ($state['gruppe_versuche'][$marke] ?? 0) + 1;
+            $state['gruppe_versuche'] = [$marke => $versuche];
+
+            if ($versuche > 3) {
+                throw new ConfigurationError(
+                    'Der Server bricht das Schreiben immer an derselben Stelle ab '
+                    . '(Seite ' . ($index + 1) . ', Teil ' . ($gruppe + 1) . '). '
+                    . 'Das passiert, wenn der Cronjob die Adresse per curl oder wget '
+                    . 'aufruft: Dann gilt die Zeitgrenze des Webservers, und die ist '
+                    . 'kuerzer als eine Anfrage an die KI dauert.',
+                    'Stelle den Cronjob in cPanel auf die Kommandozeile um. Die Zeile '
+                    . 'lautet: /usr/local/bin/php -q ' . BASE_DIR . '/worker.php '
+                    . '- also ohne curl und ohne Adresse. Danach den Auftrag '
+                    . 'fortsetzen; das bereits Geschriebene bleibt erhalten.',
+                    ''
+                );
+            }
+
+            // Die Sperre auffrischen. Ein Aufruf dauert laenger als die
+            // Sperre; ohne das koennte ein zweiter Arbeiter mitten hinein
+            // denselben Auftrag greifen und alles doppelt bezahlen.
+            Jobs::keepAlive((int) $job['id']);
+
             // Die Seitenzeile zuerst - dann haengt jede Gruppe an einer
             // Stelle, die es schon gibt, auch nach einem Abbruch.
             $pageId = $writer->preparePage((int) $project['id'], $page);
@@ -346,6 +376,9 @@ final class Pipeline
                 (string) ($state['old_site']['summary'] ?? ''),
                 $gruppe
             );
+
+            // Geschafft - der Zaehler des Waechters darf zurueck.
+            $state['gruppe_versuche'] = [];
 
             $getanNow++;
             $gruppe++;

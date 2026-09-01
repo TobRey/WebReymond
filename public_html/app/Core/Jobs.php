@@ -32,7 +32,20 @@ final class Jobs
     public const CANCELLED = 'cancelled';
 
     private const MAX_ATTEMPTS = 3;
-    private const LOCK_SECONDS = 300;
+    /**
+     * Wie lange ein Auftrag einem Arbeiter gehoert.
+     *
+     * Nicht zu lang: Bricht der Server den Vorgang ab, liegt der Auftrag
+     * bis zum Ablauf brach. Bei 300 Sekunden hiess das fuenf Minuten
+     * Stillstand je Abbruch - von aussen sah der Auftrag aus, als haenge
+     * er.
+     *
+     * Nicht zu kurz: Solange gearbeitet wird, verlaengert jeder
+     * Fortschritt die Sperre. Sie laeuft also nur ab, wenn wirklich
+     * niemand mehr daran arbeitet. 120 Sekunden sind laenger als jeder
+     * einzelne Arbeitsschritt und kurz genug, dass es zuegig weitergeht.
+     */
+    private const LOCK_SECONDS = 120;
 
     /** Neuen Auftrag anlegen. */
     public static function enqueue(string $type, array $payload = [], ?int $projectId = null): int
@@ -128,6 +141,21 @@ final class Jobs
         }
 
         Db::update('jobs', $data, 'id = :id', ['id' => $id]);
+    }
+
+    /**
+     * Die Sperre verlaengern, ohne sonst etwas zu aendern.
+     *
+     * Vor einem langen Aufruf gedacht: Er dauert laenger als die Sperre,
+     * und ohne Auffrischen koennte ein zweiter Arbeiter denselben
+     * Auftrag greifen - dieselbe Anfrage ein zweites Mal, doppelt
+     * bezahlt.
+     */
+    public static function keepAlive(int $id): void
+    {
+        Db::update('jobs', [
+            'locked_until' => date('Y-m-d H:i:s', time() + self::LOCK_SECONDS),
+        ], 'id = :id', ['id' => $id]);
     }
 
     /** Auftrag unterbrechen und beim nächsten Durchlauf fortsetzen. */
