@@ -1259,6 +1259,75 @@ test('Ein Abbruch mitten in der Seite wirft nichts weg', function (): void {
 });
 
 // ==================================================================
+test('Ein Schritt haelt den Bau nicht endlos auf', function (): void {
+    // Der Kern der Sache. Kommt ein Aufruf nicht durch, wurde bisher
+    // derselbe Versuch wiederholt - wieder und wieder, ohne Fehler, ohne
+    // Fortschritt. Das war der Stillstand bei 22 Prozent: kein Defekt,
+    // sondern eine Schleife.
+    //
+    // Jetzt wird zweimal versucht, danach nimmt der Bau den Weg, der
+    // ohne KI funktioniert. Eine Website nach dem Standardaufbau ist
+    // unendlich viel besser als eine, die nie entsteht.
+    $pipeline = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Build/Pipeline.php'
+    );
+
+    ok(str_contains($pipeline, 'function withFallback'), 'Es gibt einen Weg ohne die KI');
+    ok(str_contains($pipeline, '$offen >= 2'), 'Nach zwei Fehlschlaegen wird er genommen');
+
+    // Der Zaehler muss den Fehlschlag ueberleben, sonst faengt jeder
+    // Anlauf bei null an und die Schleife bleibt.
+    ok(str_contains($pipeline, 'Jobs::saveState'), 'Der Zaehler wird vor dem Weiterreichen gesichert');
+
+    // Und die Position gehoert VOR die Arbeit in den Zustand. Andersherum
+    // sichert ein Fehlschlag die alte Position mit, der Bau faellt
+    // zurueck und faengt dieselbe Seite wieder an.
+    $vorPlan = strpos($pipeline, "\$state['plan_index'] = \$index;");
+    $planArbeit = strpos($pipeline, "'abschnitte-' . \$index");
+    ok($vorPlan !== false && $planArbeit !== false && $vorPlan < $planArbeit,
+        'Die Seitennummer steht im Zustand, bevor geplant wird');
+
+    $vorTexte = strpos($pipeline, "\$state['group_index'] = \$gruppe;");
+    $texteArbeit = strpos($pipeline, "'texte-' . \$index");
+    ok($vorTexte !== false && $texteArbeit !== false && $vorTexte < $texteArbeit,
+        'Und die Gruppennummer, bevor geschrieben wird');
+
+    // Ein Fehler, den Warten nicht behebt - leeres Guthaben, falscher
+    // Schluessel - darf NICHT durch einen Ersatzaufbau vertuscht werden.
+    ok(str_contains($pipeline, 'catch (ConfigurationError $e)'),
+        'Fehlende Einstellungen werden durchgereicht statt uebertuencht');
+
+    // Fuer jede Stelle muss es einen Ersatz geben.
+    $planer = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Ai/SitePlanner.php'
+    );
+    ok(str_contains($planer, 'function fallbackPlan'), 'Ersatz fuer die Seitenliste');
+    ok(str_contains($planer, 'function fallbackSections'), 'Ersatz fuer die Abschnitte einer Seite');
+
+    $schreiber = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Ai/ContentWriter.php'
+    );
+    ok(str_contains($schreiber, 'function writeGroupPlain'), 'Ersatz fuer die Texte');
+
+    // Der Ersatz muss vollstaendige Seiten liefern, nicht Bruchstuecke.
+    foreach (['/', '/leistungen', '/kontakt', '/impressum'] as $pfad) {
+        $abschnitte = \WebAtze\Ai\SitePlanner::fallbackSections(['path' => $pfad, 'title' => 'Probe']);
+
+        ok(count($abschnitte) >= 3, 'Ersatzaufbau fuer ' . $pfad . ' hat Substanz ('
+            . count($abschnitte) . ' Abschnitte)');
+
+        foreach ($abschnitte as $a) {
+            ok(\WebAtze\Templates\Schema::forType((string) $a['type']) !== null,
+                'Abschnittstyp "' . $a['type'] . '" gibt es wirklich');
+        }
+    }
+
+    // Und was ersetzt wurde, muss dem Betreiber gesagt werden.
+    ok(str_contains($pipeline, "\$state['hinweise'][]"), 'Ersatz wird vermerkt');
+    ok(str_contains($pipeline, 'Hinweis: '), 'Und in der Schlussmeldung genannt');
+});
+
+// ==================================================================
 test('Der Fehlerzaehler zaehlt Fehler, nicht Abholungen', function (): void {
     // Ein Bau laeuft absichtlich in vielen kleinen Takten und wird
     // deshalb oft abgeholt. Frueher stieg der Zaehler bei jeder

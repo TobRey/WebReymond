@@ -158,6 +158,59 @@ final class ContentWriter
         return $gesetzt;
     }
 
+    /**
+     * Eine Gruppe ohne die KI ablegen.
+     *
+     * Der Rueckfall, wenn ein Aufruf nicht durchkommt. Die Texte stammen
+     * aus dem Formular und sind erkennbar vorlaeufig - aber die Seite
+     * steht, der Bau laeuft weiter, und in der Vorschau genuegt ein
+     * Klick, um den Abschnitt neu schreiben zu lassen.
+     */
+    public function writeGroupPlain(int $projectId, int $pageId, array $page, array $brief, int $gruppenNummer): int
+    {
+        $gruppen = $this->groupsFor($page);
+
+        if (!isset($gruppen[$gruppenNummer])) {
+            return 0;
+        }
+
+        $inhalte = self::fallbackContent($page, $brief);
+        $gesetzt = 0;
+
+        foreach ($gruppen[$gruppenNummer] as $index => $section) {
+            $type = (string) $section['type'];
+
+            $da = Db::first(
+                'SELECT id FROM project_sections WHERE page_id = :p AND sort_order = :s',
+                ['p' => $pageId, 's' => (int) $index]
+            );
+
+            $werte = [
+                'type' => $type,
+                'template_key' => (string) $section['template'],
+                'content' => self::validate($type, $inhalte[$index] ?? []),
+                'updated_at' => Db::now(),
+            ];
+
+            if ($da !== null) {
+                Db::update('project_sections', $werte, 'id = :id', ['id' => (int) $da['id']]);
+            } else {
+                Db::insert('project_sections', $werte + [
+                    'project_id' => $projectId,
+                    'page_id' => $pageId,
+                    'overrides' => [],
+                    'hidden' => 0,
+                    'sort_order' => (int) $index,
+                    'created_at' => Db::now(),
+                ]);
+            }
+
+            $gesetzt++;
+        }
+
+        return $gesetzt;
+    }
+
     // ------------------------------------------------------------------
 
     /** Der gleichbleibende Teil der Anweisung - fuer jede Gruppe derselbe. */

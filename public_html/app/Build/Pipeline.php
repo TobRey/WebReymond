@@ -152,8 +152,23 @@ final class Pipeline
 
         $previewUrl = self::previewUrl($project);
 
+        // Wurde unterwegs etwas ohne die KI gebaut, gehoert das gesagt -
+        // sonst wundert sich jemand ueber vorlaeufige Texte und sucht den
+        // Fehler an der falschen Stelle.
+        $hinweise = array_values(array_unique((array) ($state['hinweise'] ?? [])));
+
+        $meldung = 'Die Website ist fertig.';
+
+        if ($hinweise !== []) {
+            $meldung .= ' Hinweis: ' . implode(' ', array_slice($hinweise, 0, 3));
+
+            if (count($hinweise) > 3) {
+                $meldung .= ' (und ' . (count($hinweise) - 3) . ' weitere)';
+            }
+        }
+
         Jobs::progress($job['id'], 'fertig', 100, 'Fertig.', $state);
-        Jobs::finish($job['id'], 'Die Website ist fertig.');
+        Jobs::finish($job['id'], $meldung);
 
         Db::update('jobs', ['state' => array_merge($state, ['redirect' => $previewUrl])],
             'id = :id', ['id' => (int) $job['id']]);
@@ -223,18 +238,19 @@ final class Pipeline
     private static function stepPlan(array $project, array $brief, array $state, array $job, float $budget): array
     {
         $planner = new SitePlanner((int) $project['id'], (int) $job['id']);
+        $summary = (string) ($state['old_site']['summary'] ?? '');
 
-        // Erst die Seitenliste. Ein kleiner Aufruf - frueher entstand
-        // hier der ganze Plan auf einmal, samt allen Abschnitten aller
-        // Seiten, und das dauerte bei einer groesseren Website fast eine
-        // Minute. Auf geteiltem Hosting bricht der Server vorher ab, und
-        // ein Aufruf, der nicht ins Zeitfenster passt, kommt nie
-        // zustande - so oft man es auch versucht. Genau daran blieb der
-        // Bau haengen, bevor ueberhaupt ein Wort geschrieben war.
+        // Erst die Seitenliste - ein kleiner Aufruf.
         if (!isset($state['plan_pages'])) {
-            $liste = $planner->planPages($brief, (string) ($state['old_site']['summary'] ?? ''));
+            $state['plan_pages'] = self::withFallback(
+                $job,
+                $state,
+                'seitenliste',
+                static fn (): array => $planner->planPages($brief, $summary),
+                static fn (): array => SitePlanner::fallbackPlan($brief),
+                'Der Aufbau wird ohne Vorschlag der KI erstellt.'
+            );
 
-            $state['plan_pages'] = $liste;
             $state['plan_index'] = 0;
             $state['repeat'] = true;
 
@@ -242,35 +258,56 @@ final class Pipeline
         }
 
         $liste = (array) $state['plan_pages'];
-        $seiten = (array) ($liste['pages'] ?? []);
+        $seiten = array_values((array) ($liste['pages'] ?? []));
         $index = (int) ($state['plan_index'] ?? 0);
+        $anzahl = max(1, count($seiten));
 
         $started = microtime(true);
         $getanNow = 0;
 
-        // Dann je Seite die Abschnitte, einzeln und fortsetzbar. Ein
-        // Abbruch kostet damit hoechstens eine Seite.
+        // Dann je Seite die Abschnitte, einzeln und fortsetzbar.
         while ($index < count($seiten)) {
             if ($getanNow > 0 && microtime(true) - $started > $budget - 30.0) {
                 break;
             }
 
+            // Der Planungsschritt hat jetzt eine eigene Spanne. Vorher
+            // stand er fest auf 22 Prozent, egal wie viele Seiten schon
+            // geplant waren - er sah stehengeblieben aus, obwohl er
+            // arbeitete. Eine Anzeige, die sich nicht ruehrt, ist von
+            // einem Stillstand nicht zu unterscheiden.
+            // Die Position zuerst in den Zustand, dann erst arbeiten.
+            // Andersherum sichert ein Fehlschlag unterwegs die alte
+            // Position mit - der Bau faellt zurueck und faengt dieselbe
+            // Seite wieder an. Genau das liess ihn im Kreis laufen.
+            $state['plan_index'] = $index;
+
             Jobs::progress(
                 (int) $job['id'],
                 'plan',
-                22,
+                12 + (int) round(14 * ($index / $anzahl)),
                 sprintf('Aufbau von "%s" (%d von %d)',
-                    (string) ($seiten[$index]['title'] ?? ''), $index + 1, count($seiten)),
-                array_merge($state, ['plan_index' => $index])
+                    (string) ($seiten[$index]['title'] ?? ''), $index + 1, $anzahl),
+                $state
             );
 
             Jobs::keepAlive((int) $job['id']);
             Worker::beat();
 
-            $seiten[$index]['sections'] = $planner->planSections($brief, $seiten[$index]);
+            $seite = $seiten[$index];
 
-            $state['plan_pages'] = ['pages' => $seiten] + $liste;
-            $liste = (array) $state['plan_pages'];
+            $seiten[$index]['sections'] = self::withFallback(
+                $job,
+                $state,
+                'abschnitte-' . $index,
+                static fn (): array => $planner->planSections($brief, $seite),
+                static fn (): array => SitePlanner::fallbackSections($seite),
+                sprintf('"%s" wird nach dem Standardaufbau erstellt.',
+                    (string) ($seite['title'] ?? ''))
+            );
+
+            $liste['pages'] = $seiten;
+            $state['plan_pages'] = $liste;
 
             $index++;
             $getanNow++;
@@ -283,7 +320,6 @@ final class Pipeline
             return $state;
         }
 
-        // Fertig - jetzt erst wird daraus der geprüfte Plan.
         $plan = SitePlanner::sanitise($liste, $brief);
 
         Db::update('projects', [
@@ -295,9 +331,90 @@ final class Pipeline
         $state['page_index'] = 0;
         $state['group_index'] = 0;
 
-        unset($state['plan_pages'], $state['plan_index']);
+        unset($state['plan_pages'], $state['plan_index'], $state['fehlversuche']);
 
         return $state;
+    }
+
+    /**
+     * Etwas versuchen - und nach zwei Fehlschlaegen ohne KI weitermachen.
+     *
+     * Das ist die Antwort auf die eigentliche Frage: Was passiert, wenn
+     * ein Aufruf einfach nicht durchkommt? Bisher: derselbe Versuch,
+     * wieder und wieder, bis jemand eingreift. Das ist der Stillstand,
+     * den niemand erklaeren konnte - kein Fehler, nur ewiges
+     * Wiederholen, und jede Runde kostet.
+     *
+     * Ab jetzt wird zweimal versucht, und dann nimmt der Bau den Weg,
+     * der ohne KI funktioniert. Eine Website, die nach dem
+     * Standardaufbau entsteht, ist unendlich viel besser als eine, die
+     * nie entsteht. Was ersetzt wurde, steht in der Meldung - und laesst
+     * sich in der Vorschau jederzeit von Hand nachbessern.
+     *
+     * Ein Fehler, der sich durch Warten nicht behebt - fehlendes
+     * Guthaben, falscher Schluessel - wird durchgereicht. Dort ist ein
+     * Ersatzaufbau die falsche Antwort; da muss jemand etwas tun.
+     *
+     * @param callable():array $versuch
+     * @param callable():array $ersatz
+     */
+    private static function withFallback(
+        array $job,
+        array &$state,
+        string $marke,
+        callable $versuch,
+        callable $ersatz,
+        string $hinweis
+    ): array {
+        $offen = (int) ($state['fehlversuche'][$marke] ?? 0);
+
+        if ($offen >= 2) {
+            Logger::warning('Ersatzaufbau verwendet, die KI kam nicht durch.', [
+                'auftrag' => (int) $job['id'],
+                'stelle' => $marke,
+            ]);
+
+            $state['hinweise'][] = $hinweis;
+            unset($state['fehlversuche'][$marke]);
+
+            Jobs::saveState((int) $job['id'], $state);
+
+            return $ersatz();
+        }
+
+        try {
+            $ergebnis = $versuch();
+
+            // Eine leere Antwort ist kein Erfolg. Sie kaeme spaeter als
+            // Seite ohne Abschnitte heraus - also gar nicht.
+            if ($ergebnis === [] && $marke !== '' && !str_starts_with($marke, 'texte-')) {
+                throw new RuntimeException('Die Antwort war leer.');
+            }
+        } catch (ConfigurationError $e) {
+            // Guthaben leer, Schluessel falsch: Warten hilft nicht, und
+            // ein Ersatzaufbau waere hier nur Vertuschen.
+            throw $e;
+        } catch (\Throwable $e) {
+            $state['fehlversuche'][$marke] = $offen + 1;
+
+            // Vor dem Weiterreichen sichern - sonst weiss der naechste
+            // Anlauf nicht, dass es hier schon zweimal schieflief, und
+            // wiederholt denselben Fehler ewig.
+            Jobs::saveState((int) $job['id'], $state);
+
+            Logger::warning('Aufruf fehlgeschlagen, wird wiederholt.', [
+                'auftrag' => (int) $job['id'],
+                'stelle' => $marke,
+                'versuch' => $offen + 1,
+                'grund' => $e->getMessage(),
+            ]);
+
+            throw $e;
+        }
+
+        unset($state['fehlversuche'][$marke]);
+
+        return $ergebnis;
     }
 
     // ------------------------------------------------------------------
@@ -390,13 +507,11 @@ final class Pipeline
                 $wo .= sprintf(', Teil %d von %d', min($gruppe + 1, $anzahl), $anzahl);
             }
 
-            Jobs::progress(
-                (int) $job['id'],
-                'inhalte',
-                $percent,
-                $wo,
-                array_merge($state, ['page_index' => $index, 'group_index' => $gruppe])
-            );
+            // Wie oben: erst die Position festhalten, dann arbeiten.
+            $state['page_index'] = $index;
+            $state['group_index'] = $gruppe;
+
+            Jobs::progress((int) $job['id'], 'inhalte', $percent, $wo, $state);
 
             // Waechter: Vor jeder Gruppe festhalten, dass sie begonnen
             // wurde. Kommt dieselbe Gruppe zum vierten Mal dran, ohne je
@@ -433,13 +548,27 @@ final class Pipeline
             // Stelle, die es schon gibt, auch nach einem Abbruch.
             $pageId = $writer->preparePage((int) $project['id'], $page);
 
-            $writer->writeGroup(
-                (int) $project['id'],
-                $pageId,
-                $page,
-                $brief,
-                (string) ($state['old_site']['summary'] ?? ''),
-                $gruppe
+            $summary = (string) ($state['old_site']['summary'] ?? '');
+            $nummer = $gruppe;
+
+            self::withFallback(
+                $job,
+                $state,
+                'texte-' . $index . '-' . $gruppe,
+                static function () use ($writer, $project, $pageId, $page, $brief, $summary, $nummer): array {
+                    $writer->writeGroup((int) $project['id'], $pageId, $page, $brief, $summary, $nummer);
+                    return [];
+                },
+                // Der Rueckfall: Platzhaltertexte aus dem Formular statt
+                // gar nichts. Sie sind erkennbar vorlaeufig und lassen
+                // sich in der Vorschau mit einem Klick neu schreiben -
+                // aber die Seite steht, und der Bau laeuft weiter.
+                static function () use ($writer, $project, $pageId, $page, $brief, $nummer): array {
+                    $writer->writeGroupPlain((int) $project['id'], $pageId, $page, $brief, $nummer);
+                    return [];
+                },
+                sprintf('"%s" hat vorlaeufige Texte - in der Vorschau neu schreiben lassen.',
+                    (string) ($page['title'] ?? ''))
             );
 
             // Geschafft - der Zaehler des Waechters darf zurueck.

@@ -108,8 +108,11 @@ final class SitePlanner
      */
     public function planSections(array $brief, array $seite): array
     {
+        // Ohne Schluessel den Standardaufbau - nicht eine leere Liste.
+        // Leer hiesse: eine Seite ohne einen einzigen Abschnitt, und die
+        // wird beim Bauen zu gar keiner Seite.
         if (!ClaudeClient::isConfigured()) {
-            return [];
+            return self::fallbackSections($seite);
         }
 
         $message = "AUFTRAG\n=======\n" . Brief::toPromptText($brief)
@@ -142,6 +145,51 @@ final class SitePlanner
             (array) ($antwort['sections'] ?? []),
             static fn (mixed $a): bool => is_array($a)
         ));
+    }
+
+    /**
+     * Abschnitte fuer eine Seite, ohne die KI zu fragen.
+     *
+     * Der Rueckfall, wenn ein Aufruf nicht durchkommt. Er ist bewusst
+     * unspektakulaer, aber vollstaendig: Kopf, ein Aufmacher, Inhalt,
+     * ein Aufruf zum Handeln, Fuss. Eine Seite, die so entsteht, ist
+     * unendlich viel besser als eine, die nie entsteht.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function fallbackSections(array $seite): array
+    {
+        $pfad = trim((string) ($seite['path'] ?? '/'), '/');
+
+        // Rechtliches braucht keinen Aufmacher, sondern Text.
+        if (in_array($pfad, ['impressum', 'datenschutz', 'agb'], true)) {
+            return [
+                ['type' => 'header', 'template' => 'links-rechts', 'purpose' => 'Navigation'],
+                ['type' => 'text', 'template' => 'einspaltig', 'purpose' => 'Rechtliche Angaben'],
+                ['type' => 'footer', 'template' => 'drei-spalten', 'purpose' => 'Abschluss'],
+            ];
+        }
+
+        if ($pfad === 'kontakt') {
+            return [
+                ['type' => 'header', 'template' => 'links-rechts', 'purpose' => 'Navigation'],
+                ['type' => 'contact', 'template' => 'formular-links', 'purpose' => 'Kontakt aufnehmen'],
+                ['type' => 'footer', 'template' => 'drei-spalten', 'purpose' => 'Abschluss'],
+            ];
+        }
+
+        if ($pfad === '') {
+            return self::defaultHome([])['sections'];
+        }
+
+        return [
+            ['type' => 'header', 'template' => 'links-rechts', 'purpose' => 'Navigation'],
+            ['type' => 'hero', 'template' => 'bild-rechts', 'purpose' => 'Einstieg in das Thema'],
+            ['type' => 'text', 'template' => 'einspaltig', 'purpose' => 'Der Inhalt dieser Seite'],
+            ['type' => 'features', 'template' => 'raster-3', 'purpose' => 'Das Wichtigste in Kuerze'],
+            ['type' => 'cta', 'template' => 'mittig', 'purpose' => 'Kontakt anstossen'],
+            ['type' => 'footer', 'template' => 'drei-spalten', 'purpose' => 'Abschluss'],
+        ];
     }
 
     /**

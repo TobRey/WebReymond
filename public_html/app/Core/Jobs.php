@@ -179,6 +179,21 @@ final class Jobs
         ], 'id = :id', ['id' => $id]);
     }
 
+    /**
+     * Nur den Zwischenstand sichern, sonst nichts.
+     *
+     * Gebraucht, bevor eine Ausnahme weitergereicht wird: Was der
+     * Schritt bis dahin gelernt hat - etwa dass ein Aufruf schon zweimal
+     * scheiterte - muss den Fehlschlag ueberleben. Sonst faengt der
+     * naechste Anlauf bei null an und wiederholt denselben Fehler ewig.
+     *
+     * Bewusst ohne Anfassen von Zustand, Sperre oder Fehlerzaehler.
+     */
+    public static function saveState(int $id, array $state): void
+    {
+        Db::update('jobs', ['state' => $state], 'id = :id', ['id' => $id]);
+    }
+
     /** Auftrag unterbrechen und beim nächsten Durchlauf fortsetzen. */
     public static function yield(int $id, array $state): void
     {
