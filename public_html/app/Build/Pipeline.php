@@ -275,6 +275,33 @@ final class Pipeline
         $planner = new SitePlanner((int) $project['id'], (int) $job['id']);
         $summary = (string) ($state['old_site']['summary'] ?? '');
 
+        // Zuerst der Versuch, alles in einer Anfrage zu planen. Bei elf
+        // Seiten spart das elf Aufrufe - und elf Stellen, an denen etwas
+        // schiefgehen kann. Klappt es nicht, geht es Seite fuer Seite
+        // weiter wie bisher.
+        if (!isset($state['plan_pages']) && empty($state['plan_einzeln'])) {
+            $alles = $planner->planAllAtOnce($brief, $summary);
+
+            if ($alles !== null) {
+                $plan = SitePlanner::sanitise($alles, $brief);
+
+                Db::update('projects', [
+                    'plan' => $plan,
+                    'updated_at' => Db::now(),
+                ], 'id = :id', ['id' => (int) $project['id']]);
+
+                $state['plan'] = $plan;
+                $state['page_index'] = 0;
+                $state['group_index'] = 0;
+
+                return $state;
+            }
+
+            // Nicht noch einmal probieren - der Weg Seite fuer Seite
+            // uebernimmt.
+            $state['plan_einzeln'] = true;
+        }
+
         // Erst die Seitenliste - ein kleiner Aufruf.
         if (!isset($state['plan_pages'])) {
             $state['plan_pages'] = self::withFallback(
@@ -366,7 +393,7 @@ final class Pipeline
         $state['page_index'] = 0;
         $state['group_index'] = 0;
 
-        unset($state['plan_pages'], $state['plan_index'], $state['fehlversuche']);
+        unset($state['plan_pages'], $state['plan_index'], $state['plan_einzeln'], $state['fehlversuche']);
 
         return $state;
     }

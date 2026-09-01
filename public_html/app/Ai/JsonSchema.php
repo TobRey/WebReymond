@@ -195,9 +195,14 @@ final class JsonSchema
      * Die ursprüngliche Reihenfolge bleibt als Schlüssel erhalten:
      * Abschnitt 7 heisst auch in der zweiten Gruppe "abschnitt_7".
      *
+     * Das Budget von 6900 Zeichen stammt aus der Messung: 7246 gingen
+     * durch, 8533 nicht. Vorher standen hier 5500 - zu vorsichtig. Der
+     * Unterschied klingt klein, ist aber der zwischen einer Anfrage je
+     * Seite und zweien, und beim Uebersetzen noch einmal je Sprache.
+     *
      * @return array<int, array<int, array<string, mixed>>>
      */
-    public static function chunkSections(array $sections, int $budget = 5500): array
+    public static function chunkSections(array $sections, int $budget = 6900): array
     {
         $gruppen = [];
         $aktuell = [];

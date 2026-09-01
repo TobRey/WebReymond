@@ -119,7 +119,15 @@ final class Translator
         // Wie beim Schreiben: nicht die ganze Seite auf einmal. Ab etwa
         // sechs Abschnitten weist der Dienst die Anfrage ab, weil das
         // Schema zu gross wird. Siehe JsonSchema::chunkSections().
-        $gruppen = JsonSchema::chunkSections($sections);
+        // Ein eigenes, kleineres Budget als beim Schreiben.
+        //
+        // Das Schema der Uebersetzung traegt zusaetzlich Titel und
+        // Kurzbeschreibung der Seite und ist damit rund dreihundert
+        // Zeichen groesser. Mit demselben Budget wie beim Schreiben
+        // laege es bei 7662 Zeichen - und damit in dem Bereich, den ich
+        // am echten Dienst nie geprueft habe (7246 gingen durch, 8533
+        // nicht). Mit 6200 bleibt es bei 6471: sicher belegt.
+        $gruppen = JsonSchema::chunkSections($sections, 6200);
 
         $ergebnis = ['page' => [], 'sections' => []];
 

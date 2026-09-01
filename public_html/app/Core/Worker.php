@@ -45,7 +45,7 @@ final class Worker
         // geht sofort wieder. Und bricht der Server ab, ist nichts
         // verloren - jede Gruppe ist einzeln abgelegt, und die Messung
         // unten zieht das Zeitfenster automatisch nach unten.
-        $budget = max(5, min($budget, 900));
+        $budget = max(5, min($budget, 3600));
 
         // Wie lange laesst dieser Server einen Vorgang leben?
         //
@@ -70,7 +70,7 @@ final class Worker
             // Durchlauf noch sauber enden kann statt mittendrin zu
             // sterben.
             $budget = max(12, min($budget, $ueberlebt - 8));
-        } elseif ($budgetSeconds === null) {
+        } elseif ($budgetSeconds === null && (int) Config::get('worker_budget_seconds', 300) >= 300) {
             // Noch nie ein Abbruch: Dieser Server setzt offenbar keine
             // Grenze, also darf laenger gearbeitet werden.
             //
@@ -85,7 +85,21 @@ final class Worker
             // Also entscheidet hier die Messung, nicht die Datei. Bricht
             // der Server doch ab, greift der Zweig darueber ab dem
             // naechsten Durchlauf.
-            $budget = max($budget, 300);
+            // In einem Zug durcharbeiten, statt in Minutenscheiben.
+            //
+            // Das war die eigentliche Schwaeche: Ein Bau wurde in vierzig
+            // Haeppchen zerlegt, und zwischen je zwei lag ein
+            // Prozessende, eine Sperre, ein Cron-Lauf. Vierzig
+            // Uebergaenge sind vierzig Stellen, an denen etwas
+            // haengenbleiben kann - und genau das ist immer wieder
+            // passiert, jedes Mal woanders.
+            //
+            // Dieser Server setzt keine Grenze (sonst waere oben etwas
+            // gemessen worden), also wird der Auftrag am Stueck zu Ende
+            // gebracht. Faellt der Cronjob zwischendurch erneut, findet
+            // der zweite Arbeiter den Auftrag gesperrt und geht sofort
+            // wieder.
+            $budget = max($budget, 3000);
         }
 
         Settings::put('worker_tick_open', (string) time());

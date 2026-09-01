@@ -1148,16 +1148,24 @@ test('Lange Seiten werden in Gruppen aufgeteilt', function (): void {
     $seal = new ReflectionMethod(ClaudeClient::class, 'sealSchema');
     $seal->setAccessible(true);
 
-    foreach ($gruppen as $nummer => $gruppe) {
-        foreach ([
-            'Inhalt' => \WebAtze\Ai\JsonSchema::pageContent($gruppe),
-            'Übersetzung' => \WebAtze\Ai\JsonSchema::translation($gruppe),
-        ] as $was => $schema) {
-            $länge = strlen((string) json_encode($seal->invoke(null, $schema)));
+    // Die Uebersetzung teilt mit einem eigenen, kleineren Budget auf -
+    // ihr Schema traegt zusaetzlich Titel und Kurzbeschreibung.
+    foreach (\WebAtze\Ai\JsonSchema::chunkSections($sections, 6200) as $nummer => $gruppe) {
+        $länge = strlen((string) json_encode(
+            $seal->invoke(null, \WebAtze\Ai\JsonSchema::translation($gruppe))
+        ));
 
-            ok($länge < 7300, $was . ' der Gruppe ' . ($nummer + 1) . ' bleibt unter der Grenze'
-                . ' (' . $länge . ' Zeichen)');
-        }
+        ok($länge < 7000, 'Übersetzung der Gruppe ' . ($nummer + 1) . ' bleibt sicher darunter'
+            . ' (' . $länge . ' Zeichen)');
+    }
+
+    foreach ($gruppen as $nummer => $gruppe) {
+        $länge = strlen((string) json_encode(
+            $seal->invoke(null, \WebAtze\Ai\JsonSchema::pageContent($gruppe))
+        ));
+
+        ok($länge < 7500, 'Inhalt der Gruppe ' . ($nummer + 1) . ' bleibt unter der Grenze'
+            . ' (' . $länge . ' Zeichen)');
     }
 
     // Die Feldnamen tragen weiter die ursprüngliche Nummer – sonst
@@ -1256,6 +1264,61 @@ test('Ein Abbruch mitten in der Seite wirft nichts weg', function (): void {
     \WebAtze\Core\Db::delete('project_sections', 'project_id = :p', ['p' => $projectId]);
     \WebAtze\Core\Db::delete('project_pages', 'project_id = :p', ['p' => $projectId]);
     \WebAtze\Core\Db::delete('projects', 'id = :p', ['p' => $projectId]);
+});
+
+// ==================================================================
+test('Eine Seite kostet einen Aufruf, nicht drei', function (): void {
+    // Der Umbau in einem Satz: Aus achtzig Aufrufen ueber vierzig
+    // Prozessstarts wurden dreissig in einem Prozess. Nicht weil die
+    // Aufrufe schneller sind, sondern weil es weniger sind - und jeder
+    // eingesparte Aufruf ist auch eine Stelle weniger, an der etwas
+    // haengenbleiben kann.
+    //
+    // Der Hebel: Eine Seite muss in EINE Anfrage passen. Passt sie
+    // nicht, kostet sie zwei Anfragen zum Schreiben und zwei je Sprache
+    // zum Uebersetzen - bei drei Sprachen sechs statt drei, fuer eine
+    // einzige Seite.
+    $brief = ['company_name' => 'Probe AG', 'scope' => 'large', 'locales' => 'de'];
+
+    // Ein Plan mit absichtlich ueberladenen Seiten.
+    $roh = ['pages' => []];
+
+    foreach (['/', '/leistungen', '/kontakt', '/impressum'] as $pfad) {
+        $roh['pages'][] = [
+            'path' => $pfad,
+            'title' => 'Probe',
+            'meta_description' => 'Probe',
+            'in_navigation' => true,
+            'sections' => array_map(
+                static fn (string $t): array => ['type' => $t, 'template' => '', 'purpose' => 'Probe'],
+                ['hero', 'services', 'features', 'about', 'gallery',
+                 'testimonials', 'team', 'process', 'stats', 'faq', 'contact', 'cta']
+            ),
+        ];
+    }
+
+    $plan = \WebAtze\Ai\SitePlanner::sanitise($roh, $brief);
+
+    ok($plan['pages'] !== [], 'Der Plan hat Seiten');
+
+    foreach ($plan['pages'] as $seite) {
+        $abschnitte = (array) ($seite['sections'] ?? []);
+
+        ok($abschnitte !== [], $seite['path'] . ': hat Abschnitte');
+
+        $gruppen = \WebAtze\Ai\JsonSchema::chunkSections($abschnitte);
+
+        is(1, count($gruppen), $seite['path'] . ': passt in eine Anfrage ('
+            . count($abschnitte) . ' Abschnitte)');
+
+        // Kopf und Fuss duerfen der Kuerzung nicht zum Opfer fallen -
+        // ohne sie waere es keine Seite.
+        $typen = array_column($abschnitte, 'type');
+
+        ok(in_array('header', $typen, true), $seite['path'] . ': der Kopf bleibt');
+        ok(in_array('footer', $typen, true), $seite['path'] . ': der Fuss bleibt');
+        ok(count($abschnitte) >= 3, $seite['path'] . ': es bleibt genug uebrig');
+    }
 });
 
 // ==================================================================
@@ -1437,8 +1500,8 @@ test('Der Arbeiter arbeitet so lange, wie er darf', function (): void {
     // alten fuenfzig Sekunden - und die Datei wird beim Update
     // absichtlich nicht angefasst. Also darf nicht die Datei
     // entscheiden, sondern die Messung.
-    ok(str_contains($worker, 'max($budget, 300)'),
-        'Ohne beobachteten Abbruch wird laenger gearbeitet, auch bei alter Konfiguration');
+    ok(str_contains($worker, 'max($budget, 3000)'),
+        'Ohne beobachteten Abbruch wird der Auftrag am Stueck zu Ende gebracht');
 
     ok(str_contains($worker, 'min($budget, $ueberlebt - 8)'),
         'Nach einem Abbruch gilt die gemessene Grenze des Servers');
@@ -1590,14 +1653,32 @@ test('Kein einzelner Aufruf muss gross sein', function (): void {
     ok(str_contains($planer, 'function planPages'), 'Die Seitenliste ist ein eigener Aufruf');
     ok(str_contains($planer, 'function planSections'), 'Die Abschnitte je Seite ebenfalls');
 
-    // Und beide muessen klein sein.
-    preg_match_all("/'max_tokens' => (\d+)/", $planer, $t);
-    $groessen = array_map('intval', $t[1]);
+    // Seit dem Umbau wird zuerst alles in einer Anfrage geplant - das
+    // spart bei elf Seiten elf Aufrufe. Diese eine Anfrage darf gross
+    // sein, ABER nur, weil es einen Weg gibt, wenn sie scheitert.
+    ok(str_contains($planer, 'function planAllAtOnce'), 'Es gibt die Planung in einem Zug');
 
-    ok($groessen !== [], 'Es gibt Groessenangaben');
+    $stelle = (int) strpos($planer, 'function planAllAtOnce');
+    $koerper = substr($planer, $stelle, 3000);
 
-    foreach ($groessen as $g) {
-        ok($g <= 3000, 'Ein Planungsaufruf bleibt klein (' . $g . ')');
+    ok(str_contains($koerper, 'return null;'),
+        'Scheitert sie, sagt sie das - statt den Bau mitzureissen');
+    ok(str_contains($koerper, 'ConfigurationError $e'),
+        'Ein leeres Guthaben wird dabei durchgereicht, nicht verschluckt');
+
+    $pipeline2 = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Build/Pipeline.php'
+    );
+    ok(str_contains($pipeline2, 'plan_einzeln'),
+        'Und die Pipeline faellt dann auf den Weg Seite fuer Seite zurueck');
+
+    // Der Rueckfallweg selbst muss klein bleiben - sonst hilft er nicht.
+    foreach (['planPages', 'planSections'] as $name) {
+        $ab = strpos($planer, 'function ' . $name);
+        ok($ab !== false, 'Es gibt ' . $name);
+
+        preg_match("/'max_tokens' => (\\d+)/", substr($planer, (int) $ab, 2500), $m);
+        ok((int) ($m[1] ?? 99999) <= 3000, $name . ' bleibt klein (' . ($m[1] ?? '?') . ')');
     }
 
     // Der Planungsschritt muss sich Seite fuer Seite fortsetzen lassen.

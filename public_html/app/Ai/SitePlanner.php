@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WebAtze\Ai;
 
+use WebAtze\Ai\JsonSchema;
 use WebAtze\Core\Logger;
 use WebAtze\Domain\Brief;
 use WebAtze\Templates\{Catalog, Schema};
@@ -45,6 +46,86 @@ final class SitePlanner
         }
 
         return self::sanitise($plan, $brief);
+    }
+
+    /**
+     * Der ganze Aufbau in einer einzigen Anfrage.
+     *
+     * Der Weg darunter - erst die Seitenliste, dann je Seite die
+     * Abschnitte - ist verlaesslich, aber teuer: Bei elf Seiten sind das
+     * zwoelf Anfragen fuer etwas, das eine leisten kann. Und jede
+     * Anfrage ist eine Stelle, an der etwas schiefgehen kann.
+     *
+     * Das Schema ist dabei klein, denn hier stehen nur Typ, Vorlage und
+     * Zweck je Abschnitt - nicht die Texte. Die Grenze, an der die
+     * Grammatik zu gross wird, ist weit weg.
+     *
+     * Scheitert diese eine Anfrage, faellt der Bau auf den Weg Seite fuer
+     * Seite zurueck. Der ist langsamer, aber er kommt an.
+     *
+     * @return array<string, mixed>|null null, wenn es nicht geklappt hat
+     */
+    public function planAllAtOnce(array $brief, string $oldSiteSummary = ''): ?array
+    {
+        if (!ClaudeClient::isConfigured()) {
+            return null;
+        }
+
+        $message = "AUFTRAG\n=======\n" . Brief::toPromptText($brief);
+
+        if ($oldSiteSummary !== '') {
+            $message .= "\n\nINHALTE DER BESTEHENDEN WEBSITE\n"
+                . "===============================\n"
+                . "Diese Texte dürfen als Grundlage dienen. Der Aufbau der alten\n"
+                . "Seite ist ausdrücklich NICHT zu übernehmen.\n\n"
+                . $oldSiteSummary;
+        }
+
+        $message .= "\n\nVERFÜGBARE VORLAGEN JE TYP\n==========================\n";
+
+        foreach (Schema::types() as $type) {
+            $message .= $type . ': ' . Prompts::templateHints($type) . "\n";
+        }
+
+        $message .= "\nHoechstens fuenf Abschnitte je Seite, Kopf und Fuss nicht "
+            . "mitgezaehlt - lieber eine Seite mehr als eine ueberladene.";
+
+        try {
+            $antwort = $this->claude->structured(
+                'plan',
+                Prompts::planner(),
+                $message,
+                JsonSchema::sitePlan(),
+                [
+                    'model' => (string) \WebAtze\Core\Config::get('anthropic.model_plan', 'claude-opus-5'),
+                    'effort' => 'low',
+                    'max_tokens' => 8000,
+                ]
+            );
+        } catch (\WebAtze\Core\ConfigurationError $e) {
+            // Fehlendes Guthaben, falscher Schluessel: Warten hilft nicht,
+            // und der Weg Seite fuer Seite scheitert genauso.
+            throw $e;
+        } catch (\Throwable $e) {
+            Logger::warning('Aufbau in einem Zug fehlgeschlagen, es geht Seite fuer Seite weiter.', [
+                'grund' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+
+        $seiten = array_values(array_filter(
+            (array) ($antwort['pages'] ?? []),
+            static fn (mixed $p): bool => is_array($p) && ($p['sections'] ?? []) !== []
+        ));
+
+        if ($seiten === []) {
+            return null;
+        }
+
+        $antwort['pages'] = $seiten;
+
+        return $antwort;
     }
 
     /**
@@ -251,11 +332,27 @@ final class SitePlanner
             }
         }
 
+        $pages = array_slice($pages, 0, 14);
+
+        // Hier, an der einen Stelle, durch die jede Seite muss.
+        //
+        // Vorher stand die Kuerzung in cleanSections - und der Weg fuer
+        // die Startseite ging daran vorbei. Genau so entstehen die
+        // Faelle, die man beim Lesen nicht sieht: Eine Seite mit sechs
+        // Abschnitten braucht zwei Anfragen fuers Schreiben und zwei je
+        // Sprache fuers Uebersetzen. Bei drei Sprachen sind das sechs
+        // Aufrufe statt drei - fuer eine einzige Seite.
+        foreach ($pages as $nummer => $seite) {
+            $pages[$nummer]['sections'] = self::passtInEineAnfrage(
+                (array) ($seite['sections'] ?? [])
+            );
+        }
+
         return [
             'site_title' => mb_substr(trim((string) ($plan['site_title'] ?? ($brief['company_name'] ?? ''))), 0, 120),
             'meta_description' => mb_substr(trim((string) ($plan['meta_description'] ?? '')), 0, 200),
             'tone_note' => mb_substr(trim((string) ($plan['tone_note'] ?? '')), 0, 300),
-            'pages' => array_slice($pages, 0, 14),
+            'pages' => $pages,
         ];
     }
 
@@ -317,7 +414,40 @@ final class SitePlanner
             'purpose' => 'Abschluss mit Verweisen und Kontaktangaben',
         ];
 
+        // Auf so viele Abschnitte kuerzen, wie in EINE Anfrage passen.
+        //
+        // Das ist der Hebel gegen die Bauzeit. Eine Seite mit vierzehn
+        // Abschnitten sprengt das Schema und wurde deshalb in zwei bis
+        // drei Anfragen geschrieben - und beim Uebersetzen noch einmal je
+        // Sprache. Aus einer Seite wurden so schnell zehn Aufrufe.
+        //
+        // Passt eine Seite in eine Anfrage, ist es einer je Seite und
+        // einer je Sprache. Bei elf Seiten und drei Sprachen sind das
+        // dreiunddreissig statt achtzig.
+        //
+        // Gemessen wird, nicht gezaehlt: Ein Kontaktabschnitt mit zehn
+        // Feldern wiegt schwerer als eine Zahlenreihe mit zweien. Kopf
+        // und Fuss bleiben immer stehen - ohne sie waere es keine Seite.
         return array_slice($clean, 0, 14);
+    }
+
+    /**
+     * Die Liste so weit kuerzen, dass sie in eine einzige Anfrage passt.
+     *
+     * @param array<int, array<string, mixed>> $abschnitte
+     * @return array<int, array<string, mixed>>
+     */
+    private static function passtInEineAnfrage(array $abschnitte): array
+    {
+        $abschnitte = array_slice($abschnitte, 0, 14);
+
+        // Kopf und Fuss sind gesetzt; gekuerzt wird in der Mitte.
+        while (count($abschnitte) > 3 && count(JsonSchema::chunkSections($abschnitte)) > 1) {
+            // Den vorletzten entfernen - der Fuss soll bleiben.
+            array_splice($abschnitte, count($abschnitte) - 2, 1);
+        }
+
+        return $abschnitte;
     }
 
     private static function cleanPath(string $path): string
