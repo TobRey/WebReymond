@@ -178,7 +178,12 @@ final class FtpDeployer
         bool $secure
     ): array {
         if (!function_exists('ftp_connect')) {
-            return self::error('Die PHP-Erweiterung "ftp" fehlt auf diesem Server.', false);
+            return self::error(
+                'Dieser Server kann kein FTP - die passende PHP-Erweiterung ist nicht '
+                . 'eingebaut. Stelle unter Veroeffentlichen auf SFTP um (Port 22). '
+                . 'Das bringt WebAtze selbst mit und funktioniert ueberall.',
+                false
+            );
         }
 
         $host = (string) $target['host'];
@@ -458,8 +463,20 @@ final class FtpDeployer
     }
 
     /**
-     * Nur die Verbindung prüfen, ohne etwas hochzuladen.
-     * Damit lässt sich vor dem grossen Upload klären, ob die Angaben stimmen.
+     * Die Verbindung pruefen - und beim Verzeichnis helfen.
+     *
+     * Hier stand vorher ein FTP-Aufruf ohne die Pruefung,
+     * ob es die FTP-Erweiterung auf diesem Server ueberhaupt gibt. Fehlt
+     * sie - auf geteiltem Hosting oft der Fall - ist das kein Fehler,
+     * den man abfangen kann, sondern ein Absturz: Fehler 500, ohne einen
+     * Hinweis, woran es lag.
+     *
+     * Ausserdem sagte die Antwort frueher nur, dass das Verzeichnis
+     * nicht da ist - nicht, welche es gibt. Bei einer Subdomain, deren
+     * Ordner irgendwo unter public_html liegt, ist das der Unterschied
+     * zwischen Raten und Wissen. Deshalb kommt jetzt eine Liste mit.
+     *
+     * @return array{ok:bool, message:string, ordner:array<int,string>, vorschlag:string}
      */
     public static function test(int $projectId): array
     {
@@ -469,63 +486,286 @@ final class FtpDeployer
         );
 
         if ($target === null) {
-            return ['ok' => false, 'message' => 'Es sind keine Zugangsdaten hinterlegt.'];
+            return self::pruefErgebnis(false, 'Es sind keine Zugangsdaten hinterlegt.');
         }
 
         $password = Crypto::decrypt((string) ($target['secret'] ?? ''));
+
         if ($password === null) {
-            return ['ok' => false, 'message' => 'Die Zugangsdaten lassen sich nicht entschlüsseln.'];
+            return self::pruefErgebnis(false, 'Die Zugangsdaten lassen sich nicht entschlüsseln.');
         }
 
         $host = (string) $target['host'];
         $port = (int) $target['port'];
         $user = (string) $target['username'];
-        $path = self::cleanPath((string) $target['remote_path']);
+        $protokoll = (string) $target['protocol'];
+        $pfad = self::cleanPath((string) $target['remote_path']);
+
+        // Ein Handschlag ueber SFTP kann auf schwachen Servern dauern.
+        @set_time_limit(90);
 
         try {
-            if ((string) $target['protocol'] === 'sftp') {
-                if (!class_exists(SFTP::class)) {
-                    return ['ok' => false, 'message' => 'Die Bibliothek für SFTP fehlt.'];
-                }
-
-                $sftp = new SFTP($host, $port ?: 22, 15);
-                if (!$sftp->login($user, $password)) {
-                    return ['ok' => false, 'message' => 'Anmeldung abgelehnt. Benutzername oder Passwort stimmt nicht.'];
-                }
-
-                $exists = $sftp->is_dir($path);
-                $sftp->disconnect();
-
-                return $exists
-                    ? ['ok' => true, 'message' => 'Verbindung steht, das Verzeichnis ' . $path . ' ist vorhanden.']
-                    : ['ok' => false, 'message' => 'Anmeldung hat geklappt, aber ' . $path . ' gibt es dort nicht.'];
-            }
-
-            $connection = (string) $target['protocol'] === 'ftps'
-                ? @ftp_ssl_connect($host, $port ?: 21, 15)
-                : @ftp_connect($host, $port ?: 21, 15);
-
-            if ($connection === false) {
-                return ['ok' => false, 'message' => 'Keine Verbindung zu ' . $host . ':' . $port . '.'];
-            }
-            if (!@ftp_login($connection, $user, $password)) {
-                @ftp_close($connection);
-                return ['ok' => false, 'message' => 'Anmeldung abgelehnt. Benutzername oder Passwort stimmt nicht.'];
-            }
-
-            @ftp_pasv($connection, true);
-            $exists = @ftp_chdir($connection, $path);
-            @ftp_close($connection);
-
-            return $exists
-                ? ['ok' => true, 'message' => 'Verbindung steht, das Verzeichnis ' . $path . ' ist vorhanden.']
-                : ['ok' => false, 'message' => 'Anmeldung hat geklappt, aber ' . $path . ' gibt es dort nicht.'];
+            return $protokoll === 'sftp'
+                ? self::testSftp($host, $port, $user, $password, $pfad)
+                : self::testFtp($host, $port, $user, $password, $pfad, $protokoll === 'ftps');
         } catch (\Throwable $e) {
-            Logger::warning('Verbindungstest fehlgeschlagen', ['host' => $host]);
-            return ['ok' => false, 'message' => 'Die Verbindung ist fehlgeschlagen.'];
+            Logger::warning('Verbindungstest fehlgeschlagen', [
+                'host' => $host,
+                'protokoll' => $protokoll,
+                'grund' => $e->getMessage(),
+            ]);
+
+            return self::pruefErgebnis(false,
+                'Die Verbindung ist fehlgeschlagen: ' . self::kurz($e->getMessage()));
         } finally {
             sodium_memzero($password);
         }
+    }
+
+    /** @return array{ok:bool, message:string, ordner:array<int,string>, vorschlag:string} */
+    private static function testSftp(
+        string $host,
+        int $port,
+        string $user,
+        string $password,
+        string $pfad
+    ): array {
+        if (!class_exists(SFTP::class)) {
+            return self::pruefErgebnis(false, 'Die Bibliothek für SFTP fehlt im Paket.');
+        }
+
+        $sftp = new SFTP($host, $port ?: 22, 20);
+
+        if (!$sftp->login($user, $password)) {
+            return self::pruefErgebnis(false,
+                'Anmeldung abgelehnt. Benutzername oder Passwort stimmt nicht. '
+                . 'Bei cPanel gehoert oft der volle Name dazu, also '
+                . 'benutzer@deine-domain.ch statt nur benutzer.');
+        }
+
+        $daHeim = (string) ($sftp->pwd() ?: '/');
+        $ordner = self::verzeichnisseSftp($sftp, $pfad, $daHeim);
+        $vorhanden = $sftp->is_dir($pfad);
+
+        $sftp->disconnect();
+
+        return self::pruefErgebnis(
+            $vorhanden,
+            $vorhanden
+                ? 'Verbindung steht, das Verzeichnis ' . $pfad . ' ist vorhanden.'
+                : 'Anmeldung hat geklappt, aber ' . $pfad . ' gibt es dort nicht.',
+            $ordner,
+            self::vorschlagen($ordner, $pfad)
+        );
+    }
+
+    /** @return array{ok:bool, message:string, ordner:array<int,string>, vorschlag:string} */
+    private static function testFtp(
+        string $host,
+        int $port,
+        string $user,
+        string $password,
+        string $pfad,
+        bool $verschluesselt
+    ): array {
+        // Die Pruefung, die hier gefehlt hat. Ohne sie stuerzt der ganze
+        // Aufruf ab, statt zu sagen, was los ist.
+        if (!function_exists('ftp_connect')) {
+            return self::pruefErgebnis(false,
+                'Dieser Server kann kein FTP - die passende PHP-Erweiterung ist nicht '
+                . 'eingebaut. Stelle im Formular auf SFTP um (Port 22). Das bringt '
+                . 'WebAtze selbst mit, funktioniert ueberall und ist ausserdem '
+                . 'verschluesselt.');
+        }
+
+        $verbindung = $verschluesselt
+            ? @ftp_ssl_connect($host, $port ?: 21, 20)
+            : @ftp_connect($host, $port ?: 21, 20);
+
+        if ($verbindung === false) {
+            return self::pruefErgebnis(false,
+                'Keine Verbindung zu ' . $host . ':' . ($port ?: 21) . '. '
+                . 'Stimmt die Adresse, und ist der Port richtig? FTP ist 21, SFTP ist 22.');
+        }
+
+        if (!@ftp_login($verbindung, $user, $password)) {
+            @ftp_close($verbindung);
+
+            return self::pruefErgebnis(false,
+                'Anmeldung abgelehnt. Benutzername oder Passwort stimmt nicht. '
+                . 'Bei cPanel gehoert oft der volle Name dazu, also '
+                . 'benutzer@deine-domain.ch statt nur benutzer.');
+        }
+
+        @ftp_pasv($verbindung, true);
+
+        $daHeim = (string) (@ftp_pwd($verbindung) ?: '/');
+        $ordner = self::verzeichnisseFtp($verbindung, $pfad, $daHeim);
+        $vorhanden = @ftp_chdir($verbindung, $pfad);
+
+        @ftp_close($verbindung);
+
+        return self::pruefErgebnis(
+            $vorhanden,
+            $vorhanden
+                ? 'Verbindung steht, das Verzeichnis ' . $pfad . ' ist vorhanden.'
+                : 'Anmeldung hat geklappt, aber ' . $pfad . ' gibt es dort nicht.',
+            $ordner,
+            self::vorschlagen($ordner, $pfad)
+        );
+    }
+
+    /**
+     * Welche Verzeichnisse gibt es dort?
+     *
+     * Gesucht wird an drei Stellen: im gewuenschten Pfad, in dessen
+     * Elternverzeichnis und im Heimatverzeichnis des Zugangs. Bei einer
+     * Subdomain liegt der Ordner meist unter public_html und heisst wie
+     * die Subdomain - wer das sieht, muss nicht mehr raten.
+     *
+     * @return array<int, string>
+     */
+    private static function verzeichnisseSftp(SFTP $sftp, string $pfad, string $heim): array
+    {
+        $gefunden = [];
+
+        foreach (self::suchorte($pfad, $heim) as $ort) {
+            $liste = $sftp->nlist($ort);
+
+            if (!is_array($liste)) {
+                continue;
+            }
+
+            foreach ($liste as $name) {
+                $name = (string) $name;
+
+                if ($name === '.' || $name === '..' || str_starts_with($name, '.')) {
+                    continue;
+                }
+
+                $voll = rtrim($ort, '/') . '/' . basename($name);
+
+                if ($sftp->is_dir($voll)) {
+                    $gefunden[] = $voll;
+                }
+            }
+        }
+
+        return self::aufraeumen($gefunden);
+    }
+
+    /** @return array<int, string> */
+    private static function verzeichnisseFtp($verbindung, string $pfad, string $heim): array
+    {
+        $gefunden = [];
+
+        foreach (self::suchorte($pfad, $heim) as $ort) {
+            $liste = @ftp_rawlist($verbindung, $ort);
+
+            if (!is_array($liste)) {
+                continue;
+            }
+
+            foreach ($liste as $zeile) {
+                // "drwxr-xr-x 2 user group 4096 Jan 1 12:00 name"
+                if (!str_starts_with((string) $zeile, 'd')) {
+                    continue;
+                }
+
+                $teile = preg_split('/\s+/', (string) $zeile, 9);
+                $name = trim((string) ($teile[8] ?? ''));
+
+                if ($name === '' || $name === '.' || $name === '..' || str_starts_with($name, '.')) {
+                    continue;
+                }
+
+                $gefunden[] = rtrim($ort, '/') . '/' . $name;
+            }
+        }
+
+        return self::aufraeumen($gefunden);
+    }
+
+    /**
+     * Wo lohnt sich das Nachsehen?
+     *
+     * @return array<int, string>
+     */
+    private static function suchorte(string $pfad, string $heim): array
+    {
+        $orte = [$heim, $pfad, dirname($pfad)];
+
+        // Bei einer Subdomain liegt der Ordner fast immer hier.
+        foreach ([$heim, $pfad] as $basis) {
+            $orte[] = rtrim($basis, '/') . '/public_html';
+        }
+
+        $sauber = [];
+
+        foreach ($orte as $ort) {
+            $ort = self::cleanPath($ort);
+
+            if ($ort !== '' && !in_array($ort, $sauber, true)) {
+                $sauber[] = $ort;
+            }
+        }
+
+        return array_slice($sauber, 0, 5);
+    }
+
+    /**
+     * Welcher Ordner passt am ehesten zum gewuenschten Pfad?
+     *
+     * @param array<int, string> $ordner
+     */
+    private static function vorschlagen(array $ordner, string $pfad): string
+    {
+        if ($ordner === []) {
+            return '';
+        }
+
+        $gesucht = mb_strtolower(basename($pfad));
+
+        foreach ($ordner as $eintrag) {
+            if (mb_strtolower(basename($eintrag)) === $gesucht) {
+                return $eintrag;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param array<int, string> $liste
+     * @return array<int, string>
+     */
+    private static function aufraeumen(array $liste): array
+    {
+        $liste = array_values(array_unique($liste));
+        sort($liste);
+
+        return array_slice($liste, 0, 40);
+    }
+
+    /**
+     * @param array<int, string> $ordner
+     * @return array{ok:bool, message:string, ordner:array<int,string>, vorschlag:string}
+     */
+    private static function pruefErgebnis(
+        bool $ok,
+        string $message,
+        array $ordner = [],
+        string $vorschlag = ''
+    ): array {
+        return ['ok' => $ok, 'message' => $message, 'ordner' => $ordner, 'vorschlag' => $vorschlag];
+    }
+
+    /** Technische Meldungen kurz halten - der Rest steht im Protokoll. */
+    private static function kurz(string $text): string
+    {
+        $text = trim(preg_replace('/\s+/', ' ', $text) ?? $text);
+
+        return mb_strlen($text) > 160 ? mb_substr($text, 0, 157) . '…' : $text;
     }
 
     /** Ist die Website nach dem Hochladen erreichbar? */

@@ -1259,6 +1259,110 @@ test('Ein Abbruch mitten in der Seite wirft nichts weg', function (): void {
 });
 
 // ==================================================================
+test('Der Verbindungstest stuerzt nie ab', function (): void {
+    // Hier stand ein Aufruf von ftp_connect() ohne die Pruefung, ob es
+    // die FTP-Erweiterung auf diesem Server ueberhaupt gibt. Fehlt sie -
+    // auf geteiltem Hosting oft der Fall - ist das kein Fehler, den man
+    // abfangen kann, sondern ein Absturz: Fehler 500, ohne einen Hinweis
+    // worauf. In den anderen Methoden stand die Pruefung laengst.
+    $quelle = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Build/FtpDeployer.php'
+    );
+
+    // Jeder Aufruf einer ftp_-Funktion braucht davor eine Pruefung.
+    $stellen = [];
+    foreach (explode("\n", $quelle) as $nummer => $zeile) {
+        if (preg_match('/(?<!function_exists\(.)ftp_(connect|ssl_connect)\(/', $zeile)) {
+            $stellen[] = $nummer + 1;
+        }
+    }
+
+    ok($stellen !== [], 'Es gibt Stellen, die FTP benutzen');
+
+    $zeilen = explode("\n", $quelle);
+
+    foreach ($stellen as $zeile) {
+        // In den 30 Zeilen davor muss die Pruefung stehen.
+        $davor = implode("\n", array_slice($zeilen, max(0, $zeile - 31), 30));
+
+        ok(str_contains($davor, "function_exists('ftp_connect')"),
+            'Vor Zeile ' . $zeile . ' wird geprueft, ob dieser Server FTP kann');
+    }
+
+    // Und der Test selbst muss ein Ergebnis liefern statt zu werfen -
+    // auch wenn dort nichts erreichbar ist.
+    $projectId = (int) \WebAtze\Core\Db::insert('projects', [
+        'name' => 'Uploadtest', 'slug' => 'upload-' . bin2hex(random_bytes(4)),
+        'status' => 'ready', 'created_at' => \WebAtze\Core\Db::now(),
+        'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    foreach (['sftp' => 22, 'ftp' => 21] as $protokoll => $port) {
+        \WebAtze\Build\FtpDeployer::saveTarget($projectId, [
+            'protocol' => $protokoll,
+            'host' => '127.0.0.1',
+            'port' => 1,               // dort lauscht nichts
+            'username' => 'niemand',
+            'password' => 'auch-nicht',
+            'path' => '/public_html/preview',
+        ]);
+
+        $ergebnis = \WebAtze\Build\FtpDeployer::test($projectId);
+
+        is(false, $ergebnis['ok'], $protokoll . ': meldet sauber einen Fehlschlag');
+        ok(($ergebnis['message'] ?? '') !== '', $protokoll . ': und sagt auch, warum');
+        ok(array_key_exists('ordner', $ergebnis), $protokoll . ': die Antwort hat die erwartete Form');
+    }
+
+    \WebAtze\Core\Db::delete('deploy_targets', 'project_id = :p', ['p' => $projectId]);
+    \WebAtze\Core\Db::delete('projects', 'id = :p', ['p' => $projectId]);
+});
+
+// ==================================================================
+test('Der Pfad einer Subdomain wird gefunden', function (): void {
+    // Ein FTP-Zugang laesst sich in cPanel nur fuer die Hauptdomain
+    // anlegen. Der Ordner einer Subdomain liegt darunter, meist in
+    // public_html und benannt wie die Subdomain. Wer das nicht weiss,
+    // raet - und bekam frueher nur "gibt es dort nicht" zurueck.
+    $orte = new ReflectionMethod(\WebAtze\Build\FtpDeployer::class, 'suchorte');
+    $orte->setAccessible(true);
+
+    $gesucht = $orte->invoke(null, '/public_html/preview', '/home/kunde');
+
+    ok(in_array('/home/kunde', $gesucht, true), 'Im Heimatverzeichnis wird nachgesehen');
+    ok(in_array('/home/kunde/public_html', $gesucht, true), 'Und in dessen public_html');
+    ok(in_array('/public_html', $gesucht, true), 'Und eine Ebene ueber dem gewuenschten Pfad');
+    ok(count($gesucht) === count(array_unique($gesucht)), 'Keine Stelle doppelt');
+
+    // Aus dem Gefundenen soll der passende Ordner vorgeschlagen werden.
+    $vor = new ReflectionMethod(\WebAtze\Build\FtpDeployer::class, 'vorschlagen');
+    $vor->setAccessible(true);
+
+    $gefunden = ['/public_html/alt', '/public_html/preview', '/public_html/mail'];
+
+    is('/public_html/preview', $vor->invoke(null, $gefunden, '/public_html/preview'),
+        'Der gleichnamige Ordner wird vorgeschlagen');
+    is('/public_html/preview', $vor->invoke(null, $gefunden, '/irgendwo/preview'),
+        'Auch wenn der Betreiber den falschen Oberordner geraten hat');
+    is('', $vor->invoke(null, $gefunden, '/public_html/gibtsnicht'),
+        'Ohne Treffer wird nichts erfunden');
+    is('', $vor->invoke(null, [], '/public_html/preview'), 'Und ohne Fundstuecke erst recht nicht');
+
+    // Der Pfad selbst darf nicht aus dem Zielverzeichnis ausbrechen.
+    $sauber = new ReflectionMethod(\WebAtze\Build\FtpDeployer::class, 'cleanPath');
+    $sauber->setAccessible(true);
+
+    is('/public_html/preview', $sauber->invoke(null, 'public_html/preview'),
+        'Ein fehlender Schraegstrich wird ergaenzt');
+    is('/public_html/preview', $sauber->invoke(null, '/public_html/preview/'),
+        'Ein ueberzaehliger faellt weg');
+    is('/public_html/preview', $sauber->invoke(null, '//public_html///preview'),
+        'Doppelte werden zusammengefasst');
+    ok(!str_contains((string) $sauber->invoke(null, '/public_html/../../etc'), '..'),
+        'Ausbrechen geht nicht');
+});
+
+// ==================================================================
 test('Der Arbeiter arbeitet so lange, wie er darf', function (): void {
     // Das war die eigentliche Ursache, und sie ist unspektakulaer: Der
     // Arbeiter durfte fuenfzig Sekunden. Ein Aufruf an die KI dauert 20

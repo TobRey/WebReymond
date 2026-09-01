@@ -199,7 +199,30 @@ $latest = $builds[0] ?? null;
                        value="<?= e((string) ($target['remote_path'] ?? '/public_html')) ?>">
                 <span class="wa-label__hint">
                     Meist <code>/public_html</code>, bei Plesk <code>/httpdocs</code>.
+                    Bei einer <strong>Subdomain</strong> der Ordner darunter, also etwa
+                    <code>/public_html/preview</code>. Ein FTP-Zugang der Hauptdomain
+                    kommt dort hin &ndash; ein eigener Zugang je Subdomain ist nicht nötig.
                 </span>
+
+                <?php
+                    $ordner = (array) ($gefunden['ordner'] ?? []);
+                    $vorschlag = (string) ($gefunden['vorschlag'] ?? '');
+                ?>
+                <?php if ($ordner !== []): ?>
+                    <div class="wa-found">
+                        <p class="wa-found__title">
+                            Beim letzten Test dort gefunden &ndash; zum Übernehmen anklicken:
+                        </p>
+                        <div class="wa-found__list">
+                            <?php foreach ($ordner as $eintrag): ?>
+                                <button type="button" class="wa-found__item<?= $eintrag === $vorschlag ? ' is-suggested' : '' ?>"
+                                        data-fill="#path" data-fill-value="<?= e((string) $eintrag) ?>">
+                                    <?= e((string) $eintrag) ?><?= $eintrag === $vorschlag ? ' ·  passt vermutlich' : '' ?>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
 

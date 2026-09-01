@@ -1239,3 +1239,50 @@ fieldset.wa-fieldset { border: 1px solid var(--wa-border); margin: 0; }
   .wa-kv dt:first-of-type,
   .wa-kv dd:first-of-type { border-block-start: 0; }
 }
+
+/* ================================================================== */
+/* Gefundene Verzeichnisse zum Anklicken                               */
+/* ================================================================== */
+
+.wa-found {
+  margin-block-start: var(--wa-space-3);
+  padding: var(--wa-space-3);
+  border: 1px solid var(--wa-border);
+  border-radius: var(--wa-radius-sm);
+  background: var(--wa-surface-glass);
+}
+
+.wa-found__title {
+  margin: 0 0 var(--wa-space-2);
+  font-size: var(--wa-text-sm);
+  color: var(--wa-text-muted);
+}
+
+.wa-found__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wa-space-2);
+}
+
+.wa-found__item {
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--wa-border);
+  border-radius: var(--wa-radius-full);
+  background: var(--wa-surface);
+  color: var(--wa-text);
+  font-family: var(--wa-font-mono, ui-monospace, monospace);
+  font-size: var(--wa-text-sm);
+  cursor: pointer;
+  transition: border-color var(--wa-dur-fast) var(--wa-ease-out),
+              color var(--wa-dur-fast) var(--wa-ease-out);
+}
+
+.wa-found__item:hover {
+  border-color: var(--wa-border-strong);
+  color: var(--wa-text-strong);
+}
+
+.wa-found__item.is-suggested {
+  border-color: var(--wa-secondary);
+  color: var(--wa-text-strong);
+}

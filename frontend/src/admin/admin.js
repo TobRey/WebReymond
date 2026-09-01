@@ -48,6 +48,26 @@ export async function api(url, { method = 'POST', data = null } = {}) {
 /* Seitenleiste auf schmalen Bildschirmen                              */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Ein gefundener Wert wird per Klick ins Feld uebernommen.
+ *
+ * Gebraucht beim Veroeffentlichen: Der Verbindungstest listet die
+ * Verzeichnisse auf, die es beim Kunden wirklich gibt. Bei einer
+ * Subdomain ist das der Unterschied zwischen Raten und Auswaehlen.
+ */
+function initFill() {
+  document.querySelectorAll('[data-fill]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const feld = document.querySelector(button.dataset.fill);
+      if (!feld) return;
+
+      feld.value = button.dataset.fillValue ?? '';
+      feld.dispatchEvent(new Event('input', { bubbles: true }));
+      feld.focus();
+    });
+  });
+}
+
 function initSidebar() {
   // Geöffnet und geschlossen wird über ein Kästchen im Markup, rein per
   // CSS. Ohne JavaScript funktioniert das Menü damit weiterhin – das ist
@@ -414,6 +434,7 @@ function initPasswordGenerator() {
 
 function boot() {
   initSidebar();
+  initFill();
   initConfirms();
   initJobWatchers();
   initSubmitGuards();

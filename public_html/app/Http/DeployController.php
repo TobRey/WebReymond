@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Http;
 
 use WebAtze\Build\{FtpDeployer, ZipExporter};
-use WebAtze\Core\{Audit, Config, Db, Jobs, Request, Response, Session, View};
+use WebAtze\Core\{Audit, Config, Db, Jobs, Logger, Request, Response, Session, View};
 
 /**
  * Paket erzeugen, herunterladen und die Website hochladen.
@@ -35,6 +35,8 @@ final class DeployController
                 'job' => Jobs::activeFor((int) $project['id']),
                 'providers' => $providers,
                 'brief' => json_decode((string) $project['brief'], true) ?: [],
+                // Was der letzte Verbindungstest dort gefunden hat.
+                'gefunden' => (array) Session::get('ftp_ordner_' . (int) $project['id'], []),
             ]),
         ]))->noCache()->noIndex();
     }
@@ -125,9 +127,30 @@ final class DeployController
             return Response::notFound();
         }
 
-        $result = FtpDeployer::test((int) $project['id']);
+        // Auch der Test selbst darf nicht abstuerzen. Ein Fehler 500 sagt
+        // dem Betreiber nichts - und genau der kam frueher, wenn dem
+        // Server die FTP-Erweiterung fehlte.
+        try {
+            $result = FtpDeployer::test((int) $project['id']);
+        } catch (\Throwable $e) {
+            Logger::exception($e);
+
+            Session::flash('error',
+                'Der Verbindungstest ist abgestuerzt. Das sollte nicht passieren - '
+                . 'bitte melde dich. Versuch es solange mit SFTP auf Port 22.');
+
+            return $this->back($project);
+        }
 
         Session::flash($result['ok'] ? 'success' : 'error', $result['message']);
+
+        // Die gefundenen Verzeichnisse merken, damit die Seite sie
+        // anbieten kann. Bei einer Subdomain ist das der Unterschied
+        // zwischen Raten und Auswaehlen.
+        Session::put('ftp_ordner_' . (int) $project['id'], [
+            'ordner' => (array) ($result['ordner'] ?? []),
+            'vorschlag' => (string) ($result['vorschlag'] ?? ''),
+        ]);
 
         return $this->back($project);
     }
