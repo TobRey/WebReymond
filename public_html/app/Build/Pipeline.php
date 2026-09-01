@@ -78,6 +78,41 @@ final class Pipeline
         $step = $state['step'] ?? 'analyse';
         $brief = json_decode((string) $project['brief'], true) ?: [];
 
+        // Der Waechter.
+        //
+        // Vier Mal habe ich eine Ursache repariert, und vier Mal blieb der
+        // Bau an einer anderen Stelle stehen. Deshalb hier etwas, das
+        // nicht wissen muss, woran es liegt: Kommt der Bau seit acht
+        // Minuten nicht von derselben Stelle weg, wird diese Stelle
+        // uebersprungen - mit dem Ersatz, der ohne KI auskommt.
+        //
+        // Acht Minuten sind bewusst grosszuegig: Ein einzelner Aufruf
+        // dauert bis zu einer halben Minute, und zwischen zwei
+        // Cron-Laeufen liegt eine. Wer hier zu knapp misst, wirft
+        // gesunde Arbeit weg.
+        $marke = self::stellenMarke($step, $state);
+        $jetzt = time();
+
+        if ((string) ($state['stelle'] ?? '') !== $marke) {
+            $state['stelle'] = $marke;
+            $state['stelle_seit'] = $jetzt;
+        } elseif ($jetzt - (int) ($state['stelle_seit'] ?? $jetzt) > self::WAECHTER_SEKUNDEN) {
+            Logger::warning('Der Bau kommt nicht von der Stelle - Ersatz wird erzwungen.', [
+                'auftrag' => (int) $job['id'],
+                'stelle' => $marke,
+                'seit' => $jetzt - (int) ($state['stelle_seit'] ?? $jetzt),
+            ]);
+
+            $state['notausgang'] = true;
+            $state['stelle_seit'] = $jetzt;
+        }
+
+        // Sofort sichern. Wirft der Schritt gleich eine Ausnahme, wird
+        // der Zustand sonst nicht geschrieben - und der Waechter faengt
+        // bei jedem Anlauf wieder von vorn an zu zaehlen. Genau deshalb
+        // greift eine solche Bremse sonst nie.
+        Jobs::saveState((int) $job['id'], $state);
+
         while ($step !== 'fertig') {
             // Vor jedem Schritt prüfen, ob noch genug Zeit bleibt.
             $used = microtime(true) - $started;
@@ -337,6 +372,34 @@ final class Pipeline
     }
 
     /**
+     * Wo genau steht der Bau?
+     *
+     * Nicht der Schritt allein - der heisst zehn Minuten lang "plan".
+     * Sondern Schritt und Position darin. Aendert sich diese Zeichenkette
+     * nicht mehr, kommt der Bau nicht vom Fleck, ganz gleich woran es
+     * liegt.
+     */
+    /**
+     * So lange darf der Bau an derselben Stelle stehen.
+     *
+     * Grosszuegig gewaehlt: Ein einzelner Aufruf dauert bis zu einer
+     * halben Minute, zwischen zwei Cron-Laeufen liegt eine weitere. Wer
+     * hier knapp misst, wirft gesunde Arbeit weg.
+     */
+    private const WAECHTER_SEKUNDEN = 480;
+
+    private static function stellenMarke(string $step, array $state): string
+    {
+        return implode(':', [
+            $step,
+            (string) ($state['plan_index'] ?? '-'),
+            (string) ($state['page_index'] ?? '-'),
+            (string) ($state['group_index'] ?? '-'),
+            (string) count((array) ($state['translated'] ?? [])),
+        ]);
+    }
+
+    /**
      * Etwas versuchen - und nach zwei Fehlschlaegen ohne KI weitermachen.
      *
      * Das ist die Antwort auf die eigentliche Frage: Was passiert, wenn
@@ -367,6 +430,12 @@ final class Pipeline
         string $hinweis
     ): array {
         $offen = (int) ($state['fehlversuche'][$marke] ?? 0);
+
+        // Der Waechter hat entschieden, dass es hier nicht weitergeht.
+        if (!empty($state['notausgang'])) {
+            unset($state['notausgang']);
+            $offen = 99;
+        }
 
         if ($offen >= 2) {
             Logger::warning('Ersatzaufbau verwendet, die KI kam nicht durch.', [

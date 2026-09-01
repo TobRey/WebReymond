@@ -241,7 +241,19 @@ final class Jobs
         Db::update('jobs', ['attempts' => $attempts], 'id = :id', ['id' => $id]);
 
         if ($retryable && $attempts < self::MAX_ATTEMPTS) {
-            $wait = 30 * (2 ** ($attempts - 1));
+            // Die Wartezeit waechst, aber nicht ins Uferlose.
+            //
+            // Vorher verdoppelte sie sich ungebremst: 30 Sekunden, eine
+            // Minute, zwei, vier, acht, sechzehn, zweiunddreissig. Ein
+            // Bau, der ein paar Mal hintereinander scheitert, stand
+            // danach eine halbe Stunde still - von aussen nicht von
+            // "tot" zu unterscheiden.
+            //
+            // Lange Pausen bringen hier ohnehin nichts: Nach zwei
+            // Fehlschlaegen an derselben Stelle nimmt der Bau den Weg
+            // ohne KI. Warten hilft dann niemandem, es sieht nur nach
+            // Stillstand aus.
+            $wait = (int) min(90, 20 * (2 ** ($attempts - 1)));
 
             Db::update('jobs', [
                 'status' => self::QUEUED,

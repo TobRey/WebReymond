@@ -105,6 +105,13 @@ for ($takt = 1; $takt <= $takte; $takt++) {
         . '|' . ($state['page_index'] ?? '-') . '|' . ($state['group_index'] ?? '-')
         . '|' . ($state['plan_index'] ?? '-');
 
+    // Ein Takt, in dem der Arbeiter sofort wieder ging, ist kein
+    // Stillstand - der Auftrag wartet nur seine Pause ab.
+    if ($dauer < 2 && $marke === $letzte) {
+        if ($pause > 0) { sleep($pause); }
+        continue;
+    }
+
     if ($marke === $letzte) {
         $stillstand++;
         if ($stillstand >= 10) {
