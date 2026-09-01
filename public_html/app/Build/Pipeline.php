@@ -6,7 +6,7 @@ namespace WebAtze\Build;
 
 use RuntimeException;
 use WebAtze\Ai\{ClaudeClient, ContentWriter, JsonSchema, Prompts, SitePlanner, Translator};
-use WebAtze\Core\{Audit, Config, ConfigurationError, Db, Jobs, Logger};
+use WebAtze\Core\{Audit, Config, ConfigurationError, Db, Jobs, Logger, Worker};
 use WebAtze\Domain\Brief;
 
 /**
@@ -363,6 +363,7 @@ final class Pipeline
             // Sperre; ohne das koennte ein zweiter Arbeiter mitten hinein
             // denselben Auftrag greifen und alles doppelt bezahlen.
             Jobs::keepAlive((int) $job['id']);
+            Worker::beat();
 
             // Die Seitenzeile zuerst - dann haengt jede Gruppe an einer
             // Stelle, die es schon gibt, auch nach einem Abbruch.

@@ -152,8 +152,10 @@ final class Translator
                 JsonSchema::translation($gruppe),
                 [
                     'model' => (string) Config::get('anthropic.model_content', 'claude-sonnet-5'),
+                    // Wie beim Schreiben: knapp halten, damit ein Aufruf
+                    // sicher in die Zeitgrenze des Servers passt.
                     'effort' => 'low',
-                    'max_tokens' => 16000,
+                    'max_tokens' => 5000,
                 ]
             );
 

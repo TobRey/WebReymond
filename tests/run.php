@@ -1259,6 +1259,86 @@ test('Ein Abbruch mitten in der Seite wirft nichts weg', function (): void {
 });
 
 // ==================================================================
+test('Der Arbeiter misst, wie lange der Server ihn leben laesst', function (): void {
+    // Auf geteiltem Hosting steht in der php.ini eine Zeitgrenze, und
+    // set_time_limit() ist manchmal gesperrt. Wird der Vorgang
+    // abgeschossen, endet er nicht sauber: Der Auftrag bleibt gesperrt
+    // liegen, bis die Sperre ablaeuft. Das sah von aussen aus wie
+    // Stillstand - in Wahrheit kam je Sperrzeit genau eine Gruppe dazu.
+    //
+    // Also wird gemessen. Ein Merker beim Start, ein Lebenszeichen
+    // waehrend der Arbeit; findet der naechste Durchlauf den Merker noch
+    // vor, ist der letzte gestorben - und der Abstand sagt, wie lange
+    // dieser Server einem Vorgang zugesteht.
+    $messen = new ReflectionMethod(\WebAtze\Core\Worker::class, 'measureLastTick');
+    $messen->setAccessible(true);
+
+    \WebAtze\Core\Settings::put('worker_survival_seconds', '');
+
+    // Ein Durchlauf, der vor 60 Sekunden begann und nach 25 Sekunden
+    // das letzte Lebenszeichen gab - also dort abgeschossen wurde.
+    \WebAtze\Core\Settings::put('worker_tick_open', (string) (time() - 60));
+    \WebAtze\Core\Settings::put('worker_tick_beat', (string) (time() - 35));
+
+    $messen->invoke(null);
+
+    is('25', (string) \WebAtze\Core\Settings::get('worker_survival_seconds', ''),
+        'Die durchgehaltene Zeit wird erkannt');
+    is('', (string) \WebAtze\Core\Settings::get('worker_tick_open', ''),
+        'Und der Merker danach geleert');
+
+    // Ein zweiter, laengerer Durchlauf darf den Wert nicht schoenrechnen.
+    // Massgeblich ist die kuerzeste beobachtete Grenze.
+    \WebAtze\Core\Settings::put('worker_tick_open', (string) (time() - 60));
+    \WebAtze\Core\Settings::put('worker_tick_beat', (string) (time() - 20));
+    $messen->invoke(null);
+
+    is('25', (string) \WebAtze\Core\Settings::get('worker_survival_seconds', ''),
+        'Ein guter Durchlauf hebt die gemessene Grenze nicht an');
+
+    // Ein kuerzerer schon - danach muss vorsichtiger gerechnet werden.
+    \WebAtze\Core\Settings::put('worker_tick_open', (string) (time() - 60));
+    \WebAtze\Core\Settings::put('worker_tick_beat', (string) (time() - 46));
+    $messen->invoke(null);
+
+    is('14', (string) \WebAtze\Core\Settings::get('worker_survival_seconds', ''),
+        'Ein kuerzerer senkt sie');
+
+    // Ein sauber beendeter Durchlauf hinterlaesst keinen Merker - dann
+    // gibt es nichts zu messen.
+    \WebAtze\Core\Settings::put('worker_survival_seconds', '');
+    \WebAtze\Core\Settings::put('worker_tick_open', '');
+    $messen->invoke(null);
+
+    is('', (string) \WebAtze\Core\Settings::get('worker_survival_seconds', ''),
+        'Ohne Abbruch wird nichts gemessen');
+
+    // Unsinnige Werte werden verworfen, nicht uebernommen.
+    \WebAtze\Core\Settings::put('worker_tick_open', (string) (time() - 10));
+    \WebAtze\Core\Settings::put('worker_tick_beat', (string) (time() - 8));
+    $messen->invoke(null);
+
+    is('', (string) \WebAtze\Core\Settings::get('worker_survival_seconds', ''),
+        'Ein Fehlstart unter fuenf Sekunden zaehlt nicht');
+
+    \WebAtze\Core\Settings::put('worker_survival_seconds', '');
+    \WebAtze\Core\Settings::put('worker_tick_open', '');
+
+    // Und die Anfragen selbst muessen knapp genug sein, dass eine in ein
+    // schmales Zeitfenster passt. Die Dauer haengt vor allem daran, wie
+    // viel geschrieben wird.
+    $schreiber = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Ai/ContentWriter.php'
+    );
+
+    preg_match("/'max_tokens' => (\d+)/", $schreiber, $t);
+    $grenze = (int) ($t[1] ?? 0);
+
+    ok($grenze > 0 && $grenze <= 8000,
+        'Eine Anfrage bleibt knapp genug fuer geteiltes Hosting (' . $grenze . ' Zeichen)');
+});
+
+// ==================================================================
 test('Ein Server, der immer an derselben Stelle abbricht, wird erkannt', function (): void {
     // Der teuerste Fall: Der Cronjob ruft die Adresse per curl auf, also
     // gilt die Zeitgrenze des Webservers. Die ist kuerzer als eine

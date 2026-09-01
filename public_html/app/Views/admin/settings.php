@@ -176,6 +176,40 @@ foreach ($diagnostics as $check) {
             </div>
         </fieldset>
 
+        <?php
+            $ueberlebt = (int) \WebAtze\Core\Settings::get('worker_survival_seconds', '0');
+            $grenze = (string) ini_get('max_execution_time');
+        ?>
+        <fieldset class="wa-fieldset">
+            <legend class="wa-fieldset__legend">Was dein Server zulaesst</legend>
+            <p class="wa-fieldset__hint">
+                Wird gemessen, nicht vermutet. Bricht der Server einen Durchlauf ab,
+                merkt sich der Arbeiter, wie lange er durchgehalten hat, und rechnet
+                beim naechsten Mal damit. Nichts einzustellen &ndash; nur zum Nachsehen.
+            </p>
+
+            <dl class="wa-kv">
+                <dt>Zeitgrenze in der php.ini</dt>
+                <dd><?= $grenze === '0' ? 'keine' : e($grenze) . ' Sekunden' ?></dd>
+
+                <dt>Laesst sich die Grenze anheben?</dt>
+                <dd><?= function_exists('set_time_limit') ? 'ja' : 'nein &ndash; set_time_limit ist gesperrt' ?></dd>
+
+                <dt>Gemessen durchgehalten</dt>
+                <dd>
+                    <?php if ($ueberlebt > 0): ?>
+                        <?= (int) $ueberlebt ?> Sekunden
+                        <?php if ($ueberlebt < 40): ?>
+                            &ndash; das ist knapp. Der Arbeiter macht daraus kleinere Haeppchen,
+                            der Bau dauert dadurch laenger, bleibt aber sauber.
+                        <?php endif; ?>
+                    <?php else: ?>
+                        noch kein Abbruch beobachtet &ndash; gut so.
+                    <?php endif; ?>
+                </dd>
+            </dl>
+        </fieldset>
+
         <fieldset class="wa-fieldset">
             <legend class="wa-fieldset__legend">Zugang zum Sprachmodell</legend>
             <p class="wa-fieldset__hint">

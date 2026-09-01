@@ -42,10 +42,10 @@ final class Jobs
      *
      * Nicht zu kurz: Solange gearbeitet wird, verlaengert jeder
      * Fortschritt die Sperre. Sie laeuft also nur ab, wenn wirklich
-     * niemand mehr daran arbeitet. 120 Sekunden sind laenger als jeder
+     * niemand mehr daran arbeitet. 90 Sekunden sind laenger als jeder
      * einzelne Arbeitsschritt und kurz genug, dass es zuegig weitergeht.
      */
-    private const LOCK_SECONDS = 120;
+    private const LOCK_SECONDS = 90;
 
     /** Neuen Auftrag anlegen. */
     public static function enqueue(string $type, array $payload = [], ?int $projectId = null): int

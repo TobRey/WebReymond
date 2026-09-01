@@ -231,8 +231,16 @@ final class ContentWriter
             JsonSchema::pageContent($gruppe),
             [
                 'model' => (string) Config::get('anthropic.model_content', 'claude-sonnet-5'),
-                'effort' => 'medium',
-                'max_tokens' => 16000,
+                // Beides bewusst knapp. Die Dauer einer Anfrage haengt vor
+                // allem daran, wie viel geschrieben wird - und eine Gruppe
+                // umfasst hoechstens fuenf Abschnitte. 16000 gaben dem
+                // Modell Raum zum Ausschweifen und machten den Aufruf so
+                // lang, dass er auf geteiltem Hosting nicht mehr in die
+                // Zeitgrenze passte. 5000 reichen fuer eine Gruppe
+                // reichlich; laenger wuerden die Texte ohnehin nicht
+                // besser, sondern nur geschwaetziger.
+                'effort' => 'low',
+                'max_tokens' => 5000,
             ]
         );
 

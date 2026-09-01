@@ -34,6 +34,32 @@ final class Worker
         // Etwas Luft lassen: die letzte Runde soll noch sauber enden können.
         $budget = max(5, min($budget, 280));
 
+        // Wie lange laesst dieser Server einen Vorgang leben?
+        //
+        // Auf geteiltem Hosting steht in der php.ini oft eine Grenze, und
+        // set_time_limit() ist manchmal gesperrt. Wird der Vorgang
+        // abgeschossen, endet er nicht sauber - der Auftrag bleibt
+        // gesperrt liegen, bis die Sperre ablaeuft. Von aussen sieht das
+        // aus, als haenge er.
+        //
+        // Deshalb wird gemessen statt vermutet: Beim Start wird ein
+        // Merker gesetzt und waehrend der Arbeit fortgeschrieben. Findet
+        // der naechste Durchlauf den Merker noch vor, ist der letzte
+        // gestorben - und der Abstand sagt, wie lange er durchgehalten
+        // hat. Danach richtet sich das Zeitfenster.
+        self::measureLastTick();
+
+        $ueberlebt = (int) Settings::get('worker_survival_seconds', '0');
+
+        if ($ueberlebt > 0) {
+            // Acht Sekunden Sicherheitsabstand, damit der Durchlauf noch
+            // sauber enden kann statt mittendrin zu sterben.
+            $budget = max(12, min($budget, $ueberlebt - 8));
+        }
+
+        Settings::put('worker_tick_open', (string) time());
+        Settings::put('worker_tick_beat', (string) time());
+
         @set_time_limit($budget + 30);
         @ignore_user_abort(true);
 
@@ -86,11 +112,70 @@ final class Worker
             }
         }
 
+        // Sauber zu Ende gekommen - der Merker darf weg. Nur wenn er
+        // stehen bleibt, weiss der naechste Durchlauf, dass hier etwas
+        // abgeschossen wurde.
+        Settings::put('worker_tick_open', '');
+
         return [
             'jobs' => $handled,
             'seconds' => round(microtime(true) - $started, 2),
             'housekeeping' => $housekeeping,
+            'budget' => $budget,
+            'ueberlebt' => $ueberlebt,
         ];
+    }
+
+    /**
+     * Ein Lebenszeichen setzen.
+     *
+     * Wird waehrend der Arbeit regelmaessig gerufen. Stirbt der Vorgang,
+     * steht hier der letzte Zeitpunkt, an dem er noch lebte.
+     */
+    public static function beat(): void
+    {
+        Settings::put('worker_tick_beat', (string) time());
+    }
+
+    /**
+     * Nachsehen, ob der letzte Durchlauf sauber geendet hat.
+     *
+     * Steht der Merker noch, wurde er abgeschossen. Der Abstand zwischen
+     * Start und letztem Lebenszeichen ist dann die Zeit, die dieser
+     * Server einem Vorgang zugesteht.
+     */
+    private static function measureLastTick(): void
+    {
+        $offen = (int) Settings::get('worker_tick_open', '');
+
+        if ($offen <= 0) {
+            return;
+        }
+
+        $letzter = (int) Settings::get('worker_tick_beat', '');
+        $gelebt = $letzter - $offen;
+
+        // Unter fuenf Sekunden ist keine Messung, sondern ein Fehlstart.
+        // Ueber 280 auch nicht - dann lag es an etwas anderem.
+        if ($gelebt < 5 || $gelebt > 280) {
+            Settings::put('worker_tick_open', '');
+            return;
+        }
+
+        $bisher = (int) Settings::get('worker_survival_seconds', '0');
+
+        // Den vorsichtigeren Wert behalten: Ein Durchlauf kann zufaellig
+        // laenger gelebt haben, aber die kuerzeste beobachtete Grenze ist
+        // die, mit der man rechnen muss.
+        $neu = $bisher > 0 ? min($bisher, $gelebt) : $gelebt;
+
+        Settings::put('worker_survival_seconds', (string) $neu);
+        Settings::put('worker_tick_open', '');
+
+        Logger::warning('Der Durchlauf wurde abgeschossen - Zeitfenster wird angepasst.', [
+            'gelebt' => $gelebt,
+            'rechnet_ab_jetzt_mit' => $neu,
+        ]);
     }
 
     /**
