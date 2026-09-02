@@ -217,7 +217,9 @@ final class CustomerController
             'kind' => array_key_exists((string) $request->input('kind'), Billing::KINDS)
                 ? (string) $request->input('kind') : 'weiteres',
             'amount_rappen' => Billing::toRappen((string) $request->input('amount', '0')),
-            'interval' => array_key_exists((string) $request->input('interval'), Billing::INTERVALS)
+            // Das Formularfeld heisst weiter 'interval'; nur die Spalte
+            // musste weichen (INTERVAL ist in MySQL reserviert).
+            'billing_interval' => array_key_exists((string) $request->input('interval'), Billing::INTERVALS)
                 ? (string) $request->input('interval') : 'einmalig',
             'starts_on' => self::datum((string) $request->input('starts_on', '')),
             'ends_on' => self::datum((string) $request->input('ends_on', '')),
@@ -273,7 +275,7 @@ final class CustomerController
             return Response::notFound();
         }
 
-        if (Billing::isPaid($chargeId, (string) $charge['interval'])) {
+        if (Billing::isPaid($chargeId, (string) $charge['billing_interval'])) {
             Billing::markUnpaid($chargeId);
             Session::flash('success', '"' . $charge['label'] . '" steht wieder als offen.');
         } else {

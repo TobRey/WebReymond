@@ -23,6 +23,7 @@ final class Kernel
 
         try {
             Db::connection();
+            Schema::ensureCurrent();
             Session::start();
             I18n::boot($request);
 

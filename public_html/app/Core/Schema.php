@@ -16,8 +16,102 @@ namespace WebAtze\Core;
  */
 final class Schema
 {
-    /** Wird bei jeder Änderung erhöht; migrate() spielt fehlende Schritte nach. */
-    public const VERSION = 1;
+    /** Grobe Fassungsnummer, nur zum Lesen im Protokoll. */
+    public const VERSION = 4;
+
+    /** Wo der eingespielte Stand vermerkt ist. */
+    private const STAMP = '/schema-version.txt';
+
+    /**
+     * Dafür sorgen, dass die Tabellen zur eingespielten Fassung passen.
+     *
+     * Das ist der Grund, warum es diese Methode gibt: Ein Update-Paket
+     * enthält bewusst keine install.php – sonst könnte ein Fehlklick die
+     * Einrichtung überschreiben. Damit lief aber auch migrate() nie, und
+     * neue Tabellen entstanden auf dem Hosting nicht. Jede Seite, die
+     * eine davon brauchte, endete im Fünfhunderter.
+     *
+     * Der Normalfall kostet einen Dateizugriff: Steht im Merker dieselbe
+     * Zahl wie in VERSION, passiert nichts weiter.
+     */
+    public static function ensureCurrent(): void
+    {
+        $merker = STORAGE_DIR . self::STAMP;
+        $stand = self::fingerprint();
+
+        if (is_file($merker) && trim((string) file_get_contents($merker)) === $stand) {
+            return;
+        }
+
+        // Zwei gleichzeitige Anfragen sollen nicht beide migrieren.
+        //
+        // Die Sperre ist aber nur eine Bequemlichkeit, keine Bedingung:
+        // Lässt sich die Datei nicht anlegen - kein Schreibrecht, volle
+        // Platte -, wird trotzdem migriert. Sonst führte ausgerechnet
+        // ein Rechteproblem zurück in genau die Fünfhunderter, gegen die
+        // das hier gebaut ist. Doppelt ausgeführte Migrationen sind
+        // harmlos: migrate() überspringt, was schon vermerkt ist, und
+        // execute() verzeiht «existiert bereits».
+        ensure_dir(dirname($merker));
+
+        $sperre = @fopen($merker . '.lock', 'c');
+        $habeSperre = false;
+
+        if ($sperre !== false) {
+            $habeSperre = flock($sperre, LOCK_EX | LOCK_NB);
+
+            if (!$habeSperre) {
+                // Jemand anderes ist schon dabei. Warten, bis er fertig
+                // ist, dann hat diese Anfrage ihre Tabellen auch.
+                flock($sperre, LOCK_EX);
+                flock($sperre, LOCK_UN);
+                fclose($sperre);
+
+                return;
+            }
+        }
+
+        try {
+            self::migrate();
+
+            if (@file_put_contents($merker, $stand) === false) {
+                // Ohne Merker läuft migrate() bei jedem Aufruf erneut.
+                // Das ist langsam, aber richtig - und es soll auffallen.
+                Logger::warning('Der Merker für den Tabellenstand lässt sich nicht schreiben.', [
+                    'datei' => $merker,
+                ]);
+            }
+
+            Logger::info('Tabellen auf den neuesten Stand gebracht.', ['fassung' => self::VERSION]);
+        } catch (\Throwable $e) {
+            // Nicht durchreichen: Eine Migration, die scheitert, soll
+            // eine sprechende Meldung im Protokoll hinterlassen und
+            // nicht die ganze Seite mitreissen.
+            Logger::exception($e);
+        } finally {
+            if ($sperre !== false) {
+                if ($habeSperre) {
+                    flock($sperre, LOCK_UN);
+                }
+
+                fclose($sperre);
+            }
+        }
+    }
+
+    /**
+     * Ein Fingerabdruck über die Liste der Migrationen.
+     *
+     * Absichtlich nicht die handgepflegte VERSION: Wer eine Migration
+     * ergänzt und das Hochzählen vergisst, liefert ein Update aus, das
+     * auf dem Hosting Tabellen sucht, die es nicht gibt. Genau das ist
+     * schon einmal passiert. Ein abgeleiteter Wert lässt sich nicht
+     * vergessen.
+     */
+    private static function fingerprint(): string
+    {
+        return substr(md5(implode(',', array_keys(self::statements()))), 0, 16);
+    }
 
     public static function migrate(): void
     {
@@ -42,6 +136,73 @@ final class Schema
                 self::execute($pdo, self::translate($part, $sqlite));
             }
             Db::insert('migrations', ['name' => $name, 'applied_at' => Db::now()]);
+        }
+
+        self::renameOldColumns($pdo, $sqlite);
+    }
+
+    /**
+     * Spalten, die früher anders hiessen.
+     *
+     * Das geht nicht als gewöhnliche Migration: Auf einem frischen Stand
+     * gibt es die alte Spalte gar nicht, und «unbekannte Spalte» ist
+     * kein Fehler, den execute() verschlucken darf – sonst verschluckt
+     * es auch echte.
+     */
+    private static function renameOldColumns(\PDO $pdo, bool $sqlite): void
+    {
+        // charges.interval → charges.billing_interval.
+        //
+        // INTERVAL ist in MySQL ein reserviertes Wort. Auf MySQL ist die
+        // Tabelle deshalb nie entstanden; auf SQLite schon, und dort
+        // steht der alte Name noch.
+        if (!self::hasTable($pdo, 'charges') || !self::hasColumn($pdo, 'charges', 'interval', $sqlite)) {
+            return;
+        }
+
+        self::execute($pdo, $sqlite
+            ? 'ALTER TABLE charges RENAME COLUMN "interval" TO billing_interval'
+            // CHANGE statt RENAME COLUMN: RENAME COLUMN gibt es erst ab
+            // MySQL 8.0, und auf geteiltem Hosting läuft oft noch 5.7.
+            : "ALTER TABLE charges CHANGE `interval` billing_interval "
+              . "VARCHAR(20) NOT NULL DEFAULT 'einmalig'");
+    }
+
+    private static function hasTable(\PDO $pdo, string $table): bool
+    {
+        try {
+            $pdo->query('SELECT 1 FROM ' . Db::quoteIdentifier($table) . ' LIMIT 1');
+
+            return true;
+        } catch (\PDOException) {
+            return false;
+        }
+    }
+
+    private static function hasColumn(\PDO $pdo, string $table, string $column, bool $sqlite): bool
+    {
+        try {
+            if ($sqlite) {
+                $spalten = $pdo->query('PRAGMA table_info(' . Db::quoteIdentifier($table) . ')');
+
+                foreach ($spalten === false ? [] : $spalten->fetchAll(\PDO::FETCH_ASSOC) as $zeile) {
+                    if (strcasecmp((string) ($zeile['name'] ?? ''), $column) === 0) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            $anweisung = $pdo->prepare(
+                'SELECT 1 FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = :t AND column_name = :c'
+            );
+            $anweisung->execute(['t' => $table, 'c' => $column]);
+
+            return $anweisung->fetchColumn() !== false;
+        } catch (\PDOException) {
+            return false;
         }
     }
 
@@ -576,6 +737,11 @@ final class Schema
             // Ein Kostenposten je Zeile: Aufbau, Domain, Wartung, was auch
             // immer. Jeder mit eigenem Betrag und eigenem Rhythmus - das
             // ist der Punkt, an dem eine Tabellenkalkulation aufgibt.
+            //
+            // Die Spalte heisst billing_interval und nicht interval:
+            // INTERVAL ist in MySQL ein reserviertes Wort. SQLite nimmt
+            // es an, MySQL bricht die ganze Migration ab - und dann
+            // fehlen alle Tabellen ab dieser Stelle.
             '031_charges' => '
                 CREATE TABLE IF NOT EXISTS charges (
                     id {id},
@@ -583,7 +749,7 @@ final class Schema
                     label {string:191} NOT NULL,
                     kind {string:30} NOT NULL DEFAULT \'weiteres\',
                     amount_rappen {int} NOT NULL DEFAULT 0,
-                    interval {string:20} NOT NULL DEFAULT \'einmalig\',
+                    billing_interval {string:20} NOT NULL DEFAULT \'einmalig\',
                     starts_on {string:10} NOT NULL DEFAULT \'\',
                     ends_on {string:10} NOT NULL DEFAULT \'\',
                     active {bool} NOT NULL DEFAULT 1,

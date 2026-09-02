@@ -257,6 +257,11 @@ final class Prospects
      */
     public static function save(array $daten, ?int $id = null): int
     {
+        // Erst holen, dann prüfen. isset(SITE_STATES['']) ist wahr - der
+        // leere Schlüssel steht als «unbekannt» darin -, und dann läse
+        // der Zweig darunter einen Schlüssel, den es gar nicht gibt.
+        $zustand = (string) ($daten['site_state'] ?? '');
+
         $satz = [
             'name' => self::kurz($daten['name'] ?? '', 191),
             'branch' => self::kurz($daten['branch'] ?? '', 120),
@@ -266,9 +271,7 @@ final class Prospects
             'phone' => self::kurz($daten['phone'] ?? '', 60),
             'address' => self::kurz($daten['address'] ?? '', 255),
             'contact_name' => self::kurz($daten['contact_name'] ?? '', 191),
-            'site_state' => isset(self::SITE_STATES[(string) ($daten['site_state'] ?? '')])
-                ? (string) $daten['site_state']
-                : '',
+            'site_state' => isset(self::SITE_STATES[$zustand]) ? $zustand : '',
             'reason' => self::lang($daten['reason'] ?? '', 1200),
             'research' => self::lang($daten['research'] ?? '', 8000),
             'score' => max(0, min(100, (int) ($daten['score'] ?? 0))),

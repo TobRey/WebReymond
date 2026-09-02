@@ -262,7 +262,10 @@ function install(array $v, string $appDir, string $storage): array
     try {
         require_once $appDir . '/bootstrap.php';
 
-        \WebAtze\Core\Schema::migrate();
+        // ensureCurrent() statt migrate(): Es legt zusätzlich den Merker
+        // an, an dem spätere Aufrufe erkennen, dass die Tabellen zur
+        // eingespielten Fassung passen.
+        \WebAtze\Core\Schema::ensureCurrent();
 
         $exists = \WebAtze\Core\Db::first(
             'SELECT id FROM users WHERE username = :u',

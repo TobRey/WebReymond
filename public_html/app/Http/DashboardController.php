@@ -38,12 +38,15 @@ final class DashboardController
             'heute' => $heute,
             'termine' => Calendar::between($heute, date('Y-m-d', time() + 7 * 86400)),
             'aufgaben' => Db::all(
+                // Zweimal ':leer' waere kuerzer, ginge aber nur auf
+                // SQLite: MySQL erlaubt denselben benannten Platzhalter
+                // nur einmal je Abfrage.
                 "SELECT t.*, c.name AS kunde FROM todos t
                  LEFT JOIN customers c ON c.id = t.customer_id
-                 WHERE t.done_at IS NULL AND (t.due_on = :leer OR t.due_on <= :bald)
-                 ORDER BY CASE WHEN t.due_on = :leer THEN 1 ELSE 0 END,
+                 WHERE t.done_at IS NULL AND (t.due_on = :leer1 OR t.due_on <= :bald)
+                 ORDER BY CASE WHEN t.due_on = :leer2 THEN 1 ELSE 0 END,
                           t.due_on ASC, t.priority DESC LIMIT 12",
-                ['leer' => '', 'bald' => date('Y-m-d', time() + 7 * 86400)]
+                ['leer1' => '', 'leer2' => '', 'bald' => date('Y-m-d', time() + 7 * 86400)]
             ),
             'ueberfaellig' => (int) Db::value(
                 "SELECT COUNT(*) FROM todos WHERE done_at IS NULL AND due_on <> :leer AND due_on < :heute",

@@ -105,12 +105,14 @@ final class VisitCollector
     public static function collectDue(): int
     {
         $due = Db::all(
+            // Zwei Platzhalter fuer denselben leeren Text: MySQL
+            // erlaubt einen benannten Platzhalter nur einmal je Abfrage.
             "SELECT * FROM projects
-             WHERE stats_token <> :empty AND domain <> :empty
+             WHERE stats_token <> :empty1 AND domain <> :empty2
                AND (visits_synced_at IS NULL OR visits_synced_at < :before)
              ORDER BY visits_synced_at IS NULL DESC, visits_synced_at ASC
              LIMIT " . self::BATCH,
-            ['empty' => '', 'before' => date('Y-m-d H:i:s', time() - 20 * 3600)]
+            ['empty1' => '', 'empty2' => '', 'before' => date('Y-m-d H:i:s', time() - 20 * 3600)]
         );
 
         $total = 0;

@@ -122,12 +122,14 @@ final class Contracts
     public static function billDue(): int
     {
         $due = Db::all(
+            // Zwei Platzhalter fuer denselben leeren Text: MySQL
+            // erlaubt einen benannten Platzhalter nur einmal je Abfrage.
             "SELECT c.*, p.name AS project_name, p.brief FROM contracts c
              LEFT JOIN projects p ON p.id = c.project_id
-             WHERE c.cancelled_on = :empty AND c.next_invoice_on <> :empty
+             WHERE c.cancelled_on = :empty1 AND c.next_invoice_on <> :empty2
                AND c.next_invoice_on <= :today
              ORDER BY c.id ASC LIMIT 10",
-            ['empty' => '', 'today' => date('Y-m-d')]
+            ['empty1' => '', 'empty2' => '', 'today' => date('Y-m-d')]
         );
 
         $made = 0;

@@ -239,3 +239,33 @@ nichts neu einzugeben.
 9. **Geld steht überall in Rappen, als ganze Zahl.** Fliesskomma und Geld
    gehören nicht zusammen; bei einer Rechnung merkt man das erst, wenn
    sich der Kunde meldet.
+
+### Wenn ein Update neue Tabellen mitbringt
+
+Das Update-Paket enthält bewusst keine `install.php` – ein Fehlklick dort
+würde die Einrichtung überschreiben. Damit die neuen Tabellen trotzdem
+entstehen, prüft WebAtze bei jedem Aufruf einen kleinen Merker in
+`storage/schema-version.txt`: Passt er nicht zur eingespielten Fassung,
+werden die fehlenden Tabellen angelegt und der Merker neu geschrieben.
+Der Normalfall kostet einen Dateizugriff.
+
+Du musst dafür nichts tun. Nach dem Entpacken genügt ein Aufruf einer
+beliebigen Seite.
+
+### Warum MySQL und SQLite auseinanderlaufen können
+
+Der Testlauf hier läuft auf SQLite, das Hosting auf MySQL. An drei
+Stellen verzeiht SQLite, was MySQL abweist – und jede davon endet auf dem
+Hosting in einer Fehlerseite, die hier niemand sieht:
+
+* **Reservierte Wörter als Spaltenname.** `interval` etwa. SQLite nimmt
+  es an, MySQL bricht die Migration ab – und dann fehlen alle Tabellen ab
+  dieser Stelle. Eine Prüfung im Testlauf geht alle Spaltennamen gegen
+  die Liste der reservierten Wörter durch.
+* **Ein benannter Platzhalter, zweimal in derselben Abfrage.** MySQL
+  erlaubt das mit echten Prepared Statements nicht. Auch dafür gibt es
+  eine Prüfung.
+* **`UPDATE` zählt anders.** MySQL meldet nur die Zeilen, in denen sich
+  wirklich etwas geändert hat, SQLite die getroffenen. Wer denselben Wert
+  noch einmal setzt, bekäme auf dem Hosting «nichts passiert». Deshalb
+  läuft die MySQL-Verbindung mit `MYSQL_ATTR_FOUND_ROWS`.

@@ -128,7 +128,7 @@ final class Billing
         $jaehrlich = 0;
 
         foreach ($charges as $charge) {
-            $interval = (string) $charge['interval'];
+            $interval = (string) $charge['billing_interval'];
             $betrag = (int) $charge['amount_rappen'];
             $faellig = self::dueOn($charge, $day);
             $periode = self::period($interval, $day);
@@ -153,6 +153,11 @@ final class Billing
             }
 
             $posten[] = $charge + [
+                // Die Spalte heisst billing_interval, weil INTERVAL in
+                // MySQL reserviert ist. Nach aussen bleibt es 'interval':
+                // Der Spaltenname ist eine Frage der Ablage, nicht der
+                // Sache, und die Ansichten sollen davon nichts wissen.
+                'interval' => $interval,
                 'faellig' => $faellig,
                 'periode' => $periode,
                 'bezahlt' => $istBezahlt,
@@ -184,7 +189,7 @@ final class Billing
         }
 
         $tag = $day !== null && $day !== '' ? $day : date('Y-m-d');
-        $periode = self::period((string) $charge['interval'], $tag);
+        $periode = self::period((string) $charge['billing_interval'], $tag);
 
         // Zweimal dasselbe Häkchen ist kein Fehler, aber auch kein
         // zweiter Eintrag – sonst stimmt die Buchhaltung nicht mehr.
@@ -225,7 +230,7 @@ final class Billing
             return false;
         }
 
-        $periode = self::period((string) $charge['interval'], $day);
+        $periode = self::period((string) $charge['billing_interval'], $day);
 
         return Db::delete(
             'payments',

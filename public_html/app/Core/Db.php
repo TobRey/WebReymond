@@ -56,6 +56,13 @@ final class Db
                         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                         PDO::ATTR_EMULATE_PREPARES => false,
+                        // Ohne das zählt MySQL bei UPDATE nur die Zeilen,
+                        // in denen sich wirklich etwas geändert hat -
+                        // SQLite zählt die getroffenen. Wer denselben Wert
+                        // noch einmal setzt, bekäme auf dem Hosting «nichts
+                        // passiert» und lokal «erledigt». Damit verhalten
+                        // sich beide gleich.
+                        PDO::MYSQL_ATTR_FOUND_ROWS => true,
                         PDO::MYSQL_ATTR_INIT_COMMAND => "SET sql_mode='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION'",
                     ]
                 );
@@ -79,8 +86,19 @@ final class Db
         self::$pdo = $pdo;
     }
 
+    /**
+     * Welche Datenbank tatsächlich am anderen Ende hängt.
+     *
+     * Gefragt wird die Verbindung, nicht die Konfiguration: setConnection()
+     * kann eine andere untergeschoben haben, und dann erzeugte eine
+     * Antwort aus der Konfiguration Anweisungen für die falsche Datenbank.
+     */
     public static function isSqlite(): bool
     {
+        if (self::$pdo instanceof PDO) {
+            return self::$pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
+        }
+
         return Config::get('db.driver', 'mysql') === 'sqlite';
     }
 

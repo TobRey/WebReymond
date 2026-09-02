@@ -18,6 +18,10 @@ public_html/storage/tmp/*
 public_html/storage/documents/*
 public_html/storage/backups/*
 public_html/storage/fonts/*
+
+# Der Merker fuer den Tabellenstand entsteht auf jeder Installation neu.
+public_html/storage/schema-version.txt
+public_html/storage/schema-version.txt.lock
 !public_html/storage/**/.gitkeep
 
 # Frontend-Build

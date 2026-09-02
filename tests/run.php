@@ -1314,7 +1314,7 @@ test('Monatliche Posten werden jeden Monat wieder faellig', function (): void {
               ['Domain', 'domain', 1800, 'jaehrlich']] as [$l, $a, $b, $i]) {
         $posten[$i] = (int) \WebAtze\Core\Db::insert('charges', [
             'customer_id' => $kunde, 'label' => $l, 'kind' => $a,
-            'amount_rappen' => $b, 'interval' => $i, 'active' => 1,
+            'amount_rappen' => $b, 'billing_interval' => $i, 'active' => 1,
             'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
         ]);
     }
@@ -3126,6 +3126,148 @@ test('Kalender: die Adresse gibt ohne gültiges Wort nichts preis', function ():
         })()
     );
     is(404, $antwort->getStatus(), 'Ein falsches Wort fuehrt ins Leere');
+});
+
+
+// ==================================================================
+// Der Unterschied zwischen SQLite und MySQL
+//
+// Die Prüfungen laufen auf SQLite, das Hosting auf MySQL. Jede Stelle,
+// an der die beiden sich unterscheiden, ist ein Fünfhunderter, den
+// niemand hier sieht. Genau das ist passiert: Ein reserviertes Wort als
+// Spaltenname, ein doppelt benutzter Platzhalter, und ein Update, das
+// seine Tabellen nie anlegte.
+// ==================================================================
+
+test('Datenbank: keine reservierten Wörter als Spaltennamen', function (): void {
+    // Die reservierten Wörter aus MySQL 8.0. MariaDB hat fast dieselbe
+    // Liste; wer beides bedienen will, meidet die Vereinigungsmenge.
+    $reserviert = array_flip(explode(' ',
+        'ACCESSIBLE ADD ALL ALTER ANALYZE AND AS ASC ASENSITIVE BEFORE BETWEEN BIGINT BINARY BLOB '
+        . 'BOTH BY CALL CASCADE CASE CHANGE CHAR CHARACTER CHECK COLLATE COLUMN CONDITION CONSTRAINT '
+        . 'CONTINUE CONVERT CREATE CROSS CUBE CUME_DIST CURRENT_DATE CURRENT_TIME CURRENT_TIMESTAMP '
+        . 'CURRENT_USER CURSOR DATABASE DATABASES DAY_HOUR DAY_MICROSECOND DAY_MINUTE DAY_SECOND DEC '
+        . 'DECIMAL DECLARE DEFAULT DELAYED DELETE DENSE_RANK DESC DESCRIBE DETERMINISTIC DISTINCT '
+        . 'DISTINCTROW DIV DOUBLE DROP DUAL EACH ELSE ELSEIF EMPTY ENCLOSED ESCAPED EXCEPT EXISTS EXIT '
+        . 'EXPLAIN FALSE FETCH FIRST_VALUE FLOAT FOR FORCE FOREIGN FROM FULLTEXT FUNCTION GENERATED GET '
+        . 'GRANT GROUP GROUPING GROUPS HAVING HIGH_PRIORITY HOUR_MICROSECOND HOUR_MINUTE HOUR_SECOND IF '
+        . 'IGNORE IN INDEX INFILE INNER INOUT INSENSITIVE INSERT INT INTEGER INTERVAL INTO IS ITERATE '
+        . 'JOIN JSON_TABLE KEY KEYS KILL LAG LAST_VALUE LATERAL LEAD LEADING LEAVE LEFT LIKE LIMIT '
+        . 'LINEAR LINES LOAD LOCALTIME LOCALTIMESTAMP LOCK LONG LONGBLOB LONGTEXT LOOP LOW_PRIORITY '
+        . 'MATCH MAXVALUE MEDIUMBLOB MEDIUMINT MEDIUMTEXT MIDDLEINT MINUTE_MICROSECOND MINUTE_SECOND '
+        . 'MOD MODIFIES NATURAL NOT NTH_VALUE NTILE NULL NUMERIC OF ON OPTIMIZE OPTION OPTIONALLY OR '
+        . 'ORDER OUT OUTER OUTFILE OVER PARTITION PERCENT_RANK PRECISION PRIMARY PROCEDURE PURGE RANGE '
+        . 'RANK READ READS REAL RECURSIVE REFERENCES REGEXP RELEASE RENAME REPEAT REPLACE REQUIRE '
+        . 'RESIGNAL RESTRICT RETURN REVOKE RIGHT RLIKE ROW ROWS ROW_NUMBER SCHEMA SCHEMAS SELECT '
+        . 'SENSITIVE SEPARATOR SET SHOW SIGNAL SMALLINT SPATIAL SPECIFIC SQL SQLEXCEPTION SQLSTATE '
+        . 'SQLWARNING SSL STARTING STORED STRAIGHT_JOIN SYSTEM TABLE TERMINATED THEN TINYBLOB TINYINT '
+        . 'TINYTEXT TO TRAILING TRIGGER TRUE UNDO UNION UNIQUE UNLOCK UNSIGNED UPDATE USAGE USE USING '
+        . 'UTC_DATE UTC_TIME UTC_TIMESTAMP VALUES VARBINARY VARCHAR VARYING VIRTUAL WHEN WHERE WHILE '
+        . 'WINDOW WITH WRITE XOR YEAR_MONTH ZEROFILL'
+    ));
+
+    $methode = new ReflectionMethod(\WebAtze\Core\Schema::class, 'statements');
+    $methode->setAccessible(true);
+
+    $schlecht = [];
+    $geprueft = 0;
+
+    foreach ($methode->invoke(null) as $sql) {
+        foreach (explode(';', $sql) as $teil) {
+            $teil = trim($teil);
+
+            if (stripos($teil, 'CREATE TABLE') === 0 && preg_match('/\((.*)\)\s*$/s', $teil, $m) === 1) {
+                foreach (explode("\n", $m[1]) as $zeile) {
+                    if (preg_match('/^\s*([a-z_]+)\s+\{/i', $zeile, $s) === 1) {
+                        $geprueft++;
+                        if (isset($reserviert[strtoupper($s[1])])) {
+                            $schlecht[] = $s[1];
+                        }
+                    }
+                }
+            } elseif (preg_match('/ADD COLUMN\s+([a-z_]+)\s/i', $teil, $s) === 1) {
+                $geprueft++;
+                if (isset($reserviert[strtoupper($s[1])])) {
+                    $schlecht[] = $s[1];
+                }
+            }
+        }
+    }
+
+    ok($geprueft > 150, $geprueft . ' Spaltennamen geprüft');
+    is([], $schlecht, 'Keine davon ist in MySQL reserviert');
+});
+
+test('Datenbank: kein Platzhalter wird in einer Abfrage zweimal benutzt', function (): void {
+    // MySQL mit echten Prepared Statements erlaubt einen benannten
+    // Platzhalter nur einmal je Abfrage. SQLite nimmt es an - und dann
+    // fällt es erst auf dem Hosting auf, mit einem Fünfhunderter.
+    $schlecht = [];
+    $abfragen = 0;
+
+    $dateien = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator(dirname(__DIR__) . '/public_html/app')
+    );
+
+    foreach ($dateien as $datei) {
+        if ($datei->getExtension() !== 'php' || str_contains($datei->getPathname(), '/vendor/')) {
+            continue;
+        }
+
+        $inhalt = (string) file_get_contents($datei->getPathname());
+
+        if (preg_match_all('/([\'"])((?:SELECT|UPDATE|DELETE|INSERT)\b.*?)\1/is', $inhalt, $m) !== false) {
+            foreach ($m[2] ?? [] as $sql) {
+                $abfragen++;
+                preg_match_all('/:([a-z_][a-z0-9_]*)/i', $sql, $p);
+
+                foreach (array_count_values($p[1]) as $name => $wie) {
+                    if ($wie > 1) {
+                        $schlecht[] = basename($datei->getPathname()) . ': :' . $name;
+                    }
+                }
+            }
+        }
+    }
+
+    ok($abfragen > 100, $abfragen . ' Abfragen durchgesehen');
+    is([], $schlecht, 'Jeder Platzhalter kommt nur einmal vor');
+});
+
+test('Datenbank: ein Update bringt die Tabellen selbst auf Stand', function (): void {
+    // Das Update-Paket enthält bewusst keine install.php - und damit lief
+    // migrate() auf dem Hosting nie. Jede Seite, die eine neue Tabelle
+    // brauchte, endete im Fünfhunderter. ensureCurrent() ist die Antwort
+    // darauf; hier wird geprüft, dass sie wirkt.
+    $merker = STORAGE_DIR . '/schema-version.txt';
+    $vorher = is_file($merker) ? (string) file_get_contents($merker) : null;
+    @unlink($merker);
+
+    \WebAtze\Core\Db::run('DROP TABLE IF EXISTS prospects');
+    \WebAtze\Core\Db::run('DELETE FROM migrations');
+
+    \WebAtze\Core\Schema::ensureCurrent();
+
+    ok(
+        \WebAtze\Core\Db::value('SELECT COUNT(*) FROM prospects') !== null,
+        'Die fehlende Tabelle ist wieder da'
+    );
+    ok(is_file($merker), 'Und der Merker steht');
+
+    // Ein zweiter Aufruf darf nichts mehr tun.
+    $stand = (string) file_get_contents($merker);
+    \WebAtze\Core\Schema::ensureCurrent();
+    is($stand, (string) file_get_contents($merker), 'Ein zweiter Aufruf ändert nichts');
+
+    // Und der Merker hängt an der Liste der Migrationen, nicht an einer
+    // Zahl, die jemand von Hand hochzählen müsste.
+    $fingerprint = new ReflectionMethod(\WebAtze\Core\Schema::class, 'fingerprint');
+    $fingerprint->setAccessible(true);
+    is($fingerprint->invoke(null), $stand, 'Der Merker ist der Fingerabdruck der Migrationen');
+
+    if ($vorher !== null) {
+        file_put_contents($merker, $vorher);
+    }
 });
 
 // ==================================================================
