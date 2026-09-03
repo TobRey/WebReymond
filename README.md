@@ -267,7 +267,16 @@ macht Bisheriges unlesbar, und das ist keine Entscheidung für einen
 Knopfdruck nebenbei.
 
 Fehlt die PHP-Erweiterung `sodium`, hilft nur cPanel: *Select PHP
-Version → Extensions → sodium*.
+Version → Extensions → sodium*. Ohne sie kann PHP nicht verschlüsseln;
+die Einrichtung weist beim Start darauf hin.
+
+Wichtig dabei: Kein Programmteil, der auch ohne Verschlüsselung laufen
+soll, darf ein `SODIUM_*` oder `sodium_*` anfassen. Fehlt die
+Erweiterung, gibt es weder die Funktionen noch die Konstanten – und ein
+Zugriff auf eine undefinierte Konstante ist in PHP 8 keine Warnung,
+sondern das Ende der Anfrage. Genau daran ist die Tresorseite einmal
+gestorben, ausgerechnet an der Zeile, die einen Ersatzschlüssel
+vorschlagen sollte. Der Testlauf prüft das jetzt.
 
 ### Warum MySQL und SQLite auseinanderlaufen können
 

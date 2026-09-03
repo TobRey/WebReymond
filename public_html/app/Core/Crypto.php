@@ -39,12 +39,12 @@ final class Crypto
             return 'In app/config.php fehlt der Eintrag «crypto_key».';
         }
 
-        if (strlen($hex) < 64) {
+        if (strlen($hex) < self::KEY_BYTES * 2) {
             return 'Der Eintrag «crypto_key» in app/config.php ist zu kurz: '
-                . strlen($hex) . ' statt 64 Zeichen.';
+                . strlen($hex) . ' statt ' . (self::KEY_BYTES * 2) . ' Zeichen.';
         }
 
-        if (@hex2bin(substr($hex, 0, 64)) === false) {
+        if (@hex2bin(substr($hex, 0, self::KEY_BYTES * 2)) === false) {
             return 'Der Eintrag «crypto_key» in app/config.php enthält Zeichen, '
                 . 'die dort nicht hingehören. Erlaubt sind nur 0-9 und a-f.';
         }
@@ -57,10 +57,22 @@ final class Crypto
         return self::status() === '';
     }
 
+    /**
+     * Die Länge eines Schlüssels in Bytes.
+     *
+     * Absichtlich als Zahl und nicht als SODIUM_CRYPTO_SECRETBOX_KEYBYTES:
+     * Fehlt die Erweiterung, gibt es die Konstante nicht, und ein Zugriff
+     * darauf ist in PHP 8 kein Hinweis, sondern das Ende der Anfrage.
+     * Genau daran ist die Tresorseite einmal gestorben – auf einem Server,
+     * auf dem sonst alles lief. Der Wert ist seit es libsodium gibt 32
+     * und Teil des Formats; er ändert sich nicht mehr.
+     */
+    private const KEY_BYTES = 32;
+
     /** Ein frischer Schlüssel, wie ihn app/config.php erwartet. */
     public static function newKey(): string
     {
-        return bin2hex(random_bytes(SODIUM_CRYPTO_SECRETBOX_KEYBYTES));
+        return bin2hex(random_bytes(self::KEY_BYTES));
     }
 
     public static function encrypt(#[SensitiveParameter] string $plaintext): string
@@ -75,7 +87,10 @@ final class Crypto
 
     public static function decrypt(string $payload): ?string
     {
-        if (!str_starts_with($payload, 'v1.')) {
+        // Ohne brauchbare Verschlüsselung gibt es nichts zurückzuholen.
+        // Das ist genau die Antwort, die die Aufrufer erwarten - eine
+        // Ausnahme wäre hier eine Fehlerseite statt einer Meldung.
+        if (!self::isReady() || !str_starts_with($payload, 'v1.')) {
             return null;
         }
         $raw = base64_decode(substr($payload, 3), true);
@@ -127,9 +142,9 @@ final class Crypto
             throw new RuntimeException($grund);
         }
 
-        $key = @hex2bin(substr(trim((string) Config::get('crypto_key', '')), 0, 64));
+        $key = @hex2bin(substr(trim((string) Config::get('crypto_key', '')), 0, self::KEY_BYTES * 2));
 
-        if ($key === false || strlen($key) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
+        if ($key === false || strlen($key) !== self::KEY_BYTES) {
             throw new RuntimeException('crypto_key ist keine gültige Hex-Zeichenkette.');
         }
 

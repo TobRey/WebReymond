@@ -3405,5 +3405,98 @@ test('Konfiguration: nur erlaubte Einträge, nur harmlose Werte', function (): v
     }
 });
 
+
+// ==================================================================
+// Fehlende PHP-Erweiterungen
+//
+// Auf geteiltem Hosting ist «sodium» nicht selbstverständlich. Fehlt
+// sie, gibt es weder die Funktionen noch die Konstanten - und ein
+// Zugriff auf eine undefinierte Konstante ist in PHP 8 nicht etwa ein
+// Hinweis, sondern das Ende der Anfrage. Genau daran ist die
+// Tresorseite einmal gestorben, ausgerechnet an der Zeile, die einen
+// Ersatzschlüssel vorschlagen sollte.
+// ==================================================================
+
+test('Verschlüsselung: die Prüfung selbst braucht kein Sodium', function (): void {
+    // Diese drei Methoden laufen auch dort, wo die Erweiterung fehlt.
+    // Sie dürfen deshalb kein einziges Sodium-Symbol anfassen - ausser
+    // in function_exists(), das genau dafür da ist.
+    foreach (['status', 'isReady', 'newKey'] as $name) {
+        $methode = new ReflectionMethod(\WebAtze\Core\Crypto::class, $name);
+        $zeilen = array_slice(
+            (array) file((string) $methode->getFileName()),
+            $methode->getStartLine() - 1,
+            $methode->getEndLine() - $methode->getStartLine() + 1
+        );
+
+        // function_exists('sodium_...') ist erlaubt und wird ausgeblendet.
+        $code = preg_replace('/function_exists\([^)]*\)/', '', implode('', $zeilen)) ?? '';
+
+        ok(
+            preg_match('/SODIUM_|sodium_/', $code) !== 1,
+            'Crypto::' . $name . '() kommt ohne Sodium aus'
+        );
+    }
+
+    // Und der Schlüssel hat trotzdem die richtige Länge.
+    is(64, strlen(\WebAtze\Core\Crypto::newKey()), 'Der Vorschlag ist 64 Zeichen lang');
+    ok(hex2bin(\WebAtze\Core\Crypto::newKey()) !== false, 'Und gültiges Hex');
+    is(
+        32,
+        strlen((string) hex2bin(\WebAtze\Core\Crypto::newKey())),
+        'Was 32 Bytes ergibt, wie das Format es verlangt'
+    );
+});
+
+test('Verschlüsselung: entschlüsseln antwortet mit null statt mit einer Ausnahme', function (): void {
+    // Die Aufrufer prüfen alle auf null und haben dafür eine Meldung.
+    // Eine Ausnahme wäre an ihrer Stelle eine Fehlerseite.
+    $echt = \WebAtze\Core\Config::get('crypto_key', '');
+    $verpackt = \WebAtze\Core\Crypto::encrypt('geheim');
+
+    foreach (['', 'abc123', str_repeat('Z', 64)] as $kaputt) {
+        \WebAtze\Core\Config::set('crypto_key', $kaputt);
+
+        $antwort = null;
+        $flog = false;
+
+        try {
+            $antwort = \WebAtze\Core\Crypto::decrypt($verpackt);
+        } catch (\Throwable) {
+            $flog = true;
+        }
+
+        ok(!$flog, 'Kein Absturz bei kaputtem Schlüssel');
+        is(null, $antwort, 'Sondern schlicht nichts');
+    }
+
+    \WebAtze\Core\Config::set('crypto_key', $echt);
+    is('geheim', \WebAtze\Core\Crypto::decrypt($verpackt), 'Mit gutem Schlüssel kommt es zurück');
+});
+
+test('Tresorseite: die Fehlerdiagnose reisst die Seite nicht mit', function (): void {
+    // Die Liste ist der Zweck der Seite, die Diagnose nur Beiwerk. Was
+    // dort schiefgeht, muss als Meldung enden - nicht als Fünfhunderter.
+    $methode = new ReflectionMethod(\WebAtze\Http\VaultController::class, 'schluesselLage');
+    $zeilen = implode('', array_slice(
+        (array) file((string) $methode->getFileName()),
+        $methode->getStartLine() - 1,
+        $methode->getEndLine() - $methode->getStartLine() + 1
+    ));
+
+    ok(str_contains($zeilen, 'catch (\Throwable'), 'Sie fängt alles ab');
+
+    // Und liefert in jedem Fall die Schlüssel, die die Ansicht braucht.
+    $methode->setAccessible(true);
+    $lage = $methode->invoke(new \WebAtze\Http\VaultController());
+
+    foreach (['schluesselFehler', 'verschluesselt', 'schluesselSchreibbar',
+              'reparierbar', 'vorschlagSchluessel'] as $schluessel) {
+        ok(array_key_exists($schluessel, $lage), 'Die Ansicht bekommt «' . $schluessel . '»');
+    }
+
+    ok(is_bool($lage['reparierbar']), 'reparierbar ist ein Ja-oder-Nein');
+});
+
 // ==================================================================
 summary();

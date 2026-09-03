@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace WebAtze\Http;
 
-use WebAtze\Core\{Audit, Config, ConfigFile, Crypto, Db, Request, Response, Session, View};
+use WebAtze\Core\{Audit, Config, ConfigFile, Crypto, Db, Logger, Request, Response, Session, View};
 use WebAtze\Domain\Vault;
 
 /**
@@ -32,14 +32,55 @@ final class VaultController
                 'arten' => Vault::KINDS,
                 'kunden' => Db::all('SELECT id, name FROM customers ORDER BY name ASC'),
                 'vorschlag' => Vault::suggest(),
-                // Was den Tresor am Verschlüsseln hindert, und ob es
-                // sich von hier aus beheben lässt.
-                'schluesselFehler' => Crypto::status(),
-                'schluesselSchreibbar' => ConfigFile::isWritable(),
-                'verschluesselt' => Vault::encryptedCount(),
-                'vorschlagSchluessel' => Crypto::newKey(),
-            ]),
+            ] + $this->schluesselLage()),
         ]))->noCache()->noIndex();
+    }
+
+    /**
+     * Was den Tresor am Verschlüsseln hindert – und ob es sich von hier
+     * aus beheben lässt.
+     *
+     * Alles in einem try, und das aus Erfahrung: Diese Angaben sind
+     * Beiwerk, die Liste ist der Zweck der Seite. Eine Seite, die an
+     * ihrer eigenen Fehlerdiagnose stirbt, ist die schlechteste aller
+     * Möglichkeiten – und genau das ist hier einmal passiert, weil auf
+     * dem Server die Erweiterung «sodium» fehlte und schon das Erzeugen
+     * eines Vorschlagsschlüssels daran hing.
+     *
+     * @return array<string, mixed>
+     */
+    private function schluesselLage(): array
+    {
+        try {
+            $fehler = Crypto::status();
+            $verschluesselt = Vault::encryptedCount();
+            $schreibbar = ConfigFile::isWritable();
+
+            return [
+                'schluesselFehler' => $fehler,
+                'verschluesselt' => $verschluesselt,
+                'schluesselSchreibbar' => $schreibbar,
+                // Reparieren geht nur, wenn die Erweiterung da ist, nichts
+                // Verschlüsseltes verloren gehen kann und die Datei sich
+                // schreiben lässt.
+                'reparierbar' => $fehler !== ''
+                    && function_exists('sodium_crypto_secretbox')
+                    && $verschluesselt === 0
+                    && $schreibbar,
+                'vorschlagSchluessel' => $fehler === '' ? '' : Crypto::newKey(),
+            ];
+        } catch (\Throwable $e) {
+            Logger::exception($e);
+
+            return [
+                'schluesselFehler' => 'Die Verschlüsselung lässt sich auf diesem Server nicht '
+                    . 'prüfen: ' . $e->getMessage(),
+                'verschluesselt' => 0,
+                'schluesselSchreibbar' => false,
+                'reparierbar' => false,
+                'vorschlagSchluessel' => '',
+            ];
+        }
     }
 
     /** Aufschliessen mit dem eigenen Anmeldepasswort. */

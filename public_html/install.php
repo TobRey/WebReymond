@@ -59,13 +59,17 @@ function requirements(): array
         'gd' => 'Bilder verarbeiten',
         'curl' => 'Anfragen ins Netz',
         'mbstring' => 'Umlaute und Sonderzeichen',
-        'sodium' => 'Zugangsdaten verschlüsseln',
+        'sodium' => 'Passwörter und Zugangsdaten verschlüsseln',
         'json' => 'Datenaustausch',
     ] as $ext => $wofür) {
         $checks[] = [
             'label' => 'Erweiterung ' . $ext,
             'ok' => extension_loaded($ext),
-            'hint' => $wofür . ($ext === 'sodium' ? ' (ohne sie werden FTP-Daten nicht gespeichert)' : ''),
+            'hint' => $wofür . ($ext === 'sodium'
+                ? ' – ohne sie lassen sich weder die Passwörter im Tresor noch die '
+                  . 'FTP-Zugänge ablegen. In cPanel unter „Select PHP Version" → Extensions '
+                  . 'einschaltbar.'
+                : ''),
         ];
     }
 

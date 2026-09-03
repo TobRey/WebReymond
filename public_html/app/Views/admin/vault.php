@@ -22,6 +22,7 @@ use WebAtze\Domain\Vault;
 /** @var string $schluesselFehler */
 /** @var bool $schluesselSchreibbar */
 /** @var int $verschluesselt */
+/** @var bool $reparierbar */
 /** @var string $vorschlagSchluessel */
 
 $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
@@ -48,8 +49,10 @@ $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
 
         <?php if (!function_exists('sodium_crypto_secretbox')): ?>
             <p class="wa-panel__hint">
-                Hier hilft nur cPanel: <strong>Select PHP Version → Extensions → sodium</strong>
-                einschalten. Danach diese Seite neu laden.
+                Hier hilft nur cPanel: <strong>Select PHP Version → Extensions</strong> öffnen,
+                bei <strong>sodium</strong> das Häkchen setzen und speichern. Danach diese
+                Seite neu laden. Ohne diese Erweiterung kann PHP nicht verschlüsseln – und
+                ein Passwortspeicher ohne Verschlüsselung wäre eine Liste.
             </p>
         <?php elseif ($verschluesselt > 0): ?>
             <p class="wa-panel__hint">
@@ -57,7 +60,7 @@ $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
                 Ein neuer Schlüssel würde sie unlesbar machen. Trage deshalb den
                 <strong>ursprünglichen</strong> <code>crypto_key</code> wieder ein.
             </p>
-        <?php elseif ($schluesselSchreibbar): ?>
+        <?php elseif ($reparierbar): ?>
             <p class="wa-panel__hint">
                 Es ist noch nichts verschlüsselt – ein neuer Schlüssel kostet also nichts.
             </p>
@@ -66,7 +69,7 @@ $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
                 <?= Csrf::field() ?>
                 <button type="submit" class="wa-btn wa-btn--primary">Schlüssel jetzt anlegen</button>
             </form>
-        <?php else: ?>
+        <?php elseif ($vorschlagSchluessel !== ''): ?>
             <p class="wa-panel__hint">
                 <code>app/config.php</code> ist nicht beschreibbar. Trage die Zeile im
                 cPanel-Dateimanager von Hand ein:
@@ -80,6 +83,11 @@ $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
                 </button>
             </div>
         <?php endif; ?>
+
+        <p class="wa-panel__hint">
+            Die Liste unten funktioniert weiter – nur neue Passwörter lassen sich nicht
+            ablegen und bestehende nicht anzeigen, solange das nicht behoben ist.
+        </p>
     </section>
 <?php endif; ?>
 
