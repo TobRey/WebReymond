@@ -16,6 +16,53 @@ use SensitiveParameter;
  */
 final class Crypto
 {
+    /**
+     * Ist verschlüsseln überhaupt möglich?
+     *
+     * Es gibt genau zwei Gründe, warum nicht: Die Erweiterung libsodium
+     * fehlt, oder crypto_key in app/config.php taugt nichts. Beide sind
+     * nichts, was der Code beheben könnte – aber beide lassen sich
+     * benennen, statt in einer Fehlerseite zu enden.
+     *
+     * @return string leerer Text, wenn alles stimmt; sonst der Grund
+     */
+    public static function status(): string
+    {
+        if (!function_exists('sodium_crypto_secretbox')) {
+            return 'Auf diesem Server fehlt die PHP-Erweiterung «sodium». '
+                . 'In cPanel unter «Select PHP Version» → Extensions lässt sie sich einschalten.';
+        }
+
+        $hex = trim((string) Config::get('crypto_key', ''));
+
+        if ($hex === '') {
+            return 'In app/config.php fehlt der Eintrag «crypto_key».';
+        }
+
+        if (strlen($hex) < 64) {
+            return 'Der Eintrag «crypto_key» in app/config.php ist zu kurz: '
+                . strlen($hex) . ' statt 64 Zeichen.';
+        }
+
+        if (@hex2bin(substr($hex, 0, 64)) === false) {
+            return 'Der Eintrag «crypto_key» in app/config.php enthält Zeichen, '
+                . 'die dort nicht hingehören. Erlaubt sind nur 0-9 und a-f.';
+        }
+
+        return '';
+    }
+
+    public static function isReady(): bool
+    {
+        return self::status() === '';
+    }
+
+    /** Ein frischer Schlüssel, wie ihn app/config.php erwartet. */
+    public static function newKey(): string
+    {
+        return bin2hex(random_bytes(SODIUM_CRYPTO_SECRETBOX_KEYBYTES));
+    }
+
     public static function encrypt(#[SensitiveParameter] string $plaintext): string
     {
         $key = self::key();
@@ -74,16 +121,18 @@ final class Crypto
 
     private static function key(): string
     {
-        $hex = (string) Config::get('crypto_key', '');
-        if (strlen($hex) < 64) {
-            throw new RuntimeException(
-                'crypto_key fehlt oder ist zu kurz. In app/config.php einen Wert mit 64 Zeichen eintragen.'
-            );
+        $grund = self::status();
+
+        if ($grund !== '') {
+            throw new RuntimeException($grund);
         }
-        $key = @hex2bin(substr($hex, 0, 64));
+
+        $key = @hex2bin(substr(trim((string) Config::get('crypto_key', '')), 0, 64));
+
         if ($key === false || strlen($key) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
             throw new RuntimeException('crypto_key ist keine gültige Hex-Zeichenkette.');
         }
+
         return $key;
     }
 }

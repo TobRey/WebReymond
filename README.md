@@ -252,6 +252,23 @@ Der Normalfall kostet einen Dateizugriff.
 Du musst dafür nichts tun. Nach dem Entpacken genügt ein Aufruf einer
 beliebigen Seite.
 
+### Wenn der Tresor nicht verschlüsseln kann
+
+Der Schlüssel dafür steht in `app/config.php` unter `crypto_key` – 64
+Zeichen, nur `0-9` und `a-f`. Fehlt er oder taugt er nichts, kann der
+Tresor kein Passwort ablegen. Das fällt spät auf: Die Seite lädt, das
+Aufschliessen klappt, nur das Speichern geht nicht.
+
+Deshalb sagt WebAtze es jetzt oben auf der Tresorseite, benennt den
+Grund und bietet – solange noch nichts verschlüsselt ist – einen Knopf
+an, der einen neuen Schlüssel in `app/config.php` einträgt. Liegt schon
+etwas Verschlüsseltes vor, wird das verweigert: Ein neuer Schlüssel
+macht Bisheriges unlesbar, und das ist keine Entscheidung für einen
+Knopfdruck nebenbei.
+
+Fehlt die PHP-Erweiterung `sodium`, hilft nur cPanel: *Select PHP
+Version → Extensions → sodium*.
+
 ### Warum MySQL und SQLite auseinanderlaufen können
 
 Der Testlauf hier läuft auf SQLite, das Hosting auf MySQL. An drei

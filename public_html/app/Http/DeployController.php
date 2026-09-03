@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Http;
 
 use WebAtze\Build\{FtpDeployer, ZipExporter};
-use WebAtze\Core\{Audit, Config, Db, Jobs, Logger, Request, Response, Session, View};
+use WebAtze\Core\{Audit, Config, Crypto, Db, Jobs, Logger, Request, Response, Session, View};
 
 /**
  * Paket erzeugen, herunterladen und die Website hochladen.
@@ -99,6 +99,17 @@ final class DeployController
 
         $protocol = $request->input('protocol', 'sftp');
         $port = $request->int('port', $protocol === 'sftp' ? 22 : 21);
+
+        // Das Passwort wird verschlüsselt abgelegt. Geht das nicht,
+        // soll das hier stehen und nicht als Fehlerseite erscheinen.
+        $grund = Crypto::status();
+
+        if ($grund !== '' && $request->input('password') !== '') {
+            Session::flash('error', 'Das Passwort lässt sich nicht verschlüsseln, deshalb wurde '
+                . 'nichts gespeichert. ' . $grund);
+
+            return $this->back($project);
+        }
 
         FtpDeployer::saveTarget((int) $project['id'], [
             'protocol' => $protocol,

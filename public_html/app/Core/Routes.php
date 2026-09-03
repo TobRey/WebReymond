@@ -278,6 +278,7 @@ final class Routes
             $r->post($base . '/passwoerter/loeschen', 'VaultController@destroy');
             $r->post($base . '/passwoerter/uebernehmen', 'VaultController@adopt');
             $r->post($base . '/passwoerter/zeigen', 'VaultController@reveal');
+            $r->post($base . '/passwoerter/schluessel', 'VaultController@repairKey');
 
             $r->post($base . '/kalender/neue-adresse', 'CompanyController@newFeedToken');
 

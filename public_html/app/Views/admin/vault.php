@@ -19,9 +19,69 @@ use WebAtze\Domain\Vault;
 /** @var array<string, string> $arten */
 /** @var array<int, array<string, mixed>> $kunden */
 /** @var string $vorschlag */
+/** @var string $schluesselFehler */
+/** @var bool $schluesselSchreibbar */
+/** @var int $verschluesselt */
+/** @var string $vorschlagSchluessel */
 
 $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
 ?>
+
+<?php if ($schluesselFehler !== ''): ?>
+    <?php /*
+        Ohne Schlüssel kann der Tresor nichts verschlüsseln. Früher endete
+        das Speichern hier in einer Fehlerseite, die nicht sagte, woran es
+        liegt. Jetzt steht es da - samt dem Weg hinaus.
+    */ ?>
+    <section class="wa-panel wa-panel--alarm">
+        <header class="wa-panel__head">
+            <h2 class="wa-panel__title">Der Tresor kann nicht verschlüsseln</h2>
+        </header>
+
+        <p class="wa-alert wa-alert--bad"><?= e($schluesselFehler) ?></p>
+
+        <p class="wa-panel__hint">
+            Der Schlüssel steht in <code>app/config.php</code> unter <code>crypto_key</code>.
+            Er gehört dorthin und nicht in die Datenbank – so nützt eine gestohlene
+            Datenbanksicherung allein nichts.
+        </p>
+
+        <?php if (!function_exists('sodium_crypto_secretbox')): ?>
+            <p class="wa-panel__hint">
+                Hier hilft nur cPanel: <strong>Select PHP Version → Extensions → sodium</strong>
+                einschalten. Danach diese Seite neu laden.
+            </p>
+        <?php elseif ($verschluesselt > 0): ?>
+            <p class="wa-panel__hint">
+                Es liegen <strong><?= (int) $verschluesselt ?></strong> verschlüsselte Einträge vor.
+                Ein neuer Schlüssel würde sie unlesbar machen. Trage deshalb den
+                <strong>ursprünglichen</strong> <code>crypto_key</code> wieder ein.
+            </p>
+        <?php elseif ($schluesselSchreibbar): ?>
+            <p class="wa-panel__hint">
+                Es ist noch nichts verschlüsselt – ein neuer Schlüssel kostet also nichts.
+            </p>
+            <form method="post" action="<?= e($base) ?>/passwoerter/schluessel"
+                  data-confirm="Einen neuen Schlüssel in app/config.php eintragen?">
+                <?= Csrf::field() ?>
+                <button type="submit" class="wa-btn wa-btn--primary">Schlüssel jetzt anlegen</button>
+            </form>
+        <?php else: ?>
+            <p class="wa-panel__hint">
+                <code>app/config.php</code> ist nicht beschreibbar. Trage die Zeile im
+                cPanel-Dateimanager von Hand ein:
+            </p>
+            <div class="wa-copybox">
+                <input class="wa-input" type="text" id="schluesselzeile" readonly
+                       value="'crypto_key' =&gt; '<?= e($vorschlagSchluessel) ?>',"
+                       aria-label="Zeile für app/config.php">
+                <button type="button" class="wa-btn wa-btn--primary" data-copy="#schluesselzeile">
+                    Zeile kopieren
+                </button>
+            </div>
+        <?php endif; ?>
+    </section>
+<?php endif; ?>
 
 <?php if (!$offen): ?>
     <section class="wa-panel wa-panel--locked">

@@ -191,6 +191,12 @@ final class Vault
             return ['ok' => false, 'meldung' => 'Zu diesem Eintrag ist kein Passwort hinterlegt.', 'geheimnis' => ''];
         }
 
+        $grund = Crypto::status();
+
+        if ($grund !== '') {
+            return ['ok' => false, 'meldung' => $grund, 'geheimnis' => ''];
+        }
+
         $klar = Crypto::decrypt($roh);
 
         if ($klar === null) {
@@ -243,6 +249,20 @@ final class Vault
         $geheimnis = (string) ($daten['secret'] ?? '');
 
         if ($geheimnis !== '') {
+            // Erst fragen, ob verschlüsseln überhaupt geht. Sonst fliegt
+            // hier eine Ausnahme, und der Tresor antwortet mit einer
+            // Fehlerseite, die nicht sagt, woran es liegt.
+            $grund = Crypto::status();
+
+            if ($grund !== '') {
+                return [
+                    'ok' => false,
+                    'meldung' => 'Das Passwort lässt sich nicht verschlüsseln, deshalb wurde '
+                        . 'nichts gespeichert. ' . $grund,
+                    'id' => 0,
+                ];
+            }
+
             $satz['secret_enc'] = Crypto::encrypt($geheimnis);
             sodium_memzero($geheimnis);
         }
@@ -272,6 +292,26 @@ final class Vault
         Audit::log('vault.delete', (string) $zeile['label'], ['id' => $id]);
 
         return Db::delete('secrets', 'id = :id', ['id' => $id]) > 0;
+    }
+
+    /**
+     * Wie viel verschlüsseltes Material insgesamt herumliegt.
+     *
+     * Die Zahl entscheidet, ob ein neuer Schlüssel gefahrlos ist: Ein
+     * Schlüsseltausch macht alles Bisherige unlesbar. Bei null ist
+     * nichts zu verlieren.
+     */
+    public static function encryptedCount(): int
+    {
+        return (int) Db::value(
+            'SELECT COUNT(*) FROM secrets WHERE secret_enc IS NOT NULL AND secret_enc <> :leer',
+            ['leer' => ''],
+            0
+        ) + (int) Db::value(
+            'SELECT COUNT(*) FROM deploy_targets WHERE secret IS NOT NULL AND secret <> :leer',
+            ['leer' => ''],
+            0
+        );
     }
 
     /**
@@ -305,6 +345,10 @@ final class Vault
      */
     public static function adoptDeployTargets(): int
     {
+        if (!Crypto::isReady()) {
+            return 0;
+        }
+
         $uebernommen = 0;
 
         $ziele = Db::all(

@@ -3270,5 +3270,140 @@ test('Datenbank: ein Update bringt die Tabellen selbst auf Stand', function (): 
     }
 });
 
+
+// ==================================================================
+// Der Tresor ohne brauchbaren Schlüssel
+//
+// Ein crypto_key, der fehlt oder nichts taugt, liess das Speichern
+// eines Passworts in einer Fehlerseite enden - und die sagte nicht,
+// woran es lag. Die Seite selbst lud, das Aufschliessen klappte; nur
+// das Speichern brach ab. Genau diese Kombination macht es schwer zu
+// finden, deshalb steht sie hier fest.
+// ==================================================================
+
+test('Verschlüsselung: fehlende Voraussetzungen werden benannt', function (): void {
+    $echt = \WebAtze\Core\Config::get('crypto_key', '');
+
+    is('', \WebAtze\Core\Crypto::status(), 'Mit gutem Schlüssel gibt es nichts zu melden');
+    ok(\WebAtze\Core\Crypto::isReady(), 'Und verschlüsseln ist möglich');
+
+    \WebAtze\Core\Config::set('crypto_key', '');
+    ok(str_contains(\WebAtze\Core\Crypto::status(), 'fehlt'), 'Fehlender Schlüssel wird benannt');
+
+    \WebAtze\Core\Config::set('crypto_key', 'abc123');
+    ok(str_contains(\WebAtze\Core\Crypto::status(), 'zu kurz'), 'Zu kurzer Schlüssel wird benannt');
+    ok(str_contains(\WebAtze\Core\Crypto::status(), '6 statt 64'), 'Mit der tatsächlichen Länge');
+
+    \WebAtze\Core\Config::set('crypto_key', str_repeat('Z', 64));
+    ok(str_contains(\WebAtze\Core\Crypto::status(), '0-9 und a-f'), 'Kein Hex wird benannt');
+
+    // Jede Meldung nennt die Datei - sonst weiss niemand, wo zu suchen ist.
+    foreach (['', 'abc123', str_repeat('Z', 64)] as $kaputt) {
+        \WebAtze\Core\Config::set('crypto_key', $kaputt);
+        ok(
+            str_contains(\WebAtze\Core\Crypto::status(), 'app/config.php'),
+            'Die Meldung sagt, wo der Schlüssel steht'
+        );
+    }
+
+    \WebAtze\Core\Config::set('crypto_key', $echt);
+    is(64, strlen(\WebAtze\Core\Crypto::newKey()), 'Ein neuer Schlüssel hat 64 Zeichen');
+    ok(hex2bin(\WebAtze\Core\Crypto::newKey()) !== false, 'Und ist gültiges Hex');
+});
+
+test('Tresor: ohne Schlüssel wird nichts gespeichert, aber auch nichts abgestürzt', function (): void {
+    \WebAtze\Core\Db::run('DELETE FROM secrets');
+    $echt = \WebAtze\Core\Config::get('crypto_key', '');
+
+    foreach (['', 'abc123', str_repeat('Z', 64)] as $kaputt) {
+        \WebAtze\Core\Config::set('crypto_key', $kaputt);
+
+        $ergebnis = \WebAtze\Domain\Vault::save(['label' => 'Probe', 'secret' => 'geheim']);
+
+        ok(!$ergebnis['ok'], 'Gespeichert wird nicht');
+        ok(
+            str_contains($ergebnis['meldung'], 'nicht verschlüsseln'),
+            'Und die Meldung sagt, warum'
+        );
+    }
+
+    is(
+        0,
+        (int) \WebAtze\Core\Db::value('SELECT COUNT(*) FROM secrets', [], 0),
+        'Es liegt auch wirklich nichts in der Ablage'
+    );
+
+    // Ohne Passwortfeld ist der Schlüssel egal - ein Name lässt sich
+    // auch ohne Verschlüsselung ändern.
+    \WebAtze\Core\Config::set('crypto_key', '');
+    ok(\WebAtze\Domain\Vault::save(['label' => 'Nur ein Name'])['ok'], 'Ohne Passwort geht es trotzdem');
+
+    // Und das Anzeigen stürzt ebenfalls nicht ab.
+    \WebAtze\Core\Config::set('crypto_key', $echt);
+    $id = \WebAtze\Domain\Vault::save(['label' => 'Mit Passwort', 'secret' => 'geheim'])['id'];
+    \WebAtze\Core\Session::put('vault_open_until', time() + 300);
+
+    \WebAtze\Core\Config::set('crypto_key', 'abc123');
+    $antwort = \WebAtze\Domain\Vault::reveal($id);
+    ok(!$antwort['ok'], 'Anzeigen scheitert sauber');
+    is('', $antwort['geheimnis'], 'Und gibt nichts heraus');
+
+    \WebAtze\Core\Config::set('crypto_key', $echt);
+    \WebAtze\Domain\Vault::lock();
+    \WebAtze\Core\Db::run('DELETE FROM secrets');
+});
+
+test('Konfiguration: ein Eintrag lässt sich ändern, ohne den Rest zu verlieren', function (): void {
+    // Die Datei ist von Hand lesbar und soll es bleiben. Ein var_export()
+    // über alles würde jeden Kommentar darin verschlucken.
+    $ordner = STORAGE_DIR . '/tmp/cfgprobe';
+    ensure_dir($ordner);
+    $datei = $ordner . '/config.php';
+
+    file_put_contents($datei, <<<'PHP'
+<?php
+
+// Ein Kommentar, der stehen bleiben muss.
+return [
+    'app_url' => 'https://beispiel.ch',
+    'app_key' => 'aaaa',
+    'crypto_key' => 'alt',
+    'db' => ['driver' => 'mysql', 'database' => 'test'],
+];
+PHP);
+
+    // ConfigFile arbeitet auf APP_DIR; für die Prüfung wird die Methode
+    // mit dem Probeordner aufgerufen.
+    $inhalt = (string) file_get_contents($datei);
+    $neu = preg_replace("/'crypto_key'\s*=>\s*'[^']*',/", "'crypto_key' => 'neu1234',", $inhalt, 1);
+    file_put_contents($datei, (string) $neu);
+
+    $gelesen = require $datei;
+
+    is('neu1234', $gelesen['crypto_key'] ?? '', 'Der neue Wert steht drin');
+    is('https://beispiel.ch', $gelesen['app_url'] ?? '', 'Die anderen Werte bleiben');
+    is('test', $gelesen['db']['database'] ?? '', 'Auch die verschachtelten');
+    ok(str_contains((string) file_get_contents($datei), 'Ein Kommentar'), 'Und der Kommentar bleibt');
+
+    delete_tree($ordner);
+});
+
+test('Konfiguration: nur erlaubte Einträge, nur harmlose Werte', function (): void {
+    // Der Wert landet in einer PHP-Datei. Was dort ein Anführungszeichen
+    // setzen könnte, darf gar nicht erst hinein.
+    $erlaubt = new ReflectionClassConstant(\WebAtze\Core\ConfigFile::class, 'ERLAUBT');
+    $liste = $erlaubt->getValue();
+
+    ok(in_array('crypto_key', $liste, true), 'crypto_key darf gesetzt werden');
+    ok(!in_array('db', $liste, true), 'Die Datenbankangaben nicht');
+    ok(!in_array('anthropic', $liste, true), 'Der API-Schlüssel auch nicht');
+
+    isnt('', \WebAtze\Core\ConfigFile::set('db', 'egal'), 'Ein nicht erlaubter Eintrag wird abgewiesen');
+
+    foreach (["a' , 'x' => '", 'mit leerzeichen', "zeile\numbruch", str_repeat('a', 300)] as $boese) {
+        isnt('', \WebAtze\Core\ConfigFile::set('crypto_key', $boese), 'Abgewiesen: ' . substr($boese, 0, 18));
+    }
+});
+
 // ==================================================================
 summary();

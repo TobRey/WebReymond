@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace WebAtze\Http;
 
-use WebAtze\Core\{Config, Db, Request, Response, Session, View};
+use WebAtze\Core\{Audit, Config, ConfigFile, Crypto, Db, Request, Response, Session, View};
 use WebAtze\Domain\Vault;
 
 /**
@@ -32,6 +32,12 @@ final class VaultController
                 'arten' => Vault::KINDS,
                 'kunden' => Db::all('SELECT id, name FROM customers ORDER BY name ASC'),
                 'vorschlag' => Vault::suggest(),
+                // Was den Tresor am Verschlüsseln hindert, und ob es
+                // sich von hier aus beheben lässt.
+                'schluesselFehler' => Crypto::status(),
+                'schluesselSchreibbar' => ConfigFile::isWritable(),
+                'verschluesselt' => Vault::encryptedCount(),
+                'vorschlagSchluessel' => Crypto::newKey(),
             ]),
         ]))->noCache()->noIndex();
     }
@@ -125,6 +131,54 @@ final class VaultController
                 ? $anzahl . ' ' . ($anzahl === 1 ? 'Zugang' : 'Zugänge') . ' übernommen.'
                 : 'Es gab nichts zu übernehmen.'
         );
+
+        return $this->to('/passwoerter');
+    }
+
+    /**
+     * Einen fehlenden oder unbrauchbaren crypto_key ersetzen.
+     *
+     * Nur wenn nichts Verschlüsseltes herumliegt: Ein neuer Schlüssel
+     * macht alles Bisherige unlesbar. Wo schon etwas liegt, ist das eine
+     * Entscheidung, die niemand nebenbei per Knopfdruck treffen sollte.
+     */
+    public function repairKey(Request $request): Response
+    {
+        if (Crypto::isReady()) {
+            Session::flash('info', 'Der Schlüssel ist in Ordnung – da gibt es nichts zu reparieren.');
+
+            return $this->to('/passwoerter');
+        }
+
+        if (!function_exists('sodium_crypto_secretbox')) {
+            Session::flash('error', Crypto::status());
+
+            return $this->to('/passwoerter');
+        }
+
+        $vorhanden = Vault::encryptedCount();
+
+        if ($vorhanden > 0) {
+            Session::flash(
+                'error',
+                'Es liegen ' . $vorhanden . ' verschlüsselte Einträge vor. Ein neuer Schlüssel '
+                . 'würde sie unlesbar machen. Trage stattdessen den ursprünglichen crypto_key '
+                . 'wieder in app/config.php ein – oder lösche die betroffenen Einträge zuerst.'
+            );
+
+            return $this->to('/passwoerter');
+        }
+
+        $fehler = ConfigFile::set('crypto_key', Crypto::newKey());
+
+        if ($fehler !== '') {
+            Session::flash('error', $fehler);
+
+            return $this->to('/passwoerter');
+        }
+
+        Audit::log('vault.key.repaired', '', [], $request);
+        Session::flash('success', 'Ein neuer Schlüssel steht in app/config.php. Der Tresor ist bereit.');
 
         return $this->to('/passwoerter');
     }
