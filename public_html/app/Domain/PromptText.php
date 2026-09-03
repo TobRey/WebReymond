@@ -45,6 +45,7 @@ final class PromptText
             self::gestaltung($brief),
             self::umfang($brief),
             self::technik($brief),
+            self::betreuung($brief),
             self::zusatz($brief),
             self::regeln($brief),
             self::abschluss($brief),
@@ -175,16 +176,15 @@ final class PromptText
         }
 
         if (!empty($brief['wants_stats'])) {
+            $bericht = trim((string) ($brief['report_email'] ?? ''));
+
             $zeilen[] = "**Besucherzählung gewünscht.** Eine eigene, ohne\n"
                 . "Drittanbieter: ein winziges Zählskript, das Aufrufe je Seite und\n"
                 . "Tag in eine Datei schreibt, ohne IP-Adressen zu speichern. Dazu\n"
-                . "eine geschützte Seite, die die Zahlen zeigt.";
-        }
-
-        if (!empty($brief['wants_docs'])) {
-            $zeilen[] = "**Anleitung gewünscht.** Eine Seite /doc.html, die dem Kunden\n"
-                . "in einfachen Worten erklärt, wie er seine Website pflegt – ohne\n"
-                . "Fachbegriffe, mit Beispielen.";
+                . "eine geschützte Seite, die die Zahlen zeigt."
+                . ($bericht !== ''
+                    ? "\nJeden Montag geht eine kurze Zusammenfassung an {$bericht}."
+                    : '');
         }
 
         if (Brief::needsDatabase($brief)) {
@@ -193,6 +193,105 @@ final class PromptText
                 . "Bau das mit – Datenbank oder Dateien, je nachdem was reicht –\n"
                 . "und eine Verwaltungsoberfläche dazu.";
         }
+
+        return implode("\n\n", $zeilen);
+    }
+
+    /**
+     * Anleitung und Supportbereich - bei jeder Website, ohne Ausnahme.
+     *
+     * Frueher hing beides an einem Haken im Formular, und der Support
+     * stand ueberhaupt nicht im Auftragstext. Ergebnis: eine fertige
+     * Website ohne /doc und ohne /support. Der Haken ist deshalb weg.
+     * Beides gehoert zur Betreuung, und die verkaufe ich - also wird es
+     * gebaut, auch wenn niemand daran denkt.
+     */
+    private static function betreuung(array $brief): string
+    {
+        $an = trim((string) ($brief['contact_email'] ?? ''));
+        $ziel = $an !== '' ? $an : 'die Adresse, die in data/support.php steht';
+
+        $zeilen = ["## Betreuung: Anleitung und Support"];
+
+        $zeilen[] = "Diese beiden Seiten gehören zu **jeder** Website, die ich\n"
+            . "ausliefere. Sie sind nicht optional und nicht verhandelbar. Bau\n"
+            . "sie, auch wenn oben nichts davon steht.";
+
+        // ------------------------------------------------------------- /doc
+        $zeilen[] = "### /doc – die Anleitung\n\n"
+            . "Eine eigene Seite `doc.html` (oder `doc/index.html`), verlinkt in\n"
+            . "der Fusszeile. Sie erklärt dem Kunden in einfachen Worten, wie\n"
+            . "seine Website funktioniert – ohne Fachbegriffe, mit Beispielen,\n"
+            . "in der Anrede, die auch der Rest der Seite benutzt.\n\n"
+            . "Sie enthält mindestens:\n"
+            . "- **Was wo steht:** eine kurze Übersicht aller Seiten und was\n"
+            . "  auf welche gehört.\n"
+            . "- **Wie Anfragen ankommen:** wohin das Kontaktformular schickt,\n"
+            . "  was der Kunde tun muss, wenn nichts ankommt (Spam-Ordner).\n"
+            . "- **Was der Kunde selbst ändern kann und was nicht.**\n"
+            . "- **Die Dateien:** welche Datei wofür da ist, in einer Tabelle.\n"
+            . "- **Wenn etwas nicht stimmt:** der Weg über /support.\n"
+            . "- **Was der Kunde noch liefern muss:** Bilder, Texte, Angaben\n"
+            . "  fürs Impressum – alles, wo jetzt noch ein Platzhalter steht.\n\n"
+            . "Sie trägt `<meta name=\"robots\" content=\"noindex, nofollow\">` und\n"
+            . "steht nicht in der sitemap.xml. Sie ist für den Kunden, nicht\n"
+            . "für Suchmaschinen.";
+
+        // --------------------------------------------------------- /support
+        $zeilen[] = "### /support – der Draht zu mir\n\n"
+            . "Eine kleine Seite `support.php`, ebenfalls in der Fusszeile\n"
+            . "verlinkt. Der Kunde schreibt dort eine Nachricht, sie geht per\n"
+            . "E-Mail an {$ziel}, und der bisherige Verlauf bleibt auf der\n"
+            . "Seite sichtbar. Kein Sofort-Chat, keine Zusage einer sofortigen\n"
+            . "Antwort – schreib das auch so hin.";
+
+        $zeilen[] = "**Diese Seite ist nur für den Kunden.** Nicht für Besucher,\n"
+            . "nicht für Automaten. Sie ist der einzige Weg, auf dem mich jemand\n"
+            . "unaufgefordert erreicht, und genau deshalb ist sie das lohnendste\n"
+            . "Ziel auf der ganzen Website. Bau die Absicherung von Anfang an\n"
+            . "ein, nicht als Nachtrag:";
+
+        $zeilen[] = "1. **Zugangscode.** Vor dem Formular steht ein einzelnes Feld\n"
+            . "   „Zugangscode“. Der Code liegt in `data/support.php`\n"
+            . "   (`return ['code' => 'BITTE-VOR-DEM-AUSLIEFERN-AENDERN', "
+            . "'email' => '…', 'secret' => '…'];`).\n"
+            . "   Ich setze ihn selbst und gebe ihn dem Kunden – **erfinde\n"
+            . "   keinen echten Code**, lass den Platzhalter stehen. Verglichen\n"
+            . "   wird mit `hash_equals`, nie mit `==`.\n"
+            . "2. **Merken statt jedesmal fragen.** Nach richtigem Code ein\n"
+            . "   Cookie mit einem Ticket: Ablaufzeitpunkt plus\n"
+            . "   `hash_hmac('sha256', …, \$secret)`, geprüft mit `hash_equals`.\n"
+            . "   180 Tage, `HttpOnly`, `SameSite=Lax`, `Secure` sobald HTTPS\n"
+            . "   anliegt. Im Cookie steht kein Code und kein Klartext.\n"
+            . "3. **Versuche begrenzen.** Höchstens 5 Code-Eingaben je Stunde und\n"
+            . "   IP, gezählt in einer Datei unter `data/support/`. Danach eine\n"
+            . "   freundliche Meldung, kein Hinweis darauf, was falsch war.\n"
+            . "4. **Honigtopf und Zeitfalle.** Ein für Menschen unsichtbares\n"
+            . "   Feld, das leer bleiben muss, und ein signierter Zeitstempel im\n"
+            . "   Formular: Wer in unter 3 Sekunden abschickt, ist kein Mensch.\n"
+            . "   In beiden Fällen freundlich bestätigen und nichts versenden –\n"
+            . "   ein Automat soll nicht lernen, woran er gescheitert ist.\n"
+            . "5. **Menge begrenzen.** Höchstens 5 Nachrichten je Stunde, auch\n"
+            . "   mit gültigem Ticket. Nachricht 10 bis 4000 Zeichen.\n"
+            . "6. **Sauber verschicken.** Steuerzeichen raus, `\\r` und `\\n` aus\n"
+            . "   allen Kopfzeilen entfernen (sonst schleust jemand eigene\n"
+            . "   Empfänger ein). `Reply-To` nur bei einer Adresse, die\n"
+            . "   `filter_var(…, FILTER_VALIDATE_EMAIL)` besteht.\n"
+            . "7. **Verlauf schützen.** Die Nachrichten liegen als JSON unter\n"
+            . "   `data/support/`, der Ordner bekommt eine `.htaccess` mit\n"
+            . "   `Require all denied` und eine leere `index.html`. Beim\n"
+            . "   Ausgeben wird escaped.\n"
+            . "8. **Nicht auffindbar.** `X-Robots-Tag: noindex, nofollow` als\n"
+            . "   Kopfzeile und dasselbe als meta-Angabe. Nicht in die\n"
+            . "   sitemap.xml.";
+
+        $zeilen[] = "Wenn `data/support.php` fehlt oder der Code noch der\n"
+            . "Platzhalter ist, zeigt die Seite einen ruhigen Hinweis statt eines\n"
+            . "Formulars – und keinen Fehler.";
+
+        $zeilen[] = "Falls das Hosting kein PHP kann, sag es mir, statt still auf\n"
+            . "einen fremden Formulardienst auszuweichen. Ein Dienst von aussen\n"
+            . "wäre wieder ein Zustimmungsbanner, und das ist es nicht wert.";
 
         return implode("\n\n", $zeilen);
     }
@@ -215,9 +314,20 @@ final class PromptText
         }
 
         if ($alt !== '') {
+            $texte = !empty($brief['take_texts']);
+            $bilder = !empty($brief['take_images']);
+
+            $was = match (true) {
+                $texte && $bilder => "Übernimm die Texte, die brauchbar sind, und die Bilder.",
+                $texte => "Übernimm die Texte, die brauchbar sind. Die Bilder ausdrücklich nicht.",
+                $bilder => "Übernimm die Bilder. Die Texte werden neu geschrieben.",
+                default => "Übernimm weder Texte noch Bilder – sie dient nur als "
+                    . "Anhaltspunkt, was die Firma tut.",
+            };
+
             $zeilen[] = "Bestehende Website: {$alt}\n"
-                . "Schau sie an und übernimm die Texte, die brauchbar sind. Den\n"
-                . "Aufbau übernimmst du ausdrücklich NICHT – die Seite wird neu\n"
+                . "Schau sie an. {$was}\n"
+                . "Den Aufbau übernimmst du ausdrücklich NICHT – die Seite wird neu\n"
                 . "gedacht, nicht abgemalt.";
         }
 

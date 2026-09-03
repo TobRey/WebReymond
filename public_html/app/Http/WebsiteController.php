@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Http;
 
 use WebAtze\Core\{Audit, Config, Db, Request, Response, Session, View};
-use WebAtze\Domain\{Monitor, Websites};
+use WebAtze\Domain\{Monitor, Visits, Websites};
 
 /**
  * Alle Websites an einem Ort – die selbst gebauten und die
@@ -99,21 +99,26 @@ final class WebsiteController
 
         Audit::log('website.save', (string) $request->input('name', ''), ['id' => $ergebnis['id']], $request);
 
-        // Wer eine Domain angibt, will meistens auch wissen, ob sie
-        // läuft. Steht sie schon unter Aufsicht, passiert nichts.
-        if ($request->bool('ueberwachen')) {
-            $frisch = Websites::find($ergebnis['id']);
-            $adresse = $frisch !== null ? Websites::url($frisch) : '';
+        // Wer eine Domain angibt, bekommt Überwachung und Zählung -
+        // ohne Haken, ohne daran zu denken. Das war vorher eine
+        // Entscheidung, und wer sie vergass, hatte eine Website, die
+        // niemand prüft und die niemand zählt.
+        $frisch = Websites::find($ergebnis['id']);
+        $adresse = $frisch !== null ? Websites::url($frisch) : '';
 
-            if ($adresse !== '') {
-                @set_time_limit(60);
-                Monitor::adopt(
-                    $adresse,
-                    (string) ($frisch['name'] ?? ''),
-                    ((int) ($frisch['customer_id'] ?? 0)) ?: null,
-                    $ergebnis['id']
-                );
-            }
+        if ($adresse !== '') {
+            // Der Zählschlüssel entsteht sofort - der Einzeiler dazu
+            // steht auf der Seite der Website.
+            Visits::key($ergebnis['id']);
+
+            // Steht sie schon unter Aufsicht, passiert hier nichts.
+            @set_time_limit(60);
+            Monitor::adopt(
+                $adresse,
+                (string) ($frisch['name'] ?? ''),
+                ((int) ($frisch['customer_id'] ?? 0)) ?: null,
+                $ergebnis['id']
+            );
         }
 
         Session::flash('success', $ergebnis['meldung']);

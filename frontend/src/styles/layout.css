@@ -197,6 +197,128 @@
 }
 
 /* Körnung: nimmt Farbverläufen das Digitale */
+/* ------------------------------------------------------------------ */
+/* Die Aura: Farbe und Bewegung unterhalb des Auftakts                 */
+/*                                                                     */
+/* Der Hero hat sein WebGL und lebt davon. Alles darunter war einfach  */
+/* schwarz - technisch richtig, aber langweilig, und nach dem starken  */
+/* Auftakt wirkte es wie ein Abbruch.                                  */
+/*                                                                     */
+/* Hier liegen deshalb drei grosse, weiche Farbfelder fest im Fenster. */
+/* Sie treiben langsam von selbst und verschieben sich zusaetzlich mit */
+/* dem Scrollen - dadurch verändert sich der Hintergrund, während man  */
+/* liest, ohne dass etwas blinkt oder ruckt.                           */
+/*                                                                     */
+/* Kein blur()-Filter: Verläufe sind von Haus aus weich, und ein       */
+/* Filter über die ganze Fläche kostet auf einem älteren Telefon       */
+/* spürbar Bildrate. Nur 'transform' und 'opacity' ändern sich, damit  */
+/* der Browser nichts neu berechnen muss.                              */
+/* ------------------------------------------------------------------ */
+
+.wa-aura {
+  position: fixed;
+  inset: 0;
+  z-index: var(--wa-z-canvas);
+  pointer-events: none;
+  overflow: hidden;
+  /* Im Hero tritt sie zurück, damit die 3D-Szene für sich steht;
+     darunter kommt sie ganz. --wa-scrolled läuft über das erste
+     Fenster von 0 auf 1 (gesetzt in scripts/ui.js). */
+  opacity: calc(0.35 + var(--wa-scrolled, 0) * 0.65);
+  transition: opacity 0.6s var(--wa-ease-out);
+}
+
+.wa-aura span {
+  position: absolute;
+  display: block;
+  inline-size: clamp(26rem, 58vw, 58rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  will-change: transform;
+}
+
+/* Oben links: Indigo. Läuft beim Scrollen nach oben aus dem Bild. */
+.wa-aura span:nth-child(1) {
+  inset-block-start: -20vh;
+  inset-inline-start: -14vw;
+  background: var(--wa-glow-indigo);
+  transform: translate3d(0, calc(var(--wa-scroll, 0) * -34vh), 0);
+  animation: wa-aura-a 34s var(--wa-ease-in-out) infinite alternate;
+}
+
+/* Rechts in der Mitte: Türkis. Kommt beim Scrollen herein. */
+.wa-aura span:nth-child(2) {
+  inset-block-start: 30vh;
+  inset-inline-end: -20vw;
+  background: var(--wa-glow-teal);
+  transform: translate3d(0, calc(var(--wa-scroll, 0) * -52vh + 22vh), 0);
+  animation: wa-aura-b 41s var(--wa-ease-in-out) infinite alternate;
+}
+
+/* Unten links: noch einmal Indigo, tiefer und kleiner. */
+.wa-aura span:nth-child(3) {
+  inset-block-end: -26vh;
+  inset-inline-start: 18vw;
+  inline-size: clamp(20rem, 40vw, 40rem);
+  /* Weicher Ausklang als bei den Tokens: Dieses Feld liegt oft frei
+     auf dunklem Grund, und dort waere eine Kante als Scheibe zu sehen. */
+  background: radial-gradient(closest-side, rgb(75 51 200 / 0.30), rgb(75 51 200 / 0.08) 55%, transparent 88%);
+  transform: translate3d(0, calc(var(--wa-scroll, 0) * -28vh + 14vh), 0);
+  animation: wa-aura-c 47s var(--wa-ease-in-out) infinite alternate;
+}
+
+@keyframes wa-aura-a { to { translate: 12vw 6vh; scale: 1.16; } }
+@keyframes wa-aura-b { to { translate: -14vw -5vh; scale: 1.1; } }
+@keyframes wa-aura-c { to { translate: 10vw -7vh; scale: 1.2; } }
+
+/* Ein feines Raster, das dem Schwarz Struktur gibt.
+
+   Es beginnt erst unterhalb des Auftakts: über der 3D-Szene wäre es
+   ein zweites Muster über einem Muster. Deshalb hängt seine Deckkraft
+   an derselben Scrollgrösse wie die Aura. */
+/* Der Name ist mit Bedacht nicht ".wa-grid": Den gibt es schon, als
+   Kartenraster in den Abschnitten. Eine zweite Regel unter demselben
+   Namen hat jede Karte aus ihrem Abschnitt gerissen und im Fenster
+   festgenagelt - eine Zeile CSS, und die halbe Startseite lag
+   uebereinander. */
+.wa-raster {
+  position: fixed;
+  inset: 0;
+  z-index: var(--wa-z-canvas);
+  pointer-events: none;
+  opacity: calc(var(--wa-scrolled, 0) * 0.5);
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.035) 1px, transparent 1px);
+  background-size: 64px 64px;
+  /* Das Raster verschiebt sich langsamer als die Seite. Dadurch
+     entsteht Tiefe, ohne dass etwas offensichtlich "animiert" wirkt. */
+  background-position: 0 calc(var(--wa-scroll-px, 0px) * -0.08);
+  /* Zu den Rändern hin verschwindet es - eine harte Kante quer über
+     den Bildschirm wäre schlimmer als gar kein Raster. */
+  mask-image: radial-gradient(120% 90% at 50% 40%, #000 25%, transparent 78%);
+  -webkit-mask-image: radial-gradient(120% 90% at 50% 40%, #000 25%, transparent 78%);
+}
+
+:root[data-theme='light'] .wa-raster {
+  background-image:
+    linear-gradient(to right, rgb(10 10 31 / 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(10 10 31 / 0.05) 1px, transparent 1px);
+}
+
+/* Wer reduzierte Bewegung eingestellt hat, bekommt die Farbe, aber
+   keine Bewegung. Nicht Schwarz: Die Einstellung heisst "weniger
+   Bewegung", nicht "weniger Gestaltung". */
+@media (prefers-reduced-motion: reduce) {
+  .wa-aura span {
+    animation: none;
+    transform: none;
+  }
+
+  .wa-aura { opacity: 0.7; }
+  .wa-raster { opacity: 0.35; background-position: 0 0; }
+}
+
 .wa-noise {
   position: fixed;
   inset: 0;

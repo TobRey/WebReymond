@@ -18,6 +18,11 @@ use WebAtze\Core\{Assets, Config, Csrf};
 $title = $title ?? 'Verwaltung';
 $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
 
+// Zeichen an den Menuepunkten: eine Zahl je Eintrag, an dem etwas auf
+// mich wartet. Zwanzig Menuepunkte einzeln durchzuklicken tut niemand
+// jeden Tag - eine Supportfrage lag deshalb schon einmal drei Tage.
+$zeichen = \WebAtze\Domain\Notices::all();
+
 // Die Navigation in zwei Bloecken: erst das Tagesgeschaeft mit Kunden,
 // dann das Werkzeug fuer die Websites. Wer morgens hereinkommt, will
 // wissen, was ansteht - nicht, welche Vorlage es gibt.
@@ -41,6 +46,7 @@ $nav = [
     ['/referenzen', 'Referenzen', 'star'],
     ['/zahlen', 'Besucher', 'chart'],
     ['/kosten', 'Kosten', 'coins'],
+    ['/intranet', 'Intranet', 'note'],
     ['/protokoll', 'Protokoll', 'list'],
     ['/einstellungen', 'Einstellungen', 'gear'],
 ];
@@ -93,10 +99,18 @@ $nav = [
                    Es zaehlt der Eintrag selbst oder ein Pfad darunter. */
                 $hier = $currentPath === $href || str_starts_with($currentPath, $href . '/');
             ?>
+            <?php $meldung = $zeichen[$path] ?? null; ?>
             <a class="wa-admin__link" href="<?= e($href) ?>"
                <?= $hier ? 'aria-current="page"' : '' ?>>
                 <?= View_partial('partials/admin-icons', ['name' => $icon]) ?>
                 <span><?= e($label) ?></span>
+                <?php if ($meldung !== null): ?>
+                    <?php /* Die Zahl allein sagt einem Screenreader nichts -
+                             deshalb steht daneben, worum es geht. */ ?>
+                    <span class="wa-admin__zeichen<?= $meldung['dringend'] ? ' wa-admin__zeichen--dringend' : '' ?>"
+                          aria-hidden="true"><?= (int) $meldung['anzahl'] > 99 ? '99+' : (int) $meldung['anzahl'] ?></span>
+                    <span class="wa-sr"><?= (int) $meldung['anzahl'] ?> <?= e($meldung['was']) ?></span>
+                <?php endif; ?>
             </a>
         <?php endforeach; ?>
     </nav>

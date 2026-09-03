@@ -1,108 +1,175 @@
 <?php
 /**
- * Besucherzahlen.
+ * Besucher – die eigene Website und alle Kundenwebsites.
  *
- * Gezählt wird auf dem Server des Kunden, geholt wird einmal am Tag.
- * Hier stehen nur Summen – wer wann da war, verlässt die Website des
- * Kunden nie. Das ist keine Einschränkung, sondern der Grund, warum
- * seine Seite ohne Zustimmungsbanner auskommt.
+ * Gezählt wird zweierlei: die eigene Seite hier auf dem Server, jede
+ * andere über einen Einzeiler, der dort eingebaut wird. Beides speichert
+ * keine IP-Adresse, kein Cookie und keinen dauerhaften
+ * Wiedererkennungswert. Das ist keine Einschränkung, sondern der Grund,
+ * warum weder meine noch eine Kundenwebsite dafür ein Zustimmungsbanner
+ * braucht.
  */
 
-use WebAtze\Core\{Config, Csrf};
+use WebAtze\Core\Config;
 
-/** @var array $rows */
+/** @var array<int, array<string, mixed>> $zeilen */
+/** @var int $tage */
+/** @var array<string, mixed>|null $detail */
 
 $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
 
-$trend = static function (int $now, int $before): string {
-    if ($before === 0) {
-        return '';
+$zahl = static fn (int $n): string => number_format($n, 0, ',', "'");
+
+$trend = static function (int $jetzt, int $davor): string {
+    if ($davor === 0) {
+        return $jetzt > 0 ? '<span class="wa-trend wa-trend--up">neu</span>' : '';
     }
-    $diff = $now - $before;
+
+    $diff = $jetzt - $davor;
+
     if ($diff === 0) {
-        return '<span class="wa-muted">gleich wie in der Vorwoche</span>';
+        return '<span class="wa-muted">gleich</span>';
     }
-    $percent = (int) round($diff / $before * 100);
-    return '<span class="' . ($diff > 0 ? 'wa-trend wa-trend--up' : 'wa-trend wa-trend--down') . '">'
-        . ($diff > 0 ? '+' : '−') . abs($percent) . '&nbsp;% gegenüber der Vorwoche</span>';
+
+    $prozent = (int) round($diff / $davor * 100);
+
+    return '<span class="wa-trend wa-trend--' . ($diff > 0 ? 'up' : 'down') . '">'
+        . ($diff > 0 ? '+' : '−') . abs($prozent) . '&nbsp;%</span>';
 };
+
+// Der grösste Tageswert bestimmt die Höhe der Balken. Ohne ihn wäre
+// jeder Balken gleich hoch und die Grafik sagte nichts.
+$hoechster = static function (array $tage): int {
+    $max = 0;
+    foreach ($tage as $wert) {
+        $max = max($max, (int) $wert);
+    }
+    return max(1, $max);
+};
+
+$gesamt = ['aufrufe' => 0, 'besucher' => 0, 'davor' => 0];
+
+foreach ($zeilen as $zeile) {
+    $gesamt['aufrufe'] += (int) $zeile['aufrufe'];
+    $gesamt['besucher'] += (int) $zeile['besucher'];
+    $gesamt['davor'] += (int) $zeile['davor'];
+}
 ?>
 
 <p class="wa-intro">
-    Eine Woche je Website, jeweils bis gestern. Abgeholt wird einmal am Tag; der
-    laufende Tag ist deshalb noch nicht vollständig.
+    Die letzten <?= (int) $tage ?> Tage, einschliesslich heute. Gezählt wird ohne
+    IP-Adresse, ohne Cookie und ohne dauerhafte Kennung – deshalb kommen diese
+    Websites ohne Zustimmungsbanner aus.
 </p>
 
-<?php if ($rows === []): ?>
+<div class="wa-tiles">
+    <div class="wa-tile">
+        <span class="wa-tile__label">Aufrufe zusammen</span>
+        <strong class="wa-tile__value"><?= $zahl($gesamt['aufrufe']) ?></strong>
+        <span class="wa-tile__note"><?= $trend($gesamt['aufrufe'], $gesamt['davor']) ?></span>
+    </div>
+    <div class="wa-tile">
+        <span class="wa-tile__label">Besucher zusammen</span>
+        <strong class="wa-tile__value"><?= $zahl($gesamt['besucher']) ?></strong>
+    </div>
+    <div class="wa-tile">
+        <span class="wa-tile__label">Websites</span>
+        <strong class="wa-tile__value"><?= count($zeilen) ?></strong>
+    </div>
+</div>
+
+<nav class="wa-filters" aria-label="Zeitraum">
+    <?php foreach ([7 => '7 Tage', 30 => '30 Tage', 90 => '90 Tage'] as $wert => $text): ?>
+        <a class="wa-chip<?= $tage === $wert ? ' is-active' : '' ?>"
+           href="<?= e($base) ?>/zahlen?tage=<?= (int) $wert ?>"><?= e($text) ?></a>
+    <?php endforeach; ?>
+</nav>
+
+<section class="wa-panel">
+    <div class="wa-panel__head">
+        <h2 class="wa-panel__title">Alle Websites</h2>
+    </div>
+
+    <div class="wa-table-wrap">
+        <table class="wa-table">
+            <thead>
+                <tr>
+                    <th>Website</th>
+                    <th>Verlauf</th>
+                    <th class="wa-table__right">Aufrufe</th>
+                    <th class="wa-table__right">Besucher</th>
+                    <th>Zustand</th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($zeilen as $zeile): ?>
+                <?php $max = $hoechster((array) $zeile['tage']); ?>
+                <tr>
+                    <td>
+                        <a href="<?= e($base) ?>/zahlen?tage=<?= (int) $tage ?>&amp;website=<?= (int) $zeile['id'] ?>">
+                            <?= e((string) $zeile['name']) ?>
+                        </a>
+                        <?php if ((string) $zeile['domain'] !== ''): ?>
+                            <span class="wa-hint"><?= e((string) $zeile['domain']) ?></span>
+                        <?php endif; ?>
+                    </td>
+                    <td>
+                        <?php /* Ein Balken je Tag – reines CSS, kein Diagrammwerkzeug. */ ?>
+                        <span class="wa-spark" role="img"
+                              aria-label="Aufrufe der letzten <?= count((array) $zeile['tage']) ?> Tage">
+                            <?php foreach ((array) $zeile['tage'] as $tag => $wert): ?>
+                                <span class="wa-spark__bar"
+                                      style="--h: <?= (int) round((int) $wert / $max * 100) ?>%"
+                                      title="<?= e(date('d.m.', strtotime((string) $tag))) ?>: <?= (int) $wert ?>"></span>
+                            <?php endforeach; ?>
+                        </span>
+                    </td>
+                    <td class="wa-table__right">
+                        <?= $zahl((int) $zeile['aufrufe']) ?>
+                        <span class="wa-hint"><?= $trend((int) $zeile['aufrufe'], (int) $zeile['davor']) ?></span>
+                    </td>
+                    <td class="wa-table__right"><?= $zahl((int) $zeile['besucher']) ?></td>
+                    <td>
+                        <?php if ((bool) $zeile['eigen']): ?>
+                            <span class="wa-badge wa-badge--ok">zählt hier</span>
+                        <?php elseif ((string) $zeile['letzter'] !== ''): ?>
+                            <span class="wa-badge wa-badge--ok">zählt</span>
+                            <span class="wa-hint">
+                                zuletzt <?= e(date('d.m.Y', strtotime((string) $zeile['letzter']))) ?>
+                            </span>
+                        <?php else: ?>
+                            <span class="wa-badge">wartet auf Einbau</span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<?php /* --------------------------------------------- Eine einzelne Website */ ?>
+<?php if ($detail !== null): ?>
     <section class="wa-panel">
         <div class="wa-panel__head">
-            <h2 class="wa-panel__title">Noch keine Website zählt mit</h2>
-        </div>
-        <p class="wa-panel__body">
-            Die Zählung wird im Formular unter „Was zusätzlich mitgeliefert wird"
-            angehakt. Ohne Haken wird sie nicht mitgeliefert – dann gibt es hier
-            auch nichts anzuzeigen.
-        </p>
-    </section>
-<?php endif ?>
-
-<?php foreach ($rows as $entry): ?>
-    <?php $project = $entry['project']; $week = $entry['week']; ?>
-    <section class="wa-panel">
-        <div class="wa-panel__head">
-            <h2 class="wa-panel__title">
-                <a href="<?= e($base) ?>/projekt/<?= (int) $project['id'] ?>">
-                    <?= e((string) $project['name']) ?>
-                </a>
-            </h2>
-            <p class="wa-panel__hint">
-                <?= e(date('d.m.Y', strtotime((string) $week['von']))) ?>
-                bis <?= e(date('d.m.Y', strtotime((string) $week['bis']))) ?>
-                <?php if ((string) $project['report_email'] !== ''): ?>
-                    · Wochenbericht an <?= e((string) $project['report_email']) ?>
-                <?php endif ?>
-            </p>
-            <div class="wa-panel__actions">
-                <form method="post" action="<?= e($base) ?>/zahlen/<?= (int) $project['id'] ?>">
-                    <?= Csrf::field() ?>
-                    <button type="submit" class="wa-btn wa-btn--quiet wa-btn--sm">Jetzt abholen</button>
-                </form>
-            </div>
+            <h2 class="wa-panel__title"><?= e((string) $detail['name']) ?></h2>
+            <p class="wa-panel__hint">Die letzten 30 Tage.</p>
         </div>
 
-        <?php if ((int) $week['aufrufe'] === 0): ?>
-            <p class="wa-panel__body">
-                Für diese Woche liegen keine Zahlen vor. Entweder war noch niemand da,
-                oder die Website ist noch nicht hochgeladen.
-            </p>
-        <?php else: ?>
-            <div class="wa-stats">
-                <div class="wa-stat">
-                    <span class="wa-stat__value"><?= number_format((int) $week['aufrufe'], 0, ',', "'") ?></span>
-                    <span class="wa-stat__label">
-                        Seitenaufrufe<br>
-                        <?= $trend((int) $week['aufrufe'], (int) $week['davor']['aufrufe']) ?>
-                    </span>
-                </div>
-                <div class="wa-stat">
-                    <span class="wa-stat__value"><?= number_format((int) $week['besucher'], 0, ',', "'") ?></span>
-                    <span class="wa-stat__label">
-                        Besucher<br>
-                        <?= $trend((int) $week['besucher'], (int) $week['davor']['besucher']) ?>
-                    </span>
-                </div>
-            </div>
-
+        <div class="wa-grid-2">
             <div class="wa-table-wrap">
                 <table class="wa-table">
                     <thead><tr><th>Meistbesuchte Seiten</th><th class="wa-table__right">Aufrufe</th></tr></thead>
                     <tbody>
-                    <?php foreach ($week['seiten'] as $page): ?>
+                    <?php if ($detail['seiten'] === []): ?>
+                        <tr><td colspan="2" class="wa-muted">Noch nichts gezählt.</td></tr>
+                    <?php endif; ?>
+                    <?php foreach ($detail['seiten'] as $seite): ?>
                         <tr>
-                            <td><code><?= e((string) $page['pfad']) ?></code></td>
-                            <td class="wa-table__right"><?= (int) $page['aufrufe'] ?></td>
+                            <td><code><?= e((string) $seite['pfad']) ?></code></td>
+                            <td class="wa-table__right"><?= $zahl((int) $seite['aufrufe']) ?></td>
                         </tr>
-                    <?php endforeach ?>
+                    <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
@@ -111,15 +178,51 @@ $trend = static function (int $now, int $before): string {
                 <table class="wa-table">
                     <thead><tr><th>Woher die Leute kamen</th><th class="wa-table__right">Aufrufe</th></tr></thead>
                     <tbody>
-                    <?php foreach ($week['herkunft'] as $source): ?>
+                    <?php if ($detail['herkunft'] === []): ?>
+                        <tr><td colspan="2" class="wa-muted">Alle direkt – kein Verweis von aussen.</td></tr>
+                    <?php endif; ?>
+                    <?php foreach ($detail['herkunft'] as $quelle): ?>
                         <tr>
-                            <td><?= e((string) $source['name']) ?></td>
-                            <td class="wa-table__right"><?= (int) $source['aufrufe'] ?></td>
+                            <td><?= e((string) $quelle['name']) ?></td>
+                            <td class="wa-table__right"><?= $zahl((int) $quelle['aufrufe']) ?></td>
                         </tr>
-                    <?php endforeach ?>
+                    <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
-        <?php endif ?>
+        </div>
+
+        <?php if (!empty($detail['abholbar'])): ?>
+            <?php /* Selbst gebaute Websites liefern die Zahlen auf Nachfrage. */ ?>
+            <form method="post" action="<?= e($base) ?>/zahlen/<?= (int) $detail['id'] ?>"
+                  class="wa-form__actions">
+                <?= \WebAtze\Core\Csrf::field() ?>
+                <button type="submit" class="wa-btn wa-btn--quiet wa-btn--sm">Jetzt abholen</button>
+            </form>
+        <?php endif; ?>
+
+        <?php if (!(bool) $detail['eigen']): ?>
+            <?php $einzeiler = \WebAtze\Domain\Visits::snippet((int) $detail['id']); ?>
+            <?php if ($einzeiler !== ''): ?>
+                <h3 class="wa-subtitle">Der Einzeiler für diese Website</h3>
+                <p class="wa-hint">
+                    Vor <code>&lt;/body&gt;</code> einsetzen – in jedem Baukasten, jedem
+                    WordPress-Theme, jeder von Hand gebauten Seite. Danach zählt sie mit.
+                    Er lädt nichts nach, setzt kein Cookie und verlangsamt nichts.
+                </p>
+                <div class="wa-copybox">
+                    <input class="wa-input" type="text" readonly
+                           value="<?= e($einzeiler) ?>"
+                           onclick="this.select()"
+                           aria-label="Zählzeile zum Kopieren">
+                </div>
+            <?php else: ?>
+                <p class="wa-hint">
+                    Für den Einzeiler fehlt die eigene Adresse. Sie steht unter
+                    <a href="<?= e($base) ?>/einstellungen">Einstellungen</a> als
+                    <code>app_url</code>.
+                </p>
+            <?php endif; ?>
+        <?php endif; ?>
     </section>
-<?php endforeach ?>
+<?php endif; ?>

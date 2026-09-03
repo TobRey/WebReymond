@@ -399,25 +399,26 @@ $invalid = static fn (string $key): string
             </p>
         </div>
 
-        <label class="wa-checkbox">
-            <input type="checkbox" name="wants_support" value="1" id="wants_support"<?= $checked('wants_support') ?>>
-            <span>Hilfeseite unter /support</span>
-        </label>
-        <p class="wa-fieldset__hint">
-            Der Kunde stellt dort seine Frage; sie erscheint in deinem Bereich unter
-            „Support". Du antwortest, wenn es dir passt – er sieht die Antwort auf
-            derselben Seite. Es entsteht kein Anspruch auf sofortige Antwort.
-        </p>
-
-        <label class="wa-checkbox">
-            <input type="checkbox" name="wants_docs" value="1" id="wants_docs"<?= $checked('wants_docs') ?>>
-            <span>Anleitung unter /doc schreiben</span>
-        </label>
-        <p class="wa-fieldset__hint">
-            Eine Anleitung in einfacher Sprache: wie der Kunde seine Website
-            ändert, Bilder tauscht, Anfragen liest. Immer unter /doc erreichbar,
-            und aus deinem Bereich mit einem Klick zu öffnen.
-        </p>
+        <?php /*
+            Anleitung und Supportbereich waren einmal zwei Haken. Beide
+            wurden vergessen, und die fertige Website hatte weder /doc
+            noch /support. Sie sind jetzt fest dabei - deshalb steht
+            hier keine Auswahl mehr, sondern eine Zusage.
+        */ ?>
+        <div class="wa-note">
+            <div>
+            <strong>Immer dabei: Anleitung unter <code>/doc</code> und
+            Hilfeseite unter <code>/support</code>.</strong>
+            <p class="wa-fieldset__hint">
+                Die Anleitung erklärt dem Kunden in einfacher Sprache, wie seine
+                Website funktioniert. Über die Hilfeseite schreibt er dir – hinter
+                einem Zugangscode, mit Begrenzung der Versuche, Honigtopf und
+                Zeitfalle. Sie ist nur für den Kunden, nicht für Besucher und nicht
+                für Automaten. Beides steht im erzeugten Auftrag und wird
+                mitgebaut, ohne dass du daran denken musst.
+            </p>
+            </div>
+        </div>
     </fieldset>
 
     <?php /* ================= Domain und Veröffentlichung ================= */ ?>

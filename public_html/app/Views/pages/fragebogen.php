@@ -44,6 +44,10 @@ input, textarea, select {
     width: 100%; padding: .7rem .85rem; font: inherit; color: inherit;
     background: #fff; border: 1px solid #cfd0da; border-radius: .45rem;
 }
+/* Damit die aufgeklappte Liste nicht weiss auf Weiss steht: Das
+   Betriebssystem zeichnet sie, nicht diese Seite. */
+select { color-scheme: light; }
+select option { background: #fff; color: #14142b; }
 input:focus-visible, textarea:focus-visible, select:focus-visible {
     outline: 2px solid #2b1b9e; outline-offset: 1px; border-color: #2b1b9e;
 }
@@ -69,6 +73,8 @@ footer { margin-top: 3rem; color: #7b7c8b; font-size: .9rem; }
     body { background: #101116; color: #e8e8ef; }
     .lead, .hint, footer { color: #9b9caa; }
     input, textarea, select { background: #171822; border-color: #33343f; }
+    select { color-scheme: dark; }
+    select option { background: #171822; color: #e8e8ef; }
     .box { background: #171822; border-color: #2a2b36; }
 }
 </style>

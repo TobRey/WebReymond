@@ -1581,14 +1581,12 @@ test('Der Auftragstext ist vollstaendig', function (): void {
 
     // Angehakte Zusatzwuensche muessen als Auftrag dastehen.
     ok(str_contains($text, 'Besucherzählung gewünscht'), 'Die Besucherzählung ist beauftragt');
-    ok(str_contains($text, 'Anleitung gewünscht'), 'Die Anleitung ebenfalls');
     ok(str_contains($text, 'Bearbeitungsbereich gewünscht'), 'Und der Bearbeitungsbereich');
 
     // Ohne Haken darf nichts davon dastehen.
     $ohne = $brief;
     $ohne['wants_admin'] = false;
     $ohne['wants_stats'] = false;
-    $ohne['wants_docs'] = false;
 
     $schlicht = \WebAtze\Domain\PromptText::build($ohne);
 
@@ -1602,6 +1600,70 @@ test('Der Auftragstext ist vollstaendig', function (): void {
         'Der Dateiname passt zur Firma');
 
     ok(mb_strlen($text) > 3000, 'Der Auftrag hat Substanz (' . mb_strlen($text) . ' Zeichen)');
+});
+
+// ==================================================================
+test('Anleitung und Support stehen in JEDEM Auftrag', function (): void {
+    // Eine fertige Website hatte weder /doc noch /support. Der Grund:
+    // beides hing an einem Haken im Formular, und der Haken wurde
+    // vergessen. Ein Haken, den man vergessen kann, ist keine Zusage -
+    // deshalb gibt es ihn nicht mehr.
+    //
+    // Diese Pruefung haelt das fest. Sie laeuft mit dem duerftigsten
+    // Brief, den es geben kann: Wenn nicht einmal dort beides drinsteht,
+    // steht es nirgends.
+    $karg = ['company_name' => 'Karg AG'];
+
+    $text = \WebAtze\Domain\PromptText::build($karg);
+
+    ok(str_contains($text, '/doc'), 'Die Anleitung ist beauftragt');
+    ok(str_contains($text, '/support'), 'Der Supportbereich ebenfalls');
+    ok(str_contains($text, 'nicht optional'), 'Und zwar ausdruecklich nicht als Kuer');
+
+    // Der Supportbereich ist der einzige Weg, auf dem jemand
+    // unaufgefordert schreibt - und damit das lohnendste Ziel auf der
+    // ganzen Website. Jede einzelne Absicherung muss im Auftrag stehen,
+    // sonst baut sie niemand.
+    foreach ([
+        'Zugangscode' => 'Zugangscode',
+        'Zeitvergleich' => 'hash_equals',
+        'Unterschrift' => 'hash_hmac',
+        'Versuche begrenzen' => 'Versuche begrenzen',
+        'Honigtopf' => 'Honigtopf',
+        'Zeitfalle' => 'Zeitfalle',
+        'Kopfzeilen saeubern' => 'Kopfzeilen',
+        'nicht auffindbar' => 'noindex',
+    ] as $was => $erwartet) {
+        ok(str_contains($text, $erwartet), $was . ' steht im Auftrag');
+    }
+
+    // Auch mit ausdruecklich abgewaehlten Haken bleibt beides stehen -
+    // die Schluessel gibt es noch, ihr Wert darf aber nichts mehr
+    // aendern.
+    $abgewaehlt = ['company_name' => 'Karg AG', 'wants_docs' => false, 'wants_support' => false];
+    $trotzdem = \WebAtze\Domain\PromptText::build($abgewaehlt);
+
+    ok(str_contains($trotzdem, '/doc'), 'Die Anleitung laesst sich nicht abwaehlen');
+    ok(str_contains($trotzdem, '/support'), 'Der Support auch nicht');
+
+    // Und das Formular liefert die beiden Schluessel gar nicht mehr
+    // abgewaehlt aus.
+    $g = \WebAtze\Domain\Brief::validate([
+        'company_name' => 'Karg AG',
+        'industry' => 'Schreinerei',
+        'description' => 'Moebel nach Mass aus einheimischem Holz.',
+        'style' => 'clean', 'tone' => 'sie', 'scope' => 'small', 'locales' => 'de',
+        'color_mode' => 'auto',
+    ]);
+
+    ok($g['ok'], 'Der karge Brief ist gueltig');
+    ok(!empty($g['data']['wants_docs']), 'wants_docs ist gesetzt, auch ohne Haken');
+    ok(!empty($g['data']['wants_support']), 'wants_support ebenfalls');
+
+    // Kein echter Code im Auftragstext: Er wird kopiert und
+    // weitergereicht, und was dort steht, ist unterwegs.
+    ok(str_contains($text, 'BITTE-VOR-DEM-AUSLIEFERN-AENDERN'),
+        'Im Auftrag steht ein Platzhalter statt eines Codes');
 });
 
 // ==================================================================
@@ -3901,6 +3963,261 @@ test('Briefkopf: ein Zierstreifen wird nicht für das Logo gehalten', function (
     \WebAtze\Domain\Letterhead::removeLogo();
     \WebAtze\Domain\Letterhead::removeTemplate();
     delete_tree($ordner);
+});
+
+// ==================================================================
+test('Die Website-Auswahl ist nicht leer', function (): void {
+    // Im Menuepunkt "Vertraege" stand im Auswahlfeld nur "bitte
+    // waehlen" - immer, bei jedem Bestand. Der Grund war eine
+    // Bedingung, die nach Zustaenden fragte, die es bei einer Website
+    // gar nicht gibt: status IN ('done','published'). Eine Website ist
+    // draft, building, ready, live, paused oder failed.
+    //
+    // Diese Pruefung haelt fest, dass die Auswahl nimmt, was da ist -
+    // egal in welchem Zustand und egal woher.
+    $vorher = \WebAtze\Core\Db::value('SELECT COUNT(*) FROM projects', [], 0);
+
+    $ki = \WebAtze\Core\Db::insert('projects', [
+        'slug' => 'auswahl-ki', 'name' => 'Selbst gebaut AG', 'status' => 'building',
+        'source' => 'ki', 'locale' => 'de', 'locales' => 'de', 'domain' => 'gebaut.example',
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $hand = \WebAtze\Core\Db::insert('projects', [
+        'slug' => 'auswahl-hand', 'name' => 'Von Hand AG', 'status' => 'live',
+        'source' => 'hand', 'locale' => 'de', 'locales' => 'de',
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $liste = \WebAtze\Domain\Websites::pickList();
+    $nummern = array_map(static fn (array $z): int => (int) $z['id'], $liste);
+
+    ok(in_array($ki, $nummern, true), 'Eine Website im Bau steht zur Auswahl');
+    ok(in_array($hand, $nummern, true), 'Eine von Hand eingetragene ebenfalls');
+    is($vorher + 2, count($liste), 'Es fehlt keine');
+
+    // Die Beschriftung nennt Kunde und Domain, sonst sehen zwei
+    // gleichnamige Websites gleich aus.
+    $texte = \WebAtze\Domain\Websites::pickLabels();
+
+    ok(str_contains($texte[$ki] ?? '', 'gebaut.example'),
+        'Die Beschriftung nennt die Domain');
+
+    \WebAtze\Core\Db::delete('projects', 'id IN (' . $ki . ', ' . $hand . ')');
+});
+
+// ==================================================================
+test('Besucher werden gezaehlt, aber niemand wiedererkannt', function (): void {
+    $id = \WebAtze\Core\Db::insert('projects', [
+        'slug' => 'zaehlprobe', 'name' => 'Zaehlprobe AG', 'status' => 'live',
+        'source' => 'hand', 'locale' => 'de', 'locales' => 'de', 'domain' => 'zaehlprobe.example',
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $schluessel = \WebAtze\Domain\Visits::key($id);
+
+    ok(preg_match('/^[a-f0-9]{16}$/', $schluessel) === 1, 'Der Zaehlschluessel hat die erwartete Form');
+    is($schluessel, \WebAtze\Domain\Visits::key($id), 'Beim zweiten Fragen derselbe');
+
+    $gefunden = \WebAtze\Domain\Visits::byKey($schluessel);
+    ok($gefunden !== null && (int) $gefunden['id'] === $id, 'Der Schluessel fuehrt zur Website');
+
+    // Ein erfundener oder boesartiger Schluessel fuehrt nirgendwohin.
+    foreach (['', 'kurz', '../../etc/passwd', str_repeat('z', 16), "a' OR '1'='1"] as $unsinn) {
+        ok(\WebAtze\Domain\Visits::byKey($unsinn) === null,
+            'Unsinn fuehrt nirgendwohin: ' . ($unsinn === '' ? '(leer)' : mb_substr($unsinn, 0, 14)));
+    }
+
+    // Dieselbe Person zweimal: zwei Aufrufe, ein Besucher.
+    \WebAtze\Domain\Visits::record($id, '/', '', '203.0.113.7', 'Mozilla/5.0 (Test)');
+    \WebAtze\Domain\Visits::record($id, '/', '', '203.0.113.7', 'Mozilla/5.0 (Test)');
+    \WebAtze\Domain\Visits::record($id, '/', '', '203.0.113.8', 'Mozilla/5.0 (Test)');
+
+    $zahlen = \WebAtze\Domain\Visits::totals($id, 7);
+
+    is(3, $zahlen['aufrufe'], 'Drei Aufrufe');
+    is(2, $zahlen['besucher'], 'Aber nur zwei Besucher');
+
+    // Ein Programm, das sich zu erkennen gibt, wird nicht gezaehlt.
+    ok(!\WebAtze\Domain\Visits::record($id, '/', '', '203.0.113.9', 'Googlebot/2.1'),
+        'Ein Suchmaschinenprogramm zaehlt nicht');
+    is(3, \WebAtze\Domain\Visits::totals($id, 7)['aufrufe'], 'Die Zahl blieb stehen');
+
+    // Der Anfrageteil faellt weg - sonst zaehlt jede Werbekampagne
+    // dieselbe Seite als eigene.
+    \WebAtze\Domain\Visits::record($id, '/kontakt?utm_source=zeitung', '', '203.0.113.10', 'Mozilla/5.0 (Test)');
+    \WebAtze\Domain\Visits::record($id, '/kontakt?utm_source=radio', '', '203.0.113.11', 'Mozilla/5.0 (Test)');
+
+    $pfade = \WebAtze\Core\Db::all('SELECT path FROM visits WHERE project_id = :p AND path LIKE :m',
+        ['p' => $id, 'm' => '/kontakt%']);
+
+    is(1, count($pfade), 'Beide Kampagnen landen auf derselben Seite');
+    is('/kontakt', (string) $pfade[0]['path'], 'Ohne Anfrageteil');
+
+    // Von der Herkunft bleibt der Rechnername - eine Suchanfrage kann
+    // persoenliche Angaben enthalten und hat hier nichts zu suchen.
+    \WebAtze\Domain\Visits::record($id, '/preise', 'https://www.google.com/search?q=etwas+heikles',
+        '203.0.113.12', 'Mozilla/5.0 (Test)');
+
+    $herkunft = (string) \WebAtze\Core\Db::value(
+        'SELECT referrer FROM visits WHERE project_id = :p AND path = :s',
+        ['p' => $id, 's' => '/preise'], ''
+    );
+
+    is('google.com', $herkunft, 'Nur der Rechnername bleibt');
+
+    // Ein Verweis von der Website auf sich selbst ist keine Herkunft.
+    \WebAtze\Domain\Visits::record($id, '/team', 'https://zaehlprobe.example/ueber-uns',
+        '203.0.113.13', 'Mozilla/5.0 (Test)');
+
+    is('', (string) \WebAtze\Core\Db::value('SELECT referrer FROM visits WHERE project_id = :p AND path = :s',
+        ['p' => $id, 's' => '/team'], 'FEHLER'), 'Die eigene Seite zaehlt nicht als Herkunft');
+
+    // Nirgends steht eine IP-Adresse.
+    $alles = json_encode(\WebAtze\Core\Db::all('SELECT * FROM visits WHERE project_id = :p', ['p' => $id]))
+        . json_encode(\WebAtze\Core\Db::all('SELECT * FROM visit_seen WHERE project_id = :p', ['p' => $id]));
+
+    foreach (['203.0.113.7', '203.0.113.12'] as $adresse) {
+        ok(!str_contains($alles, $adresse), 'Keine IP-Adresse gespeichert: ' . $adresse);
+    }
+
+    // Die Uebersicht kennt die eigene Website und die Kundenwebsites.
+    $uebersicht = \WebAtze\Domain\Visits::overview(7);
+
+    ok(count($uebersicht) >= 2, 'Die Uebersicht hat mehr als eine Zeile');
+    ok(!empty($uebersicht[0]['eigen']), 'Die eigene Website steht zuoberst');
+
+    \WebAtze\Core\Db::delete('visits', 'project_id = :p', ['p' => $id]);
+    \WebAtze\Core\Db::delete('visit_seen', 'project_id = :p', ['p' => $id]);
+    \WebAtze\Core\Db::delete('projects', 'id = :id', ['id' => $id]);
+});
+
+// ==================================================================
+test('Das Intranet bleibt intern', function (): void {
+    $ergebnis = \WebAtze\Domain\Notes::save([
+        'title' => 'Merkzettel',
+        'body' => "## Kopf\n\nEin Absatz mit **fett**.\n\n* Punkt eins\n* Punkt zwei",
+        'tag' => 'Merken',
+        'pinned' => true,
+    ]);
+
+    ok($ergebnis['ok'], 'Der Beitrag wurde gespeichert');
+
+    $id = $ergebnis['id'];
+
+    // Ohne Titel geht nichts - sonst findet man ihn nie wieder.
+    ok(!\WebAtze\Domain\Notes::save(['title' => '  '])['ok'], 'Ohne Titel wird nichts angelegt');
+
+    // Der Text wird beim Darstellen vollstaendig maskiert. Das ist keine
+    // Frage der Sorgfalt, sondern der Reihenfolge: erst maskieren, dann
+    // umformen.
+    $boese = \WebAtze\Domain\Notes::save([
+        'title' => 'Angriff',
+        'body' => '<script>alert(1)</script> und <img src=x onerror=alert(2)>',
+    ]);
+
+    $html = \WebAtze\Domain\Notes::render(
+        (string) \WebAtze\Domain\Notes::find($boese['id'])['body']
+    );
+
+    ok(!str_contains($html, '<script'), 'Kein Skript im Ergebnis');
+    ok(!str_contains($html, '<img'), 'Kein Bild-Tag im Ergebnis');
+    ok(str_contains($html, '&lt;script&gt;'), 'Sondern maskierter Text');
+    ok(str_contains($html, '&lt;img src=x onerror=alert(2)&gt;'),
+        'Auch das Ereignis steht nur als Text da');
+
+    // Auszeichnung wird dargestellt.
+    $schoen = \WebAtze\Domain\Notes::render("## Kopf\n\n* eins\n* zwei\n\n| A | B |\n|---|---|\n| 1 | 2 |");
+
+    ok(str_contains($schoen, '<h3>Kopf</h3>'), 'Ueberschriften werden dargestellt');
+    ok(str_contains($schoen, '<li>eins</li>'), 'Aufzaehlungen ebenfalls');
+    ok(str_contains($schoen, '<table'), 'Und Tabellen');
+
+    // Fortsetzungszeilen gehen nicht verloren und verlieren auch keinen
+    // Buchstaben - rtrim mit '</li>' hatte das i von "zwei" gefressen.
+    $fort = \WebAtze\Domain\Notes::render("* Punkt zwei\n  mit Fortsetzung");
+    ok(str_contains($fort, 'Punkt zwei mit Fortsetzung'), 'Fortsetzungszeilen bleiben vollstaendig');
+
+    // Anheften und Suchen.
+    ok(\WebAtze\Domain\Notes::pin($id, false), 'Anheften laesst sich loesen');
+
+    $gefunden = \WebAtze\Domain\Notes::all('merkzettel');
+    ok(count($gefunden) === 1, 'Die Suche findet den Beitrag');
+
+    ok(\WebAtze\Domain\Notes::remove($id), 'Loeschen geht');
+    ok(\WebAtze\Domain\Notes::find($id) === null, 'Und danach ist er weg');
+
+    \WebAtze\Domain\Notes::remove($boese['id']);
+});
+
+// ==================================================================
+test('Die beiden Grundbeitraege stehen von Anfang an da', function (): void {
+    \WebAtze\Core\Settings::put('notes_seeded', '');
+
+    \WebAtze\Core\Db::delete('notes', '1 = 1');
+
+    is(2, \WebAtze\Domain\Notes::seed(), 'Zwei Beitraege werden angelegt');
+    is(0, \WebAtze\Domain\Notes::seed(), 'Beim zweiten Mal keiner mehr');
+
+    $alle = \WebAtze\Domain\Notes::all();
+    $texte = implode("\n", array_map(static fn (array $z): string => $z['title'] . "\n" . $z['body'], $alle));
+
+    ok(str_contains($texte, 'bezahlten Rechnung'), 'Der Ablauf steht da');
+    ok(str_contains($texte, 'Preisorientierung'), 'Die Preisorientierung ebenfalls');
+
+    // Die Zahlen, die er genannt hat.
+    foreach (['120 CHF', '250 CHF', '25 CHF', '50 CHF'] as $betrag) {
+        ok(str_contains($texte, $betrag), 'Der Betrag steht drin: ' . $betrag);
+    }
+
+    ok(str_contains($texte, 'Domain'), 'Und die Regel zur Domain');
+
+    // Und sie stehen NUR hier. Auf der oeffentlichen Website darf nie
+    // eine Zahl stehen - das ist die Zusage, die diesen Beitrag
+    // ueberhaupt noetig macht.
+    foreach (['pages/home', 'pages/services', 'pages/contact'] as $seite) {
+        $datei = APP_DIR . '/Views/' . $seite . '.php';
+        if (!is_file($datei)) { continue; }
+        $inhalt = (string) file_get_contents($datei);
+        ok(!str_contains($inhalt, 'CHF'), 'Kein Betrag auf ' . $seite);
+    }
+
+    \WebAtze\Core\Db::delete('notes', '1 = 1');
+    \WebAtze\Core\Settings::put('notes_seeded', '');
+});
+
+// ==================================================================
+test('Das Menue zeigt an, was auf mich wartet', function (): void {
+    \WebAtze\Core\Db::delete('leads', '1 = 1');
+    \WebAtze\Core\Db::delete('support_threads', '1 = 1');
+
+    is([], \WebAtze\Domain\Notices::all(), 'Ohne Offenes bleibt das Menue ruhig');
+
+    \WebAtze\Core\Db::insert('leads', [
+        'name' => 'Probe', 'email' => 'probe@example.com', 'message' => 'Hallo',
+        'status' => 'new', 'created_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $zeichen = \WebAtze\Domain\Notices::all();
+
+    ok(isset($zeichen['/anfragen']), 'Eine neue Anfrage bekommt ein Zeichen');
+    is(1, $zeichen['/anfragen']['anzahl'], 'Und die richtige Zahl');
+    is('neue Anfrage', $zeichen['/anfragen']['was'], 'Einzahl bei einer');
+    ok(!$zeichen['/anfragen']['dringend'], 'Eine Anfrage ist nicht dringend');
+
+    \WebAtze\Core\Db::insert('support_threads', [
+        'project_id' => 0, 'subject' => 'Frage', 'status' => 'open',
+        'unread_for_owner' => 1, 'unread_for_customer' => 0,
+        'last_message_at' => \WebAtze\Core\Db::now(), 'created_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $zeichen = \WebAtze\Domain\Notices::all();
+
+    ok(($zeichen['/support']['dringend'] ?? false),
+        'Eine unbeantwortete Frage ist dringend');
+
+    \WebAtze\Core\Db::delete('leads', '1 = 1');
+    \WebAtze\Core\Db::delete('support_threads', '1 = 1');
 });
 
 // ==================================================================

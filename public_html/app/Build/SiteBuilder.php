@@ -148,11 +148,14 @@ final class SiteBuilder
             // Ohne die GD-Erweiterung entsteht kein Vorschaubild – dann
             // darf auch keine Seite darauf verweisen.
             'preview_image' => function_exists('imagecreatetruecolor'),
-            // Zählung und Hilfeseite werden im Formular angehakt, nicht
-            // stillschweigend mitgeliefert.
+            // Die Zählung wird angehakt - wer sie nicht will, bekommt
+            // keine einzige Zeile davon.
             'counter' => !empty($brief['wants_stats']),
-            'support' => !empty($brief['wants_support']),
-            'docs' => !empty($brief['wants_docs']),
+            // Hilfeseite und Anleitung dagegen gehören zu jeder Website.
+            // Auch beim Neubauen eines älteren Auftrags, in dem der
+            // Haken noch fehlt - sonst bliebe die Seite ohne /support.
+            'support' => true,
+            'docs' => true,
         ];
     }
 
@@ -415,6 +418,11 @@ final class SiteBuilder
             'assistant_url' => rtrim((string) Config::get('app_url', ''), '/'),
             'assistant_token' => (string) ($this->project['assistant_token'] ?? ''),
             'stats_token' => (string) ($this->project['stats_token'] ?? ''),
+            // Der Zugangscode vor der Hilfeseite. Er wird beim ersten
+            // Bauen erzeugt und steht danach auf der Projektseite - von
+            // dort sage ich ihn dem Kunden.
+            'support_code' => \WebAtze\Domain\Websites::supportCode((int) $this->project['id']),
+            'support_secret' => (string) ($old['support_secret'] ?? random_token(24)),
         ];
 
         write_file_atomic(

@@ -33,12 +33,59 @@ final class Kernel
             Routes::register($router);
 
             $response = $router->dispatch($request) ?? self::notFound($request);
+
+            self::countOwnVisit($request, $response);
         } catch (Throwable $e) {
             $id = Logger::exception($e);
             $response = self::serverError($request, $id);
         }
 
         $response->send();
+    }
+
+    /**
+     * Die eigene Website zaehlt sich selbst.
+     *
+     * Nicht per Skript, sondern hier im Server: Ein Skript laesst sich
+     * blockieren, und dann fehlt die Haelfte. Gezaehlt wird nur, was
+     * wirklich eine oeffentliche Seite ist - nicht die Verwaltung, nicht
+     * die Vorschau einer Kundenwebsite, nicht der Zaehler selbst.
+     *
+     * Was gespeichert wird, steht in Domain\Visits: kein IP, kein
+     * Cookie, kein dauerhafter Wiedererkennungswert.
+     */
+    private static function countOwnVisit(Request $request, Response $response): void
+    {
+        try {
+            if ($request->method() !== 'GET' || $response->getStatus() !== 200) {
+                return;
+            }
+
+            if (!str_starts_with((string) $response->getHeader('Content-Type'), 'text/html')) {
+                return;
+            }
+
+            $pfad = $request->path();
+            $versteckt = '/' . trim((string) Config::get('create_path', 'create'), '/');
+
+            foreach ([$versteckt, '/vorschau', '/assistant', '/api', '/z', '/assets',
+                      '/referenz-ansicht', '/fragebogen', '/kalender'] as $tabu) {
+                if ($pfad === $tabu || str_starts_with($pfad, $tabu . '/')) {
+                    return;
+                }
+            }
+
+            \WebAtze\Domain\Visits::record(
+                \WebAtze\Domain\Visits::OWN,
+                $pfad,
+                $request->header('Referer'),
+                $request->ip(),
+                $request->header('User-Agent')
+            );
+        } catch (Throwable $e) {
+            // Eine Zaehlung darf die Seite niemals kosten.
+            Logger::exception($e);
+        }
     }
 
     private static function shareViewData(Request $request): void

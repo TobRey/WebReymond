@@ -228,11 +228,19 @@ final class Brief
             'admin_username' => $get('admin_username'),
             'admin_password' => (string) ($input['admin_password'] ?? ''),
 
-            // Zusatzdienste – jeder einzeln anzuhaken, nichts stillschweigend
+            // Die Zählung ist wirklich eine Entscheidung: Wer sie nicht
+            // will, bekommt keine einzige Zeile davon.
             'wants_stats' => $bool('wants_stats'),
-            'wants_support' => $bool('wants_support'),
-            'wants_docs' => $bool('wants_docs'),
             'report_email' => $get('report_email'),
+
+            // Anleitung und Supportbereich hingegen gehören zu jeder
+            // Website. Sie hingen früher an einem Haken, und der Haken
+            // wurde vergessen - eine fertige Website ohne /doc und ohne
+            // /support war die Folge. Beides ist Teil der Betreuung,
+            // und die verkaufe ich. Die Schlüssel bleiben erhalten,
+            // weil Ansichten und ältere Aufträge sie lesen.
+            'wants_support' => true,
+            'wants_docs' => true,
 
             // Domain und Veröffentlichung
             'domain' => $get('domain') === '' ? '' : Validator::normaliseDomain($get('domain')),

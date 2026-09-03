@@ -106,14 +106,66 @@ der Kunde bekäme sonst wegen eines Tippfehlers gar keine Website.
   nicht dabei: Läge der Schlüssel in der Sicherung, wäre die
   Verschlüsselung der FTP-Zugänge wertlos.
 * **Hosting-Überwachung** – jede eingetragene Kundenwebsite wird alle
-  paar Minuten aufgerufen. Gemeldet wird beim zweiten Fehlschlag in
-  Folge, nicht beim ersten; ein einzelner Aussetzer ist meistens das
-  Netz. Der Ablauf des Sicherheitszertifikats wird mitgelesen. Eine
-  frisch hochgeladene Website nimmt sich die Aufsicht von selbst vor.
-* **Besucherzahlen** – einmal täglich bei jeder Website abgeholt,
-  montags als Bericht verschickt.
+  15 Minuten aufgerufen. Eine Website mit Domain nimmt sich die Aufsicht
+  von selbst vor: beim Eintragen, und für ältere Einträge in der
+  stündlichen Pflege. Ein Haken dafür war eine Entscheidung, die man
+  vergessen konnte – und wer sie vergass, hatte eine Website, die
+  niemand prüft. Gemeldet wird beim zweiten Fehlschlag in Folge, nicht
+  beim ersten; ein einzelner Aussetzer ist meistens das Netz. Der Ablauf
+  des Sicherheitszertifikats wird mitgelesen.
+* **Besucherzahlen** – die eigene Website zählt sich laufend selbst,
+  Kundenwebsites melden sich über den Einzeiler. Selbst gebaute Seiten
+  mit eigener Zählung werden zusätzlich einmal täglich abgeholt;
+  montags geht der Bericht raus.
 * **Wartungsverträge** – am Fälligkeitstag entsteht ein
   Rechnungsentwurf. Verschickt wird er von Hand.
+
+### Besucher: die eigene Website und alle Kundenwebsites
+
+Unter *Besucher* stehen alle Websites nebeneinander – die eigene und
+jede, die unter *Websites* eingetragen ist. Gezählt wird auf zwei Wegen:
+
+* **Die eigene Website zählt sich selbst**, hier auf dem Server, mitten
+  in der Antwort. Kein Skript, das jemand blockieren kann.
+* **Jede andere Website** bekommt einen Einzeiler, der vor `</body>`
+  eingesetzt wird. Er steht auf der Seite der jeweiligen Website zum
+  Kopieren bereit. Damit lässt sich auch eine WordPress-, Wix- oder von
+  Hand gebaute Seite zählen – nicht nur eine, die WebAtze gebaut hat.
+
+Gespeichert wird **keine IP-Adresse, kein Cookie und kein dauerhafter
+Wiedererkennungswert**. Ob jemand heute schon da war, entscheidet ein
+Streuwert aus IP, Browserkennung und einem Salz, das jede Nacht
+wechselt; das Salz von gestern wird nicht aufbewahrt. Deshalb braucht
+weder die eigene noch eine Kundenwebsite dafür ein Zustimmungsbanner.
+
+Wer sich als Programm zu erkennen gibt, wird nicht gezählt. Vom Verweis
+bleibt nur der Rechnername (`google.com`), nie die Suchanfrage – die
+kann persönliche Angaben enthalten.
+
+### Intranet: was ich mir merken will
+
+Kurze Beiträge hinter der Anmeldung, nur für mich. Kein Kunde sieht sie,
+keine Schnittstelle gibt sie heraus. Deshalb dürfen hier Dinge stehen,
+die auf der Website nichts zu suchen haben – Preise zum Beispiel.
+
+Zwei Beiträge stehen von Anfang an da: der ganze Ablauf vom neuen Kunden
+bis zur bezahlten Rechnung, und die Preisorientierung. Beide lassen sich
+ändern und löschen; gelöscht kommen sie nicht wieder.
+
+Überschriften, Aufzählungen, Tabellen, fett und Code werden dargestellt.
+Der Text wird dabei **zuerst maskiert und erst danach umgeformt** –
+damit kann aus einem Beitrag prinzipiell keine Auszeichnung entstehen,
+die nicht vorgesehen ist.
+
+### Zeichen im Menü
+
+An den Menüpunkten steht eine Zahl, wenn dort etwas auf dich wartet:
+neue Anfragen, unbeantwortete Supportfragen, ausgefallene Websites,
+überfällige Rechnungen, ausgefüllte Fragebögen, Termine heute. Rot heisst
+«da stimmt etwas nicht», ruhig heisst «da liegt etwas».
+
+Zwanzig Menüpunkte einzeln durchzuklicken tut niemand jeden Tag – eine
+Supportfrage lag deshalb schon einmal drei Tage.
 
 ### Websites: gebaute und hinzugefügte
 

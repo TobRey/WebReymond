@@ -141,14 +141,18 @@ $adresse = $website !== null ? Websites::url($website) : '';
         </div>
 
         <?php if ($waechter === null): ?>
+            <?php /*
+                Kein Haken mehr. Wer eine Domain eintraegt, will wissen,
+                ob sie laeuft, und will die Zahlen sehen - beides war
+                vorher eine Entscheidung, und wer sie vergass, hatte
+                eine Website, die niemand prueft und niemand zaehlt.
+            */ ?>
             <div class="wa-field wa-field--wide">
-                <label class="wa-check-line">
-                    <input type="checkbox" name="ueberwachen" value="1"<?= $neu ? ' checked' : '' ?>>
-                    <span>Erreichbarkeit überwachen</span>
-                </label>
                 <p class="wa-hint">
-                    Die Adresse wird dann alle 15 Minuten aufgerufen; bei einem Ausfall kommt
-                    eine E-Mail. Das lässt sich im Wartungscenter jederzeit ändern.
+                    <strong>Automatisch dabei:</strong> Sobald eine Domain eingetragen ist,
+                    wird die Adresse alle 15 Minuten aufgerufen (bei einem Ausfall kommt eine
+                    E-Mail), und die Website erscheint unter «Besucher». Beides lässt sich im
+                    Wartungscenter jederzeit ändern.
                 </p>
             </div>
         <?php endif; ?>
@@ -160,6 +164,32 @@ $adresse = $website !== null ? Websites::url($website) : '';
         </div>
     </form>
 </section>
+
+<?php if (!$neu): ?>
+    <?php $einzeiler = \WebAtze\Domain\Visits::snippet((int) $website['id']); ?>
+    <?php if ($einzeiler !== ''): ?>
+        <section class="wa-panel">
+            <header class="wa-panel__head">
+                <h2 class="wa-panel__title">Besucher zählen</h2>
+            </header>
+
+            <p class="wa-panel__hint">
+                Diese Zeile vor <code>&lt;/body&gt;</code> einsetzen – in WordPress, Wix,
+                Jimdo oder einer von Hand gebauten Seite, das ist gleich. Danach erscheinen
+                die Zahlen unter <a href="<?= e($base) ?>/zahlen">Besucher</a>. Sie lädt
+                nichts nach, setzt kein Cookie und speichert keine IP-Adresse – deshalb
+                braucht die Website dafür kein Zustimmungsbanner.
+            </p>
+
+            <div class="wa-copybox">
+                <input class="wa-input" type="text" readonly
+                       value="<?= e($einzeiler) ?>"
+                       onclick="this.select()"
+                       aria-label="Zählzeile zum Kopieren">
+            </div>
+        </section>
+    <?php endif; ?>
+<?php endif; ?>
 
 <?php if (!$neu): ?>
 <section class="wa-panel wa-panel--danger">

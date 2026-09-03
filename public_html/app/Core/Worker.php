@@ -282,6 +282,15 @@ final class Worker
         // Besucherzahlen holen und montags berichten.
         $visits = VisitCollector::tick();
 
+        // Die Tageskennungen der eigenen Zählung sind nach drei Tagen
+        // wertlos - sie beantworten nur die Frage "heute schon da?".
+        \WebAtze\Domain\Visits::purgeSeen();
+
+        // Jede eingetragene Website gehört überwacht und gezählt. Das
+        // hier fängt die auf, die vor dieser Änderung angelegt wurden,
+        // und die, bei denen die Domain erst später dazukam.
+        $aufgenommen = self::adoptWebsites();
+
         // Sicherungen: einmal am Tag die eigene, dazu je Durchgang eine
         // Kundenseite. Alte Stände werden dabei gleich mit aufgeräumt.
         $backup = Backup::tick();
@@ -298,6 +307,7 @@ final class Worker
             'geraete' => $removedDevices,
             'fragebogen' => $removedForms,
             'besuchszahlen' => $visits['geholt'],
+            'neu_ueberwacht' => $aufgenommen,
             'berichte' => $visits['berichte'],
             'sicherung_eigen' => $backup['eigen'],
             'sicherung_projekt' => $backup['projekt'],
@@ -342,6 +352,59 @@ final class Worker
         }
 
         return $ergebnis['geprueft'];
+    }
+
+    /**
+     * Jede Website mit Domain bekommt Ueberwachung und Zaehlschluessel.
+     *
+     * Frueher musste man beim Eintragen daran denken - und wer nicht
+     * daran dachte, hatte eine Website, die niemand prueft und die
+     * niemand zaehlt. Das ist jetzt keine Entscheidung mehr, sondern
+     * passiert von selbst, hier in der stuendlichen Pflege.
+     *
+     * @return int wie viele neu aufgenommen wurden
+     */
+    public static function adoptWebsites(): int
+    {
+        $neu = 0;
+
+        try {
+            $offen = Db::all(
+                "SELECT id, name, domain FROM projects WHERE domain <> :leer ORDER BY id ASC LIMIT 200",
+                ['leer' => '']
+            );
+
+            foreach ($offen as $website) {
+                // Der Zaehlschluessel entsteht beim ersten Nachfragen.
+                \WebAtze\Domain\Visits::key((int) $website['id']);
+
+                $hat = \WebAtze\Domain\Websites::monitorFor($website) !== null;
+
+                if ($hat) {
+                    continue;
+                }
+
+                $adresse = (string) $website['domain'];
+
+                if (!preg_match('~^https?://~i', $adresse)) {
+                    $adresse = 'https://' . $adresse;
+                }
+
+                \WebAtze\Domain\Monitor::adopt(
+                    $adresse,
+                    (string) $website['name'],
+                    null,
+                    (int) $website['id']
+                );
+
+                $neu++;
+            }
+        } catch (Throwable $e) {
+            // Auch das ist Beiwerk - es darf die Pflege nicht abbrechen.
+            Logger::exception($e);
+        }
+
+        return $neu;
     }
 
     /**

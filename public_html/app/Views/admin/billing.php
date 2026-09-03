@@ -96,7 +96,7 @@ if (($kunde ?? null) !== null) {
         <div class="wa-grid-2">
             <div class="wa-field">
                 <label class="wa-label" for="d-kind">Art</label>
-                <select class="wa-input" id="d-kind" name="kind">
+                <select class="wa-select" id="d-kind" name="kind">
                     <?php foreach (DocumentBuilder::KINDS as $key => $label): ?>
                         <option value="<?= e($key) ?>"<?= $vorgabe === $key ? ' selected' : '' ?>>
                             <?= e($label) ?>
@@ -106,7 +106,7 @@ if (($kunde ?? null) !== null) {
             </div>
             <div class="wa-field">
                 <label class="wa-label" for="d-customer">Kunde</label>
-                <select class="wa-input" id="d-customer" name="customer_id">
+                <select class="wa-select" id="d-customer" name="customer_id">
                     <option value="0">– kein Kunde –</option>
                     <?php foreach ($kunden as $k): ?>
                         <option value="<?= (int) $k['id'] ?>"
@@ -118,7 +118,7 @@ if (($kunde ?? null) !== null) {
             </div>
             <div class="wa-field">
                 <label class="wa-label" for="d-project">Gehört zu</label>
-                <select class="wa-input" id="d-project" name="project_id">
+                <select class="wa-select" id="d-project" name="project_id">
                     <option value="0">– keine Website –</option>
                     <?php foreach ($projects as $project): ?>
                         <option value="<?= (int) $project['id'] ?>"

@@ -43,16 +43,27 @@
   translate: var(--mx, 0) var(--my, 0);
 }
 
-/* Lichtschein, der dem Mauszeiger folgt */
+/* Lichtschein, der dem Mauszeiger folgt.
+ *
+ * inset: 0 ist hier wesentlich. Vorher stand -40% da - das Feld war
+ * also deutlich groesser als die Schaltflaeche. --px kommt aber als
+ * Prozentwert der SCHALTFLAECHE aus dem Skript. 97 % hiessen damit im
+ * groesseren Feld weit rechts ausserhalb, und der Lichtkreis wurde vom
+ * Pillenrand hart abgeschnitten: Es sah aus, als fehle ein Stueck der
+ * Schaltflaeche. Mit inset: 0 meinen beide dasselbe.
+ *
+ * Der Kreis ist ausserdem kleiner und laeuft weicher aus - ein Schein,
+ * keine zweite Flaeche. */
 .wa-btn::before {
   content: '';
   position: absolute;
-  inset: -40%;
+  inset: 0;
   z-index: -1;
   background: radial-gradient(
-    18rem circle at var(--px, 50%) var(--py, 50%),
-    rgb(255 255 255 / 0.28),
-    transparent 45%
+    9rem circle at var(--px, 50%) var(--py, 50%),
+    rgb(255 255 255 / 0.30),
+    rgb(255 255 255 / 0.10) 40%,
+    transparent 75%
   );
   opacity: 0;
   transition: opacity var(--wa-dur-base) var(--wa-ease-out);
@@ -66,6 +77,31 @@
 }
 
 .wa-btn:active { transform: translateY(0) scale(0.985); }
+
+/* Die Schriftfarbe bleibt beim Ueberfahren, wie sie ist.
+ *
+ * Ohne diese Regel gewinnt 'a:hover { color: var(--wa-accent-hover) }'
+ * aus base.css: Eine Schaltflaeche ist meistens ein <a>, und (0,1,1)
+ * schlaegt (0,1,0) von .wa-btn. Auf dem Indigo-Tuerkis-Verlauf wurde
+ * die Schrift dadurch hellviolett auf Violett - kaum zu lesen. Die
+ * doppelte Klasse hebt die Gewichtung ueber a:hover. */
+.wa-btn.wa-btn:hover,
+.wa-btn.wa-btn:focus,
+.wa-btn.wa-btn:focus-visible,
+.wa-btn.wa-btn:active {
+  color: var(--btn-fg);
+}
+
+.wa-btn--primary.wa-btn--primary:hover,
+.wa-btn--primary.wa-btn--primary:focus,
+.wa-btn--primary.wa-btn--primary:focus-visible,
+.wa-btn--primary.wa-btn--primary:active {
+  color: var(--wa-ink-0);
+}
+
+/* --btn-fg ist bei der stillen Schaltflaeche absichtlich anders beim
+   Ueberfahren - die Regel darueber setzt genau diesen Wert ein, die
+   Aenderung bleibt also erhalten. */
 
 .wa-btn--primary {
   --btn-bg: transparent;
@@ -182,29 +218,67 @@
 /* Die aufgeklappte Liste zeichnet das Betriebssystem, nicht die Seite.
    Sie erbt zwar die Schriftfarbe des Feldes -- hier also hell, passend
    zur dunklen Oberfläche -- setzt aber ihren eigenen, meist weissen
-   Hintergrund. Das ergab weisse Schrift auf Weiss: Die Auswahl war
-   erst zu sehen, wenn der Zeiger eine Zeile markierte.
+   Hintergrund. Das ergibt weisse Schrift auf Weiss: Die Auswahl ist
+   erst zu sehen, wenn der Zeiger eine Zeile markiert.
 
-   Zwei Dinge helfen. color-scheme sagt dem System, in welchem Modus es
-   zeichnen soll; die Regeln darunter setzen zusätzlich eine
-   undurchsichtige Fläche für jene Browser, die trotzdem hell bleiben.
-   Wichtig ist "undurchsichtig": --wa-surface-glass ist durchscheinend
-   und läge im Aufklappmenü wieder auf Weiss. */
-.wa-select,
-.wa-input,
-.wa-textarea {
-  color-scheme: inherit;
+   Drei Dinge zusammen verhindern das, und alle drei werden gebraucht:
+
+   1. color-scheme sagt dem System, in welchem Modus es zeichnen soll.
+      Es steht hier ausdrücklich auf 'dark' statt auf 'inherit' -- ein
+      Auswahlfeld in einem Bereich, den ein Kunden-Backend später mit
+      eigenen Farben überschreibt, soll trotzdem dunkel aufklappen.
+   2. Die Regeln für option/optgroup setzen eine *undurchsichtige*
+      Fläche. Wichtig ist "undurchsichtig": --wa-surface-glass ist
+      durchscheinend und läge im Aufklappmenü wieder auf Weiss.
+   3. Beides gilt für jedes select in diesem Bereich, nicht nur für
+      .wa-select. Genau daran ist es vorher gescheitert: Mehrere Felder
+      trugen versehentlich class="wa-input", und für die griff keine
+      einzige dieser Regeln. Über den Elementnamen kann das nicht
+      wieder passieren. */
+select,
+.wa-select {
+  color-scheme: dark;
 }
 
+:root[data-theme='light'] select,
+:root[data-theme='light'] .wa-select {
+  color-scheme: light;
+}
+
+select option,
+select optgroup,
 .wa-select option,
 .wa-select optgroup {
   background-color: var(--wa-surface);
   color: var(--wa-text-strong);
 }
 
+select option:checked,
 .wa-select option:checked {
   background-color: var(--wa-surface-2);
   color: var(--wa-text-strong);
+}
+
+select option:disabled,
+.wa-select option:disabled {
+  color: var(--wa-text-faint);
+}
+
+/* Ein select mit class="wa-input" ist ein Versehen, aber es soll
+   trotzdem aussehen wie ein Auswahlfeld und nicht wie ein Textfeld. */
+select.wa-input {
+  appearance: none;
+  padding-inline-end: 2.6rem;
+  background-image: var(--wa-chevron-url);
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 0.85rem;
+  cursor: pointer;
+}
+
+.wa-input,
+.wa-textarea {
+  color-scheme: inherit;
 }
 
 .wa-input[aria-invalid='true'],
@@ -265,6 +339,7 @@
   color: var(--wa-text-muted);
 }
 
+.wa-note--info    { border-inline-start-color: var(--wa-accent); }
 .wa-note--success { border-inline-start-color: var(--wa-success); }
 .wa-note--warning { border-inline-start-color: var(--wa-warning); }
 .wa-note--danger  { border-inline-start-color: var(--wa-danger); }

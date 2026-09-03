@@ -311,15 +311,42 @@ export function initAnchors() {
 
 export function initReadingProgress() {
   const bar = document.querySelector('[data-reading-progress]');
-  if (!bar) return;
+  const wurzel = document.documentElement;
+
+  let laeuft = false;
 
   const update = () => {
-    const max = document.documentElement.scrollHeight - window.innerHeight;
+    laeuft = false;
+
+    const max = wurzel.scrollHeight - window.innerHeight;
     const value = max > 0 ? clamp(window.scrollY / max, 0, 1) : 0;
-    bar.style.transform = `scaleX(${value.toFixed(4)})`;
+
+    if (bar) bar.style.transform = `scaleX(${value.toFixed(4)})`;
+
+    // Drei Grössen für den Hintergrund (siehe .wa-aura und .wa-grid):
+    //
+    //   --wa-scroll     wie weit die ganze Seite gescrollt ist (0 bis 1)
+    //   --wa-scrolled   wie weit das ERSTE Fenster gescrollt ist (0 bis 1)
+    //   --wa-scroll-px  die Scrollhöhe in Pixeln
+    //
+    // Die mittlere blendet die Aura hinter dem Auftakt ein: Über der
+    // 3D-Szene soll sie zurücktreten, darunter tragen.
+    wurzel.style.setProperty('--wa-scroll', value.toFixed(4));
+    wurzel.style.setProperty(
+      '--wa-scrolled',
+      clamp(window.scrollY / Math.max(1, window.innerHeight * 0.8), 0, 1).toFixed(4)
+    );
+    wurzel.style.setProperty('--wa-scroll-px', `${Math.round(window.scrollY)}px`);
   };
 
-  window.addEventListener('scroll', update, { passive: true });
-  window.addEventListener('resize', update, { passive: true });
+  // Beim Scrollen einmal je Bild rechnen, nicht einmal je Ereignis.
+  const anstossen = () => {
+    if (laeuft) return;
+    laeuft = true;
+    requestAnimationFrame(update);
+  };
+
+  window.addEventListener('scroll', anstossen, { passive: true });
+  window.addEventListener('resize', anstossen, { passive: true });
   update();
 }

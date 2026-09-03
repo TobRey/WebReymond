@@ -16,6 +16,7 @@ final class Routes
     {
         self::publicPages($router);
         self::machineFiles($router);
+        self::counter($router);
         self::api($router);
         self::calendarFeed($router);
         self::preview($router);
@@ -81,6 +82,20 @@ final class Routes
         $router->get('/robots.txt', 'SiteController@robots');
         $router->get('/sitemap.xml', 'SiteController@sitemap');
         $router->get('/manifest.webmanifest', 'SiteController@manifest');
+    }
+
+    // ------------------------------------------------------------------
+    // Der Besucherzähler
+    //
+    // Kurze Adressen mit Absicht: Sie stehen in fremden Websites, und ein
+    // Einzeiler soll ein Einzeiler bleiben. Beide sind offen erreichbar -
+    // mehr als "zähl einen Aufruf" lässt sich damit nicht anstellen.
+    // ------------------------------------------------------------------
+
+    private static function counter(Router $router): void
+    {
+        $router->get('/z.js', 'CounterController@script');
+        $router->get('/z', 'CounterController@hit');
     }
 
     // ------------------------------------------------------------------
@@ -214,6 +229,14 @@ final class Routes
             $r->get($base . '/rechnungen/{id}/pdf', 'BillingController@download');
             $r->get($base . '/vertraege', 'BillingController@contracts');
             $r->get($base . '/zahlen', 'MaintenanceController@visits');
+
+            // ------------------------------------------- Intranet
+            // Nur fuer mich. Die Reihenfolge zaehlt: '/intranet/neu'
+            // muss vor '/intranet/{id}' stehen, sonst gilt "neu" als
+            // Kennung und die Seite waere nie erreichbar.
+            $r->get($base . '/intranet', 'IntranetController@index');
+            $r->get($base . '/intranet/neu', 'IntranetController@blank');
+            $r->get($base . '/intranet/{id}', 'IntranetController@show');
             // Die alten Adressen bleiben gueltig - Lesezeichen sollen nicht
             // ins Leere laufen, nur weil die Seite umgezogen ist.
             $r->get($base . '/sicherungen', 'GuardController@index');
@@ -302,6 +325,10 @@ final class Routes
             $r->post($base . '/rechnungen/{id}/zustand', 'BillingController@setStatus');
             $r->post($base . '/rechnungen/{id}/rechnung', 'BillingController@convert');
             $r->post($base . '/rechnungen/{id}/senden', 'BillingController@send');
+            $r->post($base . '/intranet', 'IntranetController@save');
+            $r->post($base . '/intranet/anheften', 'IntranetController@pin');
+            $r->post($base . '/intranet/loeschen', 'IntranetController@destroy');
+
             $r->post($base . '/vertraege', 'BillingController@createContract');
             $r->post($base . '/vertraege/abrechnen', 'BillingController@billContracts');
             $r->post($base . '/vertraege/{id}/kuendigen', 'BillingController@cancelContract');

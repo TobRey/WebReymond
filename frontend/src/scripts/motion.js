@@ -226,27 +226,69 @@ export function initTilt() {
 
 /* ------------------------------------------------------------------ */
 /* Magnetische Schaltflächen                                           */
+/*                                                                     */
+/* Die Schaltfläche folgt dem Zeiger ein Stück weit. Zwei Dinge waren  */
+/* daran vorher falsch:                                                */
+/*                                                                     */
+/* 1. Die Verschiebung war ein Anteil des Abstands in Pixeln. Bei      */
+/*    einer breiten Schaltfläche sind das am Rand schnell 40 Pixel -   */
+/*    sie schob sich dann über den Rand ihres Behälters und wurde dort */
+/*    abgeschnitten. Jetzt zählt der Abstand relativ (−1 bis 1), und   */
+/*    ein fester Höchstwert in Pixeln begrenzt ihn. Eine grosse und    */
+/*    eine kleine Schaltfläche bewegen sich damit gleich viel.         */
+/*                                                                     */
+/* 2. getBoundingClientRect() liefert die bereits verschobene Lage.    */
+/*    Der gemessene Abstand wurde dadurch von der eigenen Bewegung     */
+/*    verfälscht. Die aktuelle Verschiebung wird jetzt herausgerechnet.*/
 /* ------------------------------------------------------------------ */
+
+/** So weit darf eine Schaltfläche höchstens wandern. */
+const MAGNET_MAX_X = 10;
+const MAGNET_MAX_Y = 6;
+
+const klemme = (wert, grenze) => Math.max(-grenze, Math.min(grenze, wert));
 
 export function initMagnets() {
   if (!env.hasPointer || env.reducedMotion) return;
 
   document.querySelectorAll('[data-magnet]').forEach((el) => {
-    const pull = Number(el.dataset.magnet || 0.32);
+    // Der Wert im Attribut ist die Stärke: 1 heisst "bis zum
+    // Höchstwert", 0.2 heisst "ein Fünftel davon".
+    const pull = Math.min(1, Math.max(0, Number(el.dataset.magnet || 0.32) * 3));
+
+    let mx = 0;
+    let my = 0;
 
     el.addEventListener('pointermove', (event) => {
       const rect = el.getBoundingClientRect();
-      const dx = event.clientX - (rect.left + rect.width / 2);
-      const dy = event.clientY - (rect.top + rect.height / 2);
 
-      el.style.setProperty('--mx', `${(dx * pull).toFixed(1)}px`);
-      el.style.setProperty('--my', `${(dy * pull).toFixed(1)}px`);
-      el.style.setProperty('--px', `${(((event.clientX - rect.left) / rect.width) * 100).toFixed(1)}%`);
-      el.style.setProperty('--py', `${(((event.clientY - rect.top) / rect.height) * 100).toFixed(1)}%`);
+      // Die Mitte, wie sie ohne die eigene Verschiebung läge.
+      const mitteX = rect.left + rect.width / 2 - mx;
+      const mitteY = rect.top + rect.height / 2 - my;
+
+      const anteilX = klemme((event.clientX - mitteX) / (rect.width / 2), 1);
+      const anteilY = klemme((event.clientY - mitteY) / (rect.height / 2), 1);
+
+      mx = anteilX * MAGNET_MAX_X * pull;
+      my = anteilY * MAGNET_MAX_Y * pull;
+
+      el.style.setProperty('--mx', `${mx.toFixed(1)}px`);
+      el.style.setProperty('--my', `${my.toFixed(1)}px`);
+
+      // Der Lichtschein sitzt auf der Fläche selbst, deshalb hier die
+      // tatsächliche Lage - und auf 0 bis 100 begrenzt, damit er nicht
+      // halb daneben liegt.
+      const px = klemme(((event.clientX - rect.left) / rect.width) * 100, 100);
+      const py = klemme(((event.clientY - rect.top) / rect.height) * 100, 100);
+
+      el.style.setProperty('--px', `${Math.max(0, px).toFixed(1)}%`);
+      el.style.setProperty('--py', `${Math.max(0, py).toFixed(1)}%`);
       el.style.transition = 'none';
     });
 
     el.addEventListener('pointerleave', () => {
+      mx = 0;
+      my = 0;
       el.style.transition = '';
       el.style.setProperty('--mx', '0px');
       el.style.setProperty('--my', '0px');

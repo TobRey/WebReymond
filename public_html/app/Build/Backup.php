@@ -226,9 +226,14 @@ final class Backup
     {
         $since = date('Y-m-d H:i:s', time() - 20 * 3600);
 
+        // Nicht auf den Zustand filtern: "done" und "published" gibt es
+        // bei einer Website gar nicht (draft, building, ready, live,
+        // paused, failed). Mit dem alten Filter wurde nie eine
+        // Kundenseite gesichert. Gesichert wird, was auch etwas zu
+        // sichern hat - also alles, was einmal gebaut wurde.
         $project = Db::first(
             "SELECT p.* FROM projects p
-             WHERE p.status IN ('done', 'published')
+             WHERE EXISTS (SELECT 1 FROM builds b2 WHERE b2.project_id = p.id)
                AND NOT EXISTS (
                    SELECT 1 FROM backups b
                    WHERE b.project_id = p.id AND b.created_at > :since

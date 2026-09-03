@@ -947,6 +947,64 @@ final class Schema
                 );
                 CREATE INDEX IF NOT EXISTS idx_secrets_customer ON secrets (customer_id, label);
             ',
+
+            // ------------------------------------------------- Zugangscode /support
+            //
+            // Die Hilfeseite einer Kundenwebsite steht offen im Netz. Wer
+            // sie findet, kann schreiben - und schreibt dann mir. Ein
+            // kurzer Code davor macht daraus wieder einen Draht zwischen
+            // zwei Leuten statt eines Briefkastens fuer jedermann.
+            '038_projects_support_code' => '
+                ALTER TABLE projects ADD COLUMN support_code {string:32} NOT NULL DEFAULT \'\';
+            ',
+
+            // ----------------------------------------------------------- Intranet
+            //
+            // Kurze Notizen, die nur der angemeldete Benutzer sieht. Kein
+            // Kunde, kein Besucher, keine Schnittstelle. Deshalb steht hier
+            // auch keine Sichtbarkeit: Was in dieser Tabelle liegt, ist
+            // ausnahmslos intern.
+            '039_notes' => '
+                CREATE TABLE IF NOT EXISTS notes (
+                    id {id},
+                    title {string:191} NOT NULL,
+                    body {text} NULL,
+                    tag {string:40} NOT NULL DEFAULT \'\',
+                    pinned {bool} NOT NULL DEFAULT 0,
+                    created_at {datetime} NOT NULL,
+                    updated_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_notes_pinned ON notes (pinned, updated_at);
+                CREATE INDEX IF NOT EXISTS idx_notes_tag ON notes (tag);
+            ',
+
+            // ------------------------------------------------------- Besucher
+            //
+            // Zwei Ergaenzungen zur bestehenden Zaehlung:
+            //
+            // "visit_seen" haelt fest, welche Kennung an einem Tag schon
+            // gezaehlt wurde - sonst waeren Aufrufe und Besucher dieselbe
+            // Zahl. Die Kennung entsteht aus einem Salz, das jede Nacht
+            // wechselt; rueckwaerts rechnen kann damit niemand, und am
+            // naechsten Tag ist dieselbe Person eine andere Kennung.
+            //
+            // "visit_key" auf den Projekten ist der Schluessel, mit dem
+            // sich eine Website beim Zaehler ausweist. Er darf oeffentlich
+            // sein: Mehr als "zaehl einen Aufruf" laesst sich damit nicht
+            // anstellen.
+            '040_visits_own' => '
+                CREATE TABLE IF NOT EXISTS visit_seen (
+                    id {id},
+                    project_id {int} NOT NULL,
+                    day {string:10} NOT NULL,
+                    fingerprint {string:64} NOT NULL,
+                    created_at {datetime} NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_visit_seen_key
+                    ON visit_seen (project_id, day, fingerprint);
+                ALTER TABLE projects ADD COLUMN visit_key {string:32} NOT NULL DEFAULT \'\';
+                CREATE INDEX IF NOT EXISTS idx_projects_visit_key ON projects (visit_key);
+            ',
         ];
     }
 

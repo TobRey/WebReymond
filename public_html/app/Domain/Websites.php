@@ -116,6 +116,60 @@ final class Websites
         return self::all('', '', $kunde);
     }
 
+    /**
+     * Kurze Liste fuer Auswahlfelder: id, Name, Kunde.
+     *
+     * Bewusst ohne Filter auf den Zustand. Frueher stand hier
+     * "status IN ('done','published')" - beides Zustaende, die es bei
+     * einer Website gar nicht gibt (sie ist draft, building, ready,
+     * live, paused oder failed). Das Feld blieb deshalb immer leer.
+     * Ein Vertrag oder eine Rechnung kann zu jeder Website gehoeren,
+     * auch zu einer, die gerade erst entsteht.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function pickList(int $limit = 300): array
+    {
+        return Db::all(
+            'SELECT p.id, p.name, p.domain, p.status, p.source, c.name AS kunde
+             FROM projects p
+             LEFT JOIN customers c ON c.id = p.customer_id
+             ORDER BY p.name ASC
+             LIMIT ' . max(1, min(1000, $limit))
+        );
+    }
+
+    /**
+     * Wie pickList, aber als Beschriftung: "Name - Kunde (Domain)".
+     *
+     * @return array<int, string> id => Beschriftung
+     */
+    public static function pickLabels(int $limit = 300): array
+    {
+        $liste = [];
+
+        foreach (self::pickList($limit) as $zeile) {
+            $text = (string) $zeile['name'];
+            $zusatz = [];
+
+            if (trim((string) ($zeile['kunde'] ?? '')) !== '') {
+                $zusatz[] = (string) $zeile['kunde'];
+            }
+
+            if (trim((string) ($zeile['domain'] ?? '')) !== '') {
+                $zusatz[] = (string) $zeile['domain'];
+            }
+
+            if ($zusatz !== []) {
+                $text .= ' · ' . implode(' · ', $zusatz);
+            }
+
+            $liste[(int) $zeile['id']] = $text;
+        }
+
+        return $liste;
+    }
+
     public static function find(int $id): ?array
     {
         return Db::first(
@@ -220,6 +274,65 @@ final class Websites
         Logger::info('Website hinzugefügt.', ['id' => $neu, 'name' => $name]);
 
         return ['ok' => true, 'meldung' => 'Die Website steht in der Liste.', 'id' => $neu];
+    }
+
+    /**
+     * Der Zugangscode fuer die Hilfeseite dieser Website.
+     *
+     * Er wird beim ersten Nachfragen erzeugt und bleibt dann stehen.
+     * Bewusst kurz und aussprechbar: Ich sage ihn dem Kunden am Telefon
+     * oder schreibe ihn auf die Rechnung. Ein 32-stelliger Schluessel
+     * waere sicherer und wuerde nie benutzt.
+     *
+     * Verwechselbare Zeichen fehlen (0/O, 1/I/l), damit niemand raten
+     * muss, ob das eine Null oder ein O ist.
+     */
+    public static function supportCode(int $id): string
+    {
+        $zeile = Db::first('SELECT support_code FROM projects WHERE id = :id', ['id' => $id]);
+
+        if ($zeile === null) {
+            return '';
+        }
+
+        $code = trim((string) ($zeile['support_code'] ?? ''));
+
+        if ($code !== '') {
+            return $code;
+        }
+
+        $code = self::freshCode();
+
+        Db::update('projects', ['support_code' => $code, 'updated_at' => Db::now()],
+            'id = :id', ['id' => $id]);
+
+        return $code;
+    }
+
+    /** Einen neuen Code setzen - falls er einmal in falsche Haende geriet. */
+    public static function newSupportCode(int $id): string
+    {
+        $code = self::freshCode();
+
+        Db::update('projects', ['support_code' => $code, 'updated_at' => Db::now()],
+            'id = :id', ['id' => $id]);
+
+        return $code;
+    }
+
+    private static function freshCode(): string
+    {
+        $zeichen = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+        $code = '';
+
+        for ($i = 0; $i < 10; $i++) {
+            if ($i === 5) {
+                $code .= '-';
+            }
+            $code .= $zeichen[random_int(0, strlen($zeichen) - 1)];
+        }
+
+        return $code;
     }
 
     /** Eine Website einem Kunden zuordnen – oder die Zuordnung lösen. */

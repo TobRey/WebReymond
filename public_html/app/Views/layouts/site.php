@@ -108,6 +108,15 @@ $other = $locale === 'de' ? 'en' : 'de';
         <div class="wa-canvas" data-hero-stage aria-hidden="true"></div>
     <?php endif; ?>
 
+    <?php /*
+        Der Hintergrund unterhalb des Auftakts: drei grosse, weiche
+        Farbfelder und ein feines Raster. Beides liegt fest im Fenster
+        und bewegt sich mit dem Scrollen - sonst waere die Seite nach
+        dem Hero nur noch schwarz.
+    */ ?>
+    <div class="wa-aura" aria-hidden="true"><span></span><span></span><span></span></div>
+    <div class="wa-raster" aria-hidden="true"></div>
+
     <div class="wa-noise" aria-hidden="true"></div>
 
     <?= View_partial('partials/header', ['locale' => $locale, 'currentPath' => $currentPath, 'other' => $other]) ?>

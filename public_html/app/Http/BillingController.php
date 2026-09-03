@@ -6,6 +6,7 @@ namespace WebAtze\Http;
 
 use WebAtze\Build\{Contracts, DocumentBuilder};
 use WebAtze\Core\{Audit, Config, Db, Mailer, Request, Response, Session, Settings, View};
+use WebAtze\Domain\Websites;
 
 /**
  * Offerten, Rechnungen und Wartungsverträge.
@@ -38,7 +39,7 @@ final class BillingController
                 'rows' => DocumentBuilder::listAll($kind),
                 'kind' => $kind,
                 'summary' => DocumentBuilder::summary(),
-                'projects' => Db::all('SELECT id, name FROM projects ORDER BY name ASC LIMIT 300'),
+                'projects' => Websites::pickList(),
                 'kunden' => Db::all('SELECT id, name FROM customers ORDER BY name ASC LIMIT 300'),
                 'kunde' => $kunde,
                 'vorgabe' => $request->query('art') === 'offer' ? 'offer' : '',
@@ -212,10 +213,11 @@ final class BillingController
             'title' => 'Wartungsverträge',
             'content' => View::partial('admin/contracts', [
                 'rows' => Contracts::listAll(),
-                'projects' => Db::all(
-                    "SELECT id, name FROM projects WHERE status IN ('done', 'published')
-                     ORDER BY name ASC LIMIT 300"
-                ),
+                // Ohne Filter auf den Zustand: Frueher stand hier
+                // "status IN ('done','published')". Diese Zustaende gibt
+                // es bei einer Website nicht, das Feld war deshalb immer
+                // leer - auch bei von Hand eingetragenen Seiten.
+                'projects' => Websites::pickList(),
             ]),
         ]))->noCache()->noIndex();
     }

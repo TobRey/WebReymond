@@ -30,17 +30,30 @@ $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
 
         <div class="wa-field">
             <label class="wa-label" for="c-project">Website</label>
-            <select class="wa-input" id="c-project" name="project_id" required>
+            <select class="wa-select" id="c-project" name="project_id" required>
                 <option value="0">– bitte wählen –</option>
                 <?php foreach ($projects as $project): ?>
-                    <option value="<?= (int) $project['id'] ?>"><?= e((string) $project['name']) ?></option>
+                    <option value="<?= (int) $project['id'] ?>">
+                        <?= e((string) $project['name']) ?><?php
+                            $zusatz = array_filter([
+                                trim((string) ($project['kunde'] ?? '')),
+                                trim((string) ($project['domain'] ?? '')),
+                            ]);
+                            echo $zusatz === [] ? '' : ' · ' . e(implode(' · ', $zusatz));
+                        ?>
+                    </option>
                 <?php endforeach; ?>
             </select>
+            <?php if ($projects === []): ?>
+                <span class="wa-label__hint">
+                    Noch keine Website eingetragen. Unter «Websites» hinzufügen oder eine bauen lassen.
+                </span>
+            <?php endif; ?>
         </div>
 
         <div class="wa-field">
             <label class="wa-label" for="c-plan">Umfang</label>
-            <select class="wa-input" id="c-plan" name="plan">
+            <select class="wa-select" id="c-plan" name="plan">
                 <?php foreach (Contracts::PLANS as $key => $label): ?>
                     <option value="<?= e($key) ?>"><?= e($label) ?></option>
                 <?php endforeach; ?>

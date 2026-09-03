@@ -6,6 +6,7 @@ namespace WebAtze\Http;
 
 use WebAtze\Build\VisitCollector;
 use WebAtze\Core\{Db, Request, Response, Session, View};
+use WebAtze\Domain\Visits;
 
 /**
  * Besucherzahlen der Kundenwebsites.
@@ -19,25 +20,41 @@ final class MaintenanceController
 {
     // ------------------------------------------------------ Besucherzahlen
 
+    /**
+     * Die eigene Website und jede Kundenwebsite.
+     *
+     * Frueher stand hier nur, was einen stats_token hatte - also
+     * ausschliesslich selbst gebaute Seiten mit angehakter Zaehlung.
+     * Alles andere fehlte, die eigene Website eingeschlossen. Jetzt
+     * steht hier jede Website, die eingetragen ist; wo noch nichts
+     * ankommt, steht der Einzeiler zum Einbauen daneben.
+     */
     public function visits(Request $request): Response
     {
-        $projects = Db::all(
-            "SELECT * FROM projects WHERE stats_token <> :empty ORDER BY name ASC",
-            ['empty' => '']
-        );
+        $tage = max(7, min(90, (int) $request->query('tage', '7')));
+        $gewaehlt = (int) $request->query('website', '-1');
 
-        $rows = [];
+        $zeilen = Visits::overview($tage);
 
-        foreach ($projects as $project) {
-            $rows[] = [
-                'project' => $project,
-                'week' => VisitCollector::week((int) $project['id']),
-            ];
+        $detail = null;
+
+        if ($gewaehlt >= 0) {
+            foreach ($zeilen as $zeile) {
+                if ((int) $zeile['id'] === $gewaehlt) {
+                    $detail = $zeile + Visits::detail($gewaehlt, max(30, $tage));
+                    break;
+                }
+            }
         }
 
         return Response::html(View::partial('layouts/admin', [
-            'title' => 'Besucherzahlen',
-            'content' => View::partial('admin/visits', ['rows' => $rows]),
+            'title' => 'Besucher',
+            'content' => View::partial('admin/visits', [
+                'zeilen' => $zeilen,
+                'tage' => $tage,
+                'detail' => $detail,
+                'einbau' => Visits::snippet(0) === '' && trim((string) \WebAtze\Core\Config::get('app_url', '')) === '',
+            ]),
         ]))->noCache()->noIndex();
     }
 

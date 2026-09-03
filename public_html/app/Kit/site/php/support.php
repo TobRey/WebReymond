@@ -20,7 +20,21 @@ $endpoint = rtrim((string) ($config['assistant_url'] ?? ''), '/');
 $token = (string) ($config['assistant_token'] ?? '');
 $brand = (string) ($config['brand'] ?? 'Website');
 
+// Der Zugangscode. Ohne ihn zeigt diese Seite kein Formular.
+//
+// Grund: /support ist der einzige Weg, auf dem mich jemand
+// unaufgefordert erreicht - und damit das lohnendste Ziel auf der
+// ganzen Website. Ein Formular, das offen im Netz steht, ist innerhalb
+// von Tagen ein Briefkasten fuer Werbeprogramme. Der Code macht daraus
+// wieder einen Draht zwischen zwei Leuten.
+$code = (string) ($config['support_code'] ?? '');
+$geheimnis = (string) ($config['support_secret'] ?? $token);
+
 const FADEN_COOKIE = 'wa_support';
+const TICKET_COOKIE = 'wa_support_ok';
+const TICKET_TAGE = 180;
+const VERSUCHE_JE_STUNDE = 5;
+const WARTEZEIT = 3;
 
 // ---------------------------------------------------------------- Hilfen
 
@@ -66,15 +80,129 @@ function frage_an_webatze(string $endpoint, string $token, string $pfad, array $
     return is_array($data) ? $data : ['ok' => false, 'error' => 'Unerwartete Antwort.'];
 }
 
+/** Ein Ticket, das sagt: Dieser Browser hat den Code einmal richtig eingegeben. */
+function ticket_bauen(string $geheimnis): string
+{
+    $bis = time() + TICKET_TAGE * 86400;
+
+    return $bis . '.' . hash_hmac('sha256', 'support:' . $bis, $geheimnis);
+}
+
+function ticket_gueltig(string $wert, string $geheimnis): bool
+{
+    if ($geheimnis === '' || !str_contains($wert, '.')) {
+        return false;
+    }
+
+    [$bis, $unterschrift] = explode('.', $wert, 2);
+
+    if (!ctype_digit($bis) || (int) $bis < time()) {
+        return false;
+    }
+
+    return hash_equals(hash_hmac('sha256', 'support:' . $bis, $geheimnis), $unterschrift);
+}
+
+/**
+ * Wie viele Code-Versuche kamen in der letzten Stunde von hier?
+ *
+ * Bewusst eine Datei und kein Cookie: Wer raten will, loescht Cookies.
+ */
+function versuche(string $ordner, bool $zaehlen): int
+{
+    $datei = $ordner . '/versuche.json';
+    $jetzt = time();
+    $kennung = substr(hash('sha256', (string) ($_SERVER['REMOTE_ADDR'] ?? '')), 0, 16);
+
+    @mkdir($ordner, 0775, true);
+
+    $alle = [];
+    if (is_file($datei)) {
+        $alle = json_decode((string) @file_get_contents($datei), true);
+        $alle = is_array($alle) ? $alle : [];
+    }
+
+    $meine = array_values(array_filter(
+        (array) ($alle[$kennung] ?? []),
+        static fn ($t): bool => is_int($t) && $t > $jetzt - 3600
+    ));
+
+    if ($zaehlen) {
+        $meine[] = $jetzt;
+    }
+
+    $alle[$kennung] = $meine;
+
+    // Fremde Eintraege, die abgelaufen sind, gleich mit wegraeumen.
+    foreach ($alle as $k => $liste) {
+        $rest = array_values(array_filter(
+            (array) $liste,
+            static fn ($t): bool => is_int($t) && $t > $jetzt - 3600
+        ));
+        if ($rest === []) {
+            unset($alle[$k]);
+        } else {
+            $alle[$k] = $rest;
+        }
+    }
+
+    @file_put_contents($datei, json_encode($alle), LOCK_EX);
+
+    return count($meine);
+}
+
 // ---------------------------------------------------------------- Ablauf
 
+$ordner = __DIR__ . '/data/support';
 $faden = (int) ($_COOKIE[FADEN_COOKIE] ?? 0);
 $meldung = '';
 $fehler = '';
 
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+// Ist der Code ueberhaupt gesetzt? Solange nicht, bleibt die Seite zu -
+// lieber ein ruhiger Hinweis als ein offener Briefkasten.
+$eingerichtet = $code !== '' && $geheimnis !== '';
+$offen = $eingerichtet && ticket_gueltig((string) ($_COOKIE[TICKET_COOKIE] ?? ''), $geheimnis);
+
+// --- Der Code wird eingegeben
+if ($eingerichtet && !$offen && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST'
+    && isset($_POST['zugangscode'])) {
+    if (versuche($ordner, false) >= VERSUCHE_JE_STUNDE) {
+        $fehler = 'Es wurde zu oft probiert. Bitte in einer Stunde noch einmal.';
+    } else {
+        versuche($ordner, true);
+
+        if (hash_equals($code, trim((string) $_POST['zugangscode']))) {
+            setcookie(TICKET_COOKIE, ticket_bauen($geheimnis), [
+                'expires' => time() + TICKET_TAGE * 86400,
+                'path' => '/',
+                'secure' => ($_SERVER['HTTPS'] ?? '') !== '',
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
+            $offen = true;
+        } else {
+            // Kein Hinweis darauf, was falsch war.
+            $fehler = 'Der Code stimmt nicht.';
+        }
+    }
+}
+
+if ($eingerichtet && $offen && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST'
+    && !isset($_POST['zugangscode'])) {
     // Unsichtbares Feld gegen Automaten – wie beim Kontaktformular.
-    if (trim((string) ($_POST['website'] ?? '')) !== '') {
+    // Dazu die Zeitfalle: Wer in unter drei Sekunden abschickt, hat das
+    // Formular nicht gelesen. In beiden Faellen freundlich bestaetigen
+    // und nichts versenden - ein Automat soll nicht lernen, woran er
+    // gescheitert ist.
+    $stempel = (string) ($_POST['zeit'] ?? '');
+    $zuSchnell = !str_contains($stempel, '.')
+        || !hash_equals(
+            hash_hmac('sha256', explode('.', $stempel, 2)[0], $geheimnis),
+            explode('.', $stempel, 2)[1] ?? ''
+        )
+        || time() - (int) explode('.', $stempel, 2)[0] < WARTEZEIT;
+
+    if (trim((string) ($_POST['website'] ?? '')) !== '' || $zuSchnell) {
         $meldung = 'Danke, die Frage ist angekommen.';
     } else {
         $antwort = frage_an_webatze($endpoint, $token, '/assistant/v1/support', [
@@ -109,7 +237,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 $verlauf = [];
 $betreff = '';
 
-if ($faden > 0) {
+if ($offen && $faden > 0) {
     $antwort = frage_an_webatze($endpoint, $token, '/assistant/v1/support/faden', ['thread' => $faden]);
 
     if (!empty($antwort['ok'])) {
@@ -186,11 +314,46 @@ header('X-Content-Type-Options: nosniff');
         </div>
     <?php endif; ?>
 
+    <?php if (!$eingerichtet): ?>
+
+        <div class="sup__hinweis">
+            Der Supportbereich ist noch nicht eingerichtet. Bitte wenden Sie sich
+            vorerst direkt an Ihre Ansprechperson.
+        </div>
+
+    <?php elseif (!$offen): ?>
+
+        <?php /*
+            Ohne Code kein Formular. Diese Seite steht offen im Netz, und
+            ein offenes Formular ist innerhalb von Tagen ein Briefkasten
+            fuer Werbeprogramme. Den Code bekommen Sie von uns.
+        */ ?>
+        <form class="s-contact__form" method="post" action="">
+            <div class="s-field">
+                <label for="sup-code">Zugangscode</label>
+                <input type="text" id="sup-code" name="zugangscode" required
+                       maxlength="64" autocomplete="off" spellcheck="false"
+                       autocapitalize="off">
+            </div>
+            <button type="submit" class="s-btn s-btn--primary">Weiter</button>
+        </form>
+
+        <p class="sup__lede" style="margin-top:2rem">
+            Den Code haben Sie bei der Übergabe Ihrer Website bekommen. Er ist
+            nicht abgelaufen – fragen Sie einfach nach, wenn er nicht mehr da ist.
+        </p>
+
+    <?php else: ?>
+
     <form class="s-contact__form" method="post" action="">
         <div class="s-hp" aria-hidden="true">
             <label for="sup-site">Website</label>
             <input type="text" id="sup-site" name="website" tabindex="-1" autocomplete="off">
         </div>
+
+        <?php /* Zeitfalle: unterschrieben, damit sie sich nicht faelschen laesst. */ ?>
+        <input type="hidden" name="zeit"
+               value="<?= e(time() . '.' . hash_hmac('sha256', (string) time(), $geheimnis)) ?>">
 
         <?php if ($faden === 0): ?>
             <div class="s-field">
@@ -221,6 +384,8 @@ header('X-Content-Type-Options: nosniff');
 
         <button type="submit" class="s-btn s-btn--primary">Abschicken</button>
     </form>
+
+    <?php endif; ?>
 
     <p class="sup__lede" style="margin-top:2.5rem">
         <a href="../index.html">Zurück zur Website</a>

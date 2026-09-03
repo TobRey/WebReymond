@@ -195,6 +195,44 @@
 
 .wa-admin__link[aria-current='page'] svg { color: var(--wa-secondary); }
 
+/* ================================================================== */
+/* Das Zeichen am Menuepunkt                                           */
+/*                                                                     */
+/* Zwei Stufen, mehr nicht: ruhig fuer "da liegt etwas", rot fuer      */
+/* "da stimmt etwas nicht" (Ausfall, unbeantwortete Frage, ueberfaellige */
+/* Rechnung). Drei Stufen waeren eine Farbe zuviel - dann heisst keine  */
+/* mehr etwas.                                                         */
+/* ================================================================== */
+
+.wa-admin__zeichen {
+  margin-inline-start: auto;
+  min-inline-size: 1.35rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--wa-radius-full);
+  background: var(--wa-accent-quiet);
+  color: var(--wa-text-strong);
+  font-size: 0.72rem;
+  font-weight: var(--wa-weight-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.wa-admin__zeichen--dringend {
+  background: color-mix(in srgb, var(--wa-danger) 22%, transparent);
+  color: var(--wa-danger);
+}
+
+/* Auf dem aktiven Eintrag steht das Zeichen auf hellerem Grund - es
+   braucht dort etwas mehr Kontrast, sonst verschwindet es darin. */
+.wa-admin__link[aria-current='page'] .wa-admin__zeichen {
+  background: var(--wa-surface-2);
+}
+
+.wa-admin__link[aria-current='page'] .wa-admin__zeichen--dringend {
+  background: color-mix(in srgb, var(--wa-danger) 28%, var(--wa-surface-2));
+}
+
 .wa-admin__main { display: flex; flex-direction: column; min-inline-size: 0; }
 
 .wa-admin__topbar {
@@ -1007,6 +1045,105 @@ fieldset.wa-fieldset { border: 1px solid var(--wa-border); margin: 0; }
   margin-block-end: var(--wa-space-5);
 }
 
+/* Eine Filterleiste als Formular: Suchfeld, Auswahl, Schaltflaeche in
+   einer Zeile - und auf schmalen Geraeten untereinander.
+
+   Das war lange eine Klasse ohne einzige Regel: Die Felder standen
+   deshalb in voller Breite untereinander, jedes so breit wie die Tafel.
+   Aufgefallen ist es nie, weil es nicht kaputt aussah - nur falsch. */
+.wa-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wa-space-2);
+  inline-size: 100%;
+}
+
+.wa-filter .wa-input,
+.wa-filter .wa-select {
+  inline-size: auto;
+  flex: 1 1 11rem;
+  min-inline-size: 0;
+  max-inline-size: 22rem;
+}
+
+.wa-filter .wa-btn { flex: 0 0 auto; }
+
+/* ================================================================== */
+/* Intranet                                                            */
+/* ================================================================== */
+
+/* Ein gesetzter Text im Verwaltungsbereich.
+ *
+ * Es gibt eine .wa-prose in sections.css, aber die gehoert zur
+ * oeffentlichen Website und wird hier nicht geladen - der Adminbereich
+ * zieht nur tokens, base und controls. Ohne diese Regeln stand jede
+ * Ueberschrift direkt auf dem Absatz darueber. */
+.wa-prose {
+  max-width: 52rem;
+  color: var(--wa-text);
+  line-height: 1.7;
+}
+
+.wa-prose > * { margin-block: 0; }
+.wa-prose > * + * { margin-block-start: var(--wa-space-4); }
+
+.wa-prose h2,
+.wa-prose h3,
+.wa-prose h4 {
+  color: var(--wa-text-strong);
+  line-height: 1.3;
+}
+
+/* Vor einer Ueberschrift mehr Luft als danach: Sie gehoert zu dem, was
+   unter ihr steht, nicht zu dem darueber. */
+.wa-prose > h2 + *,
+.wa-prose > h3 + *,
+.wa-prose > h4 + * { margin-block-start: var(--wa-space-3); }
+
+.wa-prose > * + h2,
+.wa-prose > * + h3,
+.wa-prose > * + h4 { margin-block-start: var(--wa-space-6); }
+
+.wa-prose h2 { font-size: var(--wa-text-xl); }
+.wa-prose h3 { font-size: var(--wa-text-lg); }
+.wa-prose h4 { font-size: var(--wa-text-base); }
+
+.wa-prose ul,
+.wa-prose ol {
+  padding-inline-start: 1.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.wa-prose li { color: var(--wa-text-muted); }
+.wa-prose li strong { color: var(--wa-text); }
+
+.wa-prose code {
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  background: var(--wa-bg-soft);
+  font-family: var(--wa-font-mono, monospace);
+  font-size: 0.92em;
+}
+
+.wa-prose strong { color: var(--wa-text-strong); }
+
+.wa-prose .wa-table-wrap { margin-block: var(--wa-space-4); }
+
+.wa-note-card__anriss {
+  margin: 0;
+  color: var(--wa-text-muted);
+  line-height: 1.65;
+}
+
+/* Angeheftet: ein schmaler Streifen an der Seite, mehr nicht. Ein
+   ganzer Farbblock waere lauter als der Inhalt. */
+.wa-note-card.is-pinned {
+  border-inline-start: 3px solid var(--wa-accent);
+}
+
 .wa-chip {
   display: inline-flex;
   align-items: center;
@@ -1415,6 +1552,52 @@ fieldset.wa-fieldset { border: 1px solid var(--wa-border); margin: 0; }
   color: var(--wa-text-strong);
   font-variant-numeric: tabular-nums;
 }
+
+.wa-tile__note {
+  font-size: var(--wa-text-sm);
+  color: var(--wa-text-muted);
+}
+
+/* Eine Zwischenueberschrift innerhalb einer Tafel. */
+.wa-subtitle {
+  margin: var(--wa-space-5) 0 var(--wa-space-2);
+  font-size: var(--wa-text-base);
+  font-weight: var(--wa-weight-semibold);
+  color: var(--wa-text-strong);
+}
+
+/* ================================================================== */
+/* Winziges Balkenbild in einer Tabellenzeile                          */
+/*                                                                     */
+/* Bewusst reines CSS: Ein Diagrammwerkzeug waere hier ein halbes      */
+/* Megabyte JavaScript fuer sieben Balken. Die Hoehe kommt als         */
+/* Variable aus der Ansicht, das ist alles.                            */
+/* ================================================================== */
+
+.wa-spark {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  block-size: 2.2rem;
+  min-inline-size: 5rem;
+}
+
+.wa-spark__bar {
+  flex: 1 1 auto;
+  min-inline-size: 3px;
+  /* Auch ein Tag ohne Aufrufe bekommt einen Strich - sonst sieht die
+     Reihe aus, als fehlten Tage. */
+  block-size: max(2px, var(--h, 0%));
+  border-radius: 1px;
+  background: linear-gradient(
+    to top,
+    var(--wa-accent),
+    color-mix(in srgb, var(--wa-teal-400, #17c8c8) 70%, var(--wa-accent))
+  );
+  opacity: 0.85;
+}
+
+.wa-spark__bar[style*='--h: 0%'] { background: var(--wa-border-strong); opacity: 0.6; }
 
 /* Tabellen muessen auf dem Handy scrollen duerfen, nicht die Seite. */
 .wa-table-wrap {

@@ -317,22 +317,32 @@ $latestBuild = $builds[0] ?? null;
                         ? ' mit Wochenbericht an ' . e((string) $project['report_email'])
                         : ' ohne Wochenbericht');
             }
-            if (!empty($brief['wants_support'])) {
-                $extras[] = $siteUrl !== ''
-                    ? 'Hilfeseite unter <a href="' . e($siteUrl) . '/support" rel="noopener noreferrer" target="_blank">'
-                      . e($domain) . '/support</a>'
-                    : 'Hilfeseite unter /support';
-            }
-            if (!empty($brief['wants_docs'])) {
-                $extras[] = $siteUrl !== ''
-                    ? 'Anleitung unter <a href="' . e($siteUrl) . '/doc" rel="noopener noreferrer" target="_blank">'
-                      . e($domain) . '/doc</a>'
-                    : 'Anleitung unter /doc';
-            }
-            echo $extras === []
-                ? 'nichts – weder Zählung noch Hilfeseite noch Anleitung'
-                : implode('<br>', $extras);
+            // Hilfeseite und Anleitung gehoeren zu jeder Website - sie
+            // hingen frueher an einem Haken, und der wurde vergessen.
+            $extras[] = $siteUrl !== ''
+                ? 'Hilfeseite unter <a href="' . e($siteUrl) . '/support" rel="noopener noreferrer" target="_blank">'
+                  . e($domain) . '/support</a>'
+                : 'Hilfeseite unter /support';
+            $extras[] = $siteUrl !== ''
+                ? 'Anleitung unter <a href="' . e($siteUrl) . '/doc" rel="noopener noreferrer" target="_blank">'
+                  . e($domain) . '/doc</a>'
+                : 'Anleitung unter /doc';
+            echo implode('<br>', $extras);
             ?>
+        </dd>
+
+        <?php /*
+            Der Code vor der Hilfeseite. Er steht hier und nirgends
+            sonst - der Kunde bekommt ihn von mir, nicht aus einer
+            E-Mail, die durch drei Postfaecher gelaufen ist.
+        */ ?>
+        <dt>Zugangscode für /support</dt>
+        <dd>
+            <code><?= e(\WebAtze\Domain\Websites::supportCode((int) $project['id'])) ?></code>
+            <p class="wa-hint">
+                Nur der Kunde bekommt ihn. Ohne ihn zeigt die Hilfeseite kein Formular –
+                so kann kein Werbeprogramm darüber schreiben.
+            </p>
         </dd>
     </dl>
 </section>
