@@ -2039,3 +2039,45 @@ tr.is-inactive { opacity: 0.55; }
   .wa-agenda__item { grid-template-columns: 1fr; gap: 0.15rem; }
   .wa-lead__decide form { grid-template-columns: 1fr; }
 }
+
+/* ================================================================== */
+/* Websiteliste                                                        */
+/* ================================================================== */
+
+/* Name, Adresse und Bauart gehören untereinander. Nebeneinander liest
+   sich «Holzbau Steiner AG steiner.ch WordPress» wie ein einziger,
+   sinnloser Name. */
+.wa-sitecell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.wa-sitecell .wa-table__quiet { display: block; }
+
+/* Die Zuordnung direkt in der Zeile: Auswahl und Knopf nebeneinander,
+   aber ohne die Spalte zu sprengen. */
+.wa-assign {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wa-space-2);
+  align-items: center;
+}
+
+.wa-assign .wa-select { flex: 1 1 8rem; min-inline-size: 0; }
+
+/* Ein kurzer Hinweis unter einem Feld. Er erklärt, was das Feld tut -
+   und darf dabei nicht so laut sein wie der Inhalt selbst. */
+.wa-hint {
+  margin: 0.35rem 0 0;
+  color: var(--wa-text-muted);
+  font-size: var(--wa-text-sm);
+  line-height: 1.55;
+}
+
+.wa-hint code {
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.25rem;
+  background: var(--wa-bg-soft);
+  font-size: 0.95em;
+}

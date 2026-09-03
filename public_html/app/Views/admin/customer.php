@@ -8,7 +8,7 @@
  */
 
 use WebAtze\Core\{Config, Csrf};
-use WebAtze\Domain\Billing;
+use WebAtze\Domain\{Billing, Websites};
 
 /** @var array<string, mixed> $kunde */
 /** @var array<string, mixed> $stand */
@@ -18,6 +18,7 @@ use WebAtze\Domain\Billing;
 /** @var array<int, array<string, mixed>> $mitarbeitende */
 /** @var array<int, array<string, mixed>> $projekte */
 /** @var array<int, array<string, mixed>> $rechnungen */
+/** @var array<int, array<string, mixed>> $websites */
 
 $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
 $id = (int) ($kunde['id'] ?? 0);
@@ -274,6 +275,70 @@ $neu = $id === 0;
         </form>
     </details>
 </section>
+
+<?php if (!$neu): ?>
+<section class="wa-panel">
+    <header class="wa-panel__head">
+        <h2 class="wa-panel__title">Websites</h2>
+        <div class="wa-panel__actions">
+            <a class="wa-btn wa-btn--small" href="<?= e($base) ?>/websites?kunde=<?= $id ?>">Alle ansehen</a>
+            <a class="wa-btn wa-btn--small" href="<?= e($base) ?>/websites/neu">Website hinzufügen</a>
+        </div>
+    </header>
+
+    <?php if (($websites ?? []) === []): ?>
+        <p class="wa-empty">
+            Diesem Kunden ist noch keine Website zugeordnet.
+            <a href="<?= e($base) ?>/websites/neu">Eine bestehende hinzufügen</a>
+            oder <a href="<?= e($base) ?>/neu">eine neue bauen lassen</a>.
+        </p>
+    <?php else: ?>
+        <div class="wa-table-wrap">
+            <table class="wa-table">
+                <tbody>
+                    <?php foreach ($websites as $w): ?>
+                        <?php
+                            $handgemacht = (string) $w['source'] === 'hand';
+                            $ziel = $base . ($handgemacht ? '/websites/' : '/projekt/') . (int) $w['id'];
+                            $waechter = $w['waechter'] ?? null;
+                        ?>
+                        <tr>
+                            <td class="wa-sitecell">
+                                <a class="wa-table__main" href="<?= e($ziel) ?>"><?= e((string) $w['name']) ?></a>
+                                <?php if ((string) $w['domain'] !== ''): ?>
+                                    <span class="wa-table__quiet"><?= e((string) $w['domain']) ?></span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="wa-table__quiet">
+                                <?= $handgemacht ? 'Hinzugefügt' : 'Von WebAtze' ?>
+                                <?php if ((string) $w['platform'] !== ''): ?>
+                                    · <?= e((string) $w['platform']) ?>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ($waechter === null): ?>
+                                    <span class="wa-table__quiet">nicht überwacht</span>
+                                <?php elseif ((int) $waechter['last_ok'] === 1): ?>
+                                    <span class="wa-badge wa-badge--ok">läuft</span>
+                                <?php else: ?>
+                                    <span class="wa-badge wa-badge--bad">Ausfall</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="wa-table__actions">
+                                <?php if ((string) $w['domain'] !== ''): ?>
+                                    <a class="wa-btn wa-btn--small"
+                                       href="<?= e(Websites::url($w)) ?>"
+                                       target="_blank" rel="noopener noreferrer">Öffnen</a>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</section>
+<?php endif; ?>
 
 <section class="wa-panel">
     <header class="wa-panel__head">

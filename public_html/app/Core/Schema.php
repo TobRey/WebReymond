@@ -904,6 +904,27 @@ final class Schema
                 CREATE INDEX IF NOT EXISTS idx_checks_monitor ON monitor_checks (monitor_id, checked_at);
             ',
 
+            // ------------------------------------------------- Websites
+            //
+            // Bis hierher kannte WebAtze nur selbst gebaute Websites. Ein
+            // Kunde hat aber oft schon eine - von jemand anderem gemacht,
+            // in WordPress, irgendwo gehostet. Auch die will betreut,
+            // ueberwacht und in Rechnung gestellt werden.
+            //
+            // Deshalb dieselbe Tabelle statt einer zweiten: Wer alle
+            // seine Websites sehen will, will eine Liste und nicht zwei.
+            // 'source' sagt, woher sie kommt.
+            '037_projects_customer' => '
+                ALTER TABLE projects ADD COLUMN customer_id {int} NULL;
+                ALTER TABLE projects ADD COLUMN source {string:10} NOT NULL DEFAULT \'ki\';
+                ALTER TABLE projects ADD COLUMN platform {string:60} NOT NULL DEFAULT \'\';
+                ALTER TABLE projects ADD COLUMN hosting {string:120} NOT NULL DEFAULT \'\';
+                ALTER TABLE projects ADD COLUMN notes {text} NULL;
+                ALTER TABLE projects ADD COLUMN live_since {string:10} NOT NULL DEFAULT \'\';
+                CREATE INDEX IF NOT EXISTS idx_projects_customer ON projects (customer_id);
+                CREATE INDEX IF NOT EXISTS idx_projects_source ON projects (source);
+            ',
+
             // -------------------------------------------------- Der Tresor
             //
             // Das Passwort steht ausschliesslich verschlusselt in

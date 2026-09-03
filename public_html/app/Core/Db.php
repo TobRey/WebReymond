@@ -104,9 +104,88 @@ final class Db
 
     public static function run(string $sql, array $params = []): PDOStatement
     {
+        [$sql, $params] = self::spreadRepeated($sql, $params);
+
         $statement = self::connection()->prepare($sql);
         $statement->execute(self::normalise($params));
         return $statement;
+    }
+
+    /**
+     * Denselben Platzhalter mehrfach benutzen dürfen.
+     *
+     * SQLite erlaubt «:leer» zweimal in einer Abfrage, MySQL mit echten
+     * Prepared Statements nicht. Das hat hier schon zweimal zu einer
+     * Fehlerseite geführt, die nur auf dem Hosting auftrat - und beim
+     * zweiten Mal in einer Abfrage, die aus Stücken zusammengesetzt war
+     * und deshalb keiner Suche im Quelltext auffiel.
+     *
+     * Statt die Regel zu wiederholen, wird sie hier aufgehoben: Wiederholte
+     * Platzhalter bekommen eigene Namen und denselben Wert. Damit
+     * verhalten sich beide Datenbanken gleich, und niemand muss mehr
+     * daran denken.
+     *
+     * Zeichenketten im SQL bleiben unangetastet - ein Doppelpunkt in
+     * einem Text ist kein Platzhalter.
+     *
+     * @param array<string, mixed> $params
+     * @return array{0:string, 1:array<string, mixed>}
+     */
+    private static function spreadRepeated(string $sql, array $params): array
+    {
+        if ($params === [] || !str_contains($sql, ':')) {
+            return [$sql, $params];
+        }
+
+        $gesehen = [];
+        $neu = '';
+        $inText = false;
+        $laenge = strlen($sql);
+
+        for ($i = 0; $i < $laenge; $i++) {
+            $zeichen = $sql[$i];
+
+            if ($zeichen === "'") {
+                // Zwei Anführungszeichen hintereinander sind eines im Text.
+                $inText = !$inText || ($sql[$i + 1] ?? '') !== "'";
+                $neu .= $zeichen;
+                continue;
+            }
+
+            if ($inText || $zeichen !== ':') {
+                $neu .= $zeichen;
+                continue;
+            }
+
+            // Ein Platzhalter beginnt: Namen einlesen.
+            $name = '';
+            $j = $i + 1;
+
+            while ($j < $laenge && preg_match('/[A-Za-z0-9_]/', $sql[$j]) === 1) {
+                $name .= $sql[$j];
+                $j++;
+            }
+
+            if ($name === '' || !array_key_exists($name, $params)) {
+                $neu .= $zeichen;
+                continue;
+            }
+
+            $wievielt = ($gesehen[$name] ?? 0) + 1;
+            $gesehen[$name] = $wievielt;
+
+            if ($wievielt === 1) {
+                $neu .= ':' . $name;
+            } else {
+                $ersatz = $name . '__' . $wievielt;
+                $params[$ersatz] = $params[$name];
+                $neu .= ':' . $ersatz;
+            }
+
+            $i = $j - 1;
+        }
+
+        return [$neu, $params];
     }
 
     /** Eine Zeile oder null. */

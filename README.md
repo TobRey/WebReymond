@@ -115,6 +115,23 @@ der Kunde bekäme sonst wegen eines Tippfehlers gar keine Website.
 * **Wartungsverträge** – am Fälligkeitstag entsteht ein
   Rechnungsentwurf. Verschickt wird er von Hand.
 
+### Websites: gebaute und hinzugefügte
+
+Unter *Websites* stehen alle an einem Ort. Eine, die WebAtze gebaut hat,
+führt auf ihre Projektseite mit Auftrag, Abschnitten und Paketen. Eine,
+die schon da war – von jemand anderem gemacht, in WordPress, irgendwo
+gehostet –, wird über *Website hinzufügen* eingetragen: Name, Adresse,
+Kunde, womit sie gebaut ist, wo sie liegt, Notizen.
+
+Beide liegen in derselben Tabelle, unterschieden durch `source`
+(`ki` oder `hand`). Der Grund ist einfach: Wer wissen will, was er
+betreut, will eine Liste und nicht zwei, die er im Kopf zusammenfügt.
+Eine hinzugefügte Website wird genauso einem Kunden zugeordnet,
+überwacht und abgerechnet – sie hat nur keinen Aufbau.
+
+Beim Eintragen lässt sich die Erreichbarkeitsüberwachung gleich
+mitanschalten; sie erscheint dann im Wartungscenter.
+
 ### Der Betrieb rundherum
 
 Neben dem Bauen von Websites verwaltet `/create` auch das Geschäft:
@@ -310,8 +327,12 @@ Hosting in einer Fehlerseite, die hier niemand sieht:
   dieser Stelle. Eine Prüfung im Testlauf geht alle Spaltennamen gegen
   die Liste der reservierten Wörter durch.
 * **Ein benannter Platzhalter, zweimal in derselben Abfrage.** MySQL
-  erlaubt das mit echten Prepared Statements nicht. Auch dafür gibt es
-  eine Prüfung.
+  erlaubt das mit echten Prepared Statements nicht. Eine statische Suche
+  im Quelltext half hier nur halb: Beim zweiten Vorfall war die Abfrage
+  aus Stücken zusammengesetzt, und dann sieht die Suche nur Fragmente.
+  Deshalb löst `Db::run()` wiederholte Platzhalter inzwischen selbst auf
+  – sie bekommen eigene Namen und denselben Wert. Damit ist die Regel
+  aufgehoben statt bloss überwacht.
 * **`UPDATE` zählt anders.** MySQL meldet nur die Zeilen, in denen sich
   wirklich etwas geändert hat, SQLite die getroffenen. Wer denselben Wert
   noch einmal setzt, bekäme auf dem Hosting «nichts passiert». Deshalb

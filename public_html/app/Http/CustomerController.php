@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Http;
 
 use WebAtze\Core\{Audit, Config, Db, Request, Response, Session, View};
-use WebAtze\Domain\Billing;
+use WebAtze\Domain\{Billing, Websites};
 
 /**
  * Die Kundenverwaltung.
@@ -80,6 +80,7 @@ final class CustomerController
                 'termine' => [],
                 'mitarbeitende' => Db::all('SELECT * FROM employees WHERE active = 1 ORDER BY name'),
                 'projekte' => Db::all('SELECT id, name FROM projects ORDER BY name'),
+                'websites' => [],
                 'rechnungen' => [],
             ]),
         ]))->noCache()->noIndex();
@@ -115,6 +116,7 @@ final class CustomerController
                 ),
                 'mitarbeitende' => Db::all('SELECT * FROM employees WHERE active = 1 ORDER BY name'),
                 'projekte' => Db::all('SELECT id, name FROM projects ORDER BY name'),
+                'websites' => Websites::forCustomer($id),
                 'rechnungen' => Db::all(
                     'SELECT * FROM documents WHERE customer_id = :c ORDER BY id DESC LIMIT 30',
                     ['c' => $id]

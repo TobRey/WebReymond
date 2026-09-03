@@ -173,6 +173,11 @@ final class Routes
             // Übersicht
             $r->get($base . '/start', 'DashboardController@index');
 
+            // Websites: die selbst gebauten und die hinzugefügten
+            $r->get($base . '/websites', 'WebsiteController@index');
+            $r->get($base . '/websites/neu', 'WebsiteController@blank');
+            $r->get($base . '/websites/{id}', 'WebsiteController@show');
+
             // Neues Projekt
             $r->get($base . '/neu', 'CreateController@form');
             $r->get($base . '/projekt/{id}', 'ProjectController@show');
@@ -220,6 +225,10 @@ final class Routes
 
         $router->group(['auth', 'csrf'], static function (Router $r) use ($base): void {
             $r->post($base . '/neu', 'CreateController@submit');
+
+            $r->post($base . '/websites', 'WebsiteController@save');
+            $r->post($base . '/websites/zuordnen', 'WebsiteController@assign');
+            $r->post($base . '/websites/entfernen', 'WebsiteController@destroy');
 
             $r->post($base . '/projekt/{id}/bauen', 'ProjectController@rebuild');
             $r->post($base . '/projekt/{id}/loeschen', 'ProjectController@destroy');

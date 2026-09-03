@@ -3198,40 +3198,58 @@ test('Datenbank: keine reservierten Wörter als Spaltennamen', function (): void
     is([], $schlecht, 'Keine davon ist in MySQL reserviert');
 });
 
-test('Datenbank: kein Platzhalter wird in einer Abfrage zweimal benutzt', function (): void {
-    // MySQL mit echten Prepared Statements erlaubt einen benannten
-    // Platzhalter nur einmal je Abfrage. SQLite nimmt es an - und dann
-    // fällt es erst auf dem Hosting auf, mit einem Fünfhunderter.
-    $schlecht = [];
-    $abfragen = 0;
+test('Datenbank: derselbe Platzhalter darf mehrfach vorkommen', function (): void {
+    // SQLite erlaubt das, MySQL mit echten Prepared Statements nicht.
+    // Zweimal hat das zu einer Fehlerseite geführt, die es nur auf dem
+    // Hosting gab - beim zweiten Mal in einer Abfrage, die aus Stücken
+    // zusammengesetzt war und deshalb keiner Suche im Quelltext auffiel.
+    //
+    // Db::run() löst wiederholte Platzhalter jetzt selbst auf. Damit
+    // verhalten sich beide Datenbanken gleich.
+    \WebAtze\Core\Db::run('DELETE FROM prospects');
 
-    $dateien = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator(dirname(__DIR__) . '/public_html/app')
-    );
-
-    foreach ($dateien as $datei) {
-        if ($datei->getExtension() !== 'php' || str_contains($datei->getPathname(), '/vendor/')) {
-            continue;
-        }
-
-        $inhalt = (string) file_get_contents($datei->getPathname());
-
-        if (preg_match_all('/([\'"])((?:SELECT|UPDATE|DELETE|INSERT)\b.*?)\1/is', $inhalt, $m) !== false) {
-            foreach ($m[2] ?? [] as $sql) {
-                $abfragen++;
-                preg_match_all('/:([a-z_][a-z0-9_]*)/i', $sql, $p);
-
-                foreach (array_count_values($p[1]) as $name => $wie) {
-                    if ($wie > 1) {
-                        $schlecht[] = basename($datei->getPathname()) . ': :' . $name;
-                    }
-                }
-            }
-        }
+    foreach ([['Alpha AG', 'Bern'], ['Beta GmbH', 'Alpha'], ['Gamma AG', 'Chur']] as [$name, $ort]) {
+        \WebAtze\Core\Db::insert('prospects', [
+            'name' => $name, 'place' => $ort, 'status' => 'neu', 'score' => 0,
+            'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+        ]);
     }
 
-    ok($abfragen > 100, $abfragen . ' Abfragen durchgesehen');
-    is([], $schlecht, 'Jeder Platzhalter kommt nur einmal vor');
+    $treffer = \WebAtze\Core\Db::all(
+        'SELECT name FROM prospects WHERE LOWER(name) LIKE :s OR LOWER(place) LIKE :s ORDER BY name',
+        ['s' => '%alpha%']
+    );
+
+    is(2, count($treffer), 'Zweimal derselbe Platzhalter findet beides');
+    is('Alpha AG', $treffer[0]['name'] ?? '', 'Der Treffer im Namen');
+    is('Beta GmbH', $treffer[1]['name'] ?? '', 'Und der im Ort');
+
+    // Auch dreimal, und gemischt mit anderen Platzhaltern.
+    $drei = \WebAtze\Core\Db::all(
+        'SELECT name FROM prospects
+         WHERE (LOWER(name) LIKE :s OR LOWER(place) LIKE :s OR LOWER(status) LIKE :s)
+           AND score = :punkte',
+        ['s' => '%alpha%', 'punkte' => 0]
+    );
+    is(2, count($drei), 'Dreimal geht ebenso, neben anderen Platzhaltern');
+
+    // Ein Doppelpunkt in einem Text ist kein Platzhalter.
+    \WebAtze\Core\Db::insert('prospects', [
+        'name' => 'Mit:Doppelpunkt', 'place' => '', 'status' => 'neu', 'score' => 5,
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    is(
+        1,
+        (int) \WebAtze\Core\Db::value(
+            "SELECT COUNT(*) FROM prospects WHERE name = 'Mit:Doppelpunkt' AND score = :p",
+            ['p' => 5],
+            0
+        ),
+        'Ein Doppelpunkt im Text bleibt Text'
+    );
+
+    \WebAtze\Core\Db::run('DELETE FROM prospects');
 });
 
 test('Datenbank: ein Update bringt die Tabellen selbst auf Stand', function (): void {
@@ -3607,6 +3625,143 @@ test('Tresorseite: die Fehlerdiagnose reisst die Seite nicht mit', function (): 
     }
 
     ok(is_bool($lage['reparierbar']), 'reparierbar ist ein Ja-oder-Nein');
+});
+
+
+// ==================================================================
+// Websites: selbst gebaute und hinzugefügte
+// ==================================================================
+
+test('Websites: eine bestehende lässt sich eintragen und zuordnen', function (): void {
+    \WebAtze\Core\Db::run('DELETE FROM projects');
+    \WebAtze\Core\Db::run("DELETE FROM customers WHERE name = 'Kunde mit Website'");
+
+    $kunde = (int) \WebAtze\Core\Db::insert('customers', [
+        'name' => 'Kunde mit Website', 'contact_name' => '', 'email' => '', 'phone' => '',
+        'website' => '', 'status' => 'aktiv', 'notes' => '',
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $ergebnis = \WebAtze\Domain\Websites::save([
+        'name' => 'Holzbau Steiner AG',
+        'domain' => 'https://steiner.ch/',
+        'platform' => 'WordPress',
+        'hosting' => 'Hostpoint',
+        'status' => 'live',
+    ]);
+
+    ok($ergebnis['ok'], 'Die Website wird angelegt');
+
+    $zeile = \WebAtze\Domain\Websites::find($ergebnis['id']);
+
+    is('hand', $zeile['source'] ?? '', 'Sie ist als hinzugefügt vermerkt');
+    is('steiner.ch', $zeile['domain'] ?? '', 'Die Adresse wird auf den nackten Namen gekürzt');
+    is('https://steiner.ch', \WebAtze\Domain\Websites::url($zeile), 'Zum Anklicken wieder mit https');
+    isnt('', (string) ($zeile['slug'] ?? ''), 'Ein Kurzname entsteht mit');
+
+    // Ohne Namen geht es nicht.
+    ok(!\WebAtze\Domain\Websites::save(['name' => ''])['ok'], 'Ohne Namen wird nichts angelegt');
+
+    // Zwei gleichnamige bekommen verschiedene Kurznamen - der ist eindeutig.
+    $zweite = \WebAtze\Domain\Websites::save(['name' => 'Holzbau Steiner AG']);
+    isnt(
+        $zeile['slug'] ?? '',
+        (\WebAtze\Domain\Websites::find($zweite['id'])['slug'] ?? ''),
+        'Der zweite Kurzname ist ein anderer'
+    );
+
+    // Zuordnen und wieder lösen.
+    ok(\WebAtze\Domain\Websites::assign($ergebnis['id'], $kunde), 'Zuordnen klappt');
+    is(
+        $kunde,
+        (int) (\WebAtze\Domain\Websites::find($ergebnis['id'])['customer_id'] ?? 0),
+        'Der Kunde steht dran'
+    );
+    is(1, count(\WebAtze\Domain\Websites::forCustomer($kunde)), 'Und taucht bei ihm auf');
+
+    \WebAtze\Domain\Websites::assign($ergebnis['id'], 0);
+    is(
+        null,
+        \WebAtze\Domain\Websites::find($ergebnis['id'])['customer_id'],
+        'Lösen geht auch'
+    );
+});
+
+test('Websites: die Liste zeigt beide Herkünfte', function (): void {
+    \WebAtze\Core\Db::run('DELETE FROM projects');
+
+    // Eine selbst gebaute, wie sie der Generator anlegt.
+    \WebAtze\Core\Db::insert('projects', [
+        'slug' => 'gebaut', 'name' => 'Selbst gebaut', 'status' => 'live',
+        'brief' => '{}', 'domain' => 'gebaut.ch',
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    \WebAtze\Domain\Websites::save(['name' => 'Hinzugefügt', 'domain' => 'dazu.ch']);
+
+    is(2, count(\WebAtze\Domain\Websites::all()), 'Beide stehen in einer Liste');
+
+    // Der Generator setzt 'source' nicht - der Vorgabewert muss stimmen,
+    // sonst fiele jedes bestehende Projekt aus der Liste.
+    $gebaut = \WebAtze\Core\Db::first("SELECT * FROM projects WHERE slug = 'gebaut'");
+    is('ki', $gebaut['source'] ?? '', 'Bestehende Projekte gelten als selbst gebaut');
+
+    is(1, count(\WebAtze\Domain\Websites::all('', 'hand')), 'Nach Herkunft filtern geht');
+    is(1, count(\WebAtze\Domain\Websites::all('', 'ki')), 'In beide Richtungen');
+    is(1, count(\WebAtze\Domain\Websites::all('dazu')), 'Und suchen auch');
+
+    $zahlen = \WebAtze\Domain\Websites::counts();
+    is(2, $zahlen['gesamt'], 'Die Zählung stimmt');
+    is(1, $zahlen['gebaut'], 'Selbst gebaut: eine');
+    is(1, $zahlen['hinzugefuegt'], 'Hinzugefügt: eine');
+});
+
+test('Websites: nur hinzugefügte lassen sich hier entfernen', function (): void {
+    \WebAtze\Core\Db::run('DELETE FROM projects');
+
+    // An einer selbst gebauten hängen Abschnitte, Pakete und Vorschauen.
+    // Die wird auf ihrer Projektseite gelöscht, wo alles mit aufgeräumt
+    // wird - hier wäre sie nur halb weg.
+    $gebaut = (int) \WebAtze\Core\Db::insert('projects', [
+        'slug' => 'nicht-loeschen', 'name' => 'Selbst gebaut', 'status' => 'live',
+        'brief' => '{}', 'created_at' => \WebAtze\Core\Db::now(),
+        'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    ok(!\WebAtze\Domain\Websites::remove($gebaut), 'Eine selbst gebaute bleibt stehen');
+    isnt(null, \WebAtze\Domain\Websites::find($gebaut), 'Sie ist noch da');
+
+    $hand = \WebAtze\Domain\Websites::save(['name' => 'Weg damit'])['id'];
+    ok(\WebAtze\Domain\Websites::remove($hand), 'Eine hinzugefügte lässt sich entfernen');
+    is(null, \WebAtze\Domain\Websites::find($hand), 'Und ist weg');
+
+    ok(!\WebAtze\Domain\Websites::remove(999999), 'Was es nicht gibt, geht auch nicht');
+});
+
+test('Websites: die Überwachung wird zugeordnet gefunden', function (): void {
+    \WebAtze\Core\Db::run('DELETE FROM projects');
+    \WebAtze\Core\Db::run('DELETE FROM monitors');
+
+    $id = \WebAtze\Domain\Websites::save(['name' => 'Mit Wächter', 'domain' => 'www.beispiel.ch'])['id'];
+
+    is(null, \WebAtze\Domain\Websites::monitorFor((array) \WebAtze\Domain\Websites::find($id)),
+        'Ohne Überwachung gibt es nichts');
+
+    // Über die Verknüpfung.
+    $m = (int) \WebAtze\Core\Db::insert('monitors', [
+        'project_id' => $id, 'label' => 'x', 'url' => 'https://beispiel.ch', 'expect' => '',
+        'active' => 1, 'every_minutes' => 15, 'last_ok' => 1, 'last_code' => 200, 'last_ms' => 90,
+        'last_note' => '', 'fail_streak' => 0, 'cert_expires_on' => '', 'notify' => 1,
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+    is($m, (int) (\WebAtze\Domain\Websites::monitorFor((array) \WebAtze\Domain\Websites::find($id))['id'] ?? 0),
+        'Die verknüpfte Überwachung wird gefunden');
+
+    // Und auch ohne Verknüpfung, über dieselbe Domain: Wer dieselbe
+    // Adresse überwacht, meint dieselbe Website.
+    \WebAtze\Core\Db::update('monitors', ['project_id' => null], 'id = :id', ['id' => $m]);
+    is($m, (int) (\WebAtze\Domain\Websites::monitorFor((array) \WebAtze\Domain\Websites::find($id))['id'] ?? 0),
+        'Auch über die Domain');
 });
 
 // ==================================================================

@@ -31,6 +31,7 @@ $nav = [
     ['/rechnungen', 'Rechnungen', 'tag'],
     ['/vertraege', 'Verträge', 'refresh'],
     ['/mitarbeitende', 'Mitarbeitende', 'user'],
+    ['/websites', 'Websites', 'globe'],
     ['/neu', 'Neue Website', 'plus'],
     ['/wartung', 'Wartungscenter', 'shield'],
     ['/passwoerter', 'Passwörter', 'key'],

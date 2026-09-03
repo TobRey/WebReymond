@@ -276,14 +276,18 @@ $tagName = static fn (string $tag): string =>
 
 <section class="wa-panel">
     <div class="wa-panel__head">
-        <h2 class="wa-panel__title">Projekte</h2>
-        <a class="wa-btn wa-btn--primary wa-btn--sm" href="<?= e($base) ?>/neu">Neue Website</a>
+        <h2 class="wa-panel__title">Websites</h2>
+        <div class="wa-panel__actions">
+            <a class="wa-btn wa-btn--sm" href="<?= e($base) ?>/websites">Alle ansehen</a>
+            <a class="wa-btn wa-btn--primary wa-btn--sm" href="<?= e($base) ?>/neu">Neue Website</a>
+        </div>
     </div>
 
     <?php if ($projects === []): ?>
         <div class="wa-empty-state">
-            <p>Noch keine Projekte.</p>
+            <p>Noch keine Website.</p>
             <a class="wa-btn wa-btn--primary" href="<?= e($base) ?>/neu">Erste Website erstellen</a>
+            <a class="wa-btn" href="<?= e($base) ?>/websites/neu">Bestehende hinzufügen</a>
         </div>
     <?php else: ?>
         <div class="wa-table-wrap">
