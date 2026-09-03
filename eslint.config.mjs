@@ -15,6 +15,9 @@ export default tseslint.config(
       '**/src/generated/**',
       '**/*.config.js',
       '**/*.config.mjs',
+      // Die Website unter sites/ ist von Hand geschrieben (ES5, ohne Module)
+      // und wird nicht mitgebaut – sie hat ihre eigenen Regeln.
+      'sites/**',
     ],
   },
   js.configs.recommended,

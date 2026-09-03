@@ -1,0 +1,118 @@
+# =============================================================================
+# reymond-tobias.ch — Servereinstellungen (Apache)
+# Liegt das Hosting auf nginx, siehe Hinweise in /doc.html.
+# =============================================================================
+
+# Verzeichnisse nicht auflisten
+Options -Indexes
+
+# Standarddatei
+DirectoryIndex index.php index.html
+
+# Zeichensatz
+AddDefaultCharset UTF-8
+
+# -----------------------------------------------------------------------------
+# Fehlerseiten
+# -----------------------------------------------------------------------------
+ErrorDocument 404 /404.html
+ErrorDocument 403 /404.html
+
+# -----------------------------------------------------------------------------
+# Verschlüsselung erzwingen und auf die Adresse ohne www umleiten
+# -----------------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # http -> https
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+  # www.reymond-tobias.ch -> reymond-tobias.ch
+  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  RewriteRule ^ https://%1%{REQUEST_URI} [R=301,L]
+
+  # Die Startseite hiess frueher index.html und wird jetzt von PHP erzeugt.
+  # Alte Verweise landen weiterhin an der richtigen Stelle.
+  RewriteRule ^index\.html$ / [R=301,L]
+  RewriteRule ^en/index\.html$ /en/ [R=301,L]
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# Schutzköpfe
+# -----------------------------------------------------------------------------
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=(), usb=()"
+  Header always set Cross-Origin-Opener-Policy "same-origin"
+
+  # Es wird nichts von fremden Servern geladen – entsprechend eng.
+  # 'unsafe-inline' bei style-src betrifft ausschliesslich style="…"-Angaben
+  # im HTML, keine eingebetteten <style>-Blöcke.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
+
+  # Nur setzen, wenn die Seite dauerhaft über HTTPS läuft
+  <If "%{HTTPS} == 'on'">
+    Header always set Strict-Transport-Security "max-age=15768000"
+  </If>
+
+  # Der Bearbeitungsbereich gehört nicht in einen Zwischenspeicher.
+  # Die oeffentlichen Seiten werden ebenfalls von PHP erzeugt – fuer sie gilt
+  # weiter die Regel weiter unten (text/html: kein Zwischenspeicher).
+  <If "%{REQUEST_URI} =~ m#^/(admin|api)/#">
+    Header always set Cache-Control "no-store, no-cache, must-revalidate"
+  </If>
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# Private Ordner abriegeln
+# -----------------------------------------------------------------------------
+<IfModule mod_authz_core.c>
+  <FilesMatch "^\.">
+    Require all denied
+  </FilesMatch>
+</IfModule>
+<IfModule !mod_authz_core.c>
+  <FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+  </FilesMatch>
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# Zwischenspeicher im Browser
+# -----------------------------------------------------------------------------
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault                          "access plus 1 hour"
+  ExpiresByType text/html                 "access plus 0 seconds"
+  ExpiresByType text/css                  "access plus 7 days"
+  ExpiresByType application/javascript    "access plus 7 days"
+  ExpiresByType application/json          "access plus 0 seconds"
+  ExpiresByType image/svg+xml             "access plus 30 days"
+  ExpiresByType image/png                 "access plus 30 days"
+  ExpiresByType image/jpeg                "access plus 30 days"
+  ExpiresByType image/webp                "access plus 30 days"
+  ExpiresByType image/x-icon              "access plus 30 days"
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# Komprimierung
+# -----------------------------------------------------------------------------
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml
+  AddOutputFilterByType DEFLATE application/javascript application/json
+  AddOutputFilterByType DEFLATE image/svg+xml application/manifest+json
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# Dateitypen
+# -----------------------------------------------------------------------------
+<IfModule mod_mime.c>
+  AddType application/manifest+json  webmanifest
+  AddType image/svg+xml              svg svgz
+  AddType image/webp                 webp
+</IfModule>

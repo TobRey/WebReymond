@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="de-CH" data-base="">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anleitung — deine Website pflegen</title>
+<meta name="description" content="Schritt für Schritt: wie du Texte und Bilder auf reymond-tobias.ch änderst.">
+<meta name="theme-color" content="#07080c">
+<meta name="robots" content="noindex, follow">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<a class="skip-link" href="#inhalt">Zum Inhalt springen</a>
+<div class="progress" aria-hidden="true"></div>
+
+<header class="site-header is-stuck">
+  <div class="wrap site-header__inner">
+    <a class="brand" href="./">
+      <span class="brand__mark" aria-hidden="true">RT</span>
+      <span>Reymond Tobias<span class="brand__sub"> · Anleitung</span></span>
+    </a>
+    <nav class="nav" aria-label="Hauptnavigation">
+      <ul class="nav__list">
+        <li><a class="nav__link" href="./">Website</a></li>
+        <li><a class="nav__link" href="admin/">Bearbeitungsbereich</a></li>
+        <li><a class="nav__link" href="impressum.html">Impressum</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="inhalt" class="doc-page">
+  <div class="wrap wrap--narrow">
+    <p class="eyebrow">Anleitung</p>
+    <h1>So pflegst du deine Website</h1>
+    <p class="lede">
+      Kein Fachwissen nötig. Alles, was du regelmässig ändern willst, änderst du in einem
+      geschützten Bereich im Browser – und siehst das Ergebnis sofort.
+    </p>
+
+    <nav class="toc" style="margin-top:3rem" aria-label="Inhaltsverzeichnis">
+      <h2>Inhalt</h2>
+      <ol>
+        <li><a href="#erstes-mal">Beim ersten Mal: Passwort setzen</a></li>
+        <li><a href="#anmelden">Anmelden und abmelden</a></li>
+        <li><a href="#texte">Texte ändern</a></li>
+        <li><a href="#bilder">Bilder hochladen</a></li>
+        <li><a href="#intranet">Intranet: deine Notizen</a></li>
+        <li><a href="#passwoerter">Passwörter speichern</a></li>
+        <li><a href="#zahlen">Wie viele Leute waren da?</a></li>
+        <li><a href="#formular">Das Kontaktformular</a></li>
+        <li><a href="#fest">Was fest in der Seite steht</a></li>
+        <li><a href="#hochladen">Die Website auf den Server bringen</a></li>
+        <li><a href="#sicherheit">Sicherheit: was du wissen solltest</a></li>
+        <li><a href="#probleme">Wenn etwas nicht geht</a></li>
+      </ol>
+    </nav>
+
+    <div class="prose">
+
+      <h2 id="erstes-mal">1. Beim ersten Mal: Passwort setzen</h2>
+      <p>
+        Damit niemand sonst an deine Website kommt, brauchst du ein Passwort.
+        Das setzt du selbst – ich kenne es nicht, und es steht auch nirgends in einer Datei.
+      </p>
+      <ol>
+        <li>Ruf im Browser <code>https://reymond-tobias.ch/admin/setup.php</code> auf.</li>
+        <li>Gib zweimal dasselbe Passwort ein. Mindestens 12 Zeichen.</li>
+        <li>Auf „Passwort setzen" klicken – fertig.</li>
+        <li><strong>Danach: die Datei <code>admin/setup.php</code> vom Server löschen.</strong>
+            Sie wird nicht mehr gebraucht.</li>
+      </ol>
+      <p>
+        <strong>Dein Benutzername ist:</strong> <code>reymondtobias</code>
+      </p>
+      <div class="note">
+        <strong>Tipp für ein gutes Passwort:</strong> Nimm vier zufällige Wörter hintereinander,
+        zum Beispiel <code>Kessel-Vorhang-Marille-Zaun</code>. Das merkst du dir, und es ist schwerer
+        zu erraten als <code>Sommer2026!</code>. Schreib es dir auf, bevor du es setzt –
+        auslesen lässt es sich nachher nicht mehr.
+      </div>
+
+      <h2 id="anmelden">2. Anmelden und abmelden</h2>
+      <p>
+        Der Bearbeitungsbereich liegt unter <code>https://reymond-tobias.ch/admin/</code>.
+        Dort gibst du Benutzername und Passwort ein.
+      </p>
+      <p>
+        Nach 45 Minuten ohne Klick wirst du automatisch abgemeldet. Wenn du an einem fremden
+        Rechner arbeitest, klick oben rechts auf <strong>Abmelden</strong>, wenn du fertig bist.
+      </p>
+      <p>
+        Tippst du dich fünfmal hintereinander falsch ein, ist der Zugang kurz gesperrt.
+        Das ist Absicht: So kann niemand einfach Passwörter durchprobieren.
+      </p>
+
+      <h2 id="texte">3. Texte ändern</h2>
+      <p>
+        Im Bereich <strong>Texte</strong> findest du alle Stellen der Website, die du selbst
+        anpassen kannst – nach Abschnitten sortiert.
+      </p>
+      <ol>
+        <li>Feld anklicken, neuen Text schreiben.</li>
+        <li>Unten auf <strong>Speichern</strong> klicken.</li>
+        <li>Auf <strong>Ergebnis ansehen</strong> klicken – die Änderung ist sofort da.</li>
+      </ol>
+      <h3>Einträge hinzufügen, verschieben, entfernen</h3>
+      <p>
+        Werdegang, Projekte, Schwerpunkte, Kenntnisse, die Karten unter „Neben der Arbeit“, die
+        Eckdaten im Aufmacher und die Verweise beim Kontakt sind <strong>Listen</strong>. Eine Liste
+        hat keine feste Länge:
+      </p>
+      <ul>
+        <li><strong>+ Hinzufügen</strong> legt unten einen leeren Eintrag an. Ausfüllen, speichern – fertig.</li>
+        <li>Mit <strong>↑</strong> und <strong>↓</strong> schiebst du einen Eintrag nach oben oder unten. Die Reihenfolge im Formular ist die Reihenfolge auf der Website.</li>
+        <li><strong>Entfernen</strong> nimmt einen Eintrag weg. Endgültig wird das erst mit <strong>Speichern</strong>.</li>
+      </ul>
+      <p>
+        Beim Werdegang wächst die waagrechte Bahn automatisch mit: Je mehr Stationen, desto länger
+        läuft sie beim Scrollen. Löschst du alle Projekte, verschwindet der Abschnitt „Projekte“
+        ganz von der Seite.
+      </p>
+
+      <h3>Eigene Verweise setzen</h3>
+      <p>
+        Fast jeder Eintrag hat zwei zusätzliche Felder: <strong>Verweis — Beschriftung</strong> und
+        <strong>Verweis — Adresse</strong>. Steht in beiden etwas, erscheint auf der Karte ein Knopf.
+        Bleibt eines leer, erscheint keiner.
+      </p>
+      <p>Als Adresse funktionieren:</p>
+      <ul>
+        <li>eine ganze Adresse: <code>https://github.com/dein-name/projekt</code></li>
+        <li>eine Adresse ohne <code>https://</code>: <code>dj-atze.com</code> – das wird ergänzt</li>
+        <li>eine Stelle auf dieser Seite: <code>#kontakt</code>, <code>#projekte</code>, <code>#werdegang</code></li>
+        <li>eine E-Mail: <code>mailto:name@beispiel.ch</code> oder eine Nummer: <code>tel:+41791234567</code></li>
+      </ul>
+      <p>
+        Alles andere wird beim Speichern verworfen, und du bekommst einen Hinweis. Das ist Absicht:
+        So kann ein Tippfehler keine kaputte oder gefährliche Verlinkung auf die Seite bringen.
+      </p>
+
+      <p><strong>Zwei Dinge, die oft für Verwirrung sorgen:</strong></p>
+      <ul>
+        <li>
+          <strong>Deutsch und Englisch sind getrennt.</strong> Oben rechts wechselst du zwischen
+          den beiden. Änderst du den deutschen Text, bleibt der englische, wie er war. Denk daran,
+          beide zu pflegen – sonst steht auf der englischen Seite noch das Alte.
+        </li>
+        <li>
+          <strong>Ein leeres Feld bedeutet: Grundtext.</strong> Alle Felder sind bereits
+          ausgefüllt. Löschst du einen Text komplett, erscheint wieder der Text, der von Anfang an
+          in der Seite stand. Das ist praktisch, wenn du eine Änderung rückgängig machen willst.
+          Bei den Listen ist das anders: Was du dort entfernst, bleibt weg.
+        </li>
+      </ul>
+      <p>
+        Im Fliesstext-Feld „Über mich" erzeugst du einen neuen Absatz, indem du eine
+        <strong>Leerzeile</strong> dazwischen lässt:
+      </p>
+      <pre><code>Erster Absatz über zwei Zeilen,
+der ganz normal weitergeht.
+
+Zweiter Absatz.</code></pre>
+
+      <h2 id="bilder">4. Bilder hochladen</h2>
+      <p>
+        Auf der Website gibt es eine Stelle für ein Foto: das Porträt im Abschnitt „Über mich“.
+        Dort liegt bereits ein Bild – austauschen kannst du es jederzeit.
+      </p>
+      <ol>
+        <li>Im Bereich <strong>Bilder</strong> auf „Datei wählen".</li>
+        <li>Foto vom Computer oder Handy aussuchen.</li>
+        <li>Auf <strong>Bild ersetzen</strong> klicken.</li>
+      </ol>
+      <p>
+        Das Bild wird nicht beschnitten: Hoch- und Querformat funktionieren beide, die Seite passt
+        sich an. Entfernst du das Bild, rückt der Text im Abschnitt „Über mich" auf die volle Breite –
+        es bleibt kein leerer Kasten stehen.
+      </p>
+      <p>
+        Erlaubt sind <strong>JPG, PNG und WEBP</strong> bis 6 MB. Ein Foto direkt aus dem Handy ist
+        oft grösser – dann verkleinere es vorher, zum Beispiel auf 2000 Pixel Breite. Die Seite
+        lädt dadurch spürbar schneller.
+      </p>
+      <div class="note">
+        <strong>Wichtig:</strong> Lade nur Bilder hoch, die du selbst gemacht hast oder für die du
+        die Erlaubnis hast. Sind andere Leute darauf zu erkennen, brauchst du deren Einverständnis.
+      </div>
+
+      <h2 id="intranet">5. Intranet: deine Notizen</h2>
+      <p>
+        Das Intranet ist dein privater Bereich. Was du dort schreibst, sieht nur, wer angemeldet
+        ist – also du. Auf der öffentlichen Website steht davon <strong>nichts</strong>, und
+        Suchmaschinen finden es nicht.
+      </p>
+      <p>Wofür das gut ist, zum Beispiel:</p>
+      <ul>
+        <li>Notizen zu Bewerbungen: mit wem du gesprochen hast und wann du nachfragen wolltest.</li>
+        <li>Was du bei einer Aufgabe gelernt hast und beim nächsten Mal anders machen würdest.</li>
+        <li>Ideen und Projekte, die dir zwischendurch einfallen.</li>
+      </ul>
+      <p>
+        Wichtige Beiträge kannst du mit <strong>Oben anheften</strong> nach oben holen. Über das
+        Suchfeld findest du auch nach Monaten wieder, was du gesucht hast.
+      </p>
+
+      <h2 id="passwoerter">6. Passwörter speichern</h2>
+      <p>
+        Im Bereich <strong>Passwörter</strong> kannst du Zugangsdaten ablegen – zum Hosting,
+        zu deinem E-Mail-Konto, zu Diensten, die du beruflich oder privat brauchst.
+      </p>
+      <p>So funktioniert es technisch, in einfachen Worten:</p>
+      <ul>
+        <li>
+          Alles, was du dort einträgst, wird <strong>verschlüsselt</strong>, bevor es auf den
+          Server geschrieben wird. In der Datei steht danach nur unlesbares Zeug.
+        </li>
+        <li>
+          Der Schlüssel dazu entsteht aus <strong>deinem Anmeldepasswort</strong>. Er wird nirgends
+          gespeichert, sondern jedes Mal neu gebildet, wenn du dich anmeldest.
+        </li>
+        <li>
+          Das heisst auch: <strong>Verlierst du dein Passwort, sind die Einträge weg.</strong>
+          Es gibt keine Hintertür. Das ist kein Versehen, sondern genau der Punkt.
+        </li>
+      </ul>
+      <p>
+        Wenn du dein Anmeldepasswort änderst, werden alle Einträge automatisch neu verschlüsselt.
+        Du musst nichts von Hand nachziehen.
+      </p>
+      <div class="note">
+        <strong>Ein ehrlicher Hinweis:</strong> Solange die Seite offen ist und du auf „Anzeigen"
+        geklickt hast, steht das Passwort im Browserfenster. Lass die Seite nicht offen liegen,
+        wenn jemand anders an den Rechner kann – und melde dich ab, wenn du fertig bist.
+      </div>
+
+      <h2 id="zahlen">7. Wie viele Leute waren da?</h2>
+      <p>
+        Unter <strong>Zahlen</strong> siehst du, wie oft deine Seiten aufgerufen wurden – pro Tag
+        und pro Seite. Gezählt wird auf deinem eigenen Server, ohne Google Analytics und ohne
+        einen anderen fremden Dienst.
+      </p>
+      <p>Zwei Begriffe, damit die Zahlen Sinn ergeben:</p>
+      <dl>
+        <dt>Seitenaufrufe</dt>
+        <dd>Wie oft eine Seite geöffnet wurde. Wer zweimal hinschaut, zählt zweimal.</dd>
+        <dt>Besuche</dt>
+        <dd>Wie viele Browser-Sitzungen dazugehören. Das ist näher an „wie viele Leute".</dd>
+      </dl>
+      <p>
+        Bewusst nicht dabei: Herkunft, Gerät, Suchbegriffe, Wiedererkennung einzelner Personen.
+        Es werden <strong>keine IP-Adressen gespeichert</strong>. Genau deshalb braucht deine
+        Website kein Cookie-Banner.
+      </p>
+
+      <h2 id="formular">8. Das Kontaktformular</h2>
+      <p>
+        Schreibt jemand über das Formular auf der Website, landet die Nachricht als E-Mail in
+        deinem Postfach <code>tobias.reymond05@gmail.com</code>. Du kannst direkt auf die E-Mail
+        antworten – die Adresse der Person ist als Antwortadresse hinterlegt.
+      </p>
+      <p>Gegen Werbemüll sind drei Bremsen eingebaut, ganz ohne die nervigen Bilderrätsel:</p>
+      <ul>
+        <li>Ein Feld, das für Menschen unsichtbar ist. Wer es ausfüllt, ist ein Programm.</li>
+        <li>Eine Zeitsperre: Wer das Formular in unter drei Sekunden abschickt, kommt nicht durch.</li>
+        <li>Höchstens drei Nachrichten je E-Mail-Adresse pro Tag.</li>
+      </ul>
+      <p>
+        <strong>Kommt keine E-Mail an?</strong> Schau zuerst im Spam-Ordner nach. Kommt sie auch
+        dort nicht an, liegt es meistens am Hosting – frag dort nach, ob der E-Mail-Versand aus
+        PHP heraus freigeschaltet ist und ob ein SPF-Eintrag für die Domain gesetzt ist.
+      </p>
+
+      <h2 id="fest">9. Was fest in der Seite steht</h2>
+      <p>
+        Fast alles auf der Startseite kannst du selbst ändern – Überschriften, Texte, Listen,
+        Verweise und das Porträt. Ein paar Dinge sind bewusst fest eingebaut:
+      </p>
+      <div class="table-wrap">
+        <table>
+          <caption class="visually-hidden">Feste Bestandteile der Website</caption>
+          <thead>
+            <tr><th scope="col">Was</th><th scope="col">Wo</th><th scope="col">Warum</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Der Name „Reymond Tobias"</th>
+              <td>Aufmacher, Kopfzeile, Fusszeile</td>
+              <td>Er ist die Seite – dafür gibt es kein Feld.</td>
+            </tr>
+            <tr>
+              <th scope="row">Die Beschriftungen im Menü</th>
+              <td>Kopfzeile und Fusszeile</td>
+              <td>Sie gehören zu den Abschnitten und ändern sich nicht mit dem Inhalt.</td>
+            </tr>
+            <tr>
+              <th scope="row">Das Kontaktformular</th>
+              <td>Abschnitt „Kontakt"</td>
+              <td>Feldnamen und Prüfungen hängen am Versand der E-Mail.</td>
+            </tr>
+            <tr>
+              <th scope="row">Impressum und Datenschutz</th>
+              <td>Eigene Seiten</td>
+              <td>Rechtstexte gehören nicht in ein Formularfeld.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Willst du an einer dieser Stellen etwas ändern, schreib mir – das mache ich für dich.
+        Sonst gilt: Alle Texte auf der Seite sind fertig geschrieben. Du überschreibst, was dir
+        nicht passt.
+      </p>
+
+      <h2 id="hochladen">10. Die Website auf den Server bringen</h2>
+      <p>
+        Die ganze Website liegt in einem Ordner. Diesen Ordner kopierst du per FTP (zum Beispiel
+        mit FileZilla) in das Verzeichnis deines Hostings – meistens heisst es
+        <code>public_html</code>, <code>httpdocs</code> oder <code>www</code>.
+      </p>
+      <p>Danach müssen zwei Ordner beschreibbar sein, sonst lässt sich nichts speichern:</p>
+      <div class="table-wrap">
+        <table>
+          <caption class="visually-hidden">Benötigte Schreibrechte</caption>
+          <thead>
+            <tr><th scope="col">Ordner</th><th scope="col">Recht</th><th scope="col">Wofür</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>data/</code> (mit Unterordnern)</td><td>755, notfalls 775</td><td>Intranet, Passwörter, Zahlen, Sicherungen</td></tr>
+            <tr><td><code>content/</code> (mit <code>media/</code>)</td><td>755, notfalls 775</td><td>Texte und Bilder der Website</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        In der Übersicht des Bearbeitungsbereichs steht unter <strong>Zustand</strong>, ob alles
+        passt. Rot heisst: hier muss das Hosting nachbessern.
+      </p>
+      <p>
+        <strong>Läuft dein Hosting auf nginx statt Apache?</strong> Dann wird die Datei
+        <code>.htaccess</code> nicht gelesen. Bitte deinen Anbieter, die Ordner
+        <code>/data/</code> und <code>/lib/</code> von aussen zu sperren und in
+        <code>/content/media/</code> keine PHP-Ausführung zuzulassen. Die Daten sind zusätzlich
+        von sich aus geschützt – aber doppelt hält besser.
+      </p>
+
+      <h2 id="sicherheit">11. Sicherheit: was du wissen solltest</h2>
+      <ul>
+        <li>
+          <strong>Dein Passwort ist nirgends im Klartext gespeichert.</strong> Auf dem Server liegt
+          nur eine Prüfsumme (Argon2id). Auch ich kann es nicht auslesen.
+        </li>
+        <li>
+          <strong>Vor jeder Änderung wird gesichert.</strong> Die letzten 40 Fassungen je Bereich
+          liegen unter <code>data/backups/</code>. Von aussen ist der Ordner nicht abrufbar.
+        </li>
+        <li>
+          <strong>Speichern geht nie halb.</strong> Es wird erst vollständig geschrieben und dann
+          umgestellt – ein Stromausfall mitten im Speichern kann nichts kaputt machen.
+        </li>
+        <li>
+          <strong>Die Website lädt nichts von fremden Servern.</strong> Keine Schriften, keine
+          Karten, keine Analysedienste. Deshalb kein Cookie-Banner.
+        </li>
+        <li>
+          <strong>Lösch <code>admin/setup.php</code>,</strong> sobald dein Passwort steht.
+        </li>
+      </ul>
+      <p>
+        Zusätzlich solltest du bei deinem Hosting eine <strong>eigene Sicherung</strong>
+        einrichten oder gelegentlich den ganzen Ordner per FTP herunterladen. Die Kopien im
+        Bearbeitungsbereich helfen bei einem Versehen – sie ersetzen keine Sicherung des Servers.
+      </p>
+
+      <h2 id="probleme">12. Wenn etwas nicht geht</h2>
+      <dl>
+        <dt>Ich habe gespeichert, sehe aber nichts.</dt>
+        <dd>Lade die Seite neu mit <code>Strg</code> + <code>F5</code> (Mac: <code>Cmd</code> + <code>Shift</code> + <code>R</code>). Der Browser zeigt sonst manchmal die alte Fassung.</dd>
+
+        <dt>„Speichern nicht möglich"</dt>
+        <dd>Dann fehlen die Schreibrechte. Siehe Punkt 10 – oder frag beim Hosting nach.</dd>
+
+        <dt>Ich habe mein Passwort vergessen.</dt>
+        <dd>
+          Lösch auf dem Server die Datei <code>data/private/users.php</code> und ruf danach
+          <code>/admin/setup.php</code> auf. Achtung: Deine gespeicherten Passwörter sind mit dem
+          alten Passwort verschlüsselt und danach <strong>nicht mehr lesbar</strong>. Texte, Bilder
+          und Intranet-Beiträge bleiben erhalten.
+        </dd>
+
+        <dt>Die Seite ruckelt auf meinem Handy.</dt>
+        <dd>Die 3D-Bewegung ist auf Handys bereits reduziert. Wer im Betriebssystem „Bewegung reduzieren" eingeschaltet hat, bekommt automatisch eine ruhige Fassung ohne Animation.</dd>
+
+        <dt>Ich möchte etwas ändern, das hier nicht steht.</dt>
+        <dd>Was fest eingebaut ist, steht in Punkt 9. Schreib mir, was anders sein soll – das mache ich für dich.</dd>
+      </dl>
+
+      <p style="margin-top:3rem">
+        <a class="btn btn--primary" href="admin/">Zum Bearbeitungsbereich <span class="btn__arrow" aria-hidden="true">→</span></a>
+        <a class="btn btn--ghost" href="./">Zur Website</a>
+      </p>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer" style="margin-top:5rem">
+  <div class="wrap">
+    <div class="footer-bottom" style="margin-top:0;border-top:0;padding-top:0">
+      <p>© <span data-year>2026</span> Reymond Tobias · reymond-tobias.ch</p>
+      <p><a href="impressum.html">Impressum</a> · <a href="datenschutz.html">Datenschutz</a></p>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/app.js" defer></script>
+</body>
+</html>

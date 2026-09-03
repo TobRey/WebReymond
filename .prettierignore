@@ -5,3 +5,6 @@ coverage/
 
 # Dokumentation wird von Hand formatiert (Tabellen, Diagramme, Einrückungen).
 *.md
+
+# Die Website unter sites/ wird von Hand formatiert (PHP-Vorlagen, ES5).
+sites/

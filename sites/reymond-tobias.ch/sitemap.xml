@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
+  <url>
+    <loc>https://reymond-tobias.ch/</loc>
+    <lastmod>2026-09-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="de-CH" href="https://reymond-tobias.ch/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://reymond-tobias.ch/en/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://reymond-tobias.ch/"/>
+  </url>
+
+  <url>
+    <loc>https://reymond-tobias.ch/en/</loc>
+    <lastmod>2026-09-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="de-CH" href="https://reymond-tobias.ch/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://reymond-tobias.ch/en/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://reymond-tobias.ch/"/>
+  </url>
+
+  <url>
+    <loc>https://reymond-tobias.ch/impressum.html</loc>
+    <lastmod>2026-09-03</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="de-CH" href="https://reymond-tobias.ch/impressum.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://reymond-tobias.ch/en/legal-notice.html"/>
+  </url>
+
+  <url>
+    <loc>https://reymond-tobias.ch/datenschutz.html</loc>
+    <lastmod>2026-09-03</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="de-CH" href="https://reymond-tobias.ch/datenschutz.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://reymond-tobias.ch/en/privacy.html"/>
+  </url>
+
+  <url>
+    <loc>https://reymond-tobias.ch/en/legal-notice.html</loc>
+    <lastmod>2026-09-03</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+  </url>
+
+  <url>
+    <loc>https://reymond-tobias.ch/en/privacy.html</loc>
+    <lastmod>2026-09-03</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+  </url>
+
+</urlset>

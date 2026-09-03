@@ -71,6 +71,9 @@ apps/
 packages/
   ui/         Design-Tokens und Basiskomponenten
   shared/     gemeinsame Typen und Validierungsschemas
+sites/
+  reymond-tobias.ch/   Persönliche Website (PHP, ohne Framework) – eigene
+                       README im Ordner, läuft unabhängig vom Monorepo
 docs/         Anleitungen und Entscheidungen
 ```
 

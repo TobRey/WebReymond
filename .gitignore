@@ -61,3 +61,12 @@ desktop.ini
 
 # --- Von Prisma erzeugter Client (wird beim Installieren neu gebaut) ---
 apps/api/src/generated/
+
+# --- Website unter sites/ ---
+# Das Ordnergerüst gehört ins Repository, die Daten vom Server nicht:
+# Konto, Anmeldeversuche, Intranet, Passwortspeicher, Zahlen und Sicherungen
+# entstehen erst im Betrieb und enthalten persönliche Angaben.
+!sites/*/data/backups/
+sites/*/data/backups/*.php
+sites/*/data/private/*.php
+sites/*/data/private/stats/*.php
