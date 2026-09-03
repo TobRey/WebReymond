@@ -197,6 +197,21 @@ final class Vault
             return ['ok' => false, 'meldung' => $grund, 'geheimnis' => ''];
         }
 
+        // Dieser Eintrag wurde mit einem Verfahren geschrieben, das
+        // dieser Server nicht mehr hat. Das ist etwas anderes als ein
+        // gewechselter Schlüssel, und es wäre irreführend, beides
+        // gleich zu benennen.
+        if (Crypto::needsMissingMethod($roh)) {
+            return [
+                'ok' => false,
+                'meldung' => 'Dieser Eintrag wurde mit libsodium verschlüsselt, und diese '
+                    . 'Erweiterung steht auf dem Server gerade nicht zur Verfügung. Wird sie '
+                    . 'wieder eingeschaltet, lässt sich der Eintrag lesen – neue Einträge '
+                    . 'entstehen inzwischen mit OpenSSL und sind davon nicht betroffen.',
+                'geheimnis' => '',
+            ];
+        }
+
         $klar = Crypto::decrypt($roh);
 
         if ($klar === null) {
@@ -264,7 +279,7 @@ final class Vault
             }
 
             $satz['secret_enc'] = Crypto::encrypt($geheimnis);
-            sodium_memzero($geheimnis);
+            Crypto::wipe($geheimnis);
         }
 
         if ($id !== null) {

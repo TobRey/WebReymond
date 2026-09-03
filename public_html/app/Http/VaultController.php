@@ -63,11 +63,16 @@ final class VaultController
                 // Reparieren geht nur, wenn die Erweiterung da ist, nichts
                 // Verschlüsseltes verloren gehen kann und die Datei sich
                 // schreiben lässt.
+                // Reparieren heisst: einen neuen Schlüssel schreiben. Das
+                // hilft nur, wenn überhaupt ein Verfahren da ist und nichts
+                // Verschlüsseltes verloren gehen kann.
                 'reparierbar' => $fehler !== ''
-                    && function_exists('sodium_crypto_secretbox')
+                    && Crypto::method() !== ''
                     && $verschluesselt === 0
                     && $schreibbar,
                 'vorschlagSchluessel' => $fehler === '' ? '' : Crypto::newKey(),
+                'verfahren' => Crypto::method(),
+                'diagnose' => $fehler === '' ? [] : Crypto::diagnosis(),
             ];
         } catch (\Throwable $e) {
             Logger::exception($e);
@@ -79,6 +84,8 @@ final class VaultController
                 'schluesselSchreibbar' => false,
                 'reparierbar' => false,
                 'vorschlagSchluessel' => '',
+                'verfahren' => '',
+                'diagnose' => [],
             ];
         }
     }
@@ -191,7 +198,7 @@ final class VaultController
             return $this->to('/passwoerter');
         }
 
-        if (!function_exists('sodium_crypto_secretbox')) {
+        if (Crypto::method() === '') {
             Session::flash('error', Crypto::status());
 
             return $this->to('/passwoerter');

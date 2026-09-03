@@ -60,15 +60,14 @@ function requirements(): array
         'curl' => 'Anfragen ins Netz',
         'mbstring' => 'Umlaute und Sonderzeichen',
         'sodium' => 'Passwörter und Zugangsdaten verschlüsseln',
+        'openssl' => 'Verschlüsseln, wenn sodium fehlt',
         'json' => 'Datenaustausch',
     ] as $ext => $wofür) {
         $checks[] = [
             'label' => 'Erweiterung ' . $ext,
             'ok' => extension_loaded($ext),
             'hint' => $wofür . ($ext === 'sodium'
-                ? ' – ohne sie lassen sich weder die Passwörter im Tresor noch die '
-                  . 'FTP-Zugänge ablegen. In cPanel unter „Select PHP Version" → Extensions '
-                  . 'einschaltbar.'
+                ? ' – fehlt sie, wird mit OpenSSL verschlüsselt. Eines von beiden genügt.'
                 : ''),
         ];
     }
@@ -92,7 +91,9 @@ $requirements = requirements();
 $blocking = false;
 
 foreach ($requirements as $check) {
-    // sodium ist nicht überall vorhanden und nur für FTP nötig.
+    // sodium hält niemanden auf: Fehlt es, verschlüsselt WebAtze mit
+    // OpenSSL. Nur wenn beide fehlten, ginge gar nichts - und openssl
+    // steht weiter unten als eigene, blockierende Zeile.
     if (!$check['ok'] && !str_contains($check['label'], 'sodium')) {
         $blocking = true;
     }

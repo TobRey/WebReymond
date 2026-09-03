@@ -72,7 +72,7 @@ final class FtpDeployer
         };
 
         // Passwort so früh wie möglich aus dem Speicher nehmen
-        sodium_memzero($password);
+        Crypto::wipe($password);
 
         Db::update('deploy_targets', [
             'last_result' => mb_substr($result['ok'] ? sprintf('%d Dateien hochgeladen.', $result['files']) : $result['error'], 0, 500),
@@ -288,7 +288,7 @@ final class FtpDeployer
                 ? self::fetchViaSftp($target, $password, $remote, $budget)
                 : self::fetchViaFtp($target, $password, $remote, $budget, (string) $target['protocol'] === 'ftps');
         } finally {
-            sodium_memzero($password);
+            Crypto::wipe($password);
         }
 
         return $files;
@@ -518,7 +518,7 @@ final class FtpDeployer
             return self::pruefErgebnis(false,
                 'Die Verbindung ist fehlgeschlagen: ' . self::kurz($e->getMessage()));
         } finally {
-            sodium_memzero($password);
+            Crypto::wipe($password);
         }
     }
 

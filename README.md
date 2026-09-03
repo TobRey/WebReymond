@@ -266,17 +266,38 @@ etwas Verschlüsseltes vor, wird das verweigert: Ein neuer Schlüssel
 macht Bisheriges unlesbar, und das ist keine Entscheidung für einen
 Knopfdruck nebenbei.
 
-Fehlt die PHP-Erweiterung `sodium`, hilft nur cPanel: *Select PHP
-Version → Extensions → sodium*. Ohne sie kann PHP nicht verschlüsseln;
-die Einrichtung weist beim Start darauf hin.
+### Zwei Verfahren, weil eines nicht überall da ist
 
-Wichtig dabei: Kein Programmteil, der auch ohne Verschlüsselung laufen
-soll, darf ein `SODIUM_*` oder `sodium_*` anfassen. Fehlt die
-Erweiterung, gibt es weder die Funktionen noch die Konstanten – und ein
-Zugriff auf eine undefinierte Konstante ist in PHP 8 keine Warnung,
+WebAtze verschlüsselt mit **libsodium**, und wo das fehlt, mit
+**OpenSSL (AES-256-GCM)**. Eines von beiden genügt; OpenSSL ist auf
+praktisch jedem PHP vorhanden.
+
+Der Grund für die zweite Möglichkeit ist ein konkreter Vorfall: Auf dem
+Hosting war `sodium` in cPanel als eingeschaltet angezeigt, und PHP
+kannte die Erweiterung trotzdem nicht. Der Tresor stand still, obwohl
+auf dem Server alles Nötige vorhanden war.
+
+Am Anfang eines gespeicherten Werts steht, womit er geschrieben wurde:
+
+    v1.…   libsodium, XSalsa20-Poly1305
+    v2.…   OpenSSL, AES-256-GCM
+
+Gelesen wird beides. Ein Serverwechsel macht also nichts unlesbar,
+solange eines der Verfahren da ist. Nur ein `v1`-Wert braucht wirklich
+libsodium – die Oberfläche sagt das dann so, statt einen gewechselten
+Schlüssel zu behaupten.
+
+Wichtig für alles Weitere: Kein Programmteil ausserhalb von
+`Core/Crypto.php` darf ein `SODIUM_*` oder `sodium_*` anfassen. Fehlt
+die Erweiterung, gibt es weder die Funktionen noch die Konstanten – und
+ein Zugriff auf eine undefinierte Konstante ist in PHP 8 keine Warnung,
 sondern das Ende der Anfrage. Genau daran ist die Tresorseite einmal
 gestorben, ausgerechnet an der Zeile, die einen Ersatzschlüssel
 vorschlagen sollte. Der Testlauf prüft das jetzt.
+
+Stimmt die Meldung im Adminbereich einmal nicht mit dem überein, was
+cPanel anzeigt: Auf der Tresorseite steht unter *Was dieser Server
+mitbringt*, was PHP tatsächlich sieht.
 
 ### Warum MySQL und SQLite auseinanderlaufen können
 

@@ -3417,11 +3417,11 @@ test('Konfiguration: nur erlaubte Einträge, nur harmlose Werte', function (): v
 // Ersatzschlüssel vorschlagen sollte.
 // ==================================================================
 
-test('Verschlüsselung: die Prüfung selbst braucht kein Sodium', function (): void {
-    // Diese drei Methoden laufen auch dort, wo die Erweiterung fehlt.
-    // Sie dürfen deshalb kein einziges Sodium-Symbol anfassen - ausser
-    // in function_exists(), das genau dafür da ist.
-    foreach (['status', 'isReady', 'newKey'] as $name) {
+test('Verschlüsselung: die Prüfung selbst braucht keine Erweiterung', function (): void {
+    // Diese Methoden laufen auch dort, wo libsodium fehlt. Sie dürfen
+    // deshalb kein Sodium-Symbol anfassen - ausser in function_exists(),
+    // das genau dafür da ist.
+    foreach (['status', 'isReady', 'newKey', 'method', 'diagnosis', 'hasSodium'] as $name) {
         $methode = new ReflectionMethod(\WebAtze\Core\Crypto::class, $name);
         $zeilen = array_slice(
             (array) file((string) $methode->getFileName()),
@@ -3429,8 +3429,9 @@ test('Verschlüsselung: die Prüfung selbst braucht kein Sodium', function (): v
             $methode->getEndLine() - $methode->getStartLine() + 1
         );
 
-        // function_exists('sodium_...') ist erlaubt und wird ausgeblendet.
         $code = preg_replace('/function_exists\([^)]*\)/', '', implode('', $zeilen)) ?? '';
+        // Zeichenketten für die Anzeige zählen nicht als Aufruf.
+        $code = preg_replace("/'[^']*'/", '', $code) ?? $code;
 
         ok(
             preg_match('/SODIUM_|sodium_/', $code) !== 1,
@@ -3438,14 +3439,124 @@ test('Verschlüsselung: die Prüfung selbst braucht kein Sodium', function (): v
         );
     }
 
-    // Und der Schlüssel hat trotzdem die richtige Länge.
     is(64, strlen(\WebAtze\Core\Crypto::newKey()), 'Der Vorschlag ist 64 Zeichen lang');
-    ok(hex2bin(\WebAtze\Core\Crypto::newKey()) !== false, 'Und gültiges Hex');
     is(
         32,
         strlen((string) hex2bin(\WebAtze\Core\Crypto::newKey())),
-        'Was 32 Bytes ergibt, wie das Format es verlangt'
+        'Was 32 Bytes ergibt, wie beide Verfahren es verlangen'
     );
+});
+
+test('Verschlüsselung: beide Verfahren, und beide lesen einander nicht kaputt', function (): void {
+    // Auf geteiltem Hosting ist libsodium nicht selbstverständlich.
+    // Deshalb kann WebAtze auch mit OpenSSL - und muss Bestehendes
+    // weiter lesen können, egal womit es geschrieben wurde.
+    ok(\WebAtze\Core\Crypto::hasOpenssl(), 'OpenSSL mit AES-256-GCM steht bereit');
+    isnt('', \WebAtze\Core\Crypto::method(), 'Ein Verfahren ist da');
+
+    $verpackt = \WebAtze\Core\Crypto::encrypt('streng geheim');
+
+    ok(
+        str_starts_with($verpackt, 'v1.') || str_starts_with($verpackt, 'v2.'),
+        'Der Wert trägt seine Vorsilbe'
+    );
+    isnt('streng geheim', $verpackt, 'Und steht nicht im Klartext da');
+    is('streng geheim', \WebAtze\Core\Crypto::decrypt($verpackt), 'Zurückholen klappt');
+
+    // Ein v2-Wert von Hand gebaut, wie ihn ein Server ohne libsodium
+    // schreiben würde - er muss sich hier ebenfalls öffnen lassen.
+    $key = (string) hex2bin(substr((string) \WebAtze\Core\Config::get('crypto_key'), 0, 64));
+    $iv = random_bytes(12);
+    $tag = '';
+    $cipher = openssl_encrypt('von einem anderen Server', 'aes-256-gcm', $key,
+        OPENSSL_RAW_DATA, $iv, $tag, '', 16);
+
+    is(
+        'von einem anderen Server',
+        \WebAtze\Core\Crypto::decrypt('v2.' . base64_encode($iv . $tag . $cipher)),
+        'Ein v2-Wert lässt sich lesen'
+    );
+
+    // Verändertes gilt nicht - beide Verfahren weisen es ab.
+    $roh = base64_decode(substr($verpackt, 3), true);
+    $roh[strlen($roh) - 1] = $roh[strlen($roh) - 1] === 'A' ? 'B' : 'A';
+    is(
+        null,
+        \WebAtze\Core\Crypto::decrypt(substr($verpackt, 0, 3) . base64_encode($roh)),
+        'Ein verändertes Geheimnis wird abgewiesen'
+    );
+
+    is(null, \WebAtze\Core\Crypto::decrypt('v3.irgendwas'), 'Unbekannte Vorsilbe gibt nichts');
+    is(null, \WebAtze\Core\Crypto::decrypt('nur text'), 'Und roher Text erst recht nicht');
+
+    // Was in einem Verfahren liegt, das der Server nicht kann, wird
+    // benannt statt stillschweigend als "falsches Passwort" behandelt.
+    ok(
+        !\WebAtze\Core\Crypto::needsMissingMethod($verpackt),
+        'Der eigene Wert braucht nichts Fehlendes'
+    );
+});
+
+test('Tresor: ein Eintrag aus einem fehlenden Verfahren wird benannt', function (): void {
+    // Ein mit libsodium geschriebener Eintrag auf einem Server ohne
+    // libsodium ist etwas anderes als ein gewechselter Schlüssel. Beides
+    // gleich zu benennen schickt einen auf die falsche Fährte.
+    \WebAtze\Core\Db::run('DELETE FROM secrets');
+
+    // Ein Wert in einem Verfahren, das es hier nicht gibt.
+    $id = (int) \WebAtze\Core\Db::insert('secrets', [
+        'label' => 'Aus der Zukunft',
+        'kind' => 'weiteres',
+        'username' => '',
+        'secret_enc' => 'v9.' . base64_encode(random_bytes(40)),
+        'url' => '',
+        'note' => '',
+        'created_at' => \WebAtze\Core\Db::now(),
+        'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    \WebAtze\Core\Session::put('vault_open_until', time() + 300);
+    $antwort = \WebAtze\Domain\Vault::reveal($id);
+
+    ok(!$antwort['ok'], 'Unbekanntes Verfahren gibt nichts heraus');
+    is('', $antwort['geheimnis'], 'Und wirklich nichts');
+
+    \WebAtze\Domain\Vault::lock();
+    \WebAtze\Core\Db::run('DELETE FROM secrets');
+});
+
+test('Verschlüsselung: Geheimnisse werden auch ohne sodium_memzero geleert', function (): void {
+    $geheimnis = 'sehr geheim';
+    \WebAtze\Core\Crypto::wipe($geheimnis);
+    // sodium_memzero() setzt auf null, der Ersatzweg ebenso - beides
+    // heisst: da steht nichts Brauchbares mehr.
+    ok($geheimnis === null || $geheimnis === '', 'Nach dem Leeren ist nichts mehr da');
+
+    // Und im eigenen Code steht kein ungeschütztes sodium_memzero mehr.
+    $treffer = [];
+
+    $dateien = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator(dirname(__DIR__) . '/public_html/app')
+    );
+
+    foreach ($dateien as $datei) {
+        if ($datei->getExtension() !== 'php'
+            || str_contains($datei->getPathname(), '/vendor/')
+            || str_ends_with($datei->getPathname(), 'Core/Crypto.php')) {
+            continue;
+        }
+
+        foreach ((array) file($datei->getPathname()) as $nummer => $zeile) {
+            $ohneText = preg_replace("/'[^']*'/", '', (string) $zeile) ?? '';
+            $ohneText = preg_replace('#^\s*(\*|//).*#', '', $ohneText) ?? $ohneText;
+
+            if (preg_match('/\bsodium_[a-z_]+\s*\(/', $ohneText) === 1) {
+                $treffer[] = basename($datei->getPathname()) . ':' . ($nummer + 1);
+            }
+        }
+    }
+
+    is([], $treffer, 'Nur Crypto selbst ruft Sodium auf');
 });
 
 test('Verschlüsselung: entschlüsseln antwortet mit null statt mit einer Ausnahme', function (): void {

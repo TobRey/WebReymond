@@ -24,6 +24,8 @@ use WebAtze\Domain\Vault;
 /** @var int $verschluesselt */
 /** @var bool $reparierbar */
 /** @var string $vorschlagSchluessel */
+/** @var string $verfahren */
+/** @var array<string, string> $diagnose */
 
 $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
 ?>
@@ -47,12 +49,13 @@ $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
             Datenbanksicherung allein nichts.
         </p>
 
-        <?php if (!function_exists('sodium_crypto_secretbox')): ?>
+        <?php if ($verfahren === ''): ?>
             <p class="wa-panel__hint">
-                Hier hilft nur cPanel: <strong>Select PHP Version → Extensions</strong> öffnen,
-                bei <strong>sodium</strong> das Häkchen setzen und speichern. Danach diese
-                Seite neu laden. Ohne diese Erweiterung kann PHP nicht verschlüsseln – und
-                ein Passwortspeicher ohne Verschlüsselung wäre eine Liste.
+                WebAtze kann mit <strong>sodium</strong> oder mit <strong>openssl</strong>
+                verschlüsseln – eines von beiden genügt. In cPanel unter
+                <strong>Select PHP Version → Extensions</strong> lassen sie sich einschalten.
+                Ohne eines davon kann PHP nicht verschlüsseln, und ein Passwortspeicher
+                ohne Verschlüsselung wäre eine Liste.
             </p>
         <?php elseif ($verschluesselt > 0): ?>
             <p class="wa-panel__hint">
@@ -88,6 +91,28 @@ $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
             Die Liste unten funktioniert weiter – nur neue Passwörter lassen sich nicht
             ablegen und bestehende nicht anzeigen, solange das nicht behoben ist.
         </p>
+
+        <?php if ($diagnose !== []): ?>
+            <details class="wa-details">
+                <summary>Was dieser Server mitbringt</summary>
+                <p class="wa-hint">
+                    Falls die Meldung oben nicht zum Zustand in cPanel passt: Diese Zeilen
+                    sagen, was PHP tatsächlich sieht.
+                </p>
+                <div class="wa-table-wrap">
+                    <table class="wa-table">
+                        <tbody>
+                            <?php foreach ($diagnose as $was => $wert): ?>
+                                <tr>
+                                    <td><?= e((string) $was) ?></td>
+                                    <td class="wa-table__quiet"><?= e((string) $wert) ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+        <?php endif; ?>
     </section>
 <?php endif; ?>
 
@@ -364,7 +389,8 @@ $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
     <?php endif; ?>
 
     <p class="wa-panel__hint">
-        Wie das hier geschützt ist: Jedes Passwort liegt verschlüsselt in der Datenbank, der
+        Wie das hier geschützt ist: Jedes Passwort liegt verschlüsselt in der Datenbank<?=
+            $verfahren !== '' ? ' (' . e($verfahren) . ')' : '' ?>, der
         Schlüssel dazu steht in <code>app/config.php</code> – eine gestohlene Datenbanksicherung
         allein nützt also nichts. Kein Passwort steht je im Quelltext dieser Seite. Vor dem
         ersten Ansehen wird das Anmeldepasswort verlangt, falsche Versuche werden gebremst, und
