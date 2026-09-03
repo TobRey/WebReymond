@@ -179,27 +179,24 @@ final class Letterhead
             return self::ergebnis(false, 'Die Datei liess sich nicht öffnen. Ist sie beschädigt?');
         }
 
-        $xml = (string) $zip->getFromName('word/document.xml');
-        $zeilen = self::linesFromXml($xml);
+        // Zuerst die Kopfzeile: Dort steht der Absender einer Briefvorlage.
+        //
+        // Früher wurde nur word/document.xml gelesen - also der Briefkörper.
+        // Bei einer echten Vorlage stehen dort Empfänger, Betreff und
+        // Mustertext, und genau die landeten dann als «Absenderangaben»
+        // im Briefkopf. Der Körper ist jetzt nur noch der Rückfall für
+        // Vorlagen ganz ohne Kopfzeile.
+        $zeilen = [];
 
-        // Das grösste Bild ist fast immer das Logo.
-        $logo = '';
-        $groesse = 0;
-
-        for ($i = 0; $i < $zip->numFiles; $i++) {
-            $name = (string) $zip->getNameIndex($i);
-
-            if (!str_starts_with($name, 'word/media/')) {
-                continue;
-            }
-
-            $daten = (string) $zip->getFromIndex($i);
-
-            if (strlen($daten) > $groesse) {
-                $groesse = strlen($daten);
-                $logo = $daten;
-            }
+        foreach (self::headerParts($zip) as $teil) {
+            $zeilen = array_merge($zeilen, self::linesFromXml($teil));
         }
+
+        if ($zeilen === []) {
+            $zeilen = self::linesFromXml((string) $zip->getFromName('word/document.xml'));
+        }
+
+        $logo = self::pickLogo($zip);
 
         $zip->close();
 
@@ -236,6 +233,77 @@ final class Letterhead
     public static function removeTemplate(): void
     {
         @unlink(self::templatePath());
+    }
+
+    /**
+     * Der Inhalt aller Kopfzeilen einer .docx.
+     *
+     * Word legt sie als header1.xml, header2.xml und so weiter ab -
+     * eine je Seitenart (erste Seite, gerade, ungerade).
+     *
+     * @return array<int, string>
+     */
+    private static function headerParts(\ZipArchive $zip): array
+    {
+        $teile = [];
+
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = (string) $zip->getNameIndex($i);
+
+            if (preg_match('#^word/header\d*\.xml$#', $name) === 1) {
+                $teile[$name] = (string) $zip->getFromIndex($i);
+            }
+        }
+
+        ksort($teile);
+
+        return array_values($teile);
+    }
+
+    /**
+     * Das Logo aus den Bildern der Vorlage.
+     *
+     * Nicht einfach das grösste: Eine gestaltete Vorlage enthält oft
+     * auch Zierstreifen - ein Farbverlauf über die ganze Breite wiegt
+     * schnell mehr als das Logo und wäre als Briefkopfbild unbrauchbar.
+     * Was auffällig lang und schmal ist, kann kein Logo sein.
+     */
+    private static function pickLogo(\ZipArchive $zip): string
+    {
+        $logo = '';
+        $beste = 0;
+
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = (string) $zip->getNameIndex($i);
+
+            if (!str_starts_with($name, 'word/media/')) {
+                continue;
+            }
+
+            $daten = (string) $zip->getFromIndex($i);
+
+            if ($daten === '') {
+                continue;
+            }
+
+            $masse = @getimagesizefromstring($daten);
+
+            if (is_array($masse) && $masse[0] > 0 && $masse[1] > 0) {
+                $verhaeltnis = max($masse[0] / $masse[1], $masse[1] / $masse[0]);
+
+                // Ein Logo ist selten mehr als achtmal so breit wie hoch.
+                if ($verhaeltnis > 8.0) {
+                    continue;
+                }
+            }
+
+            if (strlen($daten) > $beste) {
+                $beste = strlen($daten);
+                $logo = $daten;
+            }
+        }
+
+        return $logo;
     }
 
     /**

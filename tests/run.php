@@ -3764,5 +3764,144 @@ test('Websites: die Überwachung wird zugeordnet gefunden', function (): void {
         'Auch über die Domain');
 });
 
+
+// ==================================================================
+// Der Briefkopf aus einer Word-Vorlage
+// ==================================================================
+
+test('Briefkopf: die Absenderzeilen stehen in der Kopfzeile, nicht im Brieftext', function (): void {
+    // Bei einer echten Briefvorlage steht der Absender in der Kopfzeile.
+    // Der Briefkörper enthält Empfänger, Betreff und Mustertext - wer den
+    // ausliest, bekommt «[Firma]» und «Guten Tag» als Absenderangaben.
+    $ordner = STORAGE_DIR . '/tmp/briefprobe';
+    ensure_dir($ordner);
+    $datei = $ordner . '/vorlage.docx';
+
+    $absatz = static fn (string $t): string =>
+        '<w:p><w:r><w:t>' . htmlspecialchars($t, ENT_XML1) . '</w:t></w:r></w:p>';
+
+    $huelle = static fn (string $inhalt, string $wurzel): string =>
+        '<?xml version="1.0" encoding="UTF-8"?><w:' . $wurzel
+        . ' xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        . $inhalt . '</w:' . $wurzel . '>';
+
+    $zip = new ZipArchive();
+    $zip->open($datei, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+    $zip->addFromString('word/header1.xml', $huelle(
+        $absatz('Tobias Reymond') . $absatz('Musterweg 1') . $absatz('3000 Bern'),
+        'hdr'
+    ));
+    $zip->addFromString('word/document.xml', $huelle(
+        $absatz('[Firma]') . $absatz('[Vorname Name]') . $absatz('Guten Tag')
+        . $absatz('Freundliche Grüsse'),
+        'document'
+    ));
+    $zip->close();
+
+    $ergebnis = \WebAtze\Domain\Letterhead::importTemplate($datei, 'vorlage.docx');
+
+    ok($ergebnis['ok'], 'Die Vorlage wird gelesen');
+    is(['Tobias Reymond', 'Musterweg 1', '3000 Bern'], $ergebnis['zeilen'], 'Nur die Kopfzeile zählt');
+
+    foreach (['[Firma]', 'Guten Tag', 'Freundliche Grüsse'] as $ausDemBrief) {
+        ok(
+            !in_array($ausDemBrief, $ergebnis['zeilen'], true),
+            'Aus dem Brieftext kommt nichts: ' . $ausDemBrief
+        );
+    }
+
+    delete_tree($ordner);
+});
+
+test('Briefkopf: ohne Kopfzeile hilft der Brieftext weiter', function (): void {
+    // Eine Vorlage ohne Kopfzeile gibt es auch - dann ist der Körper
+    // die einzige Quelle, und die ist besser als gar keine.
+    $ordner = STORAGE_DIR . '/tmp/briefprobe2';
+    ensure_dir($ordner);
+    $datei = $ordner . '/ohnekopf.docx';
+
+    $zip = new ZipArchive();
+    $zip->open($datei, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+    $zip->addFromString(
+        'word/document.xml',
+        '<?xml version="1.0" encoding="UTF-8"?><w:document '
+        . 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        . '<w:p><w:r><w:t>Meine Firma</w:t></w:r></w:p>'
+        . '<w:p><w:r><w:t>Musterweg 1</w:t></w:r></w:p></w:document>'
+    );
+    $zip->close();
+
+    $ergebnis = \WebAtze\Domain\Letterhead::importTemplate($datei, 'ohnekopf.docx');
+
+    is(['Meine Firma', 'Musterweg 1'], $ergebnis['zeilen'], 'Dann zählt der Körper');
+
+    delete_tree($ordner);
+});
+
+test('Briefkopf: ein Zierstreifen wird nicht für das Logo gehalten', function (): void {
+    // Eine gestaltete Vorlage enthält oft einen Farbverlauf über die
+    // ganze Breite. Der wiegt schnell mehr als das Logo - «das grösste
+    // Bild» wäre also der Streifen, und der Briefkopf trüge einen
+    // Balken statt eines Zeichens.
+    $ordner = STORAGE_DIR . '/tmp/briefprobe3';
+    ensure_dir($ordner);
+    $datei = $ordner . '/mitstreifen.docx';
+
+    // Ein breiter, flacher Streifen mit viel Rauschen, damit er gross wird.
+    $streifen = imagecreatetruecolor(2400, 20);
+    for ($x = 0; $x < 2400; $x++) {
+        for ($y = 0; $y < 20; $y++) {
+            imagesetpixel($streifen, $x, $y, imagecolorallocate(
+                $streifen,
+                random_int(0, 255),
+                random_int(0, 255),
+                random_int(0, 255)
+            ));
+        }
+    }
+    ob_start();
+    imagepng($streifen);
+    $streifenDaten = (string) ob_get_clean();
+    imagedestroy($streifen);
+
+    // Ein kleineres, aber logoförmiges Bild.
+    $logo = imagecreatetruecolor(300, 100);
+    imagefilledrectangle($logo, 0, 0, 300, 100, imagecolorallocate($logo, 43, 27, 158));
+    ob_start();
+    imagepng($logo);
+    $logoDaten = (string) ob_get_clean();
+    imagedestroy($logo);
+
+    ok(strlen($streifenDaten) > strlen($logoDaten), 'Der Streifen ist die grössere Datei');
+
+    $zip = new ZipArchive();
+    $zip->open($datei, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+    $zip->addFromString(
+        'word/header1.xml',
+        '<?xml version="1.0" encoding="UTF-8"?><w:hdr '
+        . 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        . '<w:p><w:r><w:t>Absender</w:t></w:r></w:p></w:hdr>'
+    );
+    $zip->addFromString('word/media/image1.png', $streifenDaten);
+    $zip->addFromString('word/media/image2.png', $logoDaten);
+    $zip->close();
+
+    $ergebnis = \WebAtze\Domain\Letterhead::importTemplate($datei, 'mitstreifen.docx');
+
+    ok($ergebnis['logo'], 'Ein Logo wurde übernommen');
+
+    $masse = getimagesizefromstring(\WebAtze\Domain\Letterhead::logoData());
+
+    ok(is_array($masse), 'Es ist ein lesbares Bild');
+    ok(
+        is_array($masse) && $masse[0] / $masse[1] < 8.0,
+        'Und nicht der lange, flache Streifen'
+    );
+
+    \WebAtze\Domain\Letterhead::removeLogo();
+    \WebAtze\Domain\Letterhead::removeTemplate();
+    delete_tree($ordner);
+});
+
 // ==================================================================
 summary();

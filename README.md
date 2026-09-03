@@ -269,6 +269,16 @@ Der Normalfall kostet einen Dateizugriff.
 Du musst dafür nichts tun. Nach dem Entpacken genügt ein Aufruf einer
 beliebigen Seite.
 
+### Die Briefvorlage
+
+`docs/vorlagen/WebAtze-Briefvorlage.docx` – A4, Kopfzeile mit Logo und
+Absender, Verlaufslinie, dreispaltige Fusszeile mit Seitenzahl. In
+eckigen Klammern steht, was auszufüllen ist. Sie lässt sich unter
+*Einstellungen → Briefkopf* hochladen; WebAtze liest daraus die
+Absenderzeilen und das Logo für Offerten und Rechnungen.
+
+Erzeugt wird sie aus `tools/briefvorlage/` – wie, steht im README dort.
+
 ### Wenn der Tresor nicht verschlüsseln kann
 
 Der Schlüssel dafür steht in `app/config.php` unter `crypto_key` – 64

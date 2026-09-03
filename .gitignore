@@ -42,3 +42,9 @@ Thumbs.db
 
 # Das Protokoll des Probelaufs – Arbeitsspur, kein Quelltext.
 tools/probelauf/anfragen.log
+
+# Beim Neubau der Briefvorlage entstehende Dateien.
+tools/briefvorlage/node_modules/
+tools/briefvorlage/*.docx
+tools/briefvorlage/*.pdf
+tools/briefvorlage/seite-*.jpg
