@@ -137,7 +137,63 @@ final class BillingController
 
         Audit::log('document.status', (string) $id, ['status' => $status], $request);
 
-        Session::flash('success', 'Vermerkt: ' . (DocumentBuilder::STATUS[$status] ?? $status) . '.');
+        // Bei "bezahlt" entsteht eine Einnahme in der Buchhaltung, beim
+        // Zuruecknehmen verschwindet sie wieder. Das gehoert in die
+        // Meldung: Wer eine Rechnung umstellt, soll wissen, dass sich
+        // damit auch die Statistik aendert.
+        $doc = DocumentBuilder::find($id);
+        $rechnung = $doc !== null && (string) $doc['kind'] === 'invoice';
+
+        $zusatz = '';
+
+        if ($rechnung && $status === 'paid') {
+            $zusatz = ' Der Betrag steht jetzt als Einnahme in der Buchhaltung.';
+        } elseif ($rechnung && (string) ($doc['paid_on'] ?? '') === '') {
+            $zusatz = ' Aus der Buchhaltung ist der Betrag wieder heraus.';
+        }
+
+        Session::flash('success',
+            'Vermerkt: ' . (DocumentBuilder::STATUS[$status] ?? $status) . '.' . $zusatz);
+
+        return Response::redirect(self::base() . '/rechnungen');
+    }
+
+    /**
+     * Eine Offerte oder Rechnung entfernen.
+     *
+     * Mit ihr geht das PDF und - war sie bezahlt - die Einnahme in der
+     * Buchhaltung. Eine Zahl in der Statistik ohne Beleg dahinter waere
+     * schlimmer als eine geloeschte Rechnung.
+     */
+    public function destroy(Request $request): Response
+    {
+        $id = (int) $request->param('id');
+        $doc = DocumentBuilder::find($id);
+
+        if ($doc === null) {
+            Session::flash('error', 'Diesen Beleg gibt es nicht mehr.');
+
+            return Response::redirect(self::base() . '/rechnungen');
+        }
+
+        $war_bezahlt = (string) $doc['status'] === 'paid';
+        $nummer = (string) $doc['number'];
+
+        if (!DocumentBuilder::remove($id)) {
+            Session::flash('error', 'Das Löschen hat nicht geklappt.');
+
+            return Response::redirect(self::base() . '/rechnungen');
+        }
+
+        Audit::log('document.delete', $nummer, [
+            'id' => $id,
+            'art' => (string) $doc['kind'],
+            'war_bezahlt' => $war_bezahlt,
+        ], $request);
+
+        Session::flash('success',
+            (DocumentBuilder::KINDS[(string) $doc['kind']] ?? 'Beleg') . ' ' . $nummer . ' gelöscht.'
+            . ($war_bezahlt ? ' Die Einnahme ist aus der Buchhaltung verschwunden.' : ''));
 
         return Response::redirect(self::base() . '/rechnungen');
     }

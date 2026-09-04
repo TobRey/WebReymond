@@ -97,14 +97,23 @@ der Kunde bekäme sonst wegen eines Tippfehlers gar keine Website.
 
 `worker.php` erledigt stündlich mehr als nur die Aufträge:
 
-* **Sicherungen** – einmal am Tag WebAtze selbst (Datenbank als SQL plus
-  Uploads), bei jedem Durchgang zusätzlich die Kundenwebsite, deren
-  Sicherung am längsten zurückliegt. Von der eigenen Datenbank bleiben
-  14 Tage und je der Monatserste der letzten sechs Monate liegen; von
-  einer Kundenwebsite nur die neuesten Stände – wie viele, steht im
-  Wartungscenter, Standard sind zwei. `app/config.php` ist absichtlich
-  nicht dabei: Läge der Schlüssel in der Sicherung, wäre die
-  Verschlüsselung der FTP-Zugänge wertlos.
+* **Sicherungen** – einmal am Tag WebAtze selbst, und zwar **zweimal
+  getrennt**: die Datenbank als SQL mitsamt Uploads, und daneben ein
+  zweites Archiv mit **allen Dateien der Installation**. Bei jedem
+  Durchgang kommt zusätzlich die Kundenwebsite dran, deren Sicherung am
+  längsten zurückliegt. Von der eigenen Datenbank bleiben 14 Tage und je
+  der Monatserste der letzten sechs Monate liegen; von einer
+  Kundenwebsite nur die neuesten Stände – wie viele, steht im
+  Wartungscenter, Standard sind zwei. Beide Archive stehen im
+  Wartungscenter zum Herunterladen **und zum Löschen**.
+
+  Warum zwei Archive und nicht eines: Im Dateiarchiv steckt
+  zwangsläufig `app/config.php` und damit der Tresorschlüssel – ohne ihn
+  wäre eine zurückgespielte Installation nur eine Hülle. Die Trennung
+  liegt deshalb nicht in der Datei, sondern in den zwei Archiven: Wer
+  die Datenbanksicherung findet, hat die verschlüsselten Zugänge, aber
+  nicht den Schlüssel. Bewahre die beiden folglich nicht am selben Ort
+  auf; im Archiv selbst steht das noch einmal.
 * **Hosting-Überwachung** – jede eingetragene Kundenwebsite wird alle
   15 Minuten aufgerufen. Eine Website mit Domain nimmt sich die Aufsicht
   von selbst vor: beim Eintragen, und für ältere Einträge in der
@@ -144,21 +153,31 @@ kann persönliche Angaben enthalten.
 
 ### Der Auftragstext ist fertig verdrahtet
 
-Beim Anlegen einer Website entsteht ein Auftragstext zum Kopieren. Darin
-stehen nicht nur die Angaben aus dem Formular, sondern auch die **echten
-Werte für Support und Zählung**: Adresse, Schlüssel, Zugangscode,
-Zählzeile. Wer die fertigen Dateien hochlädt, hat eine Website, die zählt
-und über die man Support bekommt – ohne einen einzigen Handgriff.
+Im Formular stehen drei Haken – Anleitung, Hilfeseite, Besucherzählung.
+Nicht jede Website braucht alle drei: Eine einzelne Landingpage mit einem
+Formular hat nichts zu dokumentieren, und wer nicht gezählt werden will,
+soll nicht gezählt werden.
 
-Das gilt auch, wenn der Text von Hand irgendwo eingefügt wird. Genau
-darum geht es: Was noch nachgetragen werden muss, wird vergessen.
+Was gewählt ist, ist danach aber **fertig verdrahtet**. Im Auftragstext
+stehen dann nicht Platzhalter, sondern die echten Werte: Adresse,
+Schlüssel, Zugangscode, die Zählzeile mit dem richtigen Schlüssel darin.
+Wer die fertigen Dateien hochlädt, hat eine Website, die zählt und über
+die man Support bekommt – ohne einen einzigen Handgriff. Das gilt auch,
+wenn der Auftragstext von Hand irgendwo eingefügt wird.
 
-Drei Stücke gehören zu jeder Website und stehen deshalb gleich im Kopf
-des Auftrags sowie noch einmal als Liste zum Abhaken am Schluss:
+Genau darum geht es: Ein Haken ist eine Entscheidung, ein Platzhalter ist
+eine Hausaufgabe. Entscheidungen trifft man gern, Hausaufgaben vergisst
+man.
+
+Was gewählt wurde, steht gleich im Kopf des Auftrags und noch einmal als
+Liste zum Abhaken am Schluss:
 
 * `/doc` – die Anleitung für den Kunden
 * `/support` – die Hilfeseite, hinter einem Zugangscode
 * die Zählzeile vor `</body>` auf **jeder** Seite
+
+Nichts davon gewählt heisst: keine Zeile darüber im Auftrag. Ein Auftrag,
+der Dinge verlangt, die niemand bestellt hat, wird nicht gelesen.
 
 **Zum Schlüssel im Auftragstext.** Ein Auftragstext wird kopiert und
 weitergereicht, also steht darin bewusst nicht der `assistant_token` –
@@ -170,7 +189,8 @@ er nicht hingehört, erzeugt *Projekt → Schlüssel und Code neu erzeugen*
 einen neuen; der alte gilt dann nicht mehr.
 
 Der Zugangscode ist das Einzige, was von Hand weitergegeben wird – an
-den Kunden, damit nur er über `/support` schreiben kann.
+den Kunden, damit nur er über `/support` schreiben kann. Er steht auf der
+Projektseite und lässt sich dort neu erzeugen.
 
 ### Intranet: was ich mir merken will
 
@@ -213,6 +233,72 @@ Eine hinzugefügte Website wird genauso einem Kunden zugeordnet,
 
 Beim Eintragen lässt sich die Erreichbarkeitsüberwachung gleich
 mitanschalten; sie erscheint dann im Wartungscenter.
+
+### Frontend-Fix: die eigene Website per Textbefehl
+
+Unter *Frontend-Fix* steht ein Textfeld. «Mach die Section Leistungen mit
+einem dunkleren Hintergrund» – der Satz geht an die Schnittstelle, zurück
+kommt CSS, und das liegt eine Sekunde später auf dem Server. Kein
+Hochladen, kein Bauen, kein Dateimanager.
+
+Damit die Beschreibung nicht ins Leere zielt, bekommt die Schnittstelle
+eine Karte der Website mit: welche Abschnitte es gibt und unter welchen
+Klassennamen sie im Quelltext stehen. Die Karte wird aus den echten
+Ansichten gelesen, nicht gepflegt – eine gepflegte Liste wäre nach der
+zweiten Änderung falsch.
+
+**Nur CSS, und das mit Absicht.** Das sichtbare Frontend ist ein gebautes
+Paket; es entsteht aus Quelldateien mit einem Werkzeug, das auf
+gemietetem Hosting nicht läuft. Eine Änderung am Quelltext wäre also erst
+nach dem nächsten Bauen zu sehen – und das findet dort nicht statt. Eine
+Regelebene, die nach dem Stylesheet geladen wird, ändert dagegen alles am
+Aussehen: Farben, Abstände, Schriften, Hintergründe, Sichtbarkeit. Was
+sie nicht kann – neue Texte, neue Abschnitte, neue Seiten – steht so auch
+in der Oberfläche.
+
+Jede Anpassung steht einzeln in der Liste, mit dem Befehl, der zu ihr
+geführt hat. Sie lässt sich **abschalten** (bleibt liegen) oder
+**löschen**. Ein Knopf räumt alle auf einmal weg. Damit ist jede Änderung
+in einem Klick zurückgenommen – das ist der Grund, warum sich hier ein
+Textbefehl überhaupt an die eigene Website heranlassen darf.
+
+Was zurückkommt, wird geprüft, bevor es auf die Website darf: nicht
+grösser als 12 000 Zeichen, geschlossene Klammern, kein `@import`, kein
+`url()` auf einen fremden Server, keine der alten Eigenheiten, über die
+sich früher Code einschleusen liess. Fällt eine Anpassung durch, wird sie
+gar nicht erst gespeichert. Die Datei wird nur verlinkt, solange
+mindestens eine Anpassung eingeschaltet ist – ohne kostet die Funktion
+keinen einzigen Aufruf.
+
+### Vom Auftrag bis zur Buchhaltung
+
+Was beim Anlegen einer Website erfasst wird, wird auch weiterverwendet –
+statt an drei Stellen dasselbe abzutippen:
+
+* **Passwörter landen von selbst im Tresor.** Backend, FTP und
+  Zugangscode werden beim Abschicken des Formulars abgelegt, solange der
+  Klartext noch da ist; eine Minute später steht in der Datenbank nur
+  noch der Argon2id-Hash, und dann wäre nichts mehr abzulegen. In der
+  Notiz steht **immer die Adresse des Kundenbackends** (`/admin`, und
+  solange die Domain fehlt, mit dem Vermerk, dass sie nachkommt). Ein
+  Passwort ohne die zugehörige Adresse ist ein Passwort, das man sucht.
+  Ein Eintrag, den es unter demselben Namen schon gibt, wird
+  übersprungen – ein zweiter Anlauf erzeugt keine Dubletten.
+* **Offerten und Rechnungen lassen sich löschen.** Mit dem Beleg gehen
+  das PDF und, war er bezahlt, die Einnahme. Eine Rechnung zu löschen und
+  die Einnahme stehen zu lassen, wäre die schlechteste aller Varianten:
+  Die Zahl in der Statistik hätte dann keinen Beleg mehr.
+* **Auf «bezahlt» gestellt wird eine Rechnung zur Einnahme.** Sie
+  erscheint im selben Moment unter *Buchhaltung*, im Monat des
+  Zahlungsdatums. Wird der Zustand zurückgenommen, verschwindet sie
+  wieder. Verbucht werden nur Rechnungen und nur einmal – eine Offerte,
+  die versehentlich auf «bezahlt» steht, wird nicht stillschweigend zu
+  Geld.
+* **Anfragen und Supportfäden lassen sich löschen**, nicht nur als Spam
+  markieren. Markieren ist richtig, solange man den Absender noch
+  einordnen will; für den vierten Werbebrief derselben Firma will man
+  einen Knopf, der ihn wegräumt. Gelöscht ist gelöscht, mitsamt allen
+  Nachrichten des Fadens.
 
 ### Der Betrieb rundherum
 
@@ -269,7 +355,7 @@ php -S 127.0.0.1:8080 -t public_html public_html/index.php
 
 | Befehl | Wofür |
 |---|---|
-| `php tests/run.php` | der Testlauf (820 Prüfungen) |
+| `php tests/run.php` | der Testlauf (1482 Prüfungen) |
 | `php tools/probelauf/durchlauf.php` | eine ganze Website bauen, vom Formular bis zum Paket |
 | `php build.php` | beide ZIPs erzeugen (voll und nur zum Aktualisieren) |
 | `cd frontend && npm run build` | Frontend neu bauen |

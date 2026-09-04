@@ -232,6 +232,60 @@ final class GuardController
         return Response::file($pfad, 'application/zip', true, basename($pfad))->noCache()->noIndex();
     }
 
+    /** Eine Sicherung entfernen. */
+    public function deleteBackup(Request $request): Response
+    {
+        $id = (int) $request->input('backup_id', '0');
+
+        $zeile = \WebAtze\Core\Db::first('SELECT path FROM backups WHERE id = :id', ['id' => $id]);
+        $name = $zeile !== null ? basename((string) $zeile['path']) : '';
+
+        if (!Backup::remove($id)) {
+            Session::flash('error', 'Diese Sicherung gibt es nicht mehr.');
+
+            return $this->zurueck();
+        }
+
+        Audit::log('backup.delete', $name, ['id' => $id], $request);
+        Session::flash('success', 'Sicherung gelöscht.');
+
+        return $this->zurueck();
+    }
+
+    /** Jetzt sichern, ohne auf die stündliche Pflege zu warten. */
+    public function backupNow(Request $request): Response
+    {
+        @set_time_limit(120);
+
+        $art = (string) $request->input('art', 'dateien');
+
+        if ($art === 'datenbank') {
+            \WebAtze\Core\Settings::put('backup_self_on', '');
+            $ok = Backup::daily();
+            $was = 'Datenbanksicherung';
+        } else {
+            \WebAtze\Core\Settings::put('backup_files_on', '');
+            $ok = Backup::dailyFiles();
+            $was = 'Dateisicherung';
+        }
+
+        Audit::log('backup.now', $was, ['erfolg' => $ok], $request);
+
+        Session::flash(
+            $ok ? 'success' : 'error',
+            $ok ? $was . ' angelegt.' : $was . ' hat nicht geklappt – siehe Protokoll.'
+        );
+
+        return $this->zurueck();
+    }
+
+    private function zurueck(): Response
+    {
+        return Response::redirect(
+            '/' . trim((string) Config::get('create_path', 'create'), '/') . '/wartung#sicherungen'
+        )->noCache()->noIndex();
+    }
+
     // ------------------------------------------------------------------
 
     private function page(string $titel, string $vorlage, array $daten): Response

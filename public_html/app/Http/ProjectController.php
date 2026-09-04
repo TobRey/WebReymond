@@ -40,11 +40,14 @@ final class ProjectController
         // der Text kopiert und von Hand eingefuegt wurde. Vorher standen
         // hier Platzhalter mit dem Hinweis "traegt Tobias nach", und
         // genau dieser Handgriff blieb liegen.
+        // Erzeugt wird nur, was auch bestellt wurde: Ein Schlüssel, den
+        // niemand braucht, ist ein Schlüssel, der irgendwann irgendwo
+        // steht.
         $anschluss = [
             'url' => (string) Config::get('app_url', ''),
-            'support_token' => Websites::supportToken($id),
-            'support_code' => Websites::supportCode($id),
-            'visit_key' => Visits::key($id),
+            'support_token' => !empty($brief['wants_support']) ? Websites::supportToken($id) : '',
+            'support_code' => !empty($brief['wants_support']) ? Websites::supportCode($id) : '',
+            'visit_key' => !empty($brief['wants_stats']) ? Visits::key($id) : '',
         ];
 
         return Response::html(View::partial('layouts/admin', [

@@ -185,6 +185,33 @@ final class Visits
         return $schluessel;
     }
 
+    /** Wird diese Website gezählt? */
+    public static function counts(int $projectId): bool
+    {
+        return trim((string) Db::value(
+            'SELECT visit_key FROM projects WHERE id = :id', ['id' => $projectId], ''
+        )) !== '';
+    }
+
+    /**
+     * Die Zählung ein- oder ausschalten.
+     *
+     * Ausschalten nimmt nur den Schlüssel weg: Die Zahlen der letzten
+     * Monate bleiben stehen. Wer die Zählung wieder einschaltet, hat
+     * seinen Verlauf noch - und beim Einschalten entsteht derselbe
+     * Schlüssel nicht noch einmal, sondern ein neuer.
+     */
+    public static function setCounting(int $projectId, bool $an): void
+    {
+        if ($an) {
+            self::key($projectId);
+
+            return;
+        }
+
+        Db::update('projects', ['visit_key' => ''], 'id = :id', ['id' => $projectId]);
+    }
+
     /** Zu welchem Projekt gehört dieser Schlüssel? */
     public static function byKey(string $key): ?array
     {
@@ -237,8 +264,14 @@ final class Visits
             'abholbar' => false,
         ]];
 
+        // Nur Websites, für die die Zählung angehakt wurde. Der
+        // Zählschlüssel ist genau dieses Kennzeichen: Er entsteht, wenn
+        // die Zählung gewollt ist, und sonst nicht. Eine Liste, in der
+        // jede Website mit "wartet auf Einbau" steht, sagt nichts.
         $alle = Db::all(
-            'SELECT id, name, domain, source, stats_token FROM projects ORDER BY name ASC LIMIT 500'
+            "SELECT id, name, domain, source, stats_token, visit_key FROM projects
+             WHERE visit_key <> :leer ORDER BY name ASC LIMIT 500",
+            ['leer' => '']
         );
 
         foreach ($alle as $p) {
@@ -248,7 +281,7 @@ final class Visits
                 'domain' => (string) $p['domain'],
                 'eigen' => false,
                 'quelle' => (string) ($p['source'] ?? 'ki'),
-                'schluessel' => self::key((int) $p['id']),
+                'schluessel' => (string) $p['visit_key'],
                 // Eine selbst gebaute Website liefert die Zahlen auf
                 // Nachfrage. Bei allen anderen kommen sie von selbst.
                 'abholbar' => trim((string) ($p['stats_token'] ?? '')) !== '',

@@ -317,17 +317,21 @@ $latestBuild = $builds[0] ?? null;
                         ? ' mit Wochenbericht an ' . e((string) $project['report_email'])
                         : ' ohne Wochenbericht');
             }
-            // Hilfeseite und Anleitung gehoeren zu jeder Website - sie
-            // hingen frueher an einem Haken, und der wurde vergessen.
-            $extras[] = $siteUrl !== ''
-                ? 'Hilfeseite unter <a href="' . e($siteUrl) . '/support" rel="noopener noreferrer" target="_blank">'
-                  . e($domain) . '/support</a>'
-                : 'Hilfeseite unter /support';
-            $extras[] = $siteUrl !== ''
-                ? 'Anleitung unter <a href="' . e($siteUrl) . '/doc" rel="noopener noreferrer" target="_blank">'
-                  . e($domain) . '/doc</a>'
-                : 'Anleitung unter /doc';
-            echo implode('<br>', $extras);
+            if (!empty($brief['wants_support'])) {
+                $extras[] = $siteUrl !== ''
+                    ? 'Hilfeseite unter <a href="' . e($siteUrl) . '/support" rel="noopener noreferrer" target="_blank">'
+                      . e($domain) . '/support</a>'
+                    : 'Hilfeseite unter /support';
+            }
+            if (!empty($brief['wants_docs'])) {
+                $extras[] = $siteUrl !== ''
+                    ? 'Anleitung unter <a href="' . e($siteUrl) . '/doc" rel="noopener noreferrer" target="_blank">'
+                      . e($domain) . '/doc</a>'
+                    : 'Anleitung unter /doc';
+            }
+            echo $extras === []
+                ? 'nichts – weder Zählung noch Hilfeseite noch Anleitung'
+                : implode('<br>', $extras);
             ?>
         </dd>
 
@@ -336,23 +340,27 @@ $latestBuild = $builds[0] ?? null;
             sonst - der Kunde bekommt ihn von mir, nicht aus einer
             E-Mail, die durch drei Postfaecher gelaufen ist.
         */ ?>
-        <dt>Zugangscode für /support</dt>
-        <dd>
-            <code><?= e(\WebAtze\Domain\Websites::supportCode((int) $project['id'])) ?></code>
-            <p class="wa-hint">
-                Nur der Kunde bekommt ihn. Ohne ihn zeigt die Hilfeseite kein Formular –
-                so kann kein Werbeprogramm darüber schreiben.
-            </p>
-        </dd>
+        <?php if (!empty($brief['wants_support'])): ?>
+            <dt>Zugangscode für /support</dt>
+            <dd>
+                <code><?= e(\WebAtze\Domain\Websites::supportCode($id)) ?></code>
+                <p class="wa-hint">
+                    Nur der Kunde bekommt ihn. Ohne ihn zeigt die Hilfeseite kein Formular –
+                    so kann kein Werbeprogramm darüber schreiben.
+                </p>
+            </dd>
+        <?php endif; ?>
 
-        <dt>Zählzeile</dt>
-        <dd>
-            <code>&lt;script defer src="<?= e(rtrim((string) Config::get('app_url', ''), '/')) ?>/z.js?k=<?= e(\WebAtze\Domain\Visits::key((int) $project['id'])) ?>"&gt;&lt;/script&gt;</code>
-            <p class="wa-hint">
-                Steht im Auftrag und kommt beim Bauen auf jede Seite. Nur falls du sie
-                irgendwo von Hand brauchst.
-            </p>
-        </dd>
+        <?php if (!empty($brief['wants_stats'])): ?>
+            <dt>Zählzeile</dt>
+            <dd>
+                <code>&lt;script defer src="<?= e(rtrim((string) Config::get('app_url', ''), '/')) ?>/z.js?k=<?= e(\WebAtze\Domain\Visits::key($id)) ?>"&gt;&lt;/script&gt;</code>
+                <p class="wa-hint">
+                    Steht im Auftrag und kommt beim Bauen auf jede Seite. Nur falls du sie
+                    irgendwo von Hand brauchst.
+                </p>
+            </dd>
+        <?php endif; ?>
     </dl>
 
     <?php /*
@@ -360,13 +368,15 @@ $latestBuild = $builds[0] ?? null;
         nichts einzurichten ist. Ein Auftragstext wird kopiert und
         weitergereicht - also braucht es einen Weg, ihn zurueckzunehmen.
     */ ?>
-    <form method="post" action="<?= e($base) ?>/projekt/<?= (int) $project['id'] ?>/support-schluessel"
+    <?php if (!empty($brief['wants_support']) || !empty($brief['wants_stats'])): ?>
+    <form method="post" action="<?= e($base) ?>/projekt/<?= $id ?>/support-schluessel"
           data-confirm="Neuen Schlüssel und neuen Zugangscode erzeugen? Die bisherige Hilfeseite dieser Website funktioniert danach nicht mehr, bis sie neu gebaut ist.">
         <?= Csrf::field() ?>
         <button type="submit" class="wa-btn wa-btn--quiet wa-btn--sm">
             Schlüssel und Code neu erzeugen
         </button>
     </form>
+    <?php endif; ?>
 </section>
 
 <?php /* ----------------------------------------------------- Prüfungen */ ?>

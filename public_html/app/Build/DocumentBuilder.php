@@ -362,9 +362,27 @@ final class DocumentBuilder
 
     // -------------------------------------------------------------- Ändern
 
+    /**
+     * Zustand aendern - und die Buchhaltung mitfuehren.
+     *
+     * "Bezahlt" ist der einzige Zustand, der Geld bedeutet. Frueher
+     * stand er nur an der Rechnung, und die Buchhaltung wusste nichts
+     * davon: Die Statistik zeigte einen Gewinn, den es nicht gab, oder
+     * eben keinen, den es gab.
+     *
+     * Jetzt entsteht mit dem Zustand eine Einnahme - und verschwindet
+     * mit ihm wieder. Zweimal auf "bezahlt" heisst nicht zweimal
+     * verbucht.
+     */
     public static function setStatus(int $id, string $status): bool
     {
         if (!isset(self::STATUS[$status])) {
+            return false;
+        }
+
+        $doc = self::find($id);
+
+        if ($doc === null) {
             return false;
         }
 
@@ -374,7 +392,99 @@ final class DocumentBuilder
             'updated_at' => Db::now(),
         ], 'id = :id', ['id' => $id]);
 
+        if ($status === 'paid') {
+            self::book($id);
+        } else {
+            self::unbook($id);
+        }
+
         return true;
+    }
+
+    /**
+     * Aus einer bezahlten Rechnung eine Einnahme machen.
+     *
+     * Nur Rechnungen: Eine bezahlte Offerte gibt es nicht, und eine
+     * Offerte, die versehentlich auf "bezahlt" steht, soll nicht
+     * stillschweigend zu Geld werden.
+     */
+    public static function book(int $id): bool
+    {
+        $doc = self::find($id);
+
+        if ($doc === null || (string) $doc['kind'] !== 'invoice') {
+            return false;
+        }
+
+        // Schon verbucht? Dann bleibt es bei der einen Zeile.
+        if (Db::value('SELECT id FROM payments WHERE document_id = :d', ['d' => $id]) !== null) {
+            return false;
+        }
+
+        $betrag = (int) $doc['total_rappen'];
+
+        if ($betrag <= 0) {
+            return false;
+        }
+
+        $tag = trim((string) $doc['paid_on']) !== '' ? (string) $doc['paid_on'] : date('Y-m-d');
+
+        $bezeichnung = trim((string) $doc['number'] . ' ' . (string) $doc['title']);
+
+        Db::insert('payments', [
+            'customer_id' => ((int) ($doc['customer_id'] ?? 0)) ?: 0,
+            'charge_id' => null,
+            'document_id' => $id,
+            'period' => mb_substr($tag, 0, 7),
+            'label' => mb_substr($bezeichnung !== '' ? $bezeichnung : 'Rechnung', 0, 191),
+            'amount_rappen' => $betrag,
+            'paid_on' => $tag,
+            'method' => '',
+            'note' => 'Aus Rechnung ' . (string) $doc['number'],
+            'created_at' => Db::now(),
+        ]);
+
+        return true;
+    }
+
+    /** Die Einnahme wieder wegnehmen. */
+    public static function unbook(int $id): int
+    {
+        return Db::delete('payments', 'document_id = :d', ['d' => $id]);
+    }
+
+    /**
+     * Eine Offerte oder Rechnung entfernen.
+     *
+     * Mit ihr geht das PDF und - falls sie bezahlt war - die Einnahme in
+     * der Buchhaltung. Eine Rechnung zu loeschen und die Einnahme
+     * stehen zu lassen, waere die schlechteste aller Varianten: Die
+     * Zahl in der Statistik haette dann keinen Beleg mehr.
+     */
+    public static function remove(int $id): bool
+    {
+        $doc = self::find($id);
+
+        if ($doc === null) {
+            return false;
+        }
+
+        self::unbook($id);
+
+        $datei = trim((string) $doc['file_path']);
+
+        if ($datei !== '') {
+            $voll = str_starts_with($datei, '/') ? $datei : STORAGE_DIR . '/' . ltrim($datei, '/');
+
+            // Nur innerhalb des eigenen Ablageordners loeschen - der
+            // Pfad kommt zwar aus der eigenen Datenbank, aber eine
+            // Loeschanweisung prueft man trotzdem.
+            if (str_starts_with(realpath(dirname($voll)) ?: '', realpath(STORAGE_DIR) ?: "\0")) {
+                @unlink($voll);
+            }
+        }
+
+        return Db::delete('documents', 'id = :id', ['id' => $id]) > 0;
     }
 
     /** Aus einer Offerte eine Rechnung machen. */

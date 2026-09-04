@@ -306,6 +306,30 @@ if (($kunde ?? null) !== null) {
                                         </button>
                                     </form>
                                 <?php endif; ?>
+
+                                <?php /*
+                                    Eine bezahlte Rechnung steht in der
+                                    Buchhaltung. Sie zu loeschen nimmt
+                                    die Einnahme mit - das muss in der
+                                    Abfrage stehen, nicht erst hinterher
+                                    auffallen.
+                                */ ?>
+                                <?php
+                                    $frage = (string) $row['status'] === 'paid'
+                                        ? 'Diese bezahlte Rechnung wirklich löschen? Die Einnahme von '
+                                          . DocumentBuilder::money((int) $row['total_rappen'])
+                                          . ' verschwindet damit auch aus der Buchhaltung.'
+                                        : (DocumentBuilder::KINDS[(string) $row['kind']] ?? 'Beleg')
+                                          . ' ' . (string) $row['number'] . ' wirklich löschen?';
+                                ?>
+                                <form method="post"
+                                      action="<?= e($base) ?>/rechnungen/<?= (int) $row['id'] ?>/loeschen"
+                                      data-confirm="<?= e($frage) ?>">
+                                    <?= Csrf::field() ?>
+                                    <button type="submit" class="wa-btn wa-btn--quiet wa-btn--sm wa-btn--danger">
+                                        Löschen
+                                    </button>
+                                </form>
                             </div>
                         </td>
                     </tr>

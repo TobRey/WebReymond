@@ -223,18 +223,34 @@ $certGrenze = date('Y-m-d', time() + $certWarnDays * 86400);
     </details>
 </section>
 
-<section class="wa-panel">
+<section class="wa-panel" id="sicherungen">
     <header class="wa-panel__head">
         <h2 class="wa-panel__title">Sicherungen</h2>
-        <form method="post" action="<?= e($base) ?>/wartung/sichern">
-            <?= Csrf::field() ?>
-            <button type="submit" class="wa-btn">Jetzt sichern</button>
-        </form>
+        <div class="wa-panel__actions">
+            <?php /* Zwei getrennte Archive mit Absicht: Das eine hat die
+                     Daten, das andere den Schluessel dazu. Wer nur eines
+                     davon in die Haende bekommt, hat nichts. */ ?>
+            <form method="post" action="<?= e($base) ?>/wartung/sicherung/jetzt">
+                <?= Csrf::field() ?>
+                <input type="hidden" name="art" value="dateien">
+                <button type="submit" class="wa-btn wa-btn--sm">Dateien jetzt sichern</button>
+            </form>
+            <form method="post" action="<?= e($base) ?>/wartung/sicherung/jetzt">
+                <?= Csrf::field() ?>
+                <input type="hidden" name="art" value="datenbank">
+                <button type="submit" class="wa-btn wa-btn--sm">Datenbank jetzt sichern</button>
+            </form>
+            <form method="post" action="<?= e($base) ?>/wartung/sichern">
+                <?= Csrf::field() ?>
+                <button type="submit" class="wa-btn wa-btn--quiet wa-btn--sm">Kundenseite sichern</button>
+            </form>
+        </div>
     </header>
 
     <p class="wa-panel__hint">
-        Gesichert wird von selbst: einmal am Tag die eigene Datenbank, dazu reihum je eine
-        Kundenwebsite. Von einer Kundenwebsite bleiben die
+        Gesichert wird von selbst, einmal am Tag: <strong>alle Dateien</strong> der
+        Installation als ein Archiv mit Datum, <strong>die Datenbank</strong> als zweites,
+        dazu reihum je eine Kundenwebsite. Von einer Kundenwebsite bleiben die
         <strong><?= (int) $behalten ?></strong> neuesten Stände liegen, ältere fallen beim
         Anlegen eines neuen weg.
         <?php if ($letzteEigene !== null): ?>
@@ -242,6 +258,19 @@ $certGrenze = date('Y-m-d', time() + $certWarnDays * 86400);
             <?= e(date('d.m.Y \u\m H:i', strtotime((string) $letzteEigene['created_at']) ?: time())) ?> Uhr.
         <?php endif; ?>
     </p>
+
+    <div class="wa-note">
+        <div>
+            <strong>Das Dateiarchiv enthält <code>app/config.php</code> – und damit den
+            Schlüssel zum Tresor.</strong>
+            <p class="wa-hint">
+                Das ist Absicht: Ohne diesen Schlüssel wäre nach einem Ausfall jedes
+                Passwort im Tresor verloren. Der Schutz liegt darin, dass Schlüssel und
+                verschlüsselte Daten in zwei getrennten Archiven stehen. Lade sie herunter
+                und lege sie an <em>verschiedenen</em> Orten ab.
+            </p>
+        </div>
+    </div>
 
     <form method="post" action="<?= e($base) ?>/wartung/aufbewahrung" class="wa-form wa-form--inline">
         <?= Csrf::field() ?>
@@ -277,16 +306,35 @@ $certGrenze = date('Y-m-d', time() + $certWarnDays * 86400);
                     <?php foreach ($sicherungen as $s): ?>
                         <tr>
                             <td><?= e(date('d.m.Y H:i', strtotime((string) $s['created_at']) ?: time())) ?></td>
+                            <?php
+                                $art = (string) $s['scope'];
+                                $was = match ($art) {
+                                    'self' => 'Eigene Datenbank',
+                                    'files' => 'Alle Dateien',
+                                    default => (string) ($s['project_name'] ?? 'Kundenwebsite'),
+                                };
+                            ?>
                             <td>
-                                <?= (string) $s['scope'] === 'self'
-                                    ? 'Eigene Datenbank'
-                                    : e((string) ($s['project_name'] ?? 'Kundenwebsite')) ?>
+                                <?= e($was) ?>
+                                <?php if ($art === 'files'): ?>
+                                    <span class="wa-badge">mit Schlüssel</span>
+                                <?php endif; ?>
                             </td>
                             <td class="wa-table__num"><?= (int) $s['files'] ?></td>
                             <td class="wa-table__num"><?= e($mb((int) $s['bytes'])) ?></td>
                             <td class="wa-table__actions">
-                                <a class="wa-btn wa-btn--small"
-                                   href="<?= e($base) ?>/wartung/sicherung/<?= (int) $s['id'] ?>">Laden</a>
+                                <div class="wa-panel__actions">
+                                    <a class="wa-btn wa-btn--small"
+                                       href="<?= e($base) ?>/wartung/sicherung/<?= (int) $s['id'] ?>">Laden</a>
+                                    <form method="post" action="<?= e($base) ?>/wartung/sicherung/loeschen"
+                                          data-confirm="Diese Sicherung wirklich löschen? Sie ist danach weg – lade sie vorher herunter, wenn du sie behalten willst.">
+                                        <?= Csrf::field() ?>
+                                        <input type="hidden" name="backup_id" value="<?= (int) $s['id'] ?>">
+                                        <button type="submit" class="wa-btn wa-btn--small wa-btn--danger">
+                                            Löschen
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>

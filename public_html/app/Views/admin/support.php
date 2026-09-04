@@ -74,13 +74,26 @@ $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
                     </p>
                 </div>
 
-                <form method="post" action="<?= e($base) ?>/support/<?= $id ?>/status">
-                    <?= Csrf::field() ?>
-                    <input type="hidden" name="status" value="<?= $erledigt ? 'open' : 'done' ?>">
-                    <button type="submit" class="wa-btn wa-btn--quiet wa-btn--sm">
-                        <?= $erledigt ? 'Wieder öffnen' : 'Erledigt' ?>
-                    </button>
-                </form>
+                <div class="wa-panel__actions">
+                    <form method="post" action="<?= e($base) ?>/support/<?= $id ?>/status">
+                        <?= Csrf::field() ?>
+                        <input type="hidden" name="status" value="<?= $erledigt ? 'open' : 'done' ?>">
+                        <button type="submit" class="wa-btn wa-btn--quiet wa-btn--sm">
+                            <?= $erledigt ? 'Wieder öffnen' : 'Erledigt' ?>
+                        </button>
+                    </form>
+
+                    <?php /* Erledigt heisst zugeklappt, nicht weg. Ein
+                             Faden aus einem Versehen soll wirklich
+                             verschwinden koennen. */ ?>
+                    <form method="post" action="<?= e($base) ?>/support/<?= $id ?>/loeschen"
+                          data-confirm="Diesen Gesprächsfaden mit allen Nachrichten wirklich löschen?">
+                        <?= Csrf::field() ?>
+                        <button type="submit" class="wa-btn wa-btn--quiet wa-btn--sm wa-btn--danger">
+                            Löschen
+                        </button>
+                    </form>
+                </div>
             </div>
 
             <div class="wa-faden">

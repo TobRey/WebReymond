@@ -151,16 +151,18 @@ final class SiteBuilder
             // Die Zählung wird angehakt - wer sie nicht will, bekommt
             // keine einzige Zeile davon.
             'counter' => !empty($brief['wants_stats']),
-            // Hilfeseite und Anleitung dagegen gehören zu jeder Website.
-            // Auch beim Neubauen eines älteren Auftrags, in dem der
-            // Haken noch fehlt - sonst bliebe die Seite ohne /support.
-            'support' => true,
-            'docs' => true,
-            // Die Zählzeile kommt auf jede gebaute Seite. Ohne Haken:
-            // Eine Website, die niemand zählt, war bisher der Normalfall,
-            // weil es eine Entscheidung war, die man vergessen konnte.
-            'visit_url' => rtrim((string) Config::get('app_url', ''), '/'),
-            'visit_key' => \WebAtze\Domain\Visits::key((int) $this->project['id']),
+            'support' => !empty($brief['wants_support']),
+            'docs' => !empty($brief['wants_docs']),
+            // Die Zählzeile, aber nur bei angehakter Zählung. Sie steht
+            // dann auf JEDER gebauten Seite - eine Seite, die als
+            // einzige nicht zählt, verfälscht die Zahlen mehr, als sie
+            // nützt.
+            'visit_url' => !empty($brief['wants_stats'])
+                ? rtrim((string) Config::get('app_url', ''), '/')
+                : '',
+            'visit_key' => !empty($brief['wants_stats'])
+                ? \WebAtze\Domain\Visits::key((int) $this->project['id'])
+                : '',
         ];
     }
 
@@ -432,8 +434,12 @@ final class SiteBuilder
             // sieht eine von WebAtze gebaute Website von aussen genauso
             // aus wie eine, die aus dem Auftragstext entstanden ist -
             // eine Datei, ein Satz Schluessel, kein Sonderfall.
-            'support_token' => \WebAtze\Domain\Websites::supportToken((int) $this->project['id']),
-            'visit_key' => \WebAtze\Domain\Visits::key((int) $this->project['id']),
+            'support_token' => !empty($brief['wants_support'])
+                ? \WebAtze\Domain\Websites::supportToken((int) $this->project['id'])
+                : '',
+            'visit_key' => !empty($brief['wants_stats'])
+                ? \WebAtze\Domain\Visits::key((int) $this->project['id'])
+                : '',
         ];
 
         write_file_atomic(

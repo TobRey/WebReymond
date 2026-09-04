@@ -366,7 +366,8 @@ $invalid = static fn (string $key): string
         <p class="wa-fieldset__hint">
             Nichts davon ist eingeschaltet, solange du es nicht anhakst. Was nicht
             angehakt ist, wird auch nicht mitgeliefert – keine Datei, keine Zeile
-            im Quelltext.
+            im Quelltext. Was angehakt ist, steht im Auftrag mit allen echten
+            Werten und läuft ohne einen Handgriff.
         </p>
 
         <label class="wa-checkbox">
@@ -375,10 +376,10 @@ $invalid = static fn (string $key): string
             <span>Besucher zählen</span>
         </label>
         <p class="wa-fieldset__hint">
-            Die Zählung läuft auf dem Server des Kunden, nicht bei einem fremden
-            Dienst. Gespeichert werden Tag, Seite und Herkunft – keine Adressen,
-            keine Kennungen über den Tag hinaus. Deshalb braucht die Website dafür
-            keinen Zustimmungsbanner.
+            Die Zählzeile kommt in den Kopfbereich jeder Seite; die Website
+            erscheint danach von selbst unter «Besucher». Gespeichert werden Tag,
+            Seite und Herkunft – keine Adressen, keine Kennung über den Tag hinaus.
+            Deshalb braucht die Website dafür keinen Zustimmungsbanner.
         </p>
 
         <div id="stats-report" class="wa-field"<?= !empty($values['wants_stats']) ? '' : ' hidden' ?>>
@@ -399,24 +400,41 @@ $invalid = static fn (string $key): string
             </p>
         </div>
 
+        <label class="wa-checkbox">
+            <input type="checkbox" name="wants_docs" value="1" id="wants_docs"<?= $checked('wants_docs') ?>>
+            <span>Anleitung unter <code>/doc</code></span>
+        </label>
+        <p class="wa-fieldset__hint">
+            Erklärt dem Kunden in einfacher Sprache, wie seine Website funktioniert:
+            welche Seite wofür da ist, wohin die Anfragen gehen, was er noch liefern
+            muss. Trägt <code>noindex</code> und steht nicht in der sitemap.
+        </p>
+
+        <label class="wa-checkbox">
+            <input type="checkbox" name="wants_support" value="1" id="wants_support"<?= $checked('wants_support') ?>>
+            <span>Hilfeseite unter <code>/support</code></span>
+        </label>
+        <p class="wa-fieldset__hint">
+            Der Kunde schreibt dir dort; die Frage erscheint bei dir unter «Support».
+            Hinter einem Zugangscode, mit begrenzten Versuchen, Honigtopf und
+            Zeitfalle – nur der Kunde kommt durch, kein Werbeprogramm.
+        </p>
+
         <?php /*
-            Anleitung und Supportbereich waren einmal zwei Haken. Beide
-            wurden vergessen, und die fertige Website hatte weder /doc
-            noch /support. Sie sind jetzt fest dabei - deshalb steht
-            hier keine Auswahl mehr, sondern eine Zusage.
+            Der Unterschied zu frueher liegt nicht im Haken, sondern
+            darin, was dahinter passiert. Wer hier etwas anhakt, bekommt
+            im Auftrag Adresse, Schluessel und Zugangscode fertig
+            eingetragen - danach ist nichts mehr einzurichten.
         */ ?>
         <div class="wa-note">
             <div>
-            <strong>Immer dabei: Anleitung unter <code>/doc</code> und
-            Hilfeseite unter <code>/support</code>.</strong>
-            <p class="wa-fieldset__hint">
-                Die Anleitung erklärt dem Kunden in einfacher Sprache, wie seine
-                Website funktioniert. Über die Hilfeseite schreibt er dir – hinter
-                einem Zugangscode, mit Begrenzung der Versuche, Honigtopf und
-                Zeitfalle. Sie ist nur für den Kunden, nicht für Besucher und nicht
-                für Automaten. Beides steht im erzeugten Auftrag und wird
-                mitgebaut, ohne dass du daran denken musst.
-            </p>
+                <strong>Was du anhakst, steht fertig verdrahtet im Auftrag.</strong>
+                <p class="wa-fieldset__hint">
+                    Adresse, Schlüssel, Zugangscode und Zählzeile werden eingesetzt,
+                    nicht beschrieben. Auf der fertigen Website ist danach nichts
+                    einzurichten und nichts von Hand einzufügen – auch dann nicht,
+                    wenn du den Auftragstext selbst irgendwo einfügst.
+                </p>
             </div>
         </div>
     </fieldset>

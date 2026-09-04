@@ -104,26 +104,63 @@ final class PromptText
             . "Leg sie in einem neuen Ordner an und schreib am Ende hin, welche\n"
             . "Dateien entstanden sind.";
 
-        // Die drei Stuecke, die immer wieder fehlten, stehen ganz vorne.
-        // Am Ende einer langen Liste werden sie ueberlesen - hier nicht.
-        $text .= "\n\n## Drei Dinge, die diese Website IMMER hat\n\n"
-            . "Sie stehen weiter unten ausführlich. Hier zuerst, damit sie nicht\n"
-            . "untergehen – sie haben in den letzten Aufträgen jedes Mal gefehlt:\n\n"
-            . "1. **`/doc`** – die Anleitung für den Kunden.\n"
-            . "2. **`/support`** – die Hilfeseite, über die er mir schreibt.\n"
-            . "3. **Die Besucherzählung** – eine Zeile im Fussbereich jeder Seite.\n\n"
-            . "Alle drei sind Teil des Auftrags, nicht Beiwerk. Wenn am Ende eines\n"
-            . "davon fehlt, ist die Website nicht fertig.";
+        // Was bestellt wurde, steht ganz vorne. Am Ende einer langen
+        // Liste wird es ueberlesen - genau das ist zweimal passiert.
+        $stuecke = self::bestellt($brief);
 
-        if (!empty($anschluss['fertig'])) {
-            $text .= "\n\n**Alles dafür Nötige steht in diesem Auftrag: Adresse,\n"
-                . "Schlüssel, Zugangscode, Zählzeile.** Es ist danach nichts mehr\n"
-                . "einzurichten, nichts nachzutragen, nichts von Hand einzufügen.\n"
-                . "Wer die Dateien hochlädt, hat eine Website, die zählt und über\n"
-                . "die man Support bekommt.";
+        if ($stuecke !== []) {
+            $text .= "\n\n## Was diese Website neben den Seiten hat\n\n"
+                . "Ausführlich steht es weiter unten. Hier zuerst, damit es nicht\n"
+                . "untergeht:\n\n";
+
+            foreach ($stuecke as $nummer => $zeile) {
+                $text .= ($nummer + 1) . '. ' . $zeile . "\n";
+            }
+
+            $text .= "\nDas ist Teil des Auftrags, nicht Beiwerk. Wenn am Ende eines\n"
+                . "davon fehlt, ist die Website nicht fertig.";
+
+            if (!empty($anschluss['fertig'])) {
+                $text .= "\n\n**Alles dafür Nötige steht in diesem Auftrag: Adresse,\n"
+                    . "Schlüssel, Zugangscode, Zählzeile.** Es ist danach nichts mehr\n"
+                    . "einzurichten, nichts nachzutragen, nichts von Hand einzufügen.";
+            }
         }
 
         return $text;
+    }
+
+    /**
+     * Was ausser den Seiten bestellt wurde - als kurze Liste.
+     *
+     * Es sind wieder Entscheidungen im Formular. Der Unterschied zu
+     * frueher liegt nicht im Haken, sondern darin, was dahinter
+     * passiert: Was angehakt ist, steht mit allen echten Werten im
+     * Auftrag und laeuft ohne einen Handgriff.
+     *
+     * @return array<int, string>
+     */
+    private static function bestellt(array $brief): array
+    {
+        $stuecke = [];
+
+        if (!empty($brief['wants_docs'])) {
+            $stuecke[] = '**`/doc`** – die Anleitung für den Kunden.';
+        }
+
+        if (!empty($brief['wants_support'])) {
+            $stuecke[] = '**`/support`** – die Hilfeseite, über die er mir schreibt.';
+        }
+
+        if (!empty($brief['wants_stats'])) {
+            $stuecke[] = '**Die Besucherzählung** – eine Zeile im Kopfbereich jeder Seite.';
+        }
+
+        if (!empty($brief['wants_admin'])) {
+            $stuecke[] = '**`/admin`** – der Bearbeitungsbereich für den Kunden.';
+        }
+
+        return $stuecke;
     }
 
     private static function firma(array $brief): string
@@ -283,14 +320,38 @@ final class PromptText
 
         $an = trim((string) ($brief['contact_email'] ?? ''));
 
-        $zeilen = ["## Betreuung: Anleitung, Support und Zählung"];
+        $doku    = !empty($brief['wants_docs']);
+        $support = !empty($brief['wants_support']);
+        $zaehlen = !empty($brief['wants_stats']);
 
-        $zeilen[] = "Diese drei gehören zu **jeder** Website, die ich ausliefere. Sie\n"
-            . "sind nicht optional und nicht verhandelbar. Bau sie, auch wenn oben\n"
-            . "nichts davon steht.";
+        // Nichts bestellt, nichts zu schreiben. Eine leere Rubrik im
+        // Auftrag ist schlimmer als keine: Sie liest sich, als sei
+        // etwas vergessen worden.
+        if (!$doku && !$support && !$zaehlen) {
+            return '';
+        }
+
+        $zeilen = ["## Betreuung"];
+
+        $namen = [];
+        if ($doku)    { $namen[] = 'die Anleitung'; }
+        if ($support) { $namen[] = 'die Hilfeseite'; }
+        if ($zaehlen) { $namen[] = 'die Besucherzählung'; }
+
+        $liste = count($namen) > 1
+            ? implode(', ', array_slice($namen, 0, -1)) . ' und ' . end($namen)
+            : $namen[0];
+
+        $zeilen[] = "Zu dieser Website gehören " . $liste . ". Das ist bestellt und\n"
+            . "bezahlt – bau es, auch wenn es Arbeit macht. Was hier steht, ist\n"
+            . "vollständig: Adresse, Schlüssel und Zugangscode stehen im Klartext\n"
+            . "darin, es ist danach nichts mehr einzurichten.";
+
+        // Die Konfigurationsdatei braucht nur, wer auch etwas damit tut.
+        $braucht_datei = $support || $zaehlen;
 
         // ------------------------------------------------ Die Konfiguration
-        if ($fertig) {
+        if ($braucht_datei && $fertig) {
             $zeilen[] = "### Zuerst: `data/config.php`\n\n"
                 . "Leg diese Datei als Erstes an, genau mit diesen Werten. Sie sind\n"
                 . "echt und einsatzbereit – **nichts davon ist ein Platzhalter, und\n"
@@ -300,16 +361,20 @@ final class PromptText
                 . "// Die Anbindung an WebAtze. Von WebAtze erzeugt, gültig ab sofort.\n"
                 . "return [\n"
                 . "    'assistant_url' => '" . $url . "',\n"
-                . "    'support_token' => '" . $token . "',\n"
-                . "    'support_code'  => '" . $code . "',\n"
-                . "    'visit_key'     => '" . $key . "',\n"
-                . "    'support_email' => '" . ($an !== '' ? $an : '') . "',\n"
+                // Nur die Schluessel, die auch gebraucht werden. Ein
+                // Wert, den nichts liest, wirft nur die Frage auf, wozu
+                // er da ist - und wandert irgendwann in eine Datei, in
+                // die er nicht gehoert.
+                . ($support ? "    'support_token' => '" . $token . "',\n" : '')
+                . ($support ? "    'support_code'  => '" . $code . "',\n" : '')
+                . ($zaehlen ? "    'visit_key'     => '" . $key . "',\n" : '')
+                . ($support && $an !== '' ? "    'support_email' => '" . $an . "',\n" : '')
                 . "];\n"
                 . "```\n\n"
                 . "Der Ordner `data/` bekommt eine `.htaccess` mit `Require all denied`\n"
                 . "und eine leere `index.php`, die mit 404 abbricht. Der Schlüssel\n"
                 . "darf nie über den Browser lesbar sein.";
-        } else {
+        } elseif ($braucht_datei) {
             $zeilen[] = "### Zuerst: `data/config.php`\n\n"
                 . "```php\n"
                 . "<?php\n\n"
@@ -329,129 +394,140 @@ final class PromptText
         }
 
         // ------------------------------------------------------------- /doc
-        $zeilen[] = "### `/doc` – die Anleitung\n\n"
-            . "Eine eigene Seite `doc.html` (oder `doc/index.html`), verlinkt in\n"
-            . "der Fusszeile. Sie erklärt dem Kunden in einfachen Worten, wie\n"
-            . "seine Website funktioniert – ohne Fachbegriffe, mit Beispielen,\n"
-            . "in der Anrede, die auch der Rest der Seite benutzt.\n\n"
-            . "Sie enthält mindestens:\n"
-            . "- **Was wo steht:** eine kurze Übersicht aller Seiten und was\n"
-            . "  auf welche gehört.\n"
-            . "- **Wie Anfragen ankommen:** wohin das Kontaktformular schickt,\n"
-            . "  was der Kunde tun muss, wenn nichts ankommt (Spam-Ordner).\n"
-            . "- **Was der Kunde selbst ändern kann und was nicht.**\n"
-            . "- **Die Dateien:** welche Datei wofür da ist, in einer Tabelle.\n"
-            . "- **Wenn etwas nicht stimmt:** der Weg über `/support`, samt\n"
-            . "  Hinweis, dass er den Zugangscode von mir bekommen hat.\n"
-            . "- **Was der Kunde noch liefern muss:** Bilder, Texte, Angaben\n"
-            . "  fürs Impressum – alles, wo jetzt noch ein Platzhalter steht.\n\n"
-            . "Sie trägt `<meta name=\"robots\" content=\"noindex, nofollow\">` und\n"
-            . "steht nicht in der sitemap.xml. Sie ist für den Kunden, nicht\n"
-            . "für Suchmaschinen.";
+        if ($doku) {
+            $zeilen[] = "### `/doc` – die Anleitung\n\n"
+                . "Eine eigene Seite `doc.html` (oder `doc/index.html`), verlinkt in\n"
+                . "der Fusszeile. Sie erklärt dem Kunden in einfachen Worten, wie\n"
+                . "seine Website funktioniert – ohne Fachbegriffe, mit Beispielen,\n"
+                . "in der Anrede, die auch der Rest der Seite benutzt.\n\n"
+                . "Sie enthält mindestens:\n"
+                . "- **Was wo steht:** eine kurze Übersicht aller Seiten und was\n"
+                . "  auf welche gehört.\n"
+                . "- **Wie Anfragen ankommen:** wohin das Kontaktformular schickt,\n"
+                . "  was der Kunde tun muss, wenn nichts ankommt (Spam-Ordner).\n"
+                . "- **Was der Kunde selbst ändern kann und was nicht.**\n"
+                . "- **Die Dateien:** welche Datei wofür da ist, in einer Tabelle.\n"
+                . "- **Wenn etwas nicht stimmt:** der Weg über `/support`, samt\n"
+                . "  Hinweis, dass er den Zugangscode von mir bekommen hat.\n"
+                . "- **Was der Kunde noch liefern muss:** Bilder, Texte, Angaben\n"
+                . "  fürs Impressum – alles, wo jetzt noch ein Platzhalter steht.\n\n"
+                . "Sie trägt `<meta name=\"robots\" content=\"noindex, nofollow\">` und\n"
+                . "steht nicht in der sitemap.xml. Sie ist für den Kunden, nicht\n"
+                . "für Suchmaschinen.";
 
-        // --------------------------------------------------------- /support
-        $zeilen[] = "### `/support` – der Draht zu mir\n\n"
-            . "Eine Seite `support.php`, ebenfalls in der Fusszeile verlinkt. Der\n"
-            . "Kunde schreibt dort eine Nachricht, sie geht an WebAtze, und der\n"
-            . "bisherige Verlauf bleibt auf der Seite sichtbar. Kein Sofort-Chat,\n"
-            . "keine Zusage einer sofortigen Antwort – schreib das auch so hin.";
-
-        $zeilen[] = "**So wird gesendet** (fertig, nichts einzurichten):\n\n"
-            . "```php\n"
-            . "// Nachricht senden\n"
-            . "POST {assistant_url}/assistant/v1/support\n"
-            . "Header:  Content-Type: application/json\n"
-            . "         Accept: application/json\n"
-            . "         X-WebAtze-Token: {support_token}\n"
-            . "Body:    {\"thread\": <Faden-Nr oder 0>, \"message\": \"…\",\n"
-            . "          \"subject\": \"…\", \"name\": \"…\", \"email\": \"…\"}\n"
-            . "Antwort: {\"ok\": true, \"thread\": 12, \"message\": \"…\"}\n\n"
-            . "// Verlauf holen\n"
-            . "POST {assistant_url}/assistant/v1/support/faden\n"
-            . "Header:  dieselben\n"
-            . "Body:    {\"thread\": <Faden-Nr>}\n"
-            . "Antwort: {\"ok\": true, \"subject\": \"…\",\n"
-            . "          \"messages\": [{\"from\": \"…\", \"body\": \"…\",\n"
-            . "                        \"at\": \"…\", \"own\": true|false}]}\n"
-            . "```\n\n"
-            . "Gesendet wird mit cURL, `CURLOPT_SSL_VERIFYPEER => true`,\n"
-            . "`CURLOPT_SSL_VERIFYHOST => 2`, Zeitgrenze 20 Sekunden. Die\n"
-            . "Faden-Nummer merkt sich ein Cookie (180 Tage, `HttpOnly`,\n"
-            . "`SameSite=Lax`, `Secure` sobald HTTPS anliegt), damit der Kunde\n"
-            . "seine Antwort wiederfindet, ohne sich anzumelden.\n\n"
-            . "Fällt die Verbindung aus, sagt die Seite das ruhig und schickt die\n"
-            . "Nachricht zusätzlich per E-Mail an `support_email`. Eine Frage darf\n"
-            . "nicht verloren gehen, nur weil ein Server gerade nicht antwortet.";
-
-        $zeilen[] = "**Diese Seite ist nur für den Kunden.** Nicht für Besucher,\n"
-            . "nicht für Automaten. Sie ist der einzige Weg, auf dem mich jemand\n"
-            . "unaufgefordert erreicht, und genau deshalb das lohnendste Ziel auf\n"
-            . "der ganzen Website. Bau die Absicherung von Anfang an ein:";
-
-        $zeilen[] = "1. **Zugangscode.** Vor dem Formular steht ein einzelnes Feld\n"
-            . "   „Zugangscode“. Verglichen wird gegen `support_code` aus\n"
-            . "   `data/config.php`, mit `hash_equals`, nie mit `==`.\n"
-            . "2. **Merken statt jedesmal fragen.** Nach richtigem Code ein\n"
-            . "   Cookie mit einem Ticket: Ablaufzeitpunkt plus\n"
-            . "   `hash_hmac('sha256', …, \$support_token)`, geprüft mit\n"
-            . "   `hash_equals`. 180 Tage, `HttpOnly`, `SameSite=Lax`, `Secure`\n"
-            . "   sobald HTTPS anliegt. Im Cookie steht kein Code im Klartext.\n"
-            . "3. **Versuche begrenzen.** Höchstens 5 Code-Eingaben je Stunde und\n"
-            . "   IP, gezählt in einer Datei unter `data/support/`. Danach eine\n"
-            . "   freundliche Meldung, kein Hinweis darauf, was falsch war.\n"
-            . "4. **Honigtopf und Zeitfalle.** Ein für Menschen unsichtbares\n"
-            . "   Feld, das leer bleiben muss, und ein signierter Zeitstempel im\n"
-            . "   Formular: Wer in unter 3 Sekunden abschickt, ist kein Mensch.\n"
-            . "   In beiden Fällen freundlich bestätigen und nichts versenden –\n"
-            . "   ein Automat soll nicht lernen, woran er gescheitert ist.\n"
-            . "5. **Menge begrenzen.** Höchstens 5 Nachrichten je Stunde, auch\n"
-            . "   mit gültigem Ticket. Nachricht 10 bis 4000 Zeichen.\n"
-            . "6. **Sauber verschicken.** Steuerzeichen raus, `\\r` und `\\n` aus\n"
-            . "   allen Kopfzeilen entfernen (sonst schleust jemand eigene\n"
-            . "   Empfänger ein). `Reply-To` nur bei einer Adresse, die\n"
-            . "   `filter_var(…, FILTER_VALIDATE_EMAIL)` besteht.\n"
-            . "7. **Verlauf schützen.** Was lokal zwischengespeichert wird, liegt\n"
-            . "   unter `data/support/` – gesperrt wie oben. Beim Ausgeben wird\n"
-            . "   escaped.\n"
-            . "8. **Nicht auffindbar.** `X-Robots-Tag: noindex, nofollow` als\n"
-            . "   Kopfzeile und dasselbe als meta-Angabe. Nicht in die\n"
-            . "   sitemap.xml.";
-
-        // ---------------------------------------------------------- Zählung
-        if ($fertig) {
-            $zeilen[] = "### Besucherzählung – eine Zeile, sonst nichts\n\n"
-                . "**Diese Zeile kommt unmittelbar vor `</body>` auf JEDE Seite**,\n"
-                . "auch auf `/doc`, `/support`, die 404-Seite und jede\n"
-                . "Sprachfassung:\n\n"
-                . "```html\n"
-                . '<script defer src="' . $url . '/z.js?k=' . $key . '"></script>' . "\n"
-                . "```\n\n"
-                . "Sie ist echt und einsatzbereit. Sie lädt nichts nach, setzt kein\n"
-                . "Cookie und verlangsamt nichts.\n\n"
-                . "Gezählt wird ohne IP-Adresse, ohne Cookie und ohne dauerhafte\n"
-                . "Kennung. Deshalb braucht die Website dafür **kein**\n"
-                . "Zustimmungsbanner – und deshalb steht in der\n"
-                . "Datenschutzerklärung dazu: es werden Seitenaufrufe gezählt, ohne\n"
-                . "personenbezogene Daten zu speichern, ohne Cookies, ohne\n"
-                . "Weitergabe an Dritte. Kein Werkzeug von Google, Meta oder sonst\n"
-                . "jemandem – schreib auch keines hin.\n\n"
-                . "Wenn du eine gemeinsame Kopf- oder Fussdatei baust (PHP-Include\n"
-                . "oder ein Baustein), gehört die Zeile genau einmal dorthin. Wenn\n"
-                . "jede Seite für sich steht, gehört sie in jede einzelne. Prüf am\n"
-                . "Ende nach, dass keine Seite sie vergisst.";
-        } else {
-            $zeilen[] = "### Besucherzählung\n\n"
-                . "Unmittelbar vor `</body>` auf jeder Seite:\n\n"
-                . "```html\n"
-                . '<script defer src="{assistant_url}/z.js?k={visit_key}"></script>' . "\n"
-                . "```\n\n"
-                . "Die Werte stehen in `data/config.php`. Sie lädt nichts nach,\n"
-                . "setzt kein Cookie und speichert keine IP-Adresse.";
         }
 
-        $zeilen[] = "Falls das Hosting kein PHP kann, sag es mir, statt still auf\n"
-            . "einen fremden Formulardienst auszuweichen. Ein Dienst von aussen\n"
-            . "wäre wieder ein Zustimmungsbanner, und das ist es nicht wert.";
+        // --------------------------------------------------------- /support
+        if ($support) {
+            $zeilen[] = "### `/support` – der Draht zu mir\n\n"
+                . "Eine Seite `support.php`, ebenfalls in der Fusszeile verlinkt. Der\n"
+                . "Kunde schreibt dort eine Nachricht, sie geht an WebAtze, und der\n"
+                . "bisherige Verlauf bleibt auf der Seite sichtbar. Kein Sofort-Chat,\n"
+                . "keine Zusage einer sofortigen Antwort – schreib das auch so hin.";
+
+            $zeilen[] = "**So wird gesendet** (fertig, nichts einzurichten):\n\n"
+                . "```php\n"
+                . "// Nachricht senden\n"
+                . "POST {assistant_url}/assistant/v1/support\n"
+                . "Header:  Content-Type: application/json\n"
+                . "         Accept: application/json\n"
+                . "         X-WebAtze-Token: {support_token}\n"
+                . "Body:    {\"thread\": <Faden-Nr oder 0>, \"message\": \"…\",\n"
+                . "          \"subject\": \"…\", \"name\": \"…\", \"email\": \"…\"}\n"
+                . "Antwort: {\"ok\": true, \"thread\": 12, \"message\": \"…\"}\n\n"
+                . "// Verlauf holen\n"
+                . "POST {assistant_url}/assistant/v1/support/faden\n"
+                . "Header:  dieselben\n"
+                . "Body:    {\"thread\": <Faden-Nr>}\n"
+                . "Antwort: {\"ok\": true, \"subject\": \"…\",\n"
+                . "          \"messages\": [{\"from\": \"…\", \"body\": \"…\",\n"
+                . "                        \"at\": \"…\", \"own\": true|false}]}\n"
+                . "```\n\n"
+                . "Gesendet wird mit cURL, `CURLOPT_SSL_VERIFYPEER => true`,\n"
+                . "`CURLOPT_SSL_VERIFYHOST => 2`, Zeitgrenze 20 Sekunden. Die\n"
+                . "Faden-Nummer merkt sich ein Cookie (180 Tage, `HttpOnly`,\n"
+                . "`SameSite=Lax`, `Secure` sobald HTTPS anliegt), damit der Kunde\n"
+                . "seine Antwort wiederfindet, ohne sich anzumelden.\n\n"
+                . "Fällt die Verbindung aus, sagt die Seite das ruhig und schickt die\n"
+                . "Nachricht zusätzlich per E-Mail an `support_email`. Eine Frage darf\n"
+                . "nicht verloren gehen, nur weil ein Server gerade nicht antwortet.";
+
+            $zeilen[] = "**Diese Seite ist nur für den Kunden.** Nicht für Besucher,\n"
+                . "nicht für Automaten. Sie ist der einzige Weg, auf dem mich jemand\n"
+                . "unaufgefordert erreicht, und genau deshalb das lohnendste Ziel auf\n"
+                . "der ganzen Website. Bau die Absicherung von Anfang an ein:";
+
+            $zeilen[] = "1. **Zugangscode.** Vor dem Formular steht ein einzelnes Feld\n"
+                . "   „Zugangscode“. Verglichen wird gegen `support_code` aus\n"
+                . "   `data/config.php`, mit `hash_equals`, nie mit `==`.\n"
+                . "2. **Merken statt jedesmal fragen.** Nach richtigem Code ein\n"
+                . "   Cookie mit einem Ticket: Ablaufzeitpunkt plus\n"
+                . "   `hash_hmac('sha256', …, \$support_token)`, geprüft mit\n"
+                . "   `hash_equals`. 180 Tage, `HttpOnly`, `SameSite=Lax`, `Secure`\n"
+                . "   sobald HTTPS anliegt. Im Cookie steht kein Code im Klartext.\n"
+                . "3. **Versuche begrenzen.** Höchstens 5 Code-Eingaben je Stunde und\n"
+                . "   IP, gezählt in einer Datei unter `data/support/`. Danach eine\n"
+                . "   freundliche Meldung, kein Hinweis darauf, was falsch war.\n"
+                . "4. **Honigtopf und Zeitfalle.** Ein für Menschen unsichtbares\n"
+                . "   Feld, das leer bleiben muss, und ein signierter Zeitstempel im\n"
+                . "   Formular: Wer in unter 3 Sekunden abschickt, ist kein Mensch.\n"
+                . "   In beiden Fällen freundlich bestätigen und nichts versenden –\n"
+                . "   ein Automat soll nicht lernen, woran er gescheitert ist.\n"
+                . "5. **Menge begrenzen.** Höchstens 5 Nachrichten je Stunde, auch\n"
+                . "   mit gültigem Ticket. Nachricht 10 bis 4000 Zeichen.\n"
+                . "6. **Sauber verschicken.** Steuerzeichen raus, `\\r` und `\\n` aus\n"
+                . "   allen Kopfzeilen entfernen (sonst schleust jemand eigene\n"
+                . "   Empfänger ein). `Reply-To` nur bei einer Adresse, die\n"
+                . "   `filter_var(…, FILTER_VALIDATE_EMAIL)` besteht.\n"
+                . "7. **Verlauf schützen.** Was lokal zwischengespeichert wird, liegt\n"
+                . "   unter `data/support/` – gesperrt wie oben. Beim Ausgeben wird\n"
+                . "   escaped.\n"
+                . "8. **Nicht auffindbar.** `X-Robots-Tag: noindex, nofollow` als\n"
+                . "   Kopfzeile und dasselbe als meta-Angabe. Nicht in die\n"
+                . "   sitemap.xml.";
+
+        }
+
+        // ---------------------------------------------------------- Zählung
+        if ($zaehlen) {
+            if ($fertig) {
+                $zeilen[] = "### Besucherzählung – eine Zeile, sonst nichts\n\n"
+                    . "**Diese Zeile kommt unmittelbar vor `</body>` auf JEDE Seite**,\n"
+                    . "auch auf `/doc`, `/support`, die 404-Seite und jede\n"
+                    . "Sprachfassung:\n\n"
+                    . "```html\n"
+                    . '<script defer src="' . $url . '/z.js?k=' . $key . '"></script>' . "\n"
+                    . "```\n\n"
+                    . "Sie ist echt und einsatzbereit. Sie lädt nichts nach, setzt kein\n"
+                    . "Cookie und verlangsamt nichts.\n\n"
+                    . "Gezählt wird ohne IP-Adresse, ohne Cookie und ohne dauerhafte\n"
+                    . "Kennung. Deshalb braucht die Website dafür **kein**\n"
+                    . "Zustimmungsbanner – und deshalb steht in der\n"
+                    . "Datenschutzerklärung dazu: es werden Seitenaufrufe gezählt, ohne\n"
+                    . "personenbezogene Daten zu speichern, ohne Cookies, ohne\n"
+                    . "Weitergabe an Dritte. Kein Werkzeug von Google, Meta oder sonst\n"
+                    . "jemandem – schreib auch keines hin.\n\n"
+                    . "Wenn du eine gemeinsame Kopf- oder Fussdatei baust (PHP-Include\n"
+                    . "oder ein Baustein), gehört die Zeile genau einmal dorthin. Wenn\n"
+                    . "jede Seite für sich steht, gehört sie in jede einzelne. Prüf am\n"
+                    . "Ende nach, dass keine Seite sie vergisst.";
+            } else {
+                $zeilen[] = "### Besucherzählung\n\n"
+                    . "Unmittelbar vor `</body>` auf jeder Seite:\n\n"
+                    . "```html\n"
+                    . '<script defer src="{assistant_url}/z.js?k={visit_key}"></script>' . "\n"
+                    . "```\n\n"
+                    . "Die Werte stehen in `data/config.php`. Sie lädt nichts nach,\n"
+                    . "setzt kein Cookie und speichert keine IP-Adresse.";
+            }
+
+        }
+
+        if ($support) {
+            $zeilen[] = "Falls das Hosting kein PHP kann, sag es mir, statt still auf\n"
+                . "einen fremden Formulardienst auszuweichen. Ein Dienst von aussen\n"
+                . "wäre wieder ein Zustimmungsbanner, und das ist es nicht wert.";
+        }
 
         return implode("\n\n", $zeilen);
     }
@@ -555,19 +631,43 @@ final class PromptText
         // schon steht: Genau diese drei Punkte sind bisher jedes Mal
         // durchgerutscht, und ein Auftrag, der am Ende zum Nachzaehlen
         // auffordert, wird eher vollstaendig abgearbeitet.
+        // Die Liste am Schluss nennt nur, was auch bestellt wurde. Ein
+        // Punkt zu einer Seite, die es gar nicht geben soll, macht die
+        // ganze Liste unglaubwuerdig - und dann wird keiner mehr
+        // abgehakt.
+        $punkte = [];
+
+        if (!empty($brief['wants_support']) || !empty($brief['wants_stats'])) {
+            $punkte[] = "- [ ] `data/config.php` liegt da, mit den Werten aus dem Auftrag,\n"
+                . "      und `data/` ist per `.htaccess` gesperrt.";
+        }
+
+        if (!empty($brief['wants_docs'])) {
+            $punkte[] = "- [ ] `/doc` gibt es, ist in der Fusszeile verlinkt und trägt\n"
+                . "      `noindex`.";
+        }
+
+        if (!empty($brief['wants_support'])) {
+            $punkte[] = "- [ ] `/support` gibt es, fragt den Zugangscode ab, sendet an\n"
+                . "      WebAtze und zeigt den Verlauf.";
+        }
+
+        if (!empty($brief['wants_stats'])) {
+            $punkte[] = "- [ ] Die Zählzeile steht vor `</body>` auf **jeder** Seite –\n"
+                . "      zähl sie nach, 404-Seite und jede Sprachfassung\n"
+                . "      eingeschlossen.";
+        }
+
+        $punkte[] = "- [ ] Impressum und Datenschutz stehen"
+            . (!empty($brief['wants_stats'])
+                ? ", die Datenschutzerklärung\n      erwähnt die Zählung ohne personenbezogene Daten."
+                : '.');
+
+        $punkte[] = "- [ ] Jeder Verweis führt irgendwohin, jede Seite hat genau eine h1.";
+        $punkte[] = "- [ ] Nirgends steht, wie diese Website entstanden ist.";
+
         $zeilen[] = "**Zum Abhaken, bevor du sagst, du seist fertig:**\n\n"
-            . "- [ ] `data/config.php` liegt da, mit den Werten aus dem Auftrag,\n"
-            . "      und `data/` ist per `.htaccess` gesperrt.\n"
-            . "- [ ] `/doc` gibt es, ist in der Fusszeile verlinkt und trägt\n"
-            . "      `noindex`.\n"
-            . "- [ ] `/support` gibt es, fragt den Zugangscode ab, sendet an\n"
-            . "      WebAtze und zeigt den Verlauf.\n"
-            . "- [ ] Die Zählzeile steht vor `</body>` auf **jeder** Seite –\n"
-            . "      zähl sie nach, `/doc`, `/support`, 404 und jede\n"
-            . "      Sprachfassung eingeschlossen.\n"
-            . "- [ ] Impressum und Datenschutz stehen, die Datenschutzerklärung\n"
-            . "      erwähnt die Zählung ohne personenbezogene Daten.\n"
-            . "- [ ] Nirgends steht, wie diese Website entstanden ist.\n\n"
+            . implode("\n", $punkte) . "\n\n"
             . "Fehlt einer dieser Punkte, ist die Website nicht fertig – sag mir\n"
             . "in dem Fall, welcher und warum, statt es stillschweigend\n"
             . "wegzulassen.";

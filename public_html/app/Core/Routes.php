@@ -96,6 +96,11 @@ final class Routes
     {
         $router->get('/z.js', 'CounterController@script');
         $router->get('/z', 'CounterController@hit');
+
+        // Die Anpassungen aus dem Frontend-Fix. Sie liegen unter
+        // storage/ und werden hier ausgeliefert - so braucht der Server
+        // keine Schreibrechte im Web-Ordner.
+        $router->get('/frontend-fix.css', 'FrontendFixController@stylesheet');
     }
 
     // ------------------------------------------------------------------
@@ -234,6 +239,8 @@ final class Routes
             // Nur fuer mich. Die Reihenfolge zaehlt: '/intranet/neu'
             // muss vor '/intranet/{id}' stehen, sonst gilt "neu" als
             // Kennung und die Seite waere nie erreichbar.
+            $r->get($base . '/frontend-fix', 'FrontendFixController@index');
+
             $r->get($base . '/intranet', 'IntranetController@index');
             $r->get($base . '/intranet/neu', 'IntranetController@blank');
             $r->get($base . '/intranet/{id}', 'IntranetController@show');
@@ -313,11 +320,16 @@ final class Routes
             $r->post($base . '/passwoerter/zeigen', 'VaultController@reveal');
             $r->post($base . '/passwoerter/schluessel', 'VaultController@repairKey');
 
+            $r->post($base . '/wartung/sicherung/loeschen', 'GuardController@deleteBackup');
+            $r->post($base . '/wartung/sicherung/jetzt', 'GuardController@backupNow');
+
             $r->post($base . '/kalender/neue-adresse', 'CompanyController@newFeedToken');
 
             $r->post($base . '/anfragen/{id}/status', 'LeadController@setStatus');
+            $r->post($base . '/anfragen/{id}/loeschen', 'LeadController@destroy');
             $r->post($base . '/support/{id}/antwort', 'SupportAdminController@reply');
             $r->post($base . '/support/{id}/status', 'SupportAdminController@setStatus');
+            $r->post($base . '/support/{id}/loeschen', 'SupportAdminController@destroy');
             $r->post($base . '/referenzen/{id}', 'ShowcaseController@update');
             $r->post($base . '/fragebogen', 'QuestionnaireController@create');
             $r->post($base . '/fragebogen/{id}/uebernehmen', 'QuestionnaireController@adopt');
@@ -326,6 +338,12 @@ final class Routes
             $r->post($base . '/rechnungen/{id}/zustand', 'BillingController@setStatus');
             $r->post($base . '/rechnungen/{id}/rechnung', 'BillingController@convert');
             $r->post($base . '/rechnungen/{id}/senden', 'BillingController@send');
+            $r->post($base . '/rechnungen/{id}/loeschen', 'BillingController@destroy');
+            $r->post($base . '/frontend-fix', 'FrontendFixController@apply');
+            $r->post($base . '/frontend-fix/umschalten', 'FrontendFixController@toggle');
+            $r->post($base . '/frontend-fix/loeschen', 'FrontendFixController@destroy');
+            $r->post($base . '/frontend-fix/zuruecksetzen', 'FrontendFixController@clear');
+
             $r->post($base . '/intranet', 'IntranetController@save');
             $r->post($base . '/intranet/anheften', 'IntranetController@pin');
             $r->post($base . '/intranet/loeschen', 'IntranetController@destroy');

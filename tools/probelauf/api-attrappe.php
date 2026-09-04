@@ -120,12 +120,28 @@ if (is_array($schema)) {
 
 protokoll('freier Text');
 
+// Der Frontend-Fix erwartet eine bestimmte Form: eine Zusammenfassung
+// und einen CSS-Block. Eine Attrappe, die "Ein Satz" antwortet, wuerde
+// dort nur die Fehlerbehandlung pruefen - nicht den Weg, der klappt.
+$frage = (string) ($anfrage['messages'][0]['content'] ?? '');
+
+if (str_contains($frage, 'Die Abschnitte dieser Website')) {
+    $antwort = "ZUSAMMENFASSUNG: Der Abschnitt Leistungen bekommt einen dunkleren Grund.\n\n"
+        . "```css\n"
+        . "#leistungen {\n"
+        . "  background: color-mix(in srgb, var(--wa-accent) 8%, var(--wa-bg));\n"
+        . "}\n"
+        . "```\n";
+} else {
+    $antwort = 'Ein Satz aus der Attrappe.';
+}
+
 echo json_encode([
     'id' => 'msg_' . bin2hex(random_bytes(4)),
     'type' => 'message',
     'role' => 'assistant',
     'model' => (string) ($anfrage['model'] ?? '?'),
-    'content' => [['type' => 'text', 'text' => 'Ein Satz aus der Attrappe.']],
+    'content' => [['type' => 'text', 'text' => $antwort]],
     'stop_reason' => 'end_turn',
     'usage' => ['input_tokens' => 400, 'output_tokens' => 60],
 ]);

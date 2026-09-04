@@ -51,7 +51,7 @@ final class Backup
      */
     public static function tick(): array
     {
-        $result = ['eigen' => false, 'projekt' => '', 'geloescht' => 0];
+        $result = ['eigen' => false, 'dateien' => false, 'projekt' => '', 'geloescht' => 0];
 
         if (!Config::get('backups_enabled', true)) {
             return $result;
@@ -59,6 +59,7 @@ final class Backup
 
         try {
             $result['eigen'] = self::daily();
+            $result['dateien'] = self::dailyFiles();
             $result['projekt'] = self::nextProject();
             $result['geloescht'] = self::prune();
         } catch (Throwable $e) {
@@ -119,6 +120,81 @@ final class Backup
         self::record('self', null, $path, $files, 'Datenbank und hochgeladene Dateien');
 
         return true;
+    }
+
+    /**
+     * Einmal am Tag: alle Dateien der Installation.
+     *
+     * Die Datenbanksicherung daneben reicht nicht. Sie bringt die Daten
+     * zurueck, aber nicht die Anwendung - und wer nach einem Ausfall vor
+     * einem leeren Webspace steht, braucht beides. Deshalb ein zweites
+     * Archiv: alle Dateien, benannt mit Datum, getrennt herunterladbar.
+     *
+     * Nicht dabei sind die Sicherungen selbst (sonst packte sich das
+     * Archiv in sich hinein) und die Vorschauen (sie werden nach 24
+     * Stunden ohnehin geloescht und sind riesig).
+     *
+     * Dabei ist app/config.php - anders als in der Datenbanksicherung.
+     * Das ist eine Abwaegung: Ohne den Schluessel darin ist jedes
+     * Passwort im Tresor nach einem Ausfall unwiederbringlich. Die
+     * Trennung liegt darin, dass Schluessel und verschluesselte Daten
+     * in ZWEI Archiven liegen - wer nur eines hat, hat nichts.
+     */
+    public static function dailyFiles(): bool
+    {
+        $heute = date('Y-m-d');
+
+        if (Settings::get('backup_files_on', '') === $heute) {
+            return false;
+        }
+
+        Settings::put('backup_files_on', $heute);
+
+        $ordner = STORAGE_DIR . '/backups/dateien';
+        ensure_dir($ordner);
+
+        $name = self::slug((string) Settings::get('company_name', 'webatze'));
+        $pfad = $ordner . '/' . $name . '-dateien-' . $heute . '.zip';
+
+        $zip = new ZipArchive();
+
+        if ($zip->open($pfad, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            Logger::warning('Dateisicherung: Das Archiv liess sich nicht anlegen.', ['pfad' => $pfad]);
+
+            return false;
+        }
+
+        $zip->addFromString('LIESMICH.txt', self::readmeFiles($heute));
+
+        $wurzel = dirname(APP_DIR);
+
+        $ueberspringen = [
+            STORAGE_DIR . '/backups',
+            STORAGE_DIR . '/previews',
+            STORAGE_DIR . '/cache',
+            STORAGE_DIR . '/logs',
+        ];
+
+        $dateien = 1 + self::addTree($zip, $wurzel, 'website', $ueberspringen);
+
+        $zip->close();
+
+        self::record('files', null, $pfad, $dateien, 'Alle Dateien der Installation');
+
+        Logger::info('Dateisicherung angelegt.', ['dateien' => $dateien, 'pfad' => basename($pfad)]);
+
+        return true;
+    }
+
+    /** Aus einem Firmennamen einen brauchbaren Dateinamen machen. */
+    private static function slug(string $name): string
+    {
+        $name = mb_strtolower(trim($name));
+        $name = strtr($name, ['ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'ß' => 'ss']);
+        $name = preg_replace('/[^a-z0-9]+/', '-', $name) ?? '';
+        $name = trim($name, '-');
+
+        return $name !== '' ? mb_substr($name, 0, 40) : 'webatze';
     }
 
     /**
@@ -428,6 +504,33 @@ final class Backup
         );
     }
 
+    /**
+     * Eine Sicherung entfernen - Datei und Eintrag.
+     *
+     * Auch wenn die Datei schon weg ist, verschwindet der Eintrag: Eine
+     * Zeile, die auf nichts zeigt, ist schlimmer als keine Zeile.
+     */
+    public static function remove(int $id): bool
+    {
+        $zeile = Db::first('SELECT * FROM backups WHERE id = :id', ['id' => $id]);
+
+        if ($zeile === null) {
+            return false;
+        }
+
+        $pfad = (string) $zeile['path'];
+
+        // "Kommt aus unserer Datenbank" ist keine Pruefung - eine
+        // Loeschanweisung bleibt innerhalb des Sicherungsordners.
+        if (is_file($pfad) && self::insideBackups($pfad)) {
+            @unlink($pfad);
+        }
+
+        Db::delete('backups', 'id = :id', ['id' => $id]);
+
+        return true;
+    }
+
     /** Der Pfad einer Sicherung – oder null, wenn sie nicht (mehr) da ist. */
     public static function pathFor(int $id): ?string
     {
@@ -457,11 +560,32 @@ final class Backup
         ]);
     }
 
-    /** Einen Ordner ins Archiv legen. */
-    private static function addTree(ZipArchive $zip, string $directory, string $prefix): int
-    {
+    /**
+     * Einen Ordner ins Archiv legen.
+     *
+     * @param array<int, string> $auslassen Ordner, die nicht mit hinein
+     *        sollen - allen voran der Sicherungsordner selbst. Ohne
+     *        diese Liste packte sich das Archiv in sich hinein, bis der
+     *        Speicher voll ist.
+     */
+    private static function addTree(
+        ZipArchive $zip,
+        string $directory,
+        string $prefix,
+        array $auslassen = []
+    ): int {
         $files = 0;
         $bytes = 0;
+
+        $tabu = [];
+
+        foreach ($auslassen as $weg) {
+            $echt = realpath($weg);
+
+            if ($echt !== false) {
+                $tabu[] = $echt . DIRECTORY_SEPARATOR;
+            }
+        }
 
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS)
@@ -470,6 +594,22 @@ final class Backup
         foreach ($iterator as $file) {
             if (!$file->isFile()) {
                 continue;
+            }
+
+            if ($tabu !== []) {
+                $pfad = $file->getPathname();
+                $drin = false;
+
+                foreach ($tabu as $weg) {
+                    if (str_starts_with($pfad, $weg)) {
+                        $drin = true;
+                        break;
+                    }
+                }
+
+                if ($drin) {
+                    continue;
+                }
             }
 
             $bytes += (int) $file->getSize();
@@ -489,6 +629,36 @@ final class Backup
         }
 
         return $files;
+    }
+
+    private static function readmeFiles(string $day): string
+    {
+        return "Dateisicherung von WebAtze vom " . $day . "\n"
+            . str_repeat('=', 44) . "\n\n"
+            . "In website/ liegt die gesamte Installation, so wie sie auf dem\n"
+            . "Server steht: die Anwendung, die Ansichten, das gebaute Frontend,\n"
+            . "die Vorlagen und alles unter storage/.\n\n"
+            . "Nicht dabei sind:\n"
+            . "  storage/backups/   die Sicherungen selbst\n"
+            . "  storage/previews/  Vorschauen, die nach 24 Stunden ohnehin gehen\n"
+            . "  storage/logs/      Protokolle\n"
+            . "  storage/cache/     Zwischenspeicher\n\n"
+            . "So spielst du sie zurück:\n\n"
+            . "  1. Den Inhalt von website/ nach public_html hochladen.\n"
+            . "  2. Die Datenbanksicherung getrennt einspielen - sie liegt in\n"
+            . "     einem eigenen Archiv (webatze-JJJJ-MM-TT.zip).\n"
+            . "  3. Fertig. app/config.php ist dabei, es ist nichts neu\n"
+            . "     einzurichten.\n\n"
+            . "WICHTIG\n"
+            . "-------\n"
+            . "Dieses Archiv enthält app/config.php - und damit den Schlüssel,\n"
+            . "mit dem die Passwörter im Tresor verschlüsselt sind.\n\n"
+            . "Das ist Absicht: Ohne diesen Schlüssel wäre nach einem Ausfall\n"
+            . "jedes Passwort im Tresor unwiederbringlich verloren. Der Schutz\n"
+            . "liegt darin, dass Schlüssel und verschlüsselte Daten in ZWEI\n"
+            . "getrennten Archiven stehen - wer nur eines davon hat, hat nichts.\n\n"
+            . "Bewahre dieses Archiv deshalb an einem anderen Ort auf als die\n"
+            . "Datenbanksicherung, und gib es nicht weiter.\n";
     }
 
     private static function readme(string $day): string

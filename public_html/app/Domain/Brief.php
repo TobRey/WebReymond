@@ -233,14 +233,14 @@ final class Brief
             'wants_stats' => $bool('wants_stats'),
             'report_email' => $get('report_email'),
 
-            // Anleitung und Supportbereich hingegen gehören zu jeder
-            // Website. Sie hingen früher an einem Haken, und der Haken
-            // wurde vergessen - eine fertige Website ohne /doc und ohne
-            // /support war die Folge. Beides ist Teil der Betreuung,
-            // und die verkaufe ich. Die Schlüssel bleiben erhalten,
-            // weil Ansichten und ältere Aufträge sie lesen.
-            'wants_support' => true,
-            'wants_docs' => true,
+            // Anleitung, Supportbereich und Zählung sind Entscheidungen -
+            // aber solche, die im Auftrag dann VOLLSTÄNDIG ausformuliert
+            // werden. Der Unterschied zu früher liegt nicht im Haken,
+            // sondern darin, was hinter ihm passiert: Wer ihn setzt,
+            // bekommt Adresse, Schlüssel und Zugangscode fertig
+            // eingetragen und muss danach nichts mehr einrichten.
+            'wants_support' => $bool('wants_support'),
+            'wants_docs' => $bool('wants_docs'),
 
             // Domain und Veröffentlichung
             'domain' => $get('domain') === '' ? '' : Validator::normaliseDomain($get('domain')),

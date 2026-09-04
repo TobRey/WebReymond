@@ -140,19 +140,34 @@ $adresse = $website !== null ? Websites::url($website) : '';
                       name="notes"><?= e($wert('notes')) ?></textarea>
         </div>
 
+        <?php /*
+            Die Ueberwachung ist keine Entscheidung: Eine Website, von
+            der niemand merkt, dass sie steht, nuetzt niemandem. Die
+            Zaehlung dagegen schon - sie braucht eine Zeile auf der
+            fremden Website, und die setzt man nicht ungefragt.
+        */ ?>
+        <div class="wa-field wa-field--wide">
+            <label class="wa-check-line">
+                <input type="checkbox" name="zaehlen" value="1"
+                       <?= $neu
+                            ? ''
+                            : (\WebAtze\Domain\Visits::counts((int) $website['id']) ? 'checked' : '') ?>>
+                <span>Besucher zählen</span>
+            </label>
+            <p class="wa-hint">
+                Erzeugt eine Zählzeile zum Einsetzen und lässt die Website unter
+                «Besucher» erscheinen. Ohne IP-Adresse, ohne Cookie – deshalb
+                braucht die Website dafür kein Zustimmungsbanner. Ausschalten nimmt
+                nur die Zählung weg; die bisherigen Zahlen bleiben stehen.
+            </p>
+        </div>
+
         <?php if ($waechter === null): ?>
-            <?php /*
-                Kein Haken mehr. Wer eine Domain eintraegt, will wissen,
-                ob sie laeuft, und will die Zahlen sehen - beides war
-                vorher eine Entscheidung, und wer sie vergass, hatte
-                eine Website, die niemand prueft und niemand zaehlt.
-            */ ?>
             <div class="wa-field wa-field--wide">
                 <p class="wa-hint">
-                    <strong>Automatisch dabei:</strong> Sobald eine Domain eingetragen ist,
-                    wird die Adresse alle 15 Minuten aufgerufen (bei einem Ausfall kommt eine
-                    E-Mail), und die Website erscheint unter «Besucher». Beides lässt sich im
-                    Wartungscenter jederzeit ändern.
+                    <strong>Ohnehin dabei:</strong> Sobald eine Domain eingetragen ist,
+                    wird die Adresse alle 15 Minuten aufgerufen; bei einem Ausfall kommt
+                    eine E-Mail. Das lässt sich im Wartungscenter jederzeit ändern.
                 </p>
             </div>
         <?php endif; ?>
@@ -166,7 +181,9 @@ $adresse = $website !== null ? Websites::url($website) : '';
 </section>
 
 <?php if (!$neu): ?>
-    <?php $einzeiler = \WebAtze\Domain\Visits::snippet((int) $website['id']); ?>
+    <?php $einzeiler = \WebAtze\Domain\Visits::counts((int) $website['id'])
+        ? \WebAtze\Domain\Visits::snippet((int) $website['id'])
+        : ''; ?>
     <?php if ($einzeiler !== ''): ?>
         <section class="wa-panel">
             <header class="wa-panel__head">

@@ -22,6 +22,8 @@ $paths = [
     'star' => '<path d="M11.5 3.2a.6.6 0 0 1 1 0l2.3 4.7 5.1.7a.6.6 0 0 1 .3 1l-3.7 3.6.9 5.1a.6.6 0 0 1-.9.6L12 16.5l-4.6 2.4a.6.6 0 0 1-.9-.6l.9-5.1L3.7 9.6a.6.6 0 0 1 .3-1l5.1-.7z"/>',
     'coins' => '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>',
     'list' => '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+    // Frontend-Fix: ein Zauberstab mit Funken.
+    'wand' => '<path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/>',
     // Intranet: ein Notizzettel mit umgeknickter Ecke.
     'note' => '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9l5-5V5a2 2 0 0 0-2-2z"/>'
         . '<path d="M20 16h-5v5"/><path d="M8 8h7M8 12h5"/>',

@@ -40,7 +40,15 @@ $target = $distDir . '/webatze-' . $version . '.zip';
 // Was nicht mitkommt
 // ------------------------------------------------------------------
 
-/** Ganze Verzeichnisse, relativ zu public_html. */
+/**
+ * Ganze Verzeichnisse, relativ zu public_html.
+ *
+ * Alles hier drin gehoert dem Betreiber, nicht dem Paket. Bei
+ * storage/backups ist das keine Ordnungsfrage, sondern eine
+ * Sicherheitsfrage: Dort liegt seit der Dateisicherung ein Archiv, in
+ * dem app/config.php steckt - und damit der Tresorschluessel. Ein Paket,
+ * das die eigene Sicherung mitnimmt, verteilt sie.
+ */
 $skipDirs = [
     'storage/projects',
     'storage/zips',
@@ -48,11 +56,20 @@ $skipDirs = [
     'storage/uploads',
     'storage/logs',
     'storage/tmp',
+    'storage/backups',
+    'storage/documents',
+    'storage/briefkopf',
+    'storage/cache',
 ];
 
 /** Einzelne Dateien. */
 $skipFiles = [
     'app/config.php',
+    // Entsteht aus der Datenbank neu. Im Paket waere es das Aussehen
+    // einer fremden Installation.
+    'storage/frontend-fix.css',
+    'storage/schema-version.txt',
+    'storage/schema-version.txt.lock',
 ];
 
 /** Muster, die nirgends mitkommen. */
@@ -144,7 +161,7 @@ foreach (dateien($source, $skipDirs, $skipFiles, $skipPatterns) as $absolut => $
 }
 
 // Die leeren Ablageordner müssen mit, sonst fehlen sie auf dem Server.
-foreach (['projects', 'zips', 'previews', 'uploads', 'logs', 'tmp'] as $ordner) {
+foreach (['projects', 'zips', 'previews', 'uploads', 'logs', 'tmp', 'backups', 'documents'] as $ordner) {
     $zip->addEmptyDir('storage/' . $ordner);
     $zip->addFromString('storage/' . $ordner . '/.gitkeep', '');
     $dateien++;
@@ -270,7 +287,11 @@ for ($i = 0; $i < $prüfung->numFiles; $i++) {
     if ($name === 'app/config.php'
         || str_contains($name, '.sqlite')
         || str_ends_with($name, '.log')
-        || (!$istPlatzhalter && preg_match('#^storage/(projects|zips|previews|uploads|logs|tmp)/#', $name))
+        || (!$istPlatzhalter && preg_match(
+            '#^storage/(projects|zips|previews|uploads|logs|tmp|backups|documents|briefkopf|cache)/#',
+            $name
+        ))
+        || $name === 'storage/frontend-fix.css'
     ) {
         $verräterisch[] = $name;
     }

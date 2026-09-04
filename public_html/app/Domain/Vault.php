@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Domain;
 
 use SensitiveParameter;
-use WebAtze\Core\{Audit, Crypto, Db, RateLimit, Session};
+use WebAtze\Core\{Audit, Crypto, Db, Logger, RateLimit, Session};
 
 /**
  * Der Tresor: alle Zugänge der Kunden an einem Ort.
@@ -348,6 +348,124 @@ final class Vault
         }
 
         return $wort;
+    }
+
+    /**
+     * Alles aus dem Formular in den Tresor legen.
+     *
+     * Beim Anlegen einer Website stehen die Zugaenge einmal da - im
+     * Klartext, kurz, bevor sie verschluesselt oder verworfen werden.
+     * Genau dann gehoeren sie hierher. Wer sie spaeter abtippen muss,
+     * tippt sie nicht ab: Das Passwort des Kundenbackends stand danach
+     * in einer E-Mail, und das ist der schlechteste aller Orte.
+     *
+     * In die Notiz kommt IMMER die Adresse des Kundenbackends, sofern es
+     * eines gibt. Ein Zugang ohne die Stelle, an der er gilt, ist die
+     * halbe Auskunft.
+     *
+     * @param array<string, mixed> $brief die geprueften Formulardaten,
+     *        noch mit den Passwoertern im Klartext
+     * @return int wie viele Eintraege entstanden sind
+     */
+    public static function adoptProject(int $projectId, array $brief): int
+    {
+        if (!Crypto::isReady()) {
+            Logger::warning('Zugaenge nicht in den Tresor gelegt: keine Verschluesselung.', [
+                'projekt' => $projectId,
+            ]);
+
+            return 0;
+        }
+
+        $name = trim((string) ($brief['company_name'] ?? '')) ?: 'Website';
+        $domain = trim((string) ($brief['domain'] ?? ''));
+
+        $adresse = $domain !== ''
+            ? 'https://' . preg_replace('~^https?://~i', '', $domain)
+            : '';
+
+        // Die Adresse des Kundenbackends - sie gehoert in jede Notiz.
+        $backend = $adresse !== '' ? $adresse . '/admin' : '/admin (Adresse folgt mit der Domain)';
+
+        $kunde = ((int) ($brief['customer_id'] ?? 0)) ?: null;
+
+        $angelegt = 0;
+
+        $legen = static function (array $eintrag) use (&$angelegt, $kunde, $projectId): void {
+            // Schon da? Dann nicht ein zweites Mal - das passiert beim
+            // erneuten Anlegen derselben Website.
+            if (Db::value('SELECT id FROM secrets WHERE label = :l LIMIT 1', ['l' => $eintrag['label']])) {
+                return;
+            }
+
+            $ergebnis = self::save($eintrag + ['customer_id' => $kunde]);
+
+            if ($ergebnis['ok']) {
+                $angelegt++;
+            } else {
+                Logger::warning('Ein Zugang liess sich nicht in den Tresor legen.', [
+                    'projekt' => $projectId,
+                    'name' => $eintrag['label'],
+                    'grund' => $ergebnis['meldung'],
+                ]);
+            }
+        };
+
+        // --- Das Kundenbackend ------------------------------------------
+        if (!empty($brief['wants_admin']) && (string) ($brief['admin_password'] ?? '') !== '') {
+            $legen([
+                'label' => $name . ' – Kundenbackend',
+                'kind' => 'backend',
+                'username' => (string) ($brief['admin_username'] ?? ''),
+                'url' => $backend,
+                'secret' => (string) $brief['admin_password'],
+                'note' => "Zugang des Kunden zu seinem Bearbeitungsbereich.\n"
+                    . 'Adresse: ' . $backend,
+            ]);
+        }
+
+        // --- Der Hochlade-Zugang ----------------------------------------
+        if ((string) ($brief['ftp_password'] ?? '') !== ''
+            && (string) ($brief['ftp_host'] ?? '') !== '') {
+            $protokoll = strtoupper((string) ($brief['ftp_protocol'] ?? 'sftp'));
+
+            $legen([
+                'label' => $name . ' – ' . $protokoll,
+                'kind' => 'ftp',
+                'username' => (string) ($brief['ftp_username'] ?? ''),
+                'url' => (string) $brief['ftp_host'],
+                'secret' => (string) $brief['ftp_password'],
+                'note' => 'Hochladen der Website. Ordner: '
+                    . ((string) ($brief['ftp_path'] ?? '') !== '' ? (string) $brief['ftp_path'] : '(Standard)')
+                    . "\nBackend des Kunden: " . $backend,
+            ]);
+        }
+
+        // --- Der Zugangscode der Hilfeseite -----------------------------
+        if (!empty($brief['wants_support'])) {
+            $code = Websites::supportCode($projectId);
+
+            if ($code !== '') {
+                $legen([
+                    'label' => $name . ' – Zugangscode /support',
+                    'kind' => 'weiteres',
+                    'username' => '',
+                    'url' => $adresse !== '' ? $adresse . '/support' : '/support',
+                    'secret' => $code,
+                    'note' => "Den bekommt der Kunde. Ohne ihn zeigt die Hilfeseite kein Formular.\n"
+                        . 'Backend des Kunden: ' . $backend,
+                ]);
+            }
+        }
+
+        if ($angelegt > 0) {
+            Logger::info('Zugaenge in den Tresor gelegt.', [
+                'projekt' => $projectId,
+                'anzahl' => $angelegt,
+            ]);
+        }
+
+        return $angelegt;
     }
 
     /**

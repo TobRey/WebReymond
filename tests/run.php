@@ -1603,51 +1603,56 @@ test('Der Auftragstext ist vollstaendig', function (): void {
 });
 
 // ==================================================================
-test('Anleitung und Support stehen in JEDEM Auftrag', function (): void {
-    // Eine fertige Website hatte weder /doc noch /support. Der Grund:
-    // beides hing an einem Haken im Formular, und der Haken wurde
-    // vergessen. Ein Haken, den man vergessen kann, ist keine Zusage -
-    // deshalb gibt es ihn nicht mehr.
+test('Ohne Haken steht nichts davon im Auftrag', function (): void {
+    // Anleitung, Hilfeseite und Zaehlung sind Entscheidungen. Wer sie
+    // nicht anhakt, bekommt keine einzige Zeile davon - kein Kapitel im
+    // Auftrag, keinen Schluessel, keinen Punkt in der Liste zum Abhaken.
     //
-    // Diese Pruefung haelt das fest. Sie laeuft mit dem duerftigsten
-    // Brief, den es geben kann: Wenn nicht einmal dort beides drinsteht,
-    // steht es nirgends.
-    $karg = ['company_name' => 'Karg AG'];
+    // Der Unterschied zu frueher liegt nicht im Haken, sondern darin,
+    // was dahinter passiert: Was angehakt IST, steht mit allen echten
+    // Werten drin und laeuft ohne einen Handgriff.
+    $karg = ['company_name' => 'Karg AG', 'contact_email' => 'a@b.ch'];
 
-    $text = \WebAtze\Domain\PromptText::build($karg);
+    $anschluss = [
+        'url' => 'https://webatze.ch',
+        'support_token' => 'T0kEnBeIsPiEl-vierundzwanzig',
+        'support_code' => 'KRTPM-9XZQ4',
+        'visit_key' => '3daa45e7b23822e3',
+    ];
 
-    ok(str_contains($text, '/doc'), 'Die Anleitung ist beauftragt');
-    ok(str_contains($text, '/support'), 'Der Supportbereich ebenfalls');
-    ok(str_contains($text, 'nicht optional'), 'Und zwar ausdruecklich nicht als Kuer');
+    $ohne = \WebAtze\Domain\PromptText::build($karg, $anschluss);
 
-    // Der Supportbereich ist der einzige Weg, auf dem jemand
-    // unaufgefordert schreibt - und damit das lohnendste Ziel auf der
-    // ganzen Website. Jede einzelne Absicherung muss im Auftrag stehen,
-    // sonst baut sie niemand.
     foreach ([
-        'Zugangscode' => 'Zugangscode',
-        'Zeitvergleich' => 'hash_equals',
-        'Unterschrift' => 'hash_hmac',
-        'Versuche begrenzen' => 'Versuche begrenzen',
-        'Honigtopf' => 'Honigtopf',
-        'Zeitfalle' => 'Zeitfalle',
-        'Kopfzeilen saeubern' => 'Kopfzeilen',
-        'nicht auffindbar' => 'noindex',
-    ] as $was => $erwartet) {
-        ok(str_contains($text, $erwartet), $was . ' steht im Auftrag');
+        'Anleitung' => '/doc',
+        'Hilfeseite' => '/support',
+        'Zaehlzeile' => 'z.js?k=',
+        'Konfigurationsdatei' => 'data/config.php',
+        'Zugangscode' => 'KRTPM-9XZQ4',
+        'Schluessel' => 'T0kEnBeIsPiEl-vierundzwanzig',
+    ] as $was => $unerwuenscht) {
+        ok(!str_contains($ohne, $unerwuenscht), $was . ' fehlt ohne Haken: ' . $unerwuenscht);
     }
 
-    // Auch mit ausdruecklich abgewaehlten Haken bleibt beides stehen -
-    // die Schluessel gibt es noch, ihr Wert darf aber nichts mehr
-    // aendern.
-    $abgewaehlt = ['company_name' => 'Karg AG', 'wants_docs' => false, 'wants_support' => false];
-    $trotzdem = \WebAtze\Domain\PromptText::build($abgewaehlt);
+    ok(mb_strlen($ohne) > 2000, 'Der Auftrag selbst steht trotzdem (' . mb_strlen($ohne) . ' Zeichen)');
 
-    ok(str_contains($trotzdem, '/doc'), 'Die Anleitung laesst sich nicht abwaehlen');
-    ok(str_contains($trotzdem, '/support'), 'Der Support auch nicht');
+    // Einzeln angehakt heisst einzeln drin - nicht alles oder nichts.
+    $nurDoku = \WebAtze\Domain\PromptText::build($karg + ['wants_docs' => true], $anschluss);
 
-    // Und das Formular liefert die beiden Schluessel gar nicht mehr
-    // abgewaehlt aus.
+    ok(str_contains($nurDoku, '### `/doc`'), 'Nur Anleitung: sie ist da');
+    ok(!str_contains($nurDoku, '### `/support`'), 'Nur Anleitung: keine Hilfeseite');
+    ok(!str_contains($nurDoku, 'z.js?k='), 'Nur Anleitung: keine Zaehlzeile');
+    ok(!str_contains($nurDoku, 'data/config.php'),
+        'Nur Anleitung: auch keine Konfigurationsdatei - sie braucht keine');
+
+    $nurZaehlung = \WebAtze\Domain\PromptText::build($karg + ['wants_stats' => true], $anschluss);
+
+    ok(str_contains($nurZaehlung, 'z.js?k=3daa45e7b23822e3'), 'Nur Zaehlung: die Zeile ist da');
+    ok(str_contains($nurZaehlung, 'data/config.php'), 'Nur Zaehlung: mit Konfigurationsdatei');
+    ok(!str_contains($nurZaehlung, 'KRTPM-9XZQ4'),
+        'Nur Zaehlung: kein Zugangscode, den niemand braucht');
+    ok(!str_contains($nurZaehlung, '### `/support`'), 'Nur Zaehlung: keine Hilfeseite');
+
+    // Und das Formular liefert die Haken auch wirklich als Haken aus.
     $g = \WebAtze\Domain\Brief::validate([
         'company_name' => 'Karg AG',
         'industry' => 'Schreinerei',
@@ -1657,17 +1662,9 @@ test('Anleitung und Support stehen in JEDEM Auftrag', function (): void {
     ]);
 
     ok($g['ok'], 'Der karge Brief ist gueltig');
-    ok(!empty($g['data']['wants_docs']), 'wants_docs ist gesetzt, auch ohne Haken');
-    ok(!empty($g['data']['wants_support']), 'wants_support ebenfalls');
-
-    // Ohne Anschlusswerte steht ein erkennbarer Platzhalter da - und
-    // der Hinweis, wo die echten Werte stehen. Ein halb ausgefuellter
-    // Auftrag waere schlimmer als ein leerer: Dann baut jemand etwas,
-    // das beim ersten Versuch scheitert.
-    ok(str_contains($text, 'WIRD-NACHGETRAGEN'),
-        'Ohne Anschluss steht ein Platzhalter da');
-    ok(!str_contains($text, 'nichts mehr einzurichten'),
-        'Und der Auftrag verspricht dann nicht, es sei nichts einzurichten');
+    ok(empty($g['data']['wants_docs']), 'Ohne Haken keine Anleitung');
+    ok(empty($g['data']['wants_support']), 'Ohne Haken keine Hilfeseite');
+    ok(empty($g['data']['wants_stats']), 'Ohne Haken keine Zaehlung');
 });
 
 // ==================================================================
@@ -1754,7 +1751,11 @@ test('Der Auftrag ist fertig verdrahtet', function (): void {
     // Jetzt stehen die echten Werte im Text. Diese Pruefung haelt fest,
     // dass sie wirklich alle darin vorkommen - und dass der Auftrag
     // nirgends mehr behauptet, es sei noch etwas nachzutragen.
-    $brief = ['company_name' => 'Steiner Holzbau AG', 'contact_email' => 'info@steiner.example'];
+    $brief = [
+        'company_name' => 'Steiner Holzbau AG',
+        'contact_email' => 'info@steiner.example',
+        'wants_docs' => true, 'wants_support' => true, 'wants_stats' => true,
+    ];
 
     $anschluss = [
         'url' => 'https://webatze.ch',
@@ -4375,6 +4376,352 @@ test('Das Menue zeigt an, was auf mich wartet', function (): void {
 
     \WebAtze\Core\Db::delete('leads', '1 = 1');
     \WebAtze\Core\Db::delete('support_threads', '1 = 1');
+});
+
+// ==================================================================
+test('Bezahlte Rechnung steht in der Buchhaltung', function (): void {
+    // Frueher stand "bezahlt" nur an der Rechnung, und die Buchhaltung
+    // wusste nichts davon. Die Statistik zeigte damit einen Gewinn, den
+    // es nicht gab - oder eben keinen, den es gab.
+    $kunde = \WebAtze\Core\Db::insert('customers', [
+        'name' => 'Buchprobe AG', 'status' => 'aktiv',
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $id = \WebAtze\Build\DocumentBuilder::create([
+        'kind' => 'invoice', 'customer_id' => $kunde, 'title' => 'Neue Website',
+        'recipient' => ['name' => 'Buchprobe AG'],
+        'items' => [['label' => 'Aufbau', 'quantity' => 1, 'price_rappen' => 12000]],
+        'vat_percent' => 0, 'due_days' => 30,
+    ]);
+
+    $heute = date('Y-m-d');
+    $monat = date('Y-m-01');
+    $summe = static fn (): int => \WebAtze\Domain\Billing::books($monat, $heute)['einnahmen'];
+
+    $vorher = $summe();
+
+    \WebAtze\Build\DocumentBuilder::setStatus($id, 'paid');
+    is($vorher + 12000, $summe(), 'Bezahlt heisst: der Betrag steht in der Buchhaltung');
+
+    // Zweimal auf "bezahlt" darf nicht zweimal verbuchen - sonst
+    // waechst die Einnahme mit jedem Klick.
+    \WebAtze\Build\DocumentBuilder::setStatus($id, 'paid');
+    is($vorher + 12000, $summe(), 'Zweimal bezahlt heisst nicht zweimal verbucht');
+
+    \WebAtze\Build\DocumentBuilder::setStatus($id, 'sent');
+    is($vorher, $summe(), 'Zurueckgestellt heisst: wieder heraus');
+
+    \WebAtze\Build\DocumentBuilder::setStatus($id, 'paid');
+    is($vorher + 12000, $summe(), 'Und wieder hinein');
+
+    // Loeschen nimmt die Einnahme mit. Eine Zahl in der Statistik ohne
+    // Beleg dahinter waere schlimmer als eine geloeschte Rechnung.
+    ok(\WebAtze\Build\DocumentBuilder::remove($id), 'Die Rechnung laesst sich loeschen');
+    is($vorher, $summe(), 'Mit ihr geht die Einnahme');
+    ok(\WebAtze\Build\DocumentBuilder::find($id) === null, 'Und der Beleg ist weg');
+
+    // Eine Offerte ist kein Geld, auch wenn jemand sie auf "bezahlt"
+    // stellt.
+    $offerte = \WebAtze\Build\DocumentBuilder::create([
+        'kind' => 'offer', 'customer_id' => $kunde, 'title' => 'Vorschlag',
+        'recipient' => ['name' => 'Buchprobe AG'],
+        'items' => [['label' => 'Aufbau', 'quantity' => 1, 'price_rappen' => 9900]],
+        'vat_percent' => 0,
+    ]);
+
+    \WebAtze\Build\DocumentBuilder::setStatus($offerte, 'paid');
+    is($vorher, $summe(), 'Eine bezahlte Offerte wird nicht zu Geld');
+
+    ok(\WebAtze\Build\DocumentBuilder::remove($offerte), 'Auch Offerten lassen sich loeschen');
+
+    \WebAtze\Core\Db::delete('customers', 'id = :id', ['id' => $kunde]);
+});
+
+// ==================================================================
+test('Zugaenge wandern von selbst in den Tresor', function (): void {
+    // Beim Anlegen einer Website stehen die Zugaenge einmal im Klartext
+    // da - kurz bevor sie zum Streuwert werden oder verschluesselt in
+    // den Hochlade-Einstellungen verschwinden. Genau dann gehoeren sie
+    // in den Tresor. Wer sie spaeter abtippen muss, tippt sie nicht ab.
+    $projekt = \WebAtze\Core\Db::insert('projects', [
+        'slug' => 'tresorprobe', 'name' => 'Tresorprobe AG', 'domain' => 'tresorprobe.example',
+        'status' => 'building', 'source' => 'ki', 'locale' => 'de', 'locales' => 'de',
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $brief = [
+        'company_name' => 'Tresorprobe AG',
+        'domain' => 'tresorprobe.example',
+        'wants_admin' => true,
+        'admin_username' => 'tresorprobe',
+        'admin_password' => 'ein-langes-Kundenpasswort-2026',
+        'wants_support' => true,
+        'ftp_protocol' => 'sftp',
+        'ftp_host' => 'ftp.tresorprobe.example',
+        'ftp_username' => 'tresorprobe_ftp',
+        'ftp_password' => 'FTP-Geheimnis-2026',
+        'ftp_path' => '/public_html',
+    ];
+
+    is(3, \WebAtze\Domain\Vault::adoptProject($projekt, $brief),
+        'Backend, FTP und Zugangscode landen im Tresor');
+
+    $eintraege = \WebAtze\Core\Db::all(
+        "SELECT * FROM secrets WHERE label LIKE :m", ['m' => 'Tresorprobe AG%']
+    );
+
+    is(3, count($eintraege), 'Drei Eintraege sind es');
+
+    // Die Adresse des Kundenbackends gehoert in JEDE Notiz. Ein Zugang
+    // ohne die Stelle, an der er gilt, ist die halbe Auskunft.
+    foreach ($eintraege as $eintrag) {
+        ok(
+            str_contains((string) $eintrag['note'], 'https://tresorprobe.example/admin'),
+            'Die Backend-Adresse steht in der Notiz: ' . $eintrag['label']
+        );
+    }
+
+    // Nichts steht im Klartext in der Datenbank.
+    $alles = json_encode($eintraege);
+
+    foreach (['ein-langes-Kundenpasswort-2026', 'FTP-Geheimnis-2026'] as $geheim) {
+        ok(!str_contains($alles, $geheim), 'Nicht im Klartext gespeichert: ' . mb_substr($geheim, 0, 12));
+    }
+
+    // Aber wieder lesbar.
+    $backend = null;
+    foreach ($eintraege as $eintrag) {
+        if ((string) $eintrag['kind'] === 'backend') {
+            $backend = $eintrag;
+        }
+    }
+
+    ok($backend !== null, 'Der Backend-Zugang ist dabei');
+    is('ein-langes-Kundenpasswort-2026',
+        \WebAtze\Core\Crypto::decrypt((string) $backend['secret_enc']),
+        'Und wieder zu entschluesseln');
+
+    // Zweimal anlegen darf nicht verdoppeln - das passiert beim
+    // Neubauen derselben Website.
+    is(0, \WebAtze\Domain\Vault::adoptProject($projekt, $brief),
+        'Beim zweiten Lauf kommt nichts dazu');
+
+    // Ohne Domain steht wenigstens der Pfad da, statt gar nichts.
+    $ohneDomain = \WebAtze\Core\Db::insert('projects', [
+        'slug' => 'ohnedomain', 'name' => 'Ohne Domain AG', 'domain' => '',
+        'status' => 'building', 'source' => 'ki', 'locale' => 'de', 'locales' => 'de',
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    \WebAtze\Domain\Vault::adoptProject($ohneDomain, [
+        'company_name' => 'Ohne Domain AG',
+        'wants_admin' => true, 'admin_username' => 'x', 'admin_password' => 'noch-ein-langes-2026',
+    ]);
+
+    $notiz = (string) \WebAtze\Core\Db::value(
+        "SELECT note FROM secrets WHERE label LIKE :m LIMIT 1", ['m' => 'Ohne Domain AG%'], ''
+    );
+
+    ok(str_contains($notiz, '/admin'), 'Auch ohne Domain steht der Pfad in der Notiz');
+
+    \WebAtze\Core\Db::delete('secrets', 'label LIKE :m', ['m' => 'Tresorprobe AG%']);
+    \WebAtze\Core\Db::delete('secrets', 'label LIKE :m', ['m' => 'Ohne Domain AG%']);
+    \WebAtze\Core\Db::delete('projects', 'id IN (' . $projekt . ', ' . $ohneDomain . ')');
+});
+
+// ==================================================================
+test('Gesichert wird alles, nicht nur die Datenbank', function (): void {
+    // Eine Datenbanksicherung bringt die Daten zurueck, aber nicht die
+    // Anwendung. Wer nach einem Ausfall vor einem leeren Webspace steht,
+    // braucht beides - und zwar getrennt, damit Schluessel und
+    // verschluesselte Daten nicht im selben Archiv liegen.
+    \WebAtze\Core\Settings::put('backup_files_on', '');
+    \WebAtze\Core\Settings::put('company_name', 'WebAtze');
+
+    ok(\WebAtze\Build\Backup::dailyFiles(), 'Die Dateisicherung entsteht');
+    ok(!\WebAtze\Build\Backup::dailyFiles(), 'Und nicht zweimal am selben Tag');
+
+    $zeile = \WebAtze\Core\Db::first("SELECT * FROM backups WHERE scope = 'files' ORDER BY id DESC");
+
+    ok($zeile !== null, 'Sie steht in der Liste');
+
+    $pfad = (string) $zeile['path'];
+
+    ok(is_file($pfad), 'Die Datei ist da');
+    ok(str_contains(basename($pfad), date('Y-m-d')), 'Der Name traegt das Datum');
+    ok(str_contains(basename($pfad), 'webatze'), 'Und den Namen');
+
+    $zip = new ZipArchive();
+    ok($zip->open($pfad) === true, 'Das Archiv laesst sich oeffnen');
+
+    $namen = [];
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $namen[] = (string) $zip->getNameIndex($i);
+    }
+    $zip->close();
+
+    $enthaelt = static function (string $muster) use ($namen): bool {
+        foreach ($namen as $name) {
+            if (str_contains($name, $muster)) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // Drin sein muss, was die Installation ausmacht.
+    foreach ([
+        'die Anwendung' => 'website/app/Core/Kernel.php',
+        'der Einstiegspunkt' => 'website/index.php',
+        'die Anleitung' => 'LIESMICH.txt',
+    ] as $was => $muster) {
+        ok($enthaelt($muster), 'Im Archiv: ' . $was);
+    }
+
+    // Nicht drin sein darf, was das Archiv aufblaeht oder es in sich
+    // selbst packen wuerde.
+    foreach ([
+        'die Sicherungen selbst' => 'storage/backups',
+        'die Vorschauen' => 'storage/previews',
+        'die Protokolle' => 'storage/logs',
+    ] as $was => $muster) {
+        ok(!$enthaelt($muster), 'Nicht im Archiv: ' . $was);
+    }
+
+    // Loeschen nimmt Datei und Eintrag mit.
+    $id = (int) $zeile['id'];
+
+    ok(\WebAtze\Build\Backup::remove($id), 'Die Sicherung laesst sich loeschen');
+    ok(!is_file($pfad), 'Die Datei ist weg');
+    ok(\WebAtze\Core\Db::value('SELECT id FROM backups WHERE id = :i', ['i' => $id]) === null,
+        'Und der Eintrag auch');
+
+    // Eine Loeschanweisung bleibt im Sicherungsordner - auch wenn in der
+    // Datenbank etwas anderes staende.
+    $fremd = \WebAtze\Core\Db::insert('backups', [
+        'scope' => 'files', 'project_id' => null,
+        'path' => STORAGE_DIR . '/../app/config.php',
+        'bytes' => 0, 'files' => 0, 'note' => 'Probe',
+        'created_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    \WebAtze\Build\Backup::remove($fremd);
+
+    ok(is_file(APP_DIR . '/config.php'),
+        'Eine Sicherung ausserhalb des Ordners loescht dort nichts');
+
+    \WebAtze\Core\Settings::put('backup_files_on', '');
+});
+
+// ==================================================================
+test('Frontend-Fix laesst nur harmloses CSS durch', function (): void {
+    // Was hier hereinkommt, hat kein Mensch geschrieben - es kommt von
+    // einer Schnittstelle und landet ungesehen auf der oeffentlichen
+    // Website. CSS fuehrt zwar nichts aus, aber es LAEDT: Ein @import
+    // oder ein url() auf einen fremden Server holt beim ersten Besucher
+    // etwas von dort, und dann stimmt die Datenschutzerklaerung nicht
+    // mehr.
+    $durch = [
+        'eine gewoehnliche Regel' => '#leistungen { background: var(--wa-surface-2); }',
+        'eigener Pfad im url()' => '.wa-hero { background-image: url(/assets/img/x.png); }',
+        'eingebettetes Bild' => '.wa-hero { background: url(data:image/svg+xml;base64,AAA); }',
+        'mehrere Regeln' => '.a { color: red; } .b { color: blue; }',
+    ];
+
+    foreach ($durch as $was => $css) {
+        ok(\WebAtze\Domain\FrontendFix::sauber($css) !== '', 'Kommt durch: ' . $was);
+    }
+
+    $abgewiesen = [
+        'fremder Server' => '.a { background: url(https://fremd.example/x.png); }',
+        'protokolllose Adresse' => '.a { background: url(//fremd.example/x.png); }',
+        'ein @import' => '@import url(/x.css); .a { color: red; }',
+        'javascript: im url()' => '.a { background: url(javascript:alert(1)); }',
+        'alte expression()' => '.a { width: expression(alert(1)); }',
+        'behavior aus dem IE' => '.a { behavior: url(#default#x); }',
+        'ausgebrochenes Skript' => '</style><script>alert(1)</script>',
+        'offene Klammer' => '.a { color: red;',
+        'leer' => '   ',
+        'zu gross' => str_repeat('.a{color:red}', 2000),
+    ];
+
+    foreach ($abgewiesen as $was => $css) {
+        is('', \WebAtze\Domain\FrontendFix::sauber($css), 'Wird abgewiesen: ' . $was);
+    }
+});
+
+// ==================================================================
+test('Eine Anpassung laesst sich zuruecknehmen', function (): void {
+    // Der eigentliche Sicherheitsgurt: Was schiefgeht, ist mit einem
+    // Klick wieder weg - ohne dass jemand eine Datei anfassen muss.
+    \WebAtze\Core\Db::delete('frontend_fixes', '1 = 1');
+
+    $a = \WebAtze\Core\Db::insert('frontend_fixes', [
+        'prompt' => 'Leistungen dunkler', 'css' => '#leistungen { background: #12122a; }',
+        'summary' => 'Leistungen dunkler', 'active' => 1,
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $b = \WebAtze\Core\Db::insert('frontend_fixes', [
+        'prompt' => 'Karten luftiger', 'css' => '.wa-card { padding: 2.5rem; }',
+        'summary' => 'Karten luftiger', 'active' => 1,
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    is(2, \WebAtze\Domain\FrontendFix::activeCount(), 'Zwei Anpassungen gelten');
+
+    $css = \WebAtze\Domain\FrontendFix::css();
+
+    ok(str_contains($css, '#leistungen'), 'Die erste steht im Stylesheet');
+    ok(str_contains($css, '.wa-card'), 'Die zweite auch');
+
+    // Die Reihenfolge zaehlt: Was spaeter kam, gewinnt bei gleicher
+    // Gewichtung - das ist, was man erwartet.
+    ok(strpos($css, '#leistungen') < strpos($css, '.wa-card'),
+        'In der Reihenfolge des Anlegens');
+
+    // Die Kennung in der Adresse muss sich aendern, sonst zeigt der
+    // Browser tagelang die alte Fassung.
+    $vorher = \WebAtze\Domain\FrontendFix::version();
+
+    \WebAtze\Domain\FrontendFix::toggle($a, false);
+
+    is(1, \WebAtze\Domain\FrontendFix::activeCount(), 'Abgeschaltet zaehlt nicht mehr mit');
+    ok(!str_contains(\WebAtze\Domain\FrontendFix::css(), '#leistungen'),
+        'Und steht nicht mehr im Stylesheet');
+    ok(\WebAtze\Domain\FrontendFix::version() !== $vorher,
+        'Die Kennung hat sich geaendert');
+
+    // Aber der Eintrag bleibt - man will ihn wieder einschalten koennen.
+    ok(\WebAtze\Domain\FrontendFix::find($a) !== null, 'Der Eintrag bleibt erhalten');
+
+    \WebAtze\Domain\FrontendFix::toggle($a, true);
+    ok(str_contains(\WebAtze\Domain\FrontendFix::css(), '#leistungen'), 'Und laesst sich zurueckholen');
+
+    ok(\WebAtze\Domain\FrontendFix::remove($b), 'Loeschen geht');
+    is(1, \WebAtze\Domain\FrontendFix::activeCount(), 'Danach gilt nur noch eine');
+
+    is(1, \WebAtze\Domain\FrontendFix::clear(), 'Alles zuruecksetzen raeumt den Rest weg');
+    is('', \WebAtze\Domain\FrontendFix::css(), 'Und das Stylesheet ist leer');
+
+    @unlink(STORAGE_DIR . '/frontend-fix.css');
+});
+
+// ==================================================================
+test('Die Karte nennt die Abschnitte beim Namen', function (): void {
+    // Ohne sie bekaeme die Schnittstelle eine Liste aus lauter
+    // ".wa-section" und wuesste bei "mach die Leistungen anders" nicht,
+    // welche gemeint ist.
+    $karte = \WebAtze\Domain\FrontendFix::karte();
+
+    ok(str_contains($karte, '#leistungen'), 'Die Kennung des Abschnitts steht drin');
+    ok(str_contains($karte, '.wa-hero'), 'Der Auftakt ebenfalls');
+    ok(str_contains($karte, 'Alles, was deine Website braucht'),
+        'Und die Ueberschrift, damit klar ist, welcher Abschnitt gemeint ist');
+    ok(!str_contains($karte, 'services.title'),
+        'Der Sprachschluessel selbst steht nicht drin');
+    ok(!str_contains($karte, '<?'), 'Und kein PHP');
 });
 
 // ==================================================================

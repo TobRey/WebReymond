@@ -61,6 +61,16 @@ $other = $locale === 'de' ? 'en' : 'de';
 
     <link rel="stylesheet" href="<?= e(Assets::url('app.css')) ?>">
 
+    <?php /*
+        Die Anpassungen aus dem Frontend-Fix, NACH dem Stylesheet - so
+        gewinnen sie bei gleicher Gewichtung, ohne dass ueberall
+        !important stehen muss. Der Verweis entsteht nur, wenn es auch
+        etwas anzupassen gibt: eine leere Datei ist ein Aufruf umsonst.
+    */ ?>
+    <?php if (\WebAtze\Domain\FrontendFix::activeCount() > 0): ?>
+        <link rel="stylesheet" href="<?= e(\WebAtze\Domain\FrontendFix::url()) ?>">
+    <?php endif; ?>
+
     <?php // Theme setzen, bevor das erste Bild gezeichnet wird. ?>
     <script nonce="<?= e($nonce) ?>">
         document.documentElement.classList.remove('no-js');

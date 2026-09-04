@@ -6,7 +6,7 @@ namespace WebAtze\Http;
 
 use WebAtze\Build\{FtpDeployer, ImageStore, Theme};
 use WebAtze\Core\{Audit, Config, Crypto, Db, Jobs, Logger, Request, Response, Session, View};
-use WebAtze\Domain\Brief;
+use WebAtze\Domain\{Brief, Vault};
 
 /**
  * Das Formular für eine neue Kundenwebsite.
@@ -76,6 +76,13 @@ final class CreateController
                     // Besucherzahlen: Wer ihn hat, sieht Summen – ändern
                     // kann er damit nichts.
                     'stats_token' => $brief['wants_stats'] ? random_token(32) : '',
+                    // Der Zaehlschluessel steht spaeter im Auftragstext
+                    // und in der Zaehlzeile. Er entsteht nur, wenn die
+                    // Zaehlung angehakt wurde - sonst gaebe es sie
+                    // stillschweigend doch.
+                    'visit_key' => $brief['wants_stats'] ? bin2hex(random_bytes(8)) : '',
+                    // Der Schluessel der Hilfeseite ebenso.
+                    'support_token' => $brief['wants_support'] ? random_token(24) : '',
                     'report_email' => $brief['wants_stats'] ? $brief['report_email'] : '',
                     'preview_token' => '',
                     'created_at' => Db::now(),
@@ -118,6 +125,18 @@ final class CreateController
             $id = Logger::exception($e);
             Session::flash('error', 'Das Projekt konnte nicht angelegt werden (Kennnummer ' . $id . ').');
             return $this->render($request, Brief::withoutSecrets($brief), []);
+        }
+
+        // Die Zugaenge in den Tresor, solange sie noch im Klartext
+        // vorliegen. Gleich danach sind sie es nicht mehr: Das
+        // Backend-Passwort wird zum Argon2id-Streuwert, das FTP-Passwort
+        // wandert verschluesselt in die Hochlade-Einstellungen.
+        try {
+            Vault::adoptProject($projectId, $brief);
+        } catch (\Throwable $e) {
+            // Ein Projekt, das steht, darf nicht daran scheitern, dass
+            // der Tresor gerade klemmt.
+            Logger::exception($e);
         }
 
         Audit::log('project.created', $brief['company_name'], [

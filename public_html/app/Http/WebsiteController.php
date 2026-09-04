@@ -106,11 +106,12 @@ final class WebsiteController
         $frisch = Websites::find($ergebnis['id']);
         $adresse = $frisch !== null ? Websites::url($frisch) : '';
 
-        if ($adresse !== '') {
-            // Der Zählschlüssel entsteht sofort - der Einzeiler dazu
-            // steht auf der Seite der Website.
-            Visits::key($ergebnis['id']);
+        // Ob gezählt wird, ist eine Entscheidung - hier als Haken im
+        // Formular. Ausschalten nimmt nur den Schlüssel weg; die Zahlen
+        // der letzten Monate bleiben stehen.
+        Visits::setCounting($ergebnis['id'], $request->bool('zaehlen'));
 
+        if ($adresse !== '') {
             // Steht sie schon unter Aufsicht, passiert hier nichts.
             @set_time_limit(60);
             Monitor::adopt(

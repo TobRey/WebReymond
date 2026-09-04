@@ -88,6 +88,17 @@ $statuses = [
                             </button>
                         <?php endforeach; ?>
                     </form>
+
+                    <?php /* Als Spam markieren reicht nicht - Werbung
+                             bleibt sonst fuer immer in der Liste. */ ?>
+                    <form method="post" action="<?= e($base) ?>/anfragen/<?= (int) $lead['id'] ?>/loeschen"
+                          data-confirm="Diese Anfrage von <?= e((string) $lead['name']) ?> wirklich löschen?">
+                        <?= Csrf::field() ?>
+                        <button type="submit" class="wa-btn wa-btn--quiet wa-btn--sm wa-btn--danger">
+                            Löschen
+                        </button>
+                    </form>
+
                     <span class="wa-request__meta">
                         <?= e((string) $lead['source']) ?> · <?= e((string) $lead['ip']) ?>
                     </span>

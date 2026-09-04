@@ -1132,6 +1132,37 @@ fieldset.wa-fieldset { border: 1px solid var(--wa-border); margin: 0; }
 
 .wa-prose .wa-table-wrap { margin-block: var(--wa-space-4); }
 
+/* ================================================================== */
+/* Frontend-Fix                                                        */
+/* ================================================================== */
+
+/* Eine abgeschaltete Anpassung bleibt sichtbar, tritt aber zurueck -
+   sie soll wiederfindbar sein, ohne sich vorzudraengen. */
+.wa-fix.is-aus { opacity: 0.55; }
+.wa-fix.is-aus .wa-panel__title { text-decoration: line-through; }
+
+.wa-fix__befehl {
+  margin: 0 0 var(--wa-space-3);
+  color: var(--wa-text);
+  line-height: 1.6;
+}
+
+.wa-fix__befehl .wa-hint { display: block; margin: 0 0 0.15rem; }
+
+.wa-fix__code summary {
+  cursor: pointer;
+  color: var(--wa-text-muted);
+  font-size: var(--wa-text-sm);
+}
+
+.wa-fix__code summary:hover { color: var(--wa-text-strong); }
+
+.wa-fix__code .wa-code {
+  margin-block-start: var(--wa-space-3);
+  max-block-size: 22rem;
+  overflow: auto;
+}
+
 .wa-note-card__anriss {
   margin: 0;
   color: var(--wa-text-muted);

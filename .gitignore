@@ -19,6 +19,11 @@ public_html/storage/documents/*
 public_html/storage/backups/*
 public_html/storage/fonts/*
 
+# Die Regelebene der Frontend-Fixes. Sie entsteht aus der Datenbank neu,
+# sobald sie fehlt - im Repository haette sie den Stand eines fremden
+# Rechners.
+public_html/storage/frontend-fix.css
+
 # Der Merker fuer den Tabellenstand entsteht auf jeder Installation neu.
 public_html/storage/schema-version.txt
 public_html/storage/schema-version.txt.lock

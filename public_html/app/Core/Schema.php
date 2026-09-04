@@ -1023,6 +1023,45 @@ final class Schema
                 ALTER TABLE projects ADD COLUMN support_token {string:64} NOT NULL DEFAULT \'\';
                 CREATE INDEX IF NOT EXISTS idx_projects_support_token ON projects (support_token);
             ',
+
+            // ------------------------------------- Rechnung trifft Buchhaltung
+            //
+            // Eine bezahlte Rechnung soll in der Buchhaltung stehen -
+            // sonst zeigt die Statistik einen Gewinn, den es nicht gibt.
+            // Die Verknuepfung geht in beide Richtungen: Wird die
+            // Rechnung wieder auf offen gestellt oder geloescht,
+            // verschwindet die Einnahme mit ihr.
+            '042_payments_document' => '
+                ALTER TABLE payments ADD COLUMN document_id {int} NULL;
+                CREATE INDEX IF NOT EXISTS idx_payments_document ON payments (document_id);
+            ',
+
+            // ------------------------------------------------------ Frontend-Fix
+            //
+            // Anpassungen an der eigenen Website, per Textbefehl erzeugt.
+            //
+            // Gespeichert wird der Befehl UND das Ergebnis. Der Befehl,
+            // damit spaeter nachvollziehbar ist, warum eine Regel da
+            // steht; das Ergebnis, weil es sonst bei jedem Seitenaufruf
+            // neu erfragt werden muesste - und das kostet Geld und
+            // Sekunden.
+            //
+            // Jede Anpassung laesst sich einzeln abschalten. Das ist der
+            // eigentliche Sicherheitsgurt: Was schiefgeht, ist mit einem
+            // Klick wieder weg, ohne dass jemand eine Datei anfassen muss.
+            '043_frontend_fixes' => '
+                CREATE TABLE IF NOT EXISTS frontend_fixes (
+                    id {id},
+                    prompt {text} NULL,
+                    css {text} NULL,
+                    summary {string:255} NOT NULL DEFAULT \'\',
+                    scope {string:60} NOT NULL DEFAULT \'\',
+                    active {bool} NOT NULL DEFAULT 1,
+                    created_at {datetime} NOT NULL,
+                    updated_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_fixes_active ON frontend_fixes (active, id);
+            ',
         ];
     }
 

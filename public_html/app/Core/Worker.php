@@ -355,7 +355,7 @@ final class Worker
     }
 
     /**
-     * Jede Website mit Domain bekommt Ueberwachung und Zaehlschluessel.
+     * Jede Website mit Domain bekommt eine Ueberwachung.
      *
      * Frueher musste man beim Eintragen daran denken - und wer nicht
      * daran dachte, hatte eine Website, die niemand prueft und die
@@ -375,9 +375,11 @@ final class Worker
             );
 
             foreach ($offen as $website) {
-                // Der Zaehlschluessel entsteht beim ersten Nachfragen.
-                \WebAtze\Domain\Visits::key((int) $website['id']);
-
+                // Kein Zaehlschluessel von selbst: Ob eine Website
+                // gezaehlt wird, ist eine Entscheidung im Formular
+                // beziehungsweise auf ihrer Seite. Die Ueberwachung
+                // dagegen ist keine - eine Website, von der niemand
+                // merkt, dass sie steht, nuetzt niemandem.
                 $hat = \WebAtze\Domain\Websites::monitorFor($website) !== null;
 
                 if ($hat) {

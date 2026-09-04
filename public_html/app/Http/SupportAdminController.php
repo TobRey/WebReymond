@@ -120,6 +120,37 @@ final class SupportAdminController
         return $this->back();
     }
 
+    /**
+     * Einen Gespraechsfaden entfernen - samt Nachrichten.
+     *
+     * Als erledigt zu markieren reicht nicht immer: Ein Faden, der aus
+     * einem Versehen entstanden ist oder von einem Werbeprogramm kam,
+     * soll weg und nicht bloss zugeklappt sein.
+     */
+    public function destroy(Request $request): Response
+    {
+        $id = $request->paramInt('id');
+
+        $thread = Db::first('SELECT * FROM support_threads WHERE id = :id', ['id' => $id]);
+
+        if ($thread === null) {
+            Session::flash('error', 'Diesen Gesprächsfaden gibt es nicht mehr.');
+
+            return $this->back();
+        }
+
+        // Erst die Nachrichten, dann der Faden. Andersherum blieben die
+        // Nachrichten als Waisen liegen.
+        Db::delete('support_messages', 'thread_id = :t', ['t' => $id]);
+        Db::delete('support_threads', 'id = :id', ['id' => $id]);
+
+        Audit::log('support.delete', (string) $thread['subject'], ['id' => $id], $request);
+
+        Session::flash('success', 'Gesprächsfaden gelöscht.');
+
+        return $this->back();
+    }
+
     // ------------------------------------------------------------------
 
     /**

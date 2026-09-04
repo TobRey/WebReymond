@@ -64,6 +64,36 @@ final class LeadController
         return $this->back();
     }
 
+    /**
+     * Eine Anfrage entfernen.
+     *
+     * Als Spam zu markieren reicht nicht: Was Werbung war, bleibt sonst
+     * fuer immer in der Liste stehen und macht die Zahl im Menue
+     * nutzlos.
+     */
+    public function destroy(Request $request): Response
+    {
+        $id = $request->paramInt('id');
+
+        $lead = Db::first('SELECT * FROM leads WHERE id = :id', ['id' => $id]);
+
+        if ($lead === null) {
+            Session::flash('error', 'Diese Anfrage gibt es nicht mehr.');
+
+            return $this->back();
+        }
+
+        Db::delete('leads', 'id = :id', ['id' => $id]);
+
+        Audit::log('lead.delete', 'Anfrage #' . $id, [
+            'von' => (string) $lead['name'],
+        ], $request);
+
+        Session::flash('success', 'Anfrage gelöscht.');
+
+        return $this->back();
+    }
+
     private function back(): Response
     {
         return Response::redirect(
