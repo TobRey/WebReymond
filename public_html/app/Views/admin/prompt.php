@@ -13,8 +13,10 @@ use WebAtze\Core\Csrf;
 /** @var string $prompt */
 /** @var string $dateiname */
 /** @var string $base */
+/** @var array<string, mixed> $anschluss */
 
 $id = (int) $project['id'];
+$anschluss = $anschluss ?? [];
 ?>
 
 <section class="wa-panel">
@@ -48,6 +50,64 @@ $id = (int) $project['id'];
         Alles aus dem Formular steht darin &ndash; wer den Text einfügt, hat
         das Formular nicht gesehen und kann nicht nachfragen.
     </p>
+</section>
+
+<?php /*
+    Was im Auftrag steckt. Es steht hier nicht zum Abschreiben, sondern
+    zum Nachschauen: Der Zugangscode ist das Einzige, was ich dem Kunden
+    weitergebe - alles andere baut sich von selbst ein.
+*/ ?>
+<section class="wa-panel">
+    <header class="wa-panel__head">
+        <h2 class="wa-panel__title">Was schon verdrahtet ist</h2>
+        <p class="wa-panel__hint">
+            Diese Werte stehen fertig im Auftrag. Auf der neuen Website ist danach
+            nichts mehr einzurichten.
+        </p>
+    </header>
+
+    <dl class="wa-facts">
+        <dt>Anleitung</dt>
+        <dd><code>/doc</code> – wird mitgebaut</dd>
+
+        <dt>Hilfeseite</dt>
+        <dd>
+            <code>/support</code> – meldet sich an
+            <code><?= e((string) ($anschluss['url'] ?? '')) ?>/assistant/v1/support</code>
+            und erscheint bei dir unter «Support»
+        </dd>
+
+        <dt>Zugangscode für den Kunden</dt>
+        <dd>
+            <code><?= e((string) ($anschluss['support_code'] ?? '')) ?></code>
+            <p class="wa-hint">
+                Das Einzige, was du weitergibst. Ohne ihn zeigt die Hilfeseite kein
+                Formular – so kann kein Werbeprogramm darüber schreiben.
+            </p>
+        </dd>
+
+        <dt>Besucherzählung</dt>
+        <dd>
+            <code>&lt;script defer src="<?= e((string) ($anschluss['url'] ?? '')) ?>/z.js?k=<?= e((string) ($anschluss['visit_key'] ?? '')) ?>"&gt;&lt;/script&gt;</code>
+            <p class="wa-hint">
+                Steht im Auftrag und kommt auf jede Seite. Du fügst nichts von Hand ein.
+            </p>
+        </dd>
+    </dl>
+
+    <div class="wa-note">
+        <div>
+            <strong>Im Auftragstext steht ein echter Schlüssel.</strong>
+            <p class="wa-hint">
+                Er kann genau zweierlei: eine Supportnachricht dieser einen Website
+                senden und deren Gesprächsfaden lesen. Nicht den Abschnitts-Editor,
+                nicht andere Websites, keine Daten ändern. Wenn ein Auftragstext
+                einmal irgendwo landet, wo er nicht hingehört, erzeugst du unter
+                <a href="<?= e($base) ?>/projekt/<?= $id ?>">Projekt</a> einen neuen –
+                der alte gilt dann nicht mehr.
+            </p>
+        </div>
+    </div>
 </section>
 
 <section class="wa-panel">

@@ -344,7 +344,29 @@ $latestBuild = $builds[0] ?? null;
                 so kann kein Werbeprogramm darüber schreiben.
             </p>
         </dd>
+
+        <dt>Zählzeile</dt>
+        <dd>
+            <code>&lt;script defer src="<?= e(rtrim((string) Config::get('app_url', ''), '/')) ?>/z.js?k=<?= e(\WebAtze\Domain\Visits::key((int) $project['id'])) ?>"&gt;&lt;/script&gt;</code>
+            <p class="wa-hint">
+                Steht im Auftrag und kommt beim Bauen auf jede Seite. Nur falls du sie
+                irgendwo von Hand brauchst.
+            </p>
+        </dd>
     </dl>
+
+    <?php /*
+        Der Schluessel steht im Auftragstext, damit auf der Kundenwebsite
+        nichts einzurichten ist. Ein Auftragstext wird kopiert und
+        weitergereicht - also braucht es einen Weg, ihn zurueckzunehmen.
+    */ ?>
+    <form method="post" action="<?= e($base) ?>/projekt/<?= (int) $project['id'] ?>/support-schluessel"
+          data-confirm="Neuen Schlüssel und neuen Zugangscode erzeugen? Die bisherige Hilfeseite dieser Website funktioniert danach nicht mehr, bis sie neu gebaut ist.">
+        <?= Csrf::field() ?>
+        <button type="submit" class="wa-btn wa-btn--quiet wa-btn--sm">
+            Schlüssel und Code neu erzeugen
+        </button>
+    </form>
 </section>
 
 <?php /* ----------------------------------------------------- Prüfungen */ ?>

@@ -195,7 +195,21 @@ final class SupportController
         }
     }
 
-    /** Dieselbe Prüfung wie beim Assistenten. */
+    /**
+     * Welche Website meldet sich hier?
+     *
+     * Zwei Schlüssel gelten. Der support_token ist der richtige: Er kann
+     * genau das hier - eine Nachricht senden, den eigenen Faden lesen -
+     * und steht deshalb gefahrlos im Auftragstext, damit auf der
+     * Kundenwebsite nichts von Hand eingerichtet werden muss.
+     *
+     * Der assistant_token wird weiterhin angenommen, sonst verstummten
+     * alle Websites, die vor dieser Änderung ausgeliefert wurden.
+     *
+     * Verglichen wird zeitunabhängig und über alle Zeilen hinweg: Ein
+     * frühes Aussteigen würde verraten, wie weit ein geratener Schlüssel
+     * gestimmt hat.
+     */
     private function authenticate(Request $request): ?array
     {
         $token = trim($request->header('X-WebAtze-Token'));
@@ -208,13 +222,22 @@ final class SupportController
             return null;
         }
 
-        foreach (Db::all("SELECT * FROM projects WHERE assistant_token <> ''") as $row) {
-            if (Security::equals((string) $row['assistant_token'], $token)) {
-                return $row;
+        $treffer = null;
+
+        foreach (Db::all(
+            "SELECT * FROM projects WHERE support_token <> :leer1 OR assistant_token <> :leer2",
+            ['leer1' => '', 'leer2' => '']
+        ) as $row) {
+            $eigener = (string) $row['support_token'];
+            $alter = (string) $row['assistant_token'];
+
+            if (($eigener !== '' && Security::equals($eigener, $token))
+                || ($alter !== '' && Security::equals($alter, $token))) {
+                $treffer = $row;
             }
         }
 
-        return null;
+        return $treffer;
     }
 
     private function denied(): Response

@@ -142,6 +142,36 @@ Wer sich als Programm zu erkennen gibt, wird nicht gezählt. Vom Verweis
 bleibt nur der Rechnername (`google.com`), nie die Suchanfrage – die
 kann persönliche Angaben enthalten.
 
+### Der Auftragstext ist fertig verdrahtet
+
+Beim Anlegen einer Website entsteht ein Auftragstext zum Kopieren. Darin
+stehen nicht nur die Angaben aus dem Formular, sondern auch die **echten
+Werte für Support und Zählung**: Adresse, Schlüssel, Zugangscode,
+Zählzeile. Wer die fertigen Dateien hochlädt, hat eine Website, die zählt
+und über die man Support bekommt – ohne einen einzigen Handgriff.
+
+Das gilt auch, wenn der Text von Hand irgendwo eingefügt wird. Genau
+darum geht es: Was noch nachgetragen werden muss, wird vergessen.
+
+Drei Stücke gehören zu jeder Website und stehen deshalb gleich im Kopf
+des Auftrags sowie noch einmal als Liste zum Abhaken am Schluss:
+
+* `/doc` – die Anleitung für den Kunden
+* `/support` – die Hilfeseite, hinter einem Zugangscode
+* die Zählzeile vor `</body>` auf **jeder** Seite
+
+**Zum Schlüssel im Auftragstext.** Ein Auftragstext wird kopiert und
+weitergereicht, also steht darin bewusst nicht der `assistant_token` –
+mit dem liesse sich der Abschnitts-Editor ansteuern, und der kostet bei
+jedem Aufruf Geld. Es ist ein eigener `support_token`, der genau
+zweierlei kann: eine Supportnachricht dieser einen Website senden und
+deren Gesprächsfaden lesen. Sollte ein Auftragstext irgendwo landen, wo
+er nicht hingehört, erzeugt *Projekt → Schlüssel und Code neu erzeugen*
+einen neuen; der alte gilt dann nicht mehr.
+
+Der Zugangscode ist das Einzige, was von Hand weitergegeben wird – an
+den Kunden, damit nur er über `/support` schreiben kann.
+
 ### Intranet: was ich mir merken will
 
 Kurze Beiträge hinter der Anmeldung, nur für mich. Kein Kunde sieht sie,

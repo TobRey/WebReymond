@@ -1005,6 +1005,24 @@ final class Schema
                 ALTER TABLE projects ADD COLUMN visit_key {string:32} NOT NULL DEFAULT \'\';
                 CREATE INDEX IF NOT EXISTS idx_projects_visit_key ON projects (visit_key);
             ',
+
+            // ------------------------------------------------ Schluessel /support
+            //
+            // Ein eigener Schluessel nur fuer die Hilfeseite, getrennt vom
+            // assistant_token. Der Grund ist der Auftragstext: Damit auf
+            // der Kundenwebsite nichts von Hand eingerichtet werden muss,
+            // steht der Schluessel darin - und der Text wird kopiert und
+            // weitergereicht.
+            //
+            // Mit dem assistant_token liesse sich auch der Abschnitts-
+            // Editor ansteuern, und der kostet bei jedem Aufruf Geld.
+            // Dieser hier kann genau zweierlei: eine Supportnachricht
+            // senden und den eigenen Gespraechsfaden lesen. Mehr nicht,
+            // und zuruecknehmen laesst er sich jederzeit.
+            '041_projects_support_token' => '
+                ALTER TABLE projects ADD COLUMN support_token {string:64} NOT NULL DEFAULT \'\';
+                CREATE INDEX IF NOT EXISTS idx_projects_support_token ON projects (support_token);
+            ',
         ];
     }
 

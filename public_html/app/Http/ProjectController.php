@@ -6,7 +6,7 @@ namespace WebAtze\Http;
 
 use WebAtze\Build\{Pipeline, SiteBuilder, SiteChecker, ZipExporter};
 use WebAtze\Core\{Audit, Config, Db, Jobs, Request, Response, Session, View};
-use WebAtze\Domain\PromptText;
+use WebAtze\Domain\{PromptText, Visits, Websites};
 
 /**
  * Ein einzelnes Projekt: Stand, Abschnitte, Verlauf, Neubau, Löschen.
@@ -30,15 +30,68 @@ final class ProjectController
         }
 
         $brief = json_decode((string) $project['brief'], true) ?: [];
+        $id = (int) $project['id'];
+
+        // Die echten Werte fuer Support und Zaehlung. Sie entstehen beim
+        // ersten Nachfragen und bleiben dann stehen.
+        //
+        // Sie gehoeren in den Auftragstext, damit auf der fertigen
+        // Website nichts mehr einzurichten ist - auch dann nicht, wenn
+        // der Text kopiert und von Hand eingefuegt wurde. Vorher standen
+        // hier Platzhalter mit dem Hinweis "traegt Tobias nach", und
+        // genau dieser Handgriff blieb liegen.
+        $anschluss = [
+            'url' => (string) Config::get('app_url', ''),
+            'support_token' => Websites::supportToken($id),
+            'support_code' => Websites::supportCode($id),
+            'visit_key' => Visits::key($id),
+        ];
 
         return Response::html(View::partial('layouts/admin', [
             'title' => 'Auftrag: ' . (string) $project['name'],
             'content' => View::partial('admin/prompt', [
                 'project' => $project,
-                'prompt' => PromptText::build($brief),
+                'prompt' => PromptText::build($brief, $anschluss),
                 'dateiname' => PromptText::filename($brief),
+                'anschluss' => $anschluss,
             ]),
         ]))->noCache()->noIndex();
+    }
+
+    /**
+     * Schluessel und Zugangscode dieser Website erneuern.
+     *
+     * Beides steht im Auftragstext, damit auf der Kundenwebsite nichts
+     * einzurichten ist - und ein Auftragstext wird kopiert und
+     * weitergereicht. Also braucht es einen Weg zurueck.
+     *
+     * Danach ist die bestehende Hilfeseite dieser Website stumm, bis sie
+     * mit dem neuen Auftrag neu gebaut ist. Das ist der Preis und steht
+     * so auch in der Sicherheitsabfrage.
+     */
+    public function newSupportKeys(Request $request): Response
+    {
+        $project = self::find($request->paramInt('id'));
+
+        if ($project === null) {
+            return Response::notFound();
+        }
+
+        $id = (int) $project['id'];
+
+        Websites::newSupportToken($id);
+        Websites::newSupportCode($id);
+
+        Audit::log('project.support_keys', (string) $project['name'], ['id' => $id], $request);
+
+        Session::flash(
+            'success',
+            'Neuer Schlüssel und neuer Zugangscode. Bau die Website mit dem neuen '
+            . 'Auftrag noch einmal – bis dahin nimmt die Hilfeseite nichts entgegen.'
+        );
+
+        return Response::redirect(self::base() . '/projekt/' . $id . '/auftrag')
+            ->noCache()->noIndex();
     }
 
     public function show(Request $request): Response

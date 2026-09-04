@@ -30,6 +30,13 @@ $brand = (string) ($config['brand'] ?? 'Website');
 $code = (string) ($config['support_code'] ?? '');
 $geheimnis = (string) ($config['support_secret'] ?? $token);
 
+// Der eigene Schluessel der Hilfeseite. Er kann eine Nachricht senden
+// und den eigenen Faden lesen - mehr nicht. Der assistant_token gilt
+// weiter, damit aeltere Websites nicht verstummen.
+if (trim((string) ($config['support_token'] ?? '')) !== '') {
+    $token = (string) $config['support_token'];
+}
+
 const FADEN_COOKIE = 'wa_support';
 const TICKET_COOKIE = 'wa_support_ok';
 const TICKET_TAGE = 180;

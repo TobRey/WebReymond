@@ -309,6 +309,50 @@ final class Websites
         return $code;
     }
 
+    /**
+     * Der Schluessel, mit dem sich die Hilfeseite einer Kundenwebsite
+     * bei WebAtze ausweist.
+     *
+     * Getrennt vom assistant_token, und das mit Absicht: Dieser hier
+     * steht im Auftragstext, damit auf der Kundenwebsite nichts von Hand
+     * eingerichtet werden muss - und ein Auftragstext wird kopiert und
+     * weitergereicht. Mit dem assistant_token liesse sich auch der
+     * Abschnitts-Editor ansteuern, und der kostet bei jedem Aufruf Geld.
+     * Dieser kann genau zweierlei: eine Nachricht senden und den eigenen
+     * Faden lesen.
+     */
+    public static function supportToken(int $id): string
+    {
+        $zeile = Db::first('SELECT support_token FROM projects WHERE id = :id', ['id' => $id]);
+
+        if ($zeile === null) {
+            return '';
+        }
+
+        $schluessel = trim((string) ($zeile['support_token'] ?? ''));
+
+        if ($schluessel !== '') {
+            return $schluessel;
+        }
+
+        $schluessel = random_token(24);
+
+        Db::update('projects', ['support_token' => $schluessel], 'id = :id', ['id' => $id]);
+
+        return $schluessel;
+    }
+
+    /** Einen neuen Schluessel setzen - falls der alte unterwegs war. */
+    public static function newSupportToken(int $id): string
+    {
+        $schluessel = random_token(24);
+
+        Db::update('projects', ['support_token' => $schluessel, 'updated_at' => Db::now()],
+            'id = :id', ['id' => $id]);
+
+        return $schluessel;
+    }
+
     /** Einen neuen Code setzen - falls er einmal in falsche Haende geriet. */
     public static function newSupportCode(int $id): string
     {

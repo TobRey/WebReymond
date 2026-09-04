@@ -255,6 +255,7 @@ final class Routes
 
             $r->post($base . '/projekt/{id}/bauen', 'ProjectController@rebuild');
             $r->post($base . '/projekt/{id}/loeschen', 'ProjectController@destroy');
+            $r->post($base . '/projekt/{id}/support-schluessel', 'ProjectController@newSupportKeys');
             $r->post($base . '/projekt/{id}/zip', 'DeployController@createZip');
             $r->post($base . '/projekt/{id}/hochladen', 'DeployController@deploy');
             $r->post($base . '/projekt/{id}/ftp', 'DeployController@saveTarget');

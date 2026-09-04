@@ -1660,10 +1660,167 @@ test('Anleitung und Support stehen in JEDEM Auftrag', function (): void {
     ok(!empty($g['data']['wants_docs']), 'wants_docs ist gesetzt, auch ohne Haken');
     ok(!empty($g['data']['wants_support']), 'wants_support ebenfalls');
 
-    // Kein echter Code im Auftragstext: Er wird kopiert und
-    // weitergereicht, und was dort steht, ist unterwegs.
-    ok(str_contains($text, 'BITTE-VOR-DEM-AUSLIEFERN-AENDERN'),
-        'Im Auftrag steht ein Platzhalter statt eines Codes');
+    // Ohne Anschlusswerte steht ein erkennbarer Platzhalter da - und
+    // der Hinweis, wo die echten Werte stehen. Ein halb ausgefuellter
+    // Auftrag waere schlimmer als ein leerer: Dann baut jemand etwas,
+    // das beim ersten Versuch scheitert.
+    ok(str_contains($text, 'WIRD-NACHGETRAGEN'),
+        'Ohne Anschluss steht ein Platzhalter da');
+    ok(!str_contains($text, 'nichts mehr einzurichten'),
+        'Und der Auftrag verspricht dann nicht, es sei nichts einzurichten');
+});
+
+// ==================================================================
+test('Jede gebaute Seite zaehlt mit', function (): void {
+    // Die Zaehlzeile stand frueher nur auf Seiten, bei denen im Formular
+    // ein Haken gesetzt war - und der wurde vergessen. Jetzt gehoert sie
+    // zu jeder gebauten Seite, so wie /doc und /support.
+    $site = [
+        'brand' => 'Probe AG',
+        'locale' => 'de',
+        'locales' => ['de'],
+        'nav' => [],
+        'visit_url' => 'https://webatze.ch',
+        'visit_key' => 'abcdef0123456789',
+    ];
+
+    $seite = ['path' => '/', 'title' => 'Start', 'description' => 'Probe', 'sections' => []];
+
+    $html = Page::render($site, $seite);
+
+    ok(
+        str_contains($html, '<script defer src="https://webatze.ch/z.js?k=abcdef0123456789"></script>'),
+        'Die Zaehlzeile steht in der gebauten Seite'
+    );
+
+    ok(
+        strpos($html, 'z.js') < strpos($html, '</body>'),
+        'Und zwar vor dem schliessenden body'
+    );
+
+    // Ohne Schluessel keine Zeile - eine halbe Verdrahtung waere
+    // schlimmer als gar keine.
+    $ohne = Page::render(['brand' => 'Probe AG', 'locale' => 'de', 'locales' => ['de'], 'nav' => []], $seite);
+
+    ok(!str_contains($ohne, 'z.js'), 'Ohne Schluessel steht dort nichts');
+});
+
+// ==================================================================
+test('Der Schluessel im Auftrag kann nur wenig', function (): void {
+    // Der Schluessel steht im Auftragstext, damit auf der Kundenwebsite
+    // nichts einzurichten ist. Ein Auftragstext wird kopiert und
+    // weitergereicht - also darf dieser Schluessel moeglichst wenig
+    // koennen. Deshalb ist er nicht der assistant_token: Mit dem liesse
+    // sich der Abschnitts-Editor ansteuern, und der kostet Geld.
+    $id = \WebAtze\Core\Db::insert('projects', [
+        'slug' => 'schluesselprobe', 'name' => 'Schluesselprobe AG', 'status' => 'ready',
+        'source' => 'ki', 'locale' => 'de', 'locales' => 'de',
+        'assistant_token' => random_token(24),
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $eigener = \WebAtze\Domain\Websites::supportToken($id);
+
+    ok(strlen($eigener) >= 20, 'Der Schluessel ist lang genug');
+    is($eigener, \WebAtze\Domain\Websites::supportToken($id), 'Beim zweiten Fragen derselbe');
+
+    $assistent = (string) \WebAtze\Core\Db::value(
+        'SELECT assistant_token FROM projects WHERE id = :id', ['id' => $id], ''
+    );
+
+    ok($eigener !== $assistent, 'Und ein anderer als der Assistenten-Schluessel');
+
+    // Zuruecknehmen muss gehen, sonst waere ein einmal abgeflossener
+    // Auftragstext ein dauerhaftes Problem.
+    $neuer = \WebAtze\Domain\Websites::newSupportToken($id);
+
+    ok($neuer !== $eigener, 'Ein neuer Schluessel ist wirklich neu');
+    is($neuer, \WebAtze\Domain\Websites::supportToken($id), 'Und ab jetzt der gueltige');
+
+    // Der Zugangscode ebenso.
+    $code = \WebAtze\Domain\Websites::supportCode($id);
+    ok(\WebAtze\Domain\Websites::newSupportCode($id) !== $code, 'Auch der Code laesst sich erneuern');
+
+    \WebAtze\Core\Db::delete('projects', 'id = :id', ['id' => $id]);
+});
+
+// ==================================================================
+test('Der Auftrag ist fertig verdrahtet', function (): void {
+    // Beim ersten Anlauf hing /support an einem Haken, der vergessen
+    // wurde. Beim zweiten stand es zwar im Auftrag, aber mit dem Satz
+    // "den Code setze ich selbst" - auch das ein Handgriff, den jemand
+    // vergisst. Dann steht eine Hilfeseite da, die nichts tut.
+    //
+    // Jetzt stehen die echten Werte im Text. Diese Pruefung haelt fest,
+    // dass sie wirklich alle darin vorkommen - und dass der Auftrag
+    // nirgends mehr behauptet, es sei noch etwas nachzutragen.
+    $brief = ['company_name' => 'Steiner Holzbau AG', 'contact_email' => 'info@steiner.example'];
+
+    $anschluss = [
+        'url' => 'https://webatze.ch',
+        'support_token' => 'T0kEnBeIsPiEl-vierundzwanzig',
+        'support_code' => 'KRTPM-9XZQ4',
+        'visit_key' => '3daa45e7b23822e3',
+    ];
+
+    $text = \WebAtze\Domain\PromptText::build($brief, $anschluss);
+
+    foreach ([
+        'Adresse' => 'https://webatze.ch',
+        'Schluessel' => 'T0kEnBeIsPiEl-vierundzwanzig',
+        'Zugangscode' => 'KRTPM-9XZQ4',
+        'Zaehlschluessel' => '3daa45e7b23822e3',
+        'Konfigurationsdatei' => 'data/config.php',
+        'Sendeadresse' => '/assistant/v1/support',
+        'Verlaufsadresse' => '/assistant/v1/support/faden',
+        'Kopfzeile' => 'X-WebAtze-Token',
+    ] as $was => $erwartet) {
+        ok(str_contains($text, $erwartet), $was . ' steht im Auftrag');
+    }
+
+    // Die Zaehlzeile steht fertig da - er soll nichts von Hand einfuegen.
+    ok(
+        str_contains($text, '<script defer src="https://webatze.ch/z.js?k=3daa45e7b23822e3"></script>'),
+        'Die Zaehlzeile steht fertig im Auftrag'
+    );
+
+    ok(str_contains($text, 'auf JEDE Seite'), 'Und zwar auf jede Seite');
+
+    // Kein Platzhalter mehr, nirgends.
+    foreach (['WIRD-NACHGETRAGEN', 'BITTE-VOR-DEM-AUSLIEFERN-AENDERN'] as $rest) {
+        ok(!str_contains($text, $rest), 'Kein Platzhalter mehr: ' . $rest);
+    }
+
+    ok(str_contains($text, 'nichts mehr einzurichten'),
+        'Der Auftrag sagt ausdruecklich, dass nichts einzurichten ist');
+
+    // Die drei Punkte stehen ganz vorne, nicht nur am Ende. Am Ende
+    // einer langen Liste werden sie ueberlesen - genau das ist zweimal
+    // passiert.
+    $kopf = mb_substr($text, 0, 1200);
+
+    ok(str_contains($kopf, '/doc'), 'Die Anleitung steht schon im Kopf des Auftrags');
+    ok(str_contains($kopf, '/support'), 'Die Hilfeseite ebenfalls');
+    ok(str_contains($kopf, 'Besucherzählung'), 'Und die Zaehlung');
+
+    // Und noch einmal ganz am Schluss zum Abhaken.
+    ok(str_contains($text, 'Zum Abhaken'), 'Am Schluss steht eine Liste zum Abhaken');
+
+    // Der Schluessel im Auftrag ist der eng geschnittene, nicht der
+    // Assistenten-Schluessel: Mit dem liesse sich der Abschnitts-Editor
+    // ansteuern, und der kostet bei jedem Aufruf Geld.
+    ok(!str_contains($text, '/assistant/v1/edit'),
+        'Der Abschnitts-Editor steht nicht im Auftrag');
+
+    // Das Kennwort des Kundenbackends gehoert weiterhin NICHT hinein.
+    $mitBackend = \WebAtze\Domain\PromptText::build(
+        $brief + ['wants_admin' => true, 'admin_username' => 'steiner',
+                  'admin_password' => 'ein-langes-Testpasswort-2026'],
+        $anschluss
+    );
+
+    ok(!str_contains($mitBackend, 'ein-langes-Testpasswort-2026'),
+        'Das Kennwort des Kundenbackends steht weiterhin nicht im Auftrag');
 });
 
 // ==================================================================

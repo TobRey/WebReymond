@@ -288,16 +288,33 @@ final class Page
                 . '<meta name="twitter:card" content="summary_large_image">';
         }
 
-        // Die Besucherzählung: ein Bild von einem Pixel, sonst nichts.
-        // Kein Skript, kein Cookie, kein fremder Server – gezählt wird
-        // auf demselben Hosting, auf dem die Seite liegt. Deshalb
-        // braucht es dafür auch keinen Zustimmungsbanner.
+        // Die Besucherzählung, auf zwei Wegen.
+        //
+        // Der Pixel zählt auf demselben Hosting, auf dem die Seite liegt
+        // - genau, aber nur da, wo eine zaehler.php mitgeliefert wurde.
+        //
+        // Die Zählzeile darunter meldet sich bei WebAtze. Sie steht auf
+        // JEDER Seite und ohne Haken: Eine Website, die niemand zählt,
+        // war bisher der Normalfall, weil das eine Entscheidung war, die
+        // man vergessen konnte.
+        //
+        // Beides ohne Cookie, ohne IP-Speicherung, ohne dauerhafte
+        // Kennung. Deshalb braucht es dafür auch keinen
+        // Zustimmungsbanner.
         $counter = '';
         if (!empty($site['counter'])) {
             $seen = '/' . self::fileNameFor((string) ($page['path'] ?? '/'), $locale, $primary);
             $counter = '<img src="' . $up . 'zaehler.php?s=' . rawurlencode($seen) . '"'
                 . ' alt="" width="1" height="1" aria-hidden="true" loading="eager"'
                 . ' style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">';
+        }
+
+        $visit = '';
+        $visitUrl = rtrim((string) ($site['visit_url'] ?? ''), '/');
+        $visitKey = (string) ($site['visit_key'] ?? '');
+
+        if ($visitUrl !== '' && $visitKey !== '') {
+            $visit = '<script defer src="' . $esc($visitUrl . '/z.js?k=' . $visitKey) . '"></script>';
         }
 
         return <<<HTML
@@ -334,6 +351,7 @@ final class Page
         {$body}
         {$counter}
         <script src="{$up}assets/js/site.js" defer></script>
+        {$visit}
         </body>
         </html>
         HTML;

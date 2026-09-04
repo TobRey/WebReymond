@@ -156,6 +156,11 @@ final class SiteBuilder
             // Haken noch fehlt - sonst bliebe die Seite ohne /support.
             'support' => true,
             'docs' => true,
+            // Die Zählzeile kommt auf jede gebaute Seite. Ohne Haken:
+            // Eine Website, die niemand zählt, war bisher der Normalfall,
+            // weil es eine Entscheidung war, die man vergessen konnte.
+            'visit_url' => rtrim((string) Config::get('app_url', ''), '/'),
+            'visit_key' => \WebAtze\Domain\Visits::key((int) $this->project['id']),
         ];
     }
 
@@ -423,6 +428,12 @@ final class SiteBuilder
             // dort sage ich ihn dem Kunden.
             'support_code' => \WebAtze\Domain\Websites::supportCode((int) $this->project['id']),
             'support_secret' => (string) ($old['support_secret'] ?? random_token(24)),
+            // Dieselben zwei Werte, die auch im Auftragstext stehen. So
+            // sieht eine von WebAtze gebaute Website von aussen genauso
+            // aus wie eine, die aus dem Auftragstext entstanden ist -
+            // eine Datei, ein Satz Schluessel, kein Sonderfall.
+            'support_token' => \WebAtze\Domain\Websites::supportToken((int) $this->project['id']),
+            'visit_key' => \WebAtze\Domain\Visits::key((int) $this->project['id']),
         ];
 
         write_file_atomic(
