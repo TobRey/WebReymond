@@ -440,6 +440,17 @@ final class SiteBuilder
             'visit_key' => !empty($brief['wants_stats'])
                 ? \WebAtze\Domain\Visits::key((int) $this->project['id'])
                 : '',
+            // Der Schlüssel der Brücke.
+            //
+            // Er steht hier und auf dem Server von WebAtze. Über die
+            // Leitung geht er nie – er unterschreibt nur. Deshalb steht
+            // er in dieser Datei und ausdrücklich NICHT in site(): Das
+            // ist genau der Datensatz, den die Brücke bei jeder
+            // Veröffentlichung überträgt.
+            //
+            // Leeren schaltet die Brücke ab. Es ist die Website des
+            // Kunden, nicht die von WebAtze.
+            'bridge_secret' => (string) ($this->project['bridge_secret'] ?? ''),
         ];
 
         write_file_atomic(
@@ -485,6 +496,13 @@ final class SiteBuilder
 
         if (!empty($site['support'])) {
             $copy('support.php');
+        }
+
+        // Die Brücke kommt nur mit, wenn es einen Schlüssel gibt. Ohne
+        // ihn weist sie ohnehin jede Anfrage ab - aber eine Datei, die
+        // nichts tut, gehört nicht auf einen fremden Server.
+        if (trim((string) ($this->project['bridge_secret'] ?? '')) !== '') {
+            $copy('wa-bruecke.php');
         }
 
         return $written;

@@ -64,6 +64,60 @@ final class Http
     }
 
     /** JSON an eine Adresse senden (für die Claude-API). */
+    /**
+     * Einen fertigen Rumpf unverändert schicken.
+     *
+     * Gebraucht wird das dort, wo eine Unterschrift genau die
+     * gesendeten Bytes deckt (Domain\Bridge). Würde der Rumpf hier noch
+     * einmal erzeugt, hinge die Gültigkeit der Unterschrift daran, dass
+     * zwei Stellen json_encode mit denselben Schaltern aufrufen - und
+     * das hält genau so lange, bis jemand einen davon ändert.
+     *
+     * @return array{ok:bool, status:int, body:string, error:string}
+     */
+    public static function postRaw(
+        string $url,
+        string $body,
+        array $headers = [],
+        int $timeout = 60
+    ): array {
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $body,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_CONNECTTIMEOUT => 15,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_USERAGENT => 'WebAtze/' . WEBATZE_VERSION,
+        ]);
+
+        $raw = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($raw === false) {
+            return [
+                'ok' => false,
+                'status' => 0,
+                'body' => '',
+                'error' => $error ?: 'Verbindung fehlgeschlagen.',
+            ];
+        }
+
+        return [
+            'ok' => $status >= 200 && $status < 300,
+            'status' => $status,
+            'body' => (string) $raw,
+            'error' => $status >= 400 ? 'Die Gegenseite antwortet mit ' . $status . '.' : '',
+        ];
+    }
+
     public static function postJson(string $url, array $payload, array $headers = [], int $timeout = 120): array
     {
         $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

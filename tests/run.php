@@ -5036,6 +5036,110 @@ test('Entwurf und Veroeffentlicht sind zwei Staende', function (): void {
 });
 
 // ==================================================================
+// Die Bruecke
+//
+// Sie ist die einzige Stelle, an der WebAtze auf einem fremden Server
+// schreibt. Deshalb wird hier nicht geprueft, dass sie funktioniert -
+// das waere die leichte Haelfte -, sondern dass sie abweist, was sie
+// abweisen muss.
+// ==================================================================
+
+test('Bruecke: die Unterschrift deckt alles ab, was die Gegenseite auswertet', function (): void {
+    $secret = str_repeat('a', 64);
+    $rumpf = '{"aktion":"veroeffentlichen"}';
+    $zeit = time();
+
+    $echt = \WebAtze\Domain\Bridge::sign($secret, 'POST', '/wa-bruecke.php', $zeit, 'abc123', $rumpf);
+
+    is(64, strlen($echt), 'Eine Unterschrift ist ein SHA256');
+
+    // Aendert sich irgendein Bestandteil, aendert sich die Unterschrift.
+    // Waere das nicht so, liesse sich eine gueltige Anfrage umbiegen.
+    isnt($echt, \WebAtze\Domain\Bridge::sign($secret, 'GET', '/wa-bruecke.php', $zeit, 'abc123', $rumpf),
+        'Die Methode zaehlt');
+    isnt($echt, \WebAtze\Domain\Bridge::sign($secret, 'POST', '/anderswo.php', $zeit, 'abc123', $rumpf),
+        'Der Pfad zaehlt');
+    isnt($echt, \WebAtze\Domain\Bridge::sign($secret, 'POST', '/wa-bruecke.php', $zeit + 1, 'abc123', $rumpf),
+        'Der Zeitstempel zaehlt');
+    isnt($echt, \WebAtze\Domain\Bridge::sign($secret, 'POST', '/wa-bruecke.php', $zeit, 'xyz789', $rumpf),
+        'Der Einmalwert zaehlt');
+    isnt($echt, \WebAtze\Domain\Bridge::sign($secret, 'POST', '/wa-bruecke.php', $zeit, 'abc123', $rumpf . ' '),
+        'Und der Rumpf, bis aufs Byte');
+
+    // Ein anderer Schluessel ergibt eine andere Unterschrift - das ist
+    // der ganze Punkt.
+    isnt($echt, \WebAtze\Domain\Bridge::sign(str_repeat('b', 64), 'POST', '/wa-bruecke.php', $zeit, 'abc123', $rumpf),
+        'Und der Schluessel erst recht');
+
+    // Der Schluessel selbst kommt in der Unterschrift nicht vor.
+    ok(!str_contains($echt, substr($secret, 0, 16)), 'Der Schluessel steckt nicht darin');
+});
+
+test('Bruecke: ohne Schluessel geht gar nichts', function (): void {
+    $ohne = ['id' => 1, 'domain' => 'kunde.example', 'bridge_secret' => ''];
+
+    $antwort = \WebAtze\Domain\Bridge::call($ohne, 'ping');
+    ok(!$antwort['ok'], 'Ohne Schluessel wird nicht einmal gewaehlt');
+
+    $ohneDomain = ['id' => 1, 'domain' => '', 'bridge_secret' => str_repeat('a', 64)];
+    ok(!\WebAtze\Domain\Bridge::call($ohneDomain, 'ping')['ok'], 'Und ohne Adresse auch nicht');
+});
+
+test('Bruecke: der Schluessel laesst sich zurueckziehen', function (): void {
+    $projekt = \WebAtze\Core\Db::insert('projects', [
+        'name' => 'Brueckenprobe', 'slug' => 'brueckenprobe-' . bin2hex(random_bytes(3)),
+        'status' => 'done', 'brief' => [], 'theme' => [],
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $erster = \WebAtze\Domain\Bridge::secret($projekt);
+    is(64, strlen($erster), 'Beim ersten Fragen entsteht ein Schluessel');
+    is($erster, \WebAtze\Domain\Bridge::secret($projekt), 'Beim zweiten derselbe');
+
+    $zweiter = \WebAtze\Domain\Bridge::newSecret($projekt);
+    isnt($erster, $zweiter, 'Ein neuer ist ein anderer');
+
+    \WebAtze\Domain\Bridge::revoke($projekt);
+    is('', (string) \WebAtze\Core\Db::value(
+        'SELECT bridge_secret FROM projects WHERE id = :id', ['id' => $projekt], ''
+    ), 'Und zurueckziehen leert ihn - es ist die Website des Kunden');
+});
+
+test('Bruecke: der Schluessel geht nie ueber die Leitung', function (): void {
+    // Das ist die Zusage, die die ganze Bruecke traegt - und sie war
+    // schon einmal gebrochen: Der Schluessel landete versehentlich in
+    // site(), und site() ist genau der Datensatz, den die Bruecke bei
+    // jeder Veroeffentlichung uebertraegt. Er waere bei jedem Kunden
+    // ueber die Leitung gegangen, ohne dass es jemand gemerkt haette.
+    $quelle = file_get_contents(dirname(__DIR__) . '/public_html/app/Build/SiteBuilder.php');
+
+    $vonSite = strpos($quelle, 'public function site(): array');
+    $bisEnde = strpos($quelle, 'private function writeDataConfig');
+
+    ok($vonSite !== false && $bisEnde !== false, 'Beide Stellen sind auffindbar');
+
+    $siteBlock = substr($quelle, $vonSite, $bisEnde - $vonSite);
+
+    ok(!str_contains($siteBlock, 'bridge_secret'),
+        'In site() steht kein Brueckenschluessel');
+
+    ok(str_contains(substr($quelle, $bisEnde), 'bridge_secret'),
+        'In writeDataConfig() dagegen schon - dort liest die Bruecke ihn');
+});
+
+test('Bruecke: die Adresse haengt an der Domain der Website', function (): void {
+    is('https://kunde.ch/wa-bruecke.php',
+        \WebAtze\Domain\Bridge::url(['domain' => 'kunde.ch']),
+        'Ohne Schema wird https angenommen');
+
+    is('https://kunde.ch/wa-bruecke.php',
+        \WebAtze\Domain\Bridge::url(['domain' => 'https://kunde.ch/']),
+        'Ein Schrägstrich am Ende stoert nicht');
+
+    is('', \WebAtze\Domain\Bridge::url(['domain' => '']), 'Ohne Domain keine Adresse');
+});
+
+// ==================================================================
 // Das Geruest der eigenen Website
 //
 // Sie wird schrittweise von handgeschriebenen Ansichten auf

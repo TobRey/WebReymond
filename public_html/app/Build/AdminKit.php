@@ -32,6 +32,12 @@ final class AdminKit
         'Templates/Catalog.php',
         'Templates/Schema.php',
         'Templates/Icons.php',
+        // Ohne diese beiden rendert der Kunde eine andere Seite als
+        // WebAtze - Effekte fielen weg, freie Abschnitte blieben leer.
+        // Das Vorlagenwerk muss auf beiden Seiten vollständig sein,
+        // sonst ist "dieselbe Seite" eine Behauptung.
+        'Templates/Effects.php',
+        'Templates/Blocks.php',
     ];
 
     /**

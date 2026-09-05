@@ -743,11 +743,14 @@ final class EditorController
 
             Audit::log('editor.publish', 'page', ['seite' => (int) $seite['id']]);
 
+            $hinaus = $this->hinausschieben($projekt, $request->input('ueberschreiben') === '1');
+
             return [
                 'ok' => true,
                 'error' => '',
-                'meldung' => 'Veröffentlicht.',
+                'meldung' => 'Veröffentlicht.' . ($hinaus === '' ? '' : ' ' . $hinaus),
                 'entwurf' => false,
+                'live' => $hinaus,
             ];
         });
     }
@@ -795,6 +798,57 @@ final class EditorController
 
             return $ergebnis;
         });
+    }
+
+    /**
+     * Den fertigen Stand auf die Kundendomain bringen.
+     *
+     * Zuerst die Brücke: Sie schreibt in etwa einer Sekunde. Gibt es sie
+     * nicht - eine Website ohne Bearbeitungsbereich, eine fremde Seite,
+     * ein Kunde, der sie abgeschaltet hat -, geht es über FTP. Das
+     * dauert, funktioniert aber überall, wo Zugangsdaten hinterlegt sind.
+     *
+     * Gibt es beides nicht, ist das kein Fehler: Dann liegt die fertige
+     * Website als Paket bereit und wird von Hand hochgeladen, wie
+     * bisher. Nur sagen muss man es.
+     */
+    private function hinausschieben(array $projekt, bool $ueberschreiben): string
+    {
+        if (trim((string) ($projekt['domain'] ?? '')) === '') {
+            return 'Es ist keine Domain hinterlegt, die Seite bleibt hier.';
+        }
+
+        if (trim((string) ($projekt['bridge_secret'] ?? '')) !== '') {
+            $dist = STORAGE_DIR . '/projects/' . (string) $projekt['slug'] . '/dist';
+
+            $antwort = \WebAtze\Domain\Bridge::publish(
+                $projekt,
+                (new SiteBuilder($projekt, $dist))->site(),
+                $ueberschreiben
+            );
+
+            if ($antwort['ok']) {
+                return 'Auf ' . (string) $projekt['domain'] . ' ist es live.';
+            }
+
+            // Ein Fehlschlag der Brücke ist eine Nachricht und kein
+            // stiller Rückfall auf FTP: Wenn der Kunde selbst etwas
+            // geändert hat, soll das nicht über FTP doch noch
+            // überschrieben werden.
+            return 'Die Brücke meldet: ' . $antwort['error'];
+        }
+
+        try {
+            $ftp = \WebAtze\Build\FtpDeployer::deploy($projekt);
+        } catch (\Throwable $e) {
+            Logger::exception($e);
+
+            return 'Der Upload ist gescheitert.';
+        }
+
+        return $ftp['ok']
+            ? 'Über FTP hochgeladen (' . (int) $ftp['files'] . ' Dateien).'
+            : 'Der Upload ist gescheitert: ' . (string) $ftp['error'];
     }
 
     // ------------------------------------------------------------------
