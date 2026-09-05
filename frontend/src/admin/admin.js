@@ -494,6 +494,95 @@ function initHostingHelp() {
   apply();
 }
 
+/* ------------------------------------------------------------------ */
+/* Tabellen auf schmalen Bildschirmen                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Jede Zelle bekommt die Überschrift ihrer Spalte mit.
+ *
+ * Unter 60 rem wird aus jeder Zeile eine Karte, und dann muss über
+ * jedem Wert stehen, was er bedeutet – sonst sind es acht Zahlen
+ * untereinander ohne Bezug.
+ *
+ * Das geschieht hier und nicht in den Ansichten: Es sind neunzehn
+ * Listen, und ein von Hand gepflegtes data-label an jeder Zelle wäre
+ * beim ersten Umbenennen einer Spalte falsch. Aus dem <thead> gelesen
+ * kann es gar nicht erst auseinanderlaufen.
+ */
+function initTableLabels() {
+  document.querySelectorAll('.wa-table').forEach((table) => {
+    const köpfe = Array.from(table.querySelectorAll('thead th'))
+      .map((th) => th.textContent.trim());
+
+    if (köpfe.length === 0) return;
+
+    table.querySelectorAll('tbody tr').forEach((row) => {
+      Array.from(row.children).forEach((cell, index) => {
+        // Eine Zelle, die sich über mehrere Spalten zieht, gehört zu
+        // keiner einzelnen – die bleibt ohne Beschriftung.
+        if (cell.colSpan > 1) return;
+        if (cell.dataset.label) return;
+
+        const text = köpfe[index];
+        if (text) cell.dataset.label = text;
+      });
+    });
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Formularfenster                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Bearbeiten-Formulare als Fenster über der Liste.
+ *
+ * Sie steckten vorher als <details> im letzten <td> der Tabelle – also
+ * in einer schmalen Spalte am rechten Rand, hinter der man erst
+ * herscrollen musste, und danach stapelten sich alle Felder
+ * untereinander.
+ *
+ * <dialog> bringt Fokusfalle, Escape und die Verdunkelung selbst mit;
+ * hier steht nur, was es nicht mitbringt: das Öffnen und das
+ * Schliessen bei einem Klick daneben.
+ */
+function initDialogs() {
+  document.querySelectorAll('[data-dialog]').forEach((button) => {
+    button.addEventListener('click', (event) => {
+      const ziel = document.querySelector(button.dataset.dialog);
+      if (!ziel) return;
+
+      event.preventDefault();
+
+      // showModal() gibt es nicht überall; ohne es bleibt das Fenster
+      // als aufgeklappter Block sichtbar statt gar nicht.
+      if (typeof ziel.showModal === 'function') {
+        ziel.showModal();
+      } else {
+        ziel.setAttribute('open', '');
+      }
+
+      ziel.querySelector('input:not([type="hidden"]), select, textarea')?.focus();
+    });
+  });
+
+  // Klick auf den Hintergrund schliesst. Ein <dialog> ist auch dort
+  // noch das Element selbst – deshalb wird gegen seine Masse geprüft
+  // und nicht gegen event.target.
+  document.querySelectorAll('dialog.wa-dialog').forEach((dialog) => {
+    dialog.addEventListener('click', (event) => {
+      if (event.target !== dialog) return;
+
+      const kasten = dialog.getBoundingClientRect();
+      const daneben = event.clientY < kasten.top || event.clientY > kasten.bottom
+        || event.clientX < kasten.left || event.clientX > kasten.right;
+
+      if (daneben) dialog.close();
+    });
+  });
+}
+
 /** Ein FTP-Feld, egal wie es auf dieser Seite heisst. */
 function ftpField(name) {
   return document.querySelector(`[data-ftp-field="${name}"]`);
@@ -636,6 +725,8 @@ function boot() {
   initColours();
   initHostingHelp();
   initFtpPortFollowsProtocol();
+  initTableLabels();
+  initDialogs();
   initPasswordGenerator();
   initVault();
 }
