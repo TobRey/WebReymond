@@ -355,7 +355,8 @@ php -S 127.0.0.1:8080 -t public_html public_html/index.php
 
 | Befehl | Wofür |
 |---|---|
-| `php tests/run.php` | der Testlauf (1482 Prüfungen) |
+| `php tests/run.php` | der Testlauf (1792 Prüfungen) |
+| `php tests/run.php --seiten-festhalten` | den Aufbau der eigenen Seiten neu festhalten |
 | `php tools/probelauf/durchlauf.php` | eine ganze Website bauen, vom Formular bis zum Paket |
 | `php build.php` | beide ZIPs erzeugen (voll und nur zum Aktualisieren) |
 | `cd frontend && npm run build` | Frontend neu bauen |

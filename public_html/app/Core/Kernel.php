@@ -88,7 +88,16 @@ final class Kernel
         }
     }
 
-    private static function shareViewData(Request $request): void
+    /**
+     * Was jede Vorlage braucht: Sprache, Adresse, Einmalwert, Einstellungen.
+     *
+     * Oeffentlich, weil der Testlauf die oeffentlichen Seiten rendert und
+     * dafuer denselben Zustand braucht. Baute er ihn selbst nach, waere
+     * er nach der ersten Erweiterung hier falsch - und zwar unbemerkt,
+     * denn eine fehlende Variable faellt in einer Vorlage erst auf,
+     * wenn sie benutzt wird.
+     */
+    public static function shareViewData(Request $request): void
     {
         View::share('locale', I18n::locale());
         View::share('request', $request);

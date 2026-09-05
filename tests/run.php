@@ -21,6 +21,7 @@ putenv('WEBATZE_TEST=1');
 $_SERVER['WEBATZE_TEST'] = '1';
 
 require __DIR__ . '/harness.php';
+require __DIR__ . '/seiten.php';
 require __DIR__ . '/../public_html/app/bootstrap.php';
 
 // Der Testlauf bekommt eine eigene, leere Datenbank.
@@ -59,6 +60,38 @@ use WebAtze\Templates\{Catalog, Page, Renderer, Schema};
 // Testlauf in einer frischen Kopie – und in einer alten immer dann,
 // wenn eine Spalte dazugekommen ist.
 \WebAtze\Core\Schema::migrate();
+
+// Die Designstudien eintragen, damit Startseite und Referenzen so
+// gerendert werden wie im Betrieb. Ohne sie zeigten beide den leeren
+// Zustand, und genau die Abschnitte, die beim Umbau heikel sind, wären
+// von keiner Prüfung erfasst.
+if (is_file(APP_DIR . '/Support/showcase-seed.php')) {
+    $reihenfolge = 0;
+
+    foreach ((array) require APP_DIR . '/Support/showcase-seed.php' as $studie) {
+        if (!is_array($studie) || ($studie['slug'] ?? '') === '') {
+            continue;
+        }
+
+        \WebAtze\Core\Db::insert('showcase', $studie + [
+            'published' => 1,
+            'sort_order' => $reihenfolge++,
+            'created_at' => \WebAtze\Core\Db::now(),
+            'updated_at' => \WebAtze\Core\Db::now(),
+        ]);
+    }
+}
+
+// Den Aufbau der eigenen Website neu festhalten statt ihn zu prüfen.
+//
+// Das ist der einzige Weg, die Datei zu ändern: Wer sie von Hand
+// anpasst, hält damit auch fest, was er kaputtgemacht hat.
+if (in_array('--seiten-festhalten', $argv, true)) {
+    $anzahl = seiten_festhalten(seiten_erfassen());
+
+    echo "\n  " . $anzahl . " Seiten festgehalten in tests/fixtures/eigene-seiten.json\n\n";
+    exit(0);
+}
 
 // ==================================================================
 test('Router: Adressen finden ihr Ziel', function (): void {
@@ -4722,6 +4755,130 @@ test('Die Karte nennt die Abschnitte beim Namen', function (): void {
     ok(!str_contains($karte, 'services.title'),
         'Der Sprachschluessel selbst steht nicht drin');
     ok(!str_contains($karte, '<?'), 'Und kein PHP');
+});
+
+// ==================================================================
+// Das Geruest der eigenen Website
+//
+// Sie wird schrittweise von handgeschriebenen Ansichten auf
+// Abschnittsdaten umgestellt. Was dabei kaputtgeht, geht leise kaputt:
+// eine Ueberschrift eine Ebene tiefer, eine Sprungmarke ins Leere, ein
+// Abschnitt, der auf Englisch fehlt. Im Browser sieht das richtig aus.
+//
+// Diese Pruefungen sind das Netz darunter.
+// ==================================================================
+
+test('Die eigene Website: jede Seite hat genau eine Hauptueberschrift', function (): void {
+    foreach (seiten_erfassen() as $schluessel => $geruest) {
+        $ersten = array_filter(
+            $geruest['ueberschriften'],
+            static fn (string $z): bool => str_starts_with($z, 'h1: ')
+        );
+
+        is(1, count($ersten), $schluessel . ' hat eine h1');
+    }
+});
+
+test('Die eigene Website: keine Sprungmarke zeigt ins Leere', function (): void {
+    foreach (seiten_erfassen() as $schluessel => $geruest) {
+        foreach ($geruest['sprungmarken'] as $marke) {
+            // Die Sprungmarke zum Inhalt gehoert zur Bedienung mit der
+            // Tastatur und zeigt auf den Rahmen, nicht auf einen
+            // Abschnitt - deshalb steht sie hier trotzdem in derselben
+            // Liste und muss genauso aufloesen.
+            ok(
+                in_array($marke, $geruest['kennungen'], true),
+                $schluessel . ': #' . $marke . ' gibt es auch'
+            );
+        }
+    }
+});
+
+test('Die eigene Website: jeder eigene Verweis fuehrt auf eine Seite', function (): void {
+    $router = new Router();
+    \WebAtze\Core\Routes::register($router);
+
+    foreach (seiten_erfassen() as $schluessel => $geruest) {
+        foreach ($geruest['verweise'] as $ziel) {
+            // Dateien (Bilder, Schriften, Stylesheets) haben keine Route
+            // und brauchen auch keine.
+            if (str_starts_with($ziel, '/assets/') || str_contains(basename($ziel), '.')) {
+                continue;
+            }
+
+            ok(
+                route($router, 'GET', $ziel) !== null,
+                $schluessel . ': ' . $ziel . ' fuehrt irgendwohin'
+            );
+        }
+    }
+});
+
+test('Die eigene Website: Deutsch und Englisch sind wirklich zwei Fassungen', function (): void {
+    $erfasst = seiten_erfassen();
+
+    foreach (seiten_liste() as $schluessel => $_) {
+        $schluessel = seiten_name($schluessel);
+
+        $de = $erfasst[$schluessel . '@de'] ?? null;
+        $en = $erfasst[$schluessel . '@en'] ?? null;
+
+        ok($de !== null && $en !== null, $schluessel . ': beide Fassungen entstehen');
+
+        if ($de === null || $en === null) {
+            continue;
+        }
+
+        is('de', $de['sprache'], $schluessel . ': die deutsche sagt das auch');
+        is('en', $en['sprache'], $schluessel . ': die englische ebenfalls');
+
+        ok($de['titel'] !== '', $schluessel . ': die deutsche hat einen Titel');
+        ok($en['titel'] !== '', $schluessel . ': die englische auch');
+
+        // Gleicher Titel in beiden Sprachen heisst fast immer: Der
+        // Sprachschluessel fehlt in en.php und faellt auf Deutsch zurueck.
+        isnt($de['titel'], $en['titel'], $schluessel . ': und die Titel unterscheiden sich');
+    }
+});
+
+test('Die eigene Website: der Aufbau ist noch derselbe', function (): void {
+    $erwartet = seiten_erwartet();
+
+    ok($erwartet !== [], 'Es gibt einen festgehaltenen Stand');
+
+    $erfasst = seiten_erfassen();
+
+    is(count($erwartet), count($erfasst), 'Gleich viele Seiten wie festgehalten');
+
+    foreach ($erfasst as $schluessel => $geruest) {
+        $soll = $erwartet[$schluessel] ?? null;
+
+        ok($soll !== null, $schluessel . ' war schon festgehalten');
+
+        if ($soll === null) {
+            continue;
+        }
+
+        is($soll['pfad'], $geruest['pfad'], $schluessel . ': die Adresse ist dieselbe');
+
+        // Die Zahlen stehen mit in der Datei, damit eine Abweichung
+        // nicht nur "Pruefsumme anders" sagt, sondern woran es liegt.
+        is(
+            $soll['ueberschriften'],
+            count($geruest['ueberschriften']),
+            $schluessel . ': gleich viele Ueberschriften'
+        );
+        is(
+            $soll['abschnitte'],
+            count($geruest['abschnitte']),
+            $schluessel . ': gleich viele Abschnitte'
+        );
+        is(
+            $soll['pruefsumme'],
+            seiten_pruefsumme($geruest),
+            $schluessel . ': derselbe Aufbau'
+        );
+    }
 });
 
 // ==================================================================
