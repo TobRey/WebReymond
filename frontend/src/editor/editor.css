@@ -1,323 +1,437 @@
 /**
- * Der Bearbeitungsbalken in der Vorschau.
+ * Der Editor.
  *
- * Er liegt über der Kundenwebsite und darf deren Aussehen mit keinem
- * Pixel beeinflussen. Deshalb: eigener Namensraum (wae-), eigene
- * Variablen, keine Regel, die auf die Seite darunter wirkt.
+ * Diese Datei wird zweimal geladen: in der Hülle, wo Leiste, Vorrat und
+ * Einstellungsblatt liegen, und im Rahmen, wo Auswahlrahmen, Griffe und
+ * Ablegelinien gezeichnet werden. Deshalb steht beides hier – getrennt
+ * wären es zwei Dateien, die zusammengehören und trotzdem auseinander
+ * laufen.
+ *
+ * Alles trägt das Präfix wae- beziehungsweise wa-editor-. Der Rahmen
+ * zeigt eine fremde Website, und die darf durch den Editor keine
+ * einzige eigene Regel verlieren.
  */
 
-.wae {
+/**
+ * Der Editor ist ein Vollbildwerkzeug.
+ *
+ * Die Verwaltungsleiste darunter braucht dabei niemand – und sie stört
+ * nicht nur, sie war messbar im Weg: Die Griffe der Abschnitte sitzen am
+ * linken Rand der gezeigten Seite, und ein Klick dort landete im
+ * Menübalken statt im Rahmen. Ziehen war am linken Rand unmöglich, ohne
+ * dass irgendetwas danach aussah.
+ */
+.wa-admin--editor .wa-admin__side,
+.wa-admin--editor .wa-admin__topbar,
+.wa-admin--editor .wa-admin__burger { display: none; }
+
+.wa-admin--editor .wa-admin__main,
+.wa-admin--editor .wa-admin__content { padding: 0; margin: 0; max-inline-size: none; }
+
+.wa-admin--editor { overflow: hidden; }
+
+.wa-editor {
   --wae-bg: #0b0b18;
-  --wae-surface: #15162a;
-  --wae-surface-2: #1d1f36;
-  --wae-border: rgb(255 255 255 / 0.14);
+  --wae-flaeche: #15162a;
+  --wae-rand: rgb(255 255 255 / 0.12);
   --wae-text: #eceefb;
-  --wae-muted: #9fa1bd;
-  --wae-accent: #8b85ff;
-  --wae-teal: #2fe0dc;
-  --wae-danger: #fb7185;
-  --wae-success: #34d399;
-  --wae-radius: 0.7rem;
+  --wae-leise: #9a9cb8;
+  --wae-akzent: #8b85ff;
+  --wae-tuerkis: #2fe0dc;
+  --wae-gefahr: #ff6b6b;
 
   position: fixed;
-  z-index: 2147483000;
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
+  inset: 0;
+  display: grid;
+  /* Vorrat, Bühne, Einstellungsblatt als echte Spalten – nicht als
+     schwebende Leisten über der Bühne.
+     Der Grund ist kein Geschmack: Die Griffe der Abschnitte sitzen am
+     linken Rand der gezeigten Seite. Lag der Vorrat darüber, kam ein
+     Mausklick dort nie im Rahmen an, und Ziehen war am linken Rand
+     unmöglich – ohne dass irgendetwas danach aussah. */
+  grid-template-columns: 12rem 1fr 0;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'leiste leiste leiste'
+    'vorrat buehne blatt';
+  background: var(--wae-bg);
   color: var(--wae-text);
-  -webkit-font-smoothing: antialiased;
+  z-index: 40;
+  transition: grid-template-columns 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.wae *, .wae *::before, .wae *::after { box-sizing: border-box; }
+.wa-editor:has(.wae-blatt) { grid-template-columns: 12rem 1fr min(24rem, 40vw); }
+
+.wa-editor__bar { grid-area: leiste; }
+.wa-editor__stage { grid-area: buehne; }
+.wae-vorrat { grid-area: vorrat; }
+.wae-blatt { grid-area: blatt; }
 
 /* ------------------------------------------------------------------ */
-/* Leiste am oberen Rand                                               */
+/* Die Leiste                                                          */
 /* ------------------------------------------------------------------ */
 
-.wae-bar {
-  inset-block-start: 0;
-  inset-inline: 0;
+.wa-editor__bar {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.55rem 0.9rem;
-  background: color-mix(in srgb, var(--wae-bg) 92%, transparent);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border-block-end: 1px solid var(--wae-border);
-  box-shadow: 0 8px 30px -12px rgb(0 0 0 / 0.6);
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 1rem;
+  background: var(--wae-flaeche);
+  border-block-end: 1px solid var(--wae-rand);
+  flex-wrap: wrap;
 }
 
-/* Damit die Leiste die Website nicht überdeckt */
-html.wae-active { padding-block-start: 3rem !important; }
+.wa-editor__group { display: flex; align-items: center; gap: 0.5rem; }
 
-.wae-bar__brand {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
+.wa-editor__name { font-weight: 600; }
+
+.wa-editor__stand {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.08);
+  color: var(--wae-leise);
 }
 
-.wae-bar__dot {
-  inline-size: 0.5rem;
-  block-size: 0.5rem;
-  border-radius: 50%;
-  background: var(--wae-teal);
-}
-
-.wae-bar__name {
-  color: var(--wae-muted);
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-inline-size: 16rem;
-}
-
-.wae-bar__spacer { flex: 1; }
-
-.wae-bar__hint {
-  color: var(--wae-muted);
-  font-size: 12.5px;
-  white-space: nowrap;
-}
-
-@media (max-width: 48rem) {
-  .wae-bar__hint, .wae-bar__name { display: none; }
-}
-
-.wae-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.85rem;
-  border: 1px solid var(--wae-border);
-  border-radius: 999rem;
-  background: var(--wae-surface);
+.wa-editor__stand[data-draft='1'] {
+  background: color-mix(in srgb, var(--wae-akzent) 28%, transparent);
   color: var(--wae-text);
+}
+
+/* ------------------------------------------------------------------ */
+/* Die Bühne                                                           */
+/*                                                                     */
+/* Der Rahmen wird beim Umschalten wirklich schmaler. Nur so lösen die  */
+/* Umbruchregeln der gezeigten Seite aus – wer stattdessen den Body     */
+/* zusammenschiebt, sieht auf "Handy" eine schmale Desktopseite.        */
+/* ------------------------------------------------------------------ */
+
+.wa-editor__stage {
+  overflow: auto;
+  display: grid;
+  place-items: start center;
+  padding: 1rem;
+  background:
+    repeating-conic-gradient(rgb(255 255 255 / 0.02) 0% 25%, transparent 0% 50%)
+    50% / 24px 24px;
+}
+
+.wa-editor__frame {
+  inline-size: 100%;
+  block-size: calc(100dvh - 5.5rem);
+  border: 0;
+  border-radius: 0.5rem;
+  background: #fff;
+  transition: inline-size 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wa-editor__stage[data-width='tablet'] .wa-editor__frame { inline-size: 820px; max-inline-size: 100%; }
+.wa-editor__stage[data-width='handy'] .wa-editor__frame { inline-size: 390px; max-inline-size: 100%; }
+
+/* ------------------------------------------------------------------ */
+/* Der Vorrat                                                          */
+/* ------------------------------------------------------------------ */
+
+.wae-vorrat {
+  overflow: auto;
+  min-inline-size: 0;
+  padding: 0.75rem;
+  background: var(--wae-flaeche, #15162a);
+  border-inline-end: 1px solid var(--wae-rand, rgb(255 255 255 / 0.12));
+  color: var(--wae-text, #eceefb);
+  z-index: 41;
+}
+
+.wae-vorrat__titel { margin: 0 0 0.6rem; font-size: 0.78rem; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--wae-leise, #9a9cb8); }
+
+.wae-vorrat__liste { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.wae-vorrat__knopf {
+  text-align: start;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--wae-rand, rgb(255 255 255 / 0.12));
+  border-radius: 0.4rem;
+  background: transparent;
+  color: inherit;
   font: inherit;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 0.85rem;
   cursor: pointer;
-  white-space: nowrap;
-  transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
 }
 
-.wae-btn:hover { background: var(--wae-surface-2); border-color: var(--wae-accent); }
-.wae-btn:active { transform: translateY(1px); }
-.wae-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+.wae-vorrat__knopf:hover { background: rgb(255 255 255 / 0.07); border-color: var(--wae-akzent, #8b85ff); }
 
-.wae-btn--primary {
-  background: var(--wae-accent);
-  border-color: transparent;
-  color: #0b0b18;
+/* ------------------------------------------------------------------ */
+/* Das Einstellungsblatt                                               */
+/* ------------------------------------------------------------------ */
+
+.wae-blatt {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-inline-size: 0;
+  background: var(--wae-flaeche, #15162a);
+  border-inline-start: 1px solid var(--wae-rand, rgb(255 255 255 / 0.12));
+  color: var(--wae-text, #eceefb);
+  z-index: 42;
 }
-.wae-btn--primary:hover { background: #a29dff; }
-.wae-btn--danger { color: var(--wae-danger); }
-.wae-btn--sm { padding: 0.25rem 0.6rem; font-size: 12px; }
+
+.wae-blatt__kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-block-end: 1px solid var(--wae-rand, rgb(255 255 255 / 0.12));
+}
+
+.wae-blatt__zu {
+  border: 0; background: transparent; color: inherit;
+  font-size: 1.4rem; line-height: 1; cursor: pointer; padding: 0 0.3rem;
+}
+
+.wae-blatt__koerper { overflow: auto; padding: 0.75rem 1rem 2rem; }
+
+.wae-gruppe + .wae-gruppe { margin-block-start: 1.25rem; }
+
+.wae-gruppe__titel {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--wae-leise, #9a9cb8);
+}
+
+.wae-feld { margin-block-end: 0.6rem; }
+.wae-feld__marke { display: block; font-size: 0.8rem; margin-block-end: 0.25rem; color: var(--wae-leise, #9a9cb8); }
+
+.wae-eingabe {
+  inline-size: 100%;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--wae-rand, rgb(255 255 255 / 0.12));
+  border-radius: 0.4rem;
+  /* Eigene Farben statt der geerbten: In einem Auswahlfeld zeichnet das
+     Betriebssystem die Liste, und ohne color-scheme steht dort weisse
+     Schrift auf weissem Grund. */
+  background: #0f1020;
+  color: var(--wae-text, #eceefb);
+  color-scheme: dark;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.wae-eingabe:focus-visible { outline: 2px solid var(--wae-akzent, #8b85ff); outline-offset: 1px; }
+
+.wae-prompt { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.wae-schalterzeile {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.85rem; margin-block-end: 0.4rem; cursor: pointer;
+}
+
+.wae-werkzeuge { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+
+.wae-knopf {
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--wae-rand, rgb(255 255 255 / 0.12));
+  border-radius: 0.4rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.83rem;
+  cursor: pointer;
+}
+
+.wae-knopf:hover { background: rgb(255 255 255 / 0.08); }
+.wae-knopf--voll { background: var(--wae-akzent, #8b85ff); border-color: transparent; color: #0b0b18; font-weight: 600; }
+.wae-knopf--gefahr:hover { background: color-mix(in srgb, var(--wae-gefahr, #ff6b6b) 22%, transparent);
+  border-color: var(--wae-gefahr, #ff6b6b); }
+.wae-knopf[disabled] { opacity: 0.55; cursor: progress; }
+
+/* Auf dem Telefon fährt das Blatt von unten hoch statt von rechts
+   herein: Eine 24rem breite Leiste ist dort die ganze Seite. */
+@media (max-width: 48rem) {
+  .wa-editor,
+  .wa-editor:has(.wae-blatt) {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'leiste' 'buehne';
+  }
+
+  .wae-blatt {
+    position: fixed;
+    inset: auto 0 0 0;
+    inline-size: 100%;
+    max-block-size: 70dvh;
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--wae-rand, rgb(255 255 255 / 0.12));
+    border-radius: 0.8rem 0.8rem 0 0;
+    z-index: 42;
+  }
+
+  .wae-vorrat {
+    position: fixed;
+    inset: auto 0 0 0;
+    inline-size: 100%;
+    max-block-size: 40dvh;
+    border-inline-end: 0;
+    border-block-start: 1px solid var(--wae-rand, rgb(255 255 255 / 0.12));
+    z-index: 41;
+  }
+
+  .wae-vorrat__liste { flex-direction: row; flex-wrap: wrap; }
+
+  /* Ist das Blatt offen, tritt der Vorrat zurück – zwei Blätter
+     übereinander sind auf einem Telefon eines zu viel. */
+  .wa-editor:has(.wae-blatt) .wae-vorrat { display: none; }
+}
 
 /* ------------------------------------------------------------------ */
-/* Markierung der Abschnitte                                           */
+/* Meldungen                                                           */
 /* ------------------------------------------------------------------ */
 
-html.wae-picking [data-section-id] { cursor: pointer; }
+.wae-meldung {
+  position: fixed;
+  inset-block-end: 1rem;
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  background: #15162a;
+  color: #eceefb;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  font-size: 0.85rem;
+  z-index: 2147483000;
+  animation: wae-auf 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-html.wae-picking [data-section-id]::after {
+.wae-meldung--fehler { border-color: #ff6b6b; color: #ffd9d9; }
+
+@keyframes wae-auf { from { opacity: 0; translate: -50% 8px; } }
+
+/* ================================================================== */
+/* Im Rahmen: Griffe, Auswahl, Ablegelinien                            */
+/* ================================================================== */
+
+.wae-aktiv [data-section-id] { position: relative; }
+
+/* Der Umriss wird als Pseudo-Element gezeichnet und nicht als Rahmen:
+   Ein echter Rahmen würde das Layout der gezeigten Seite verschieben,
+   und dann sähe der Editor etwas anderes als der Besucher. */
+.wae-aktiv [data-section-id]::after {
   content: '';
   position: absolute;
   inset: 0;
   z-index: 999;
   pointer-events: none;
-  outline: 2px dashed transparent;
-  outline-offset: -6px;
-  background: transparent;
-  transition: outline-color 150ms ease, background-color 150ms ease;
+  outline: 1px dashed transparent;
+  outline-offset: -2px;
+  transition: outline-color 120ms;
 }
 
-html.wae-picking [data-section-id]:hover::after {
-  outline-color: var(--wae-accent, #8b85ff);
-  background: rgb(139 133 255 / 0.06);
-}
+.wae-aktiv [data-section-id]:hover::after { outline-color: rgb(139 133 255 / 0.75); }
 
-html.wae-picking [data-section-id].wae-selected::after {
+.wae-aktiv .wae-gewaehlt::after {
   outline: 2px solid #2fe0dc;
-  background: rgb(47 224 220 / 0.07);
+  outline-offset: -2px;
 }
 
-/* Kennzeichnung am Abschnitt */
-.wae-tag {
+.wae-griff {
   position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
   z-index: 1000;
-  inset-block-start: 0.5rem;
-  inset-inline-start: 0.5rem;
-  padding: 0.15rem 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  border-end-end-radius: 0.4rem;
+  background: #15162a;
+  color: #eceefb;
+  font: 500 0.72rem/1.4 system-ui, sans-serif;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 120ms;
+  /* Damit ein langes Drücken nicht das Kontextmenü öffnet und der
+     Browser den Griff nicht als Text markiert. */
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.wae-aktiv [data-section-id]:hover > .wae-griff,
+.wae-aktiv .wae-gewaehlt > .wae-griff { opacity: 1; }
+
+.wae-griff--fest { cursor: default; opacity: 0.55; }
+.wae-griff--fest .wae-griff__punkte { display: none; }
+
+.wae-zieht { cursor: grabbing; user-select: none; }
+.wae-zieht .wae-griff { cursor: grabbing; }
+.wae-gezogen { opacity: 0.4; }
+
+.wae-linie {
+  position: fixed;
+  block-size: 3px;
+  background: #2fe0dc;
+  border-radius: 2px;
+  z-index: 2147483000;
+  pointer-events: none;
+  box-shadow: 0 0 0 4px rgb(47 224 220 / 0.2);
+}
+
+.wae-geist {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  padding: 0.3rem 0.6rem;
   border-radius: 0.4rem;
   background: #15162a;
-  border: 1px solid rgb(255 255 255 / 0.14);
-  color: #9fa1bd;
-  font: 600 11px/1.6 ui-sans-serif, system-ui, sans-serif;
+  color: #eceefb;
+  font: 500 0.75rem/1.4 system-ui, sans-serif;
+  z-index: 2147483001;
   pointer-events: none;
-  opacity: 0;
-  transition: opacity 150ms ease;
 }
 
-html.wae-picking [data-section-id]:hover > .wae-tag,
-html.wae-picking [data-section-id].wae-selected > .wae-tag { opacity: 1; }
+/* Ein ausgeblendeter Abschnitt bleibt im Editor sichtbar, nur
+   gekennzeichnet. Verschwände er ganz, könnte ihn niemand mehr
+   anklicken, um ihn zurückzuholen. */
+.wae-versteckt { opacity: 0.4; outline: 2px dashed rgb(255 107 107 / 0.6); outline-offset: -4px; }
 
-/* ------------------------------------------------------------------ */
-/* Werkzeugtafel                                                       */
-/* ------------------------------------------------------------------ */
-
-.wae-panel {
-  inset-block: 3rem 0;
-  inset-inline-end: 0;
-  inline-size: min(26rem, 100vw);
-  display: flex;
-  flex-direction: column;
-  background: var(--wae-bg);
-  border-inline-start: 1px solid var(--wae-border);
-  box-shadow: -20px 0 60px -30px rgb(0 0 0 / 0.8);
-  transform: translateX(100%);
-  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
-  overflow: hidden;
-}
-
-.wae-panel.is-open { transform: none; }
-
-.wae-panel__head {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 1rem 1.1rem;
-  border-block-end: 1px solid var(--wae-border);
-}
-
-.wae-panel__title { font-size: 15px; font-weight: 700; margin: 0; }
-.wae-panel__sub { color: var(--wae-muted); font-size: 12.5px; margin: 0.15rem 0 0; }
-.wae-panel__close { margin-inline-start: auto; }
-
-.wae-panel__body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1.1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.wae-group { display: flex; flex-direction: column; gap: 0.55rem; }
-
-.wae-group__title {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--wae-muted);
-  margin: 0;
-}
-
-.wae-field { display: flex; flex-direction: column; gap: 0.4rem; }
-
-.wae-textarea, .wae-input, .wae-select {
-  inline-size: 100%;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid var(--wae-border);
+/* Verschieben durch Antippen */
+.wae-platz {
+  position: absolute;
+  inset-inline: 1rem;
+  z-index: 2147483000;
+  padding: 0.7rem;
+  border: 2px dashed #8b85ff;
   border-radius: 0.5rem;
-  background: var(--wae-surface);
-  color: var(--wae-text);
-  font: inherit;
-  font-size: 13.5px;
-  resize: vertical;
-}
-
-.wae-textarea { min-block-size: 6.5rem; }
-.wae-textarea:focus, .wae-input:focus, .wae-select:focus {
-  outline: none;
-  border-color: var(--wae-accent);
-  box-shadow: 0 0 0 3px rgb(139 133 255 / 0.18);
-}
-.wae-textarea::placeholder { color: #6b6d8a; }
-
-.wae-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-
-/* Vorlagenauswahl */
-.wae-variants { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
-
-.wae-variant {
-  padding: 0.5rem 0.6rem;
-  border: 1px solid var(--wae-border);
-  border-radius: 0.5rem;
-  background: var(--wae-surface);
-  color: var(--wae-muted);
-  font: inherit;
-  font-size: 12px;
-  text-align: start;
-  cursor: pointer;
-  transition: border-color 150ms ease, color 150ms ease;
-}
-
-.wae-variant:hover { border-color: var(--wae-accent); color: var(--wae-text); }
-.wae-variant.is-current { border-color: var(--wae-teal); color: var(--wae-text); background: var(--wae-surface-2); }
-
-/* Ansichtsgrössen */
-.wae-modes { display: flex; gap: 0.35rem; }
-.wae-mode {
-  flex: 1;
-  padding: 0.4rem;
-  border: 1px solid var(--wae-border);
-  border-radius: 0.45rem;
-  background: var(--wae-surface);
-  color: var(--wae-muted);
-  font: inherit; font-size: 12px; font-weight: 600;
+  background: rgb(11 11 24 / 0.9);
+  color: #eceefb;
+  font: 600 0.85rem/1.2 system-ui, sans-serif;
   cursor: pointer;
 }
-.wae-mode.is-active { background: var(--wae-accent); color: #0b0b18; border-color: transparent; }
 
-/* Änderungsprotokoll */
-.wae-log { display: flex; flex-direction: column; gap: 0.5rem; }
-
-.wae-log__item {
-  padding: 0.6rem 0.7rem;
-  border: 1px solid var(--wae-border);
-  border-radius: 0.5rem;
-  background: var(--wae-surface);
-  font-size: 12.5px;
+.wae-platz--zurueck {
+  position: fixed;
+  inset: auto 1rem 1rem;
+  border-style: solid;
+  border-color: rgb(255 255 255 / 0.2);
 }
 
-.wae-log__who { display: block; font-weight: 600; color: var(--wae-teal); margin-block-end: 0.15rem; }
-.wae-log__what { color: var(--wae-muted); }
-.wae-log__when { display: block; margin-block-start: 0.3rem; color: #6b6d8a; font-size: 11.5px; }
-
-/* Meldungen */
-.wae-note {
-  padding: 0.6rem 0.75rem;
-  border-radius: 0.5rem;
-  border-inline-start: 3px solid var(--wae-accent);
-  background: var(--wae-surface);
-  font-size: 12.5px;
-  color: var(--wae-muted);
-}
-.wae-note--ok { border-inline-start-color: var(--wae-success); }
-.wae-note--error { border-inline-start-color: var(--wae-danger); color: #ffc9d1; }
-.wae-note strong { color: var(--wae-text); display: block; margin-block-end: 0.15rem; }
-
-.wae-spin {
-  display: inline-block;
-  inline-size: 0.85rem; block-size: 0.85rem;
-  border: 2px solid rgb(255 255 255 / 0.25);
-  border-block-start-color: currentColor;
-  border-radius: 50%;
-  animation: wae-spin 0.7s linear infinite;
-  vertical-align: -0.15em;
-}
-@keyframes wae-spin { to { transform: rotate(360deg); } }
-
-/* Ansichtsbreiten in der Vorschau */
-html.wae-mode-tablet body { max-inline-size: 820px; margin-inline: auto; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12); }
-html.wae-mode-mobile body { max-inline-size: 400px; margin-inline: auto; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12); }
+.wae-verschiebt [data-section-id] { pointer-events: none; }
+.wae-verschiebt .wae-platz { pointer-events: auto; }
 
 @media (prefers-reduced-motion: reduce) {
-  .wae-panel { transition: none; }
+  .wa-editor__frame, .wae-meldung, .wae-aktiv [data-section-id]::after { transition: none; animation: none; }
+}
+
+.wae-thema { display: grid; gap: 0.4rem; }
+
+.wae-farbe {
+  inline-size: 100%;
+  block-size: 2.1rem;
+  padding: 0;
+  border: 1px solid var(--wae-rand, rgb(255 255 255 / 0.12));
+  border-radius: 0.4rem;
+  background: transparent;
+  cursor: pointer;
 }

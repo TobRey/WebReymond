@@ -356,6 +356,41 @@ final class Routes
             $r->post($base . '/einstellungen', 'SettingsController@save');
         });
 
+        // ------------------------------------------------------------- Editor
+        //
+        // Ein Bündel, drei Orte: hier für Kundenwebsites, im
+        // Kundenbackend, auf der eigenen Website. Damit das kein Wunsch
+        // bleibt, sind die Adressen überall dieselben - hier gegen die
+        // Datenbank, beim Kunden gegen data/site.php.
+        $router->group(['auth'], static function (Router $r) use ($base): void {
+            $r->get($base . '/editor/{id}', 'EditorController@index');
+            $r->get($base . '/editor/{id}/seite/{seite}/ansicht', 'EditorController@view');
+            $r->get($base . '/editor/{id}/seite/{seite}/fassungen', 'EditorController@versions');
+
+            // Die Dateien der gezeigten Website. Muss nach der Ansicht
+            // stehen, sonst schluckt das Muster sie mit.
+            $r->get($base . '/editor/{id}/seite/{seite}/{path:.+}', 'EditorController@file');
+        });
+
+        $router->group(['auth', 'csrf'], static function (Router $r) use ($base): void {
+            $r->post($base . '/editor/{id}/ziehen', 'EditorController@move');
+            $r->post($base . '/editor/{id}/einsetzen', 'EditorController@add');
+            $r->post($base . '/editor/{id}/entfernen', 'EditorController@remove');
+            $r->post($base . '/editor/{id}/verdoppeln', 'EditorController@duplicate');
+            $r->post($base . '/editor/{id}/eintrag', 'EditorController@item');
+            $r->post($base . '/editor/{id}/feld', 'EditorController@field');
+            $r->post($base . '/editor/{id}/vorlage', 'EditorController@template');
+            $r->post($base . '/editor/{id}/effekte', 'EditorController@effects');
+            $r->post($base . '/editor/{id}/bausteine', 'EditorController@blocks');
+            $r->post($base . '/editor/{id}/sichtbar', 'EditorController@toggle');
+            $r->post($base . '/editor/{id}/anweisung', 'EditorController@instruct');
+            $r->post($base . '/editor/{id}/seitenanweisung', 'EditorController@pagePrompt');
+            $r->post($base . '/editor/{id}/thema', 'EditorController@theme');
+            $r->post($base . '/editor/{id}/veroeffentlichen', 'EditorController@publish');
+            $r->post($base . '/editor/{id}/verwerfen', 'EditorController@discard');
+            $r->post($base . '/editor/{id}/zurueckholen', 'EditorController@restore');
+        });
+
         // Schnittstellen des Adminbereichs (JSON)
         $router->group(['auth', 'csrf'], static function (Router $r) use ($base): void {
             $r->post('/api/jobs/{id}/abbrechen', 'JobController@cancel');

@@ -96,6 +96,25 @@
   --c-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --c-dur: 280ms;
 
+  /* ---- Abgeleitete Flächen und Verläufe ---------------------------
+     Sie werden beim Erzeugen aus den Markenfarben berechnet (Theme.php)
+     und stehen hier nur als Rückfall. Ein Stilpaket benutzt sie, statt
+     eigene Farben zu erfinden - deshalb passt auch ein Milchglaskasten
+     oder ein Leuchten automatisch zur Marke des Kunden. */
+  --c-surface-glass: rgb(255 255 255 / 0.06);
+  --c-gradient-brand: linear-gradient(112deg, var(--c-primary-light), var(--c-secondary));
+  --c-gradient-soft: linear-gradient(160deg, var(--c-bg-soft), var(--c-surface));
+  --c-glow-primary: radial-gradient(closest-side,
+    color-mix(in srgb, var(--c-primary) 55%, transparent), transparent 72%);
+  --c-glow-secondary: radial-gradient(closest-side,
+    color-mix(in srgb, var(--c-secondary) 45%, transparent), transparent 72%);
+  --c-shadow-glow: 0 18px 60px -20px color-mix(in srgb, var(--c-primary) 55%, transparent);
+
+  /* Höhe der Kopfzeile. Als Variable, weil eine Unterseite darunter
+     anfangen muss und calc() nicht durch die Prüfung der Überschreibungen
+     kommt - dort sind Klammern verboten, und das soll so bleiben. */
+  --c-header-h: 4.25rem;
+
   /* ---- Von den Abschnitten gesetzt --------------------------------- */
   --s-cols: 3;
   --s-gap: clamp(1rem, 2.4vw, 1.75rem);

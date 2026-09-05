@@ -70,8 +70,21 @@ $nav = [
     <script nonce="<?= e($nonce) ?>">document.documentElement.classList.remove('no-js');</script>
     <script type="module" src="<?= e(Assets::url('admin.js')) ?>" defer></script>
     <script nonce="<?= e($nonce) ?>">window.WA_CSRF = <?= json_out(Csrf::token()) ?>;</script>
+
+    <?php
+    /**
+     * Der Editor ist ein eigenes Bündel und wird nur dort geladen, wo er
+     * gebraucht wird. Er ist das grösste Stück JavaScript im
+     * Adminbereich, und neunzehn von zwanzig Menüpunkten brauchen ihn
+     * nicht.
+     */
+    ?>
+    <?php if (($bodyClass ?? '') === 'wa-admin--editor'): ?>
+        <link rel="stylesheet" href="<?= e(Assets::url('editor.css')) ?>">
+        <script type="module" src="<?= e(Assets::url('editor.js')) ?>" defer></script>
+    <?php endif; ?>
 </head>
-<body class="wa-admin">
+<body class="wa-admin<?= ($bodyClass ?? '') !== '' ? ' ' . e((string) $bodyClass) : '' ?>">
 
 <a class="wa-skip" href="#admin-inhalt">Direkt zum Inhalt</a>
 

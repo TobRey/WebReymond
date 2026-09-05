@@ -1,424 +1,794 @@
 /**
- * Der Bearbeitungsbalken in der Vorschau.
+ * Der Editor.
  *
- * Er wird nur eingesetzt, wenn man angemeldet ist. Für alle anderen ist
- * die Vorschau eine gewöhnliche Website.
+ * Er läuft in der Hülle und arbeitet auf dem Dokument im Rahmen. Das
+ * geht nur, weil beide dieselbe Herkunft haben – über eine fremde Domain
+ * hinweg dürfte JavaScript den Inhalt eines Rahmens weder lesen noch
+ * verändern, und daran ändert keine Einstellung etwas. Genau deshalb
+ * wird eine Kundenwebsite hier bearbeitet und dort veröffentlicht, statt
+ * sie fernzusteuern.
  *
- * Was er kann:
- *   - jeden Abschnitt anklicken und auswählen
- *   - per Textbefehl ändern lassen ("Knopf grösser", "Text kürzen")
- *   - zwischen 20 Vorlagen wechseln – sofort und ohne Kosten
- *   - Bild austauschen
- *   - Abschnitt aus-/einblenden und verschieben
- *   - Desktop, Tablet und Handy getrennt betrachten
- *   - jede Änderung im Protokoll sehen und zurücknehmen
+ * Was diesen Editor vom bisherigen unterscheidet, ist eine Zeile, die es
+ * nicht mehr gibt: window.location.reload(). Jede ändernde Antwort
+ * bringt das fertige HTML des betroffenen Abschnitts mit, und der Editor
+ * tauscht genau dieses eine Element aus. Bildlauf, Auswahl und Verlauf
+ * bleiben stehen.
  */
 
 import './editor.css';
 
-const dataElement = document.getElementById('wa-editor-data');
-if (dataElement) {
-  boot(JSON.parse(dataElement.textContent || '{}'));
+import { ziehbar, plaetzeZwischen } from './ziehen.js';
+import { auswahl, el, feld, knopf, melden, schalter, text, textfeld } from './hilfen.js';
+
+const daten = JSON.parse(document.getElementById('wa-editor-data')?.textContent || '{}');
+
+const zustand = {
+  rahmen: null,
+  dok: null,
+  gewaehlt: null,
+  breite: 'desktop',
+  verschiebemodus: false,
+  sprache: (daten.sprachen?.[0]?.code) || 'de',
+};
+
+start();
+
+function start() {
+  zustand.rahmen = document.querySelector('[data-editor-frame]');
+
+  if (!zustand.rahmen) return;
+
+  zustand.rahmen.addEventListener('load', rahmenBereit);
+
+  leiste();
+  vorrat();
 }
 
-function boot(config) {
-  const root = document.documentElement;
-  root.classList.add('wae-active', 'wae-picking');
+// ====================================================================
+// Der Rahmen
+// ====================================================================
 
-  const state = { section: null, mode: 'desktop' };
+function rahmenBereit() {
+  zustand.dok = zustand.rahmen.contentDocument;
 
-  const bar = buildBar(config, state);
-  const panel = buildPanel(config, state);
-  document.body.append(bar, panel);
+  if (!zustand.dok) return;
 
-  markSections();
-  wireSectionClicks(state, panel, config);
+  zustand.dok.documentElement.classList.add('wae-aktiv');
+
+  abschnitteMarkieren();
+  klicksVerdrahten();
+  ziehenVerdrahten();
+
+  // Ein Merker, an dem sich später nachweisen lässt, dass der Rahmen
+  // während einer Änderung nicht neu geladen wurde. Ohne so einen Merker
+  // ist "es lädt nicht neu" eine Behauptung.
+  zustand.dok.defaultView.__waeGeladen = (zustand.dok.defaultView.__waeGeladen || 0) + 1;
 }
 
-/* ------------------------------------------------------------------ */
-/* Leiste                                                              */
-/* ------------------------------------------------------------------ */
-
-function buildBar(config, state) {
-  const bar = el('div', 'wae wae-bar');
-
-  bar.append(
-    el('span', 'wae-bar__brand', [el('span', 'wae-bar__dot'), text('Vorschau')]),
-    el('span', 'wae-bar__name', [text(config.projectName || '')]),
-    el('span', 'wae-bar__spacer'),
-    el('span', 'wae-bar__hint', [text('Auf einen Abschnitt klicken, um ihn zu ändern')])
-  );
-
-  // Desktop / Tablet / Handy
-  const modes = el('div', 'wae-modes');
-  for (const [key, label] of [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['mobile', 'Handy']]) {
-    const button = el('button', 'wae-mode' + (key === 'desktop' ? ' is-active' : ''), [text(label)]);
-    button.type = 'button';
-    button.addEventListener('click', () => {
-      state.mode = key;
-      document.documentElement.classList.remove('wae-mode-tablet', 'wae-mode-mobile');
-      if (key !== 'desktop') document.documentElement.classList.add('wae-mode-' + key);
-      modes.querySelectorAll('.wae-mode').forEach((m) => m.classList.toggle('is-active', m === button));
-    });
-    modes.append(button);
-  }
-  bar.append(modes);
-
-  const toProject = el('a', 'wae-btn', [text('Zum Projekt')]);
-  toProject.href = config.base + '/projekt/' + config.projectId;
-  bar.append(toProject);
-
-  if (config.expiresAt) {
-    const left = hoursLeft(config.expiresAt);
-    if (left !== null) {
-      bar.append(el('span', 'wae-bar__hint', [text(`Vorschau läuft in ${left} h ab`)]));
-    }
-  }
-
-  return bar;
+function abschnitte() {
+  return Array.from(zustand.dok?.querySelectorAll('[data-section-id]') || [])
+    .filter((s) => s.dataset.sectionId !== '0');
 }
 
-function hoursLeft(expiresAt) {
-  // Der Server schickt einen ISO-Zeitpunkt samt Zeitzone. Fehlt sie
-  // ausnahmsweise, wird er als Ortszeit gelesen – das ist immer noch
-  // besser, als "Z" anzunehmen und um den Zeitversatz danebenzuliegen.
-  const end = new Date(expiresAt.replace(' ', 'T')).getTime();
-  if (Number.isNaN(end)) return null;
-  return Math.max(0, Math.round((end - Date.now()) / 3600000));
-}
+function abschnitteMarkieren() {
+  abschnitte().forEach((s) => {
+    if (s.querySelector(':scope > .wae-griff')) return;
 
-/* ------------------------------------------------------------------ */
-/* Abschnitte anklickbar machen                                        */
-/* ------------------------------------------------------------------ */
-
-function markSections() {
-  document.querySelectorAll('[data-section-id]').forEach((section) => {
-    if (section.dataset.sectionId === '0') return;
-
-    // position:relative, damit die Markierung sitzt – aber nur, wenn der
-    // Abschnitt nicht ohnehin schon positioniert ist.
-    if (getComputedStyle(section).position === 'static') {
-      section.style.position = 'relative';
+    if (zustand.dok.defaultView.getComputedStyle(s).position === 'static') {
+      s.style.position = 'relative';
     }
 
-    const tag = el('span', 'wae wae-tag', [text(section.dataset.section || '')]);
-    section.prepend(tag);
+    const griff = el('div', 'wae wae-griff');
+
+    griff.appendChild(el('span', 'wae-griff__punkte', ['⠿']));
+    griff.appendChild(el('span', 'wae-griff__name', [beschriftung(s)]));
+
+    // Kopf und Fuss lassen sich nicht ziehen. Ein Kopf in der Mitte
+    // einer Seite ist kein Gestaltungsmittel, sondern ein Versehen.
+    if (fest(s)) griff.classList.add('wae-griff--fest');
+
+    s.prepend(griff);
   });
 }
 
-function wireSectionClicks(state, panel, config) {
-  document.addEventListener('click', (event) => {
-    // Klicks im Balken und in der Tafel gehen nicht an die Seite.
-    if (event.target.closest('.wae')) return;
+function beschriftung(s) {
+  const typ = s.dataset.section || 'Abschnitt';
+  const eintrag = (daten.typen || []).find((t) => t.typ === typ);
 
-    const section = event.target.closest('[data-section-id]');
-    if (!section || section.dataset.sectionId === '0') return;
+  return eintrag ? eintrag.label : typ;
+}
 
-    event.preventDefault();
-    event.stopPropagation();
+function fest(s) {
+  return s.dataset.section === 'header' || s.dataset.section === 'footer';
+}
 
-    document.querySelectorAll('.wae-selected').forEach((s) => s.classList.remove('wae-selected'));
-    section.classList.add('wae-selected');
+// ====================================================================
+// Auswählen
+// ====================================================================
 
-    state.section = section;
-    panel.open(Number(section.dataset.sectionId));
+function klicksVerdrahten() {
+  zustand.dok.addEventListener('click', (e) => {
+    // Im Verschiebemodus ist ein Klick eine Ortsangabe, keine Auswahl.
+    if (zustand.verschiebemodus) return;
+
+    const abschnitt = e.target.closest?.('[data-section-id]');
+
+    if (!abschnitt || abschnitt.dataset.sectionId === '0') return;
+
+    // Verweise im Editor führen nirgendwohin: Wer auf einen Knopf
+    // klickt, will ihn bearbeiten und nicht die Seite verlassen.
+    e.preventDefault();
+    e.stopPropagation();
+
+    waehlen(abschnitt);
   }, true);
 
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') panel.close();
+  zustand.dok.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') abwaehlen();
   });
 }
 
-/* ------------------------------------------------------------------ */
-/* Werkzeugtafel                                                       */
-/* ------------------------------------------------------------------ */
+function waehlen(abschnitt) {
+  abwaehlen();
 
-function buildPanel(config, state) {
-  const panel = el('aside', 'wae wae-panel');
+  zustand.gewaehlt = abschnitt;
+  abschnitt.classList.add('wae-gewaehlt');
 
-  const title = el('h2', 'wae-panel__title', [text('Abschnitt')]);
-  const subtitle = el('p', 'wae-panel__sub');
-  const close = el('button', 'wae-btn wae-btn--sm wae-panel__close', [text('Schliessen')]);
-  close.type = 'button';
-
-  const head = el('div', 'wae-panel__head', [
-    el('div', '', [title, subtitle]),
-    close,
-  ]);
-
-  const body = el('div', 'wae-panel__body');
-  panel.append(head, body);
-
-  close.addEventListener('click', () => panel.close());
-
-  panel.close = () => {
-    panel.classList.remove('is-open');
-    document.querySelectorAll('.wae-selected').forEach((s) => s.classList.remove('wae-selected'));
-  };
-
-  panel.open = async (sectionId) => {
-    panel.classList.add('is-open');
-    body.replaceChildren(el('p', 'wae-note', [text('Wird geladen …')]));
-
-    try {
-      const data = await api(config, `/api/sections/${sectionId}`, { method: 'GET' });
-      title.textContent = data.section.type_label;
-      subtitle.textContent = data.section.template_label;
-      renderPanel(body, config, data, sectionId, panel);
-    } catch (error) {
-      body.replaceChildren(note('error', 'Fehler', error.message));
-    }
-  };
-
-  return panel;
+  blatt(abschnitt);
 }
 
-function renderPanel(body, config, data, sectionId, panel) {
-  const parts = [];
-  const section = data.section;
+function abwaehlen() {
+  zustand.dok?.querySelectorAll('.wae-gewaehlt')
+    .forEach((s) => s.classList.remove('wae-gewaehlt'));
 
-  // --- Textbefehl -------------------------------------------------
-  if (data.ai_available) {
-    const textarea = el('textarea', 'wae-textarea');
-    textarea.placeholder =
-      'Was soll anders sein?\n\nBeispiele:\n– Den Knopf grösser und auffälliger machen\n'
-      + '– Den Einleitungstext auf zwei Sätze kürzen\n– Eine vierte Leistung ergänzen';
+  zustand.gewaehlt = null;
+  document.querySelector('.wae-blatt')?.remove();
+}
 
-    const submit = el('button', 'wae-btn wae-btn--primary', [text('Ändern lassen')]);
-    submit.type = 'button';
+// ====================================================================
+// Ziehen
+// ====================================================================
 
-    const status = el('div');
+function ziehenVerdrahten() {
+  // Abschnitte.
+  ziehbar({
+    dokument: zustand.dok,
+    griff: '.wae-griff:not(.wae-griff--fest)',
+    ziel: (griff) => griff.closest('[data-section-id]'),
+    plaetze: (element) => plaetzeZwischen(abschnitte(), element, (el) => !fest(el)),
+    abgelegt: (element, platz) => abschnittAblegen(element, platz),
+  });
 
-    submit.addEventListener('click', async () => {
-      const instruction = textarea.value.trim();
-      if (!instruction) {
-        status.replaceChildren(note('error', 'Fehlt noch', 'Bitte beschreiben, was geändert werden soll.'));
-        return;
-      }
+  // Listeneinträge innerhalb eines Abschnitts.
+  ziehbar({
+    dokument: zustand.dok,
+    griff: '.s-items > *',
+    ziel: (kind) => kind,
+    plaetze: (element) => plaetzeZwischen(
+      Array.from(element.parentElement.children),
+      element,
+    ),
+    abgelegt: (element, platz) => eintragAblegen(element, platz),
+  });
+}
 
-      submit.disabled = true;
-      submit.replaceChildren(el('span', 'wae-spin'), text(' Wird geändert …'));
-      status.replaceChildren(note('', 'Einen Moment', 'Die Änderung wird vorbereitet.'));
+async function abschnittAblegen(element, platz) {
+  const reihe = abschnitte();
 
-      try {
-        const result = await api(config, `/api/sections/${sectionId}/anweisung`, {
-          data: { instruction },
-        });
-        status.replaceChildren(note('ok', result.label, result.summary));
-        textarea.value = '';
-        setTimeout(() => window.location.reload(), 900);
-      } catch (error) {
-        status.replaceChildren(note('error', 'Das hat nicht geklappt', error.message));
-        submit.disabled = false;
-        submit.replaceChildren(text('Ändern lassen'));
-      }
-    });
+  // Der Platz zählt zwischen den beweglichen Abschnitten; der Server
+  // zählt zwischen allen. Ohne diese Umrechnung landet ein Abschnitt
+  // einen Platz daneben, sobald es einen Kopf gibt - und das fällt erst
+  // auf, wenn jemand genau hinsieht.
+  const beweglich = reihe.filter((s) => !fest(s));
+  const ziel = reihe.indexOf(
+    platz >= beweglich.length ? beweglich[beweglich.length - 1] : beweglich[platz],
+  );
 
-    parts.push(group('Ändern per Anweisung', [textarea, el('div', 'wae-row', [submit]), status]));
-  } else {
-    parts.push(group('Ändern per Anweisung', [
-      note('', 'Noch nicht verfügbar',
-        'Dafür wird ein Anthropic-Schlüssel gebraucht. Er gehört in app/config.php.'),
-    ]));
+  const antwort = await ruf('ziehen', {
+    abschnitt: element.dataset.sectionId,
+    position: ziel,
+  });
+
+  if (!antwort.ok) return;
+
+  // Umgehängt wird nach der Reihenfolge, die der Server geschrieben hat,
+  // nicht nach der, die hier ausgerechnet wurde. Zwei Rechnungen für
+  // dasselbe laufen irgendwann auseinander, und dann zeigt der Editor
+  // etwas anderes als die Seite.
+  ordnen(antwort.order);
+
+  melden('Verschoben.');
+}
+
+/** Die Abschnitte im Rahmen in die angegebene Reihenfolge bringen. */
+function ordnen(ids) {
+  if (!Array.isArray(ids) || ids.length === 0) return;
+
+  const eltern = zustand.dok.querySelector('main') || zustand.dok.body;
+
+  ids.forEach((id) => {
+    const el = zustand.dok.querySelector(`[data-section-id="${id}"]`);
+
+    // appendChild verschiebt ein vorhandenes Element, statt es zu
+    // kopieren. Nacheinander angewandt ergibt das genau die Reihenfolge
+    // der Liste.
+    if (el) el.parentElement.appendChild(el);
+  });
+}
+
+async function eintragAblegen(element, platz) {
+  const liste = element.parentElement;
+  const abschnitt = element.closest('[data-section-id]');
+  const von = Array.from(liste.children).indexOf(element);
+
+  const antwort = await ruf('eintrag', {
+    abschnitt: abschnitt.dataset.sectionId,
+    was: 'ziehen',
+    von,
+    nach: platz > von ? platz - 1 : platz,
+  });
+
+  if (antwort.ok) ersetzen(abschnitt, antwort.html);
+}
+
+// ====================================================================
+// Die Leiste in der Hülle
+// ====================================================================
+
+function leiste() {
+  document.querySelectorAll('[data-editor-widths] [data-width]').forEach((b) => {
+    b.addEventListener('click', () => breite(b.dataset.width, b));
+  });
+
+  document.querySelector('[data-editor-page]')?.addEventListener('change', (e) => {
+    const url = new URL(window.location.href);
+
+    url.searchParams.set('seite', e.target.value);
+    window.location.href = url.toString();
+  });
+
+  document.querySelectorAll('[data-editor-action]').forEach((b) => {
+    b.addEventListener('click', () => leistenAktion(b.dataset.editorAction));
+  });
+}
+
+/**
+ * Desktop, Tablet, Handy.
+ *
+ * Der Rahmen wird wirklich schmaler. Die alte Vorschau hat stattdessen
+ * nur den Body zusammengeschoben – dabei lösen die Umbruchregeln der
+ * Seite gar nicht aus, und die Handyansicht zeigte eine schmale
+ * Desktopseite.
+ */
+function breite(welche, knopfElement) {
+  zustand.breite = welche;
+
+  const buehne = document.querySelector('[data-editor-stage]');
+
+  buehne.dataset.width = welche;
+
+  document.querySelectorAll('[data-editor-widths] [data-width]')
+    .forEach((b) => b.classList.toggle('is-active', b === knopfElement));
+}
+
+async function leistenAktion(was) {
+  if (was === 'veroeffentlichen') {
+    const antwort = await ruf('veroeffentlichen', { seite: daten.seite.id });
+
+    if (antwort.ok) {
+      melden(antwort.meldung || 'Veröffentlicht.');
+      standSetzen(false);
+    }
+
+    return;
   }
 
-  // --- Vorlage wechseln -------------------------------------------
-  const variantsBox = el('div', 'wae-variants');
-  const loadVariants = async () => {
-    try {
-      const data = await api(config, `/api/sections/${sectionId}/templates`, { method: 'GET' });
-      variantsBox.replaceChildren(...data.variants.map((variant) => {
-        const button = el('button', 'wae-variant' + (variant.current ? ' is-current' : ''), [text(variant.label)]);
-        button.type = 'button';
-        button.addEventListener('click', async () => {
-          try {
-            await api(config, `/api/sections/${sectionId}/template`, { data: { template: variant.key } });
-            window.location.reload();
-          } catch (error) {
-            variantsBox.append(note('error', 'Fehler', error.message));
-          }
-        });
-        return button;
-      }));
-    } catch (error) {
-      variantsBox.replaceChildren(note('error', 'Fehler', error.message));
-    }
-  };
-  loadVariants();
-
-  parts.push(group('Vorlage wechseln (20 Varianten)', [variantsBox]));
-
-  // --- Bild austauschen -------------------------------------------
-  const fileInput = el('input', 'wae-input');
-  fileInput.type = 'file';
-  fileInput.accept = 'image/png,image/jpeg,image/webp,image/svg+xml,image/avif';
-
-  const fieldSelect = el('select', 'wae-select');
-  const fields = imageFields(section.content);
-  fields.forEach((field) => {
-    const option = el('option', '', [text(field.label)]);
-    option.value = field.path;
-    fieldSelect.append(option);
-  });
-
-  const uploadButton = el('button', 'wae-btn', [text('Bild hochladen')]);
-  uploadButton.type = 'button';
-  const uploadStatus = el('div');
-
-  uploadButton.addEventListener('click', async () => {
-    const file = fileInput.files?.[0];
-    if (!file) {
-      uploadStatus.replaceChildren(note('error', 'Fehlt noch', 'Bitte zuerst eine Datei wählen.'));
+  if (was === 'verwerfen') {
+    if (!window.confirm('Den Entwurf verwerfen und auf den veröffentlichten Stand zurück?')) {
       return;
     }
 
-    const form = new FormData();
-    form.append('image', file);
-    form.append('field', fieldSelect.value || 'image');
+    const antwort = await ruf('verwerfen', { seite: daten.seite.id });
 
-    uploadButton.disabled = true;
-    try {
-      await api(config, `/api/sections/${sectionId}/bild`, { data: form });
-      window.location.reload();
-    } catch (error) {
-      uploadStatus.replaceChildren(note('error', 'Fehler', error.message));
-      uploadButton.disabled = false;
+    if (antwort.ok) {
+      melden('Entwurf verworfen.');
+      rahmenNeu();
+    }
+  }
+}
+
+function standSetzen(entwurf) {
+  const marke = document.querySelector('[data-editor-state]');
+
+  if (!marke) return;
+
+  marke.dataset.draft = entwurf ? '1' : '0';
+  marke.textContent = entwurf ? 'Entwurf' : 'Veröffentlicht';
+}
+
+/** Nur wenn es nicht anders geht: die Ansicht im Rahmen neu holen. */
+function rahmenNeu() {
+  abwaehlen();
+  zustand.rahmen.contentWindow.location.reload();
+}
+
+// ====================================================================
+// Der Vorrat: was sich einsetzen lässt
+// ====================================================================
+
+function vorrat() {
+  const kasten = el('aside', 'wae-vorrat');
+
+  kasten.appendChild(el('h2', 'wae-vorrat__titel', ['Abschnitt einsetzen']));
+
+  const liste = el('div', 'wae-vorrat__liste');
+
+  (daten.typen || []).forEach((typ) => {
+    liste.appendChild(knopf(typ.label, 'wae-vorrat__knopf', () => einsetzen(typ.typ)));
+  });
+
+  kasten.appendChild(liste);
+
+  // Das Promptfeld für die ganze Seite. Es darf mehr als das eines
+  // Abschnitts: Abschnitte anlegen, löschen, umordnen.
+  kasten.appendChild(el('h2', 'wae-vorrat__titel', ['Anweisung für die Seite']));
+  kasten.appendChild(seitenPrompt());
+
+  kasten.appendChild(el('h2', 'wae-vorrat__titel', ['Farben der Website']));
+  kasten.appendChild(themenfelder());
+
+  document.querySelector('[data-editor]')?.appendChild(kasten);
+}
+
+function seitenPrompt() {
+  const kasten = el('div', 'wae-prompt');
+  const eingabe = el('textarea', 'wae-eingabe');
+
+  eingabe.rows = 3;
+  eingabe.placeholder = 'z.B. "häng unten einen Kontaktbereich an und '
+    + 'schieb die Referenzen nach oben"';
+
+  const senden = knopf('Ausführen', 'wae-knopf wae-knopf--voll', async () => {
+    const befehl = eingabe.value.trim();
+
+    if (befehl === '') return;
+
+    senden.disabled = true;
+    senden.textContent = 'Arbeitet …';
+
+    await offeneSpeichern();
+
+    const antwort = await ruf('seitenanweisung', {
+      seite: daten.seite.id,
+      anweisung: befehl,
+    });
+
+    senden.disabled = false;
+    senden.textContent = 'Ausführen';
+
+    if (antwort.ok) {
+      eingabe.value = '';
+      melden(antwort.summary || 'Seite angepasst.');
     }
   });
 
-  if (fields.length > 0) {
-    parts.push(group('Bild austauschen', [
-      fields.length > 1 ? fieldSelect : el('span'),
-      fileInput,
-      el('div', 'wae-row', [uploadButton]),
-      uploadStatus,
-    ]));
-  }
+  kasten.appendChild(eingabe);
+  kasten.appendChild(senden);
 
-  // --- Anordnung ---------------------------------------------------
-  const up = actionButton('Nach oben', () => api(config, `/api/sections/${sectionId}/reihenfolge`, { data: { direction: 'up' } }));
-  const down = actionButton('Nach unten', () => api(config, `/api/sections/${sectionId}/reihenfolge`, { data: { direction: 'down' } }));
-  const toggle = actionButton(section.hidden ? 'Einblenden' : 'Ausblenden',
-    () => api(config, `/api/sections/${sectionId}/sichtbar`, { data: {} }));
-
-  parts.push(group('Abschnitt', [el('div', 'wae-row', [up, down, toggle])]));
-
-  // --- Protokoll ---------------------------------------------------
-  if (data.changes.length > 0) {
-    const log = el('div', 'wae-log');
-    data.changes.forEach((change) => {
-      const item = el('div', 'wae-log__item', [
-        el('strong', 'wae-log__who', [text(change.label)]),
-        el('span', 'wae-log__what', [text(change.summary)]),
-        el('span', 'wae-log__when', [text(formatDate(change.created_at))]),
-      ]);
-
-      const undo = el('button', 'wae-btn wae-btn--sm wae-btn--danger', [text('Zurücknehmen')]);
-      undo.type = 'button';
-      undo.style.marginTop = '0.45rem';
-      undo.addEventListener('click', async () => {
-        try {
-          await api(config, `/api/sections/${sectionId}/zuruecksetzen`, { data: { change: change.id } });
-          window.location.reload();
-        } catch (error) {
-          item.append(note('error', 'Fehler', error.message));
-        }
-      });
-
-      item.append(undo);
-      log.append(item);
-    });
-    parts.push(group('Was bisher geändert wurde', [log]));
-  }
-
-  body.replaceChildren(...parts);
+  return kasten;
 }
 
-/* ------------------------------------------------------------------ */
-/* Helfer                                                              */
-/* ------------------------------------------------------------------ */
+/**
+ * Farben an einer Stelle.
+ *
+ * Eine Änderung hier zieht durch jeden Abschnitt der Website, ohne dass
+ * einer davon angefasst wird - das ist der Sinn der Variablen. Deshalb
+ * ist das auch die einzige Stelle im Editor, die die Ansicht bewusst neu
+ * holt: Es hat sich nicht ein Abschnitt geändert, sondern alle.
+ */
+function themenfelder() {
+  const kasten = el('div', 'wae-thema');
+  const wahl = { primary: '', secondary: '', accent: '', mode: '' };
 
-function imageFields(content) {
-  const fields = [];
-
-  if (content && typeof content.image === 'object') {
-    fields.push({ path: 'image', label: 'Hauptbild' });
-  }
-  if (Array.isArray(content?.items)) {
-    content.items.forEach((item, index) => {
-      if (item && typeof item.image === 'object') {
-        const name = item.title || item.name || `Eintrag ${index + 1}`;
-        fields.push({ path: `items.${index}.image`, label: `Bild: ${name}` });
-      }
-    });
-  }
-
-  return fields;
-}
-
-function actionButton(label, action) {
-  const button = el('button', 'wae-btn', [text(label)]);
-  button.type = 'button';
-  button.addEventListener('click', async () => {
-    button.disabled = true;
-    try {
-      await action();
-      window.location.reload();
-    } catch (error) {
-      button.disabled = false;
-      button.after(note('error', 'Fehler', error.message));
-    }
-  });
-  return button;
-}
-
-async function api(config, url, { method = 'POST', data = null } = {}) {
-  const options = {
-    method,
-    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': config.token },
+  const senden = async () => {
+    const antwort = await ruf('thema', wahl);
+    if (antwort.ok) melden('Farben übernommen.');
   };
 
-  if (data instanceof FormData) {
-    data.append('_token', config.token);
-    options.body = data;
-  } else if (data !== null) {
-    options.headers['Content-Type'] = 'application/json';
-    options.body = JSON.stringify({ ...data, _token: config.token });
+  [['primary', 'Hauptfarbe'], ['secondary', 'Zweitfarbe'], ['accent', 'Dunkelton']]
+    .forEach(([schluessel, beschriftung]) => {
+      const e = el('input', 'wae-farbe');
+
+      e.type = 'color';
+      e.addEventListener('change', () => {
+        wahl[schluessel] = e.value;
+        senden();
+      });
+
+      kasten.appendChild(feld(beschriftung, e));
+    });
+
+  kasten.appendChild(feld('Grundton', auswahl(
+    { hell: 'Hell', dunkel: 'Dunkel' },
+    'hell',
+    (wert) => {
+      wahl.mode = wert;
+      senden();
+    },
+  )));
+
+  return kasten;
+}
+
+async function einsetzen(typ) {
+  // Direkt hinter den ausgewählten Abschnitt, sonst ans Ende. Das ist,
+  // was jemand erwartet, der eben etwas angeklickt hat.
+  const reihe = abschnitte();
+  const nach = zustand.gewaehlt ? reihe.indexOf(zustand.gewaehlt) + 1 : '';
+
+  const antwort = await ruf('einsetzen', {
+    seite: daten.seite.id,
+    typ,
+    position: nach,
+  });
+
+  if (!antwort.ok || !antwort.html) return;
+
+  const neu = zustand.dok.createRange().createContextualFragment(antwort.html);
+  const element = neu.firstElementChild;
+
+  if (nach !== '' && reihe[nach]) reihe[nach].before(neu);
+  else reihe[reihe.length - 1]?.before(neu);
+
+  abschnitteMarkieren();
+  if (element) waehlen(zustand.dok.querySelector(`[data-section-id="${antwort.id}"]`));
+
+  melden('Eingesetzt.');
+}
+
+// ====================================================================
+// Das Einstellungsblatt
+// ====================================================================
+
+function blatt(abschnitt) {
+  const id = abschnitt.dataset.sectionId;
+  const typ = abschnitt.dataset.section;
+
+  const b = el('div', 'wae-blatt');
+
+  b.appendChild(kopfzeile(abschnitt, typ));
+
+  const koerper = el('div', 'wae-blatt__koerper');
+
+  koerper.appendChild(gruppe('Anweisung', [promptfeld(id)]));
+  koerper.appendChild(gruppe('Vorlage', [vorlagenfeld(abschnitt, typ)]));
+  koerper.appendChild(gruppe('Hintergrund und Bewegung', effektfelder(id)));
+  koerper.appendChild(gruppe('Diesen Abschnitt', werkzeuge(abschnitt)));
+
+  b.appendChild(koerper);
+
+  document.querySelector('[data-editor]')?.appendChild(b);
+}
+
+function kopfzeile(abschnitt, typ) {
+  const z = el('div', 'wae-blatt__kopf');
+
+  z.appendChild(el('strong', null, [beschriftung(abschnitt)]));
+  z.appendChild(knopf('×', 'wae-blatt__zu', () => abwaehlen()));
+
+  return z;
+}
+
+function gruppe(titel, kinder) {
+  const g = el('section', 'wae-gruppe');
+
+  g.appendChild(el('h3', 'wae-gruppe__titel', [titel]));
+  kinder.filter(Boolean).forEach((k) => g.appendChild(k));
+
+  return g;
+}
+
+/**
+ * Das Promptfeld.
+ *
+ * Erst wird gespeichert, was von Hand geändert wurde, dann läuft die
+ * Anweisung. Andersherum arbeitete die Schnittstelle auf einem Stand,
+ * den es nicht mehr gibt, und überschriebe die Handarbeit.
+ */
+function promptfeld(id) {
+  const kasten = el('div', 'wae-prompt');
+
+  const eingabe = el('textarea', 'wae-eingabe');
+
+  eingabe.rows = 3;
+  eingabe.placeholder = 'Was soll an diesem Abschnitt anders sein?';
+
+  const senden = knopf('Ausführen', 'wae-knopf wae-knopf--voll', async () => {
+    const befehl = eingabe.value.trim();
+
+    if (befehl === '') return;
+
+    senden.disabled = true;
+    senden.textContent = 'Arbeitet …';
+
+    // Erst speichern, was offen ist. Die Textfelder melden mit
+    // Verzögerung; ein Prompt darf ihnen nicht zuvorkommen.
+    await offeneSpeichern();
+
+    const antwort = await ruf('anweisung', { abschnitt: id, anweisung: befehl });
+
+    senden.disabled = false;
+    senden.textContent = 'Ausführen';
+
+    if (antwort.ok) {
+      eingabe.value = '';
+      if (antwort.html) ersetzen(zustand.gewaehlt, antwort.html);
+      melden(antwort.summary || 'Angepasst.');
+    }
+  });
+
+  kasten.appendChild(eingabe);
+  kasten.appendChild(senden);
+
+  return kasten;
+}
+
+function vorlagenfeld(abschnitt, typ) {
+  const kasten = el('div', 'wae-vorlagen');
+  const id = abschnitt.dataset.sectionId;
+
+  fetch(`${daten.api}/../../api/sections/${id}/templates`, {
+    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+  })
+    .then((r) => r.json())
+    .then((antwort) => {
+      if (!antwort.ok) return;
+
+      kasten.appendChild(auswahl(
+        Object.fromEntries(antwort.variants.map((v) => [v.key, v.label])),
+        antwort.variants.find((v) => v.current)?.key,
+        async (wert) => {
+          const a = await ruf('vorlage', { abschnitt: id, variante: wert });
+          if (a.ok) ersetzen(zustand.gewaehlt, a.html);
+        },
+      ));
+    })
+    .catch(() => {});
+
+  return kasten;
+}
+
+function effektfelder(id) {
+  const beschreibung = daten.effekte || {};
+  const felder = [];
+
+  const senden = async (was, wert) => {
+    aktuelleEffekte[was] = wert;
+
+    const antwort = await rufJson('effekte', { abschnitt: id, effekte: aktuelleEffekte });
+
+    if (antwort.ok) ersetzen(zustand.gewaehlt, antwort.html);
+  };
+
+  const aktuelleEffekte = { hintergrund: {} };
+
+  const h = beschreibung.hintergrund?.felder || {};
+
+  Object.entries(h).forEach(([name, f]) => {
+    felder.push(feld(f.label, auswahl(f.werte, '', (wert) => {
+      aktuelleEffekte.hintergrund[name] = wert;
+      senden('hintergrund', aktuelleEffekte.hintergrund);
+    })));
+  });
+
+  ['bewegung', 'parallaxe'].forEach((name) => {
+    const f = beschreibung[name];
+    if (!f?.werte) return;
+
+    felder.push(feld(f.label, auswahl(f.werte, '', (wert) => senden(name, wert))));
+  });
+
+  ['kippen', 'magnet', 'zaehlen'].forEach((name) => {
+    const f = beschreibung[name];
+    if (!f) return;
+
+    felder.push(schalter(f.label, false, (an) => senden(name, an)));
+  });
+
+  return felder;
+}
+
+function werkzeuge(abschnitt) {
+  const id = abschnitt.dataset.sectionId;
+  const reihe = el('div', 'wae-werkzeuge');
+
+  // Auf einem Telefon ist Ziehen mühsam. Antippen, dann den Platz
+  // antippen, ist dort oft schneller – und bei zittriger Hand die
+  // einzige Art, die verlässlich funktioniert.
+  reihe.appendChild(knopf('Verschieben', 'wae-knopf', () => verschiebemodus(abschnitt)));
+
+  reihe.appendChild(knopf(
+    abschnitt.classList.contains('wae-versteckt') ? 'Einblenden' : 'Ausblenden',
+    'wae-knopf',
+    async () => {
+      const antwort = await ruf('sichtbar', { abschnitt: id });
+
+      if (antwort.ok) {
+        abschnitt.classList.toggle('wae-versteckt', antwort.hidden);
+        melden(antwort.hidden ? 'Ausgeblendet.' : 'Wieder sichtbar.');
+      }
+    },
+  ));
+
+  if (!fest(abschnitt)) {
+    reihe.appendChild(knopf('Verdoppeln', 'wae-knopf', async () => {
+      const antwort = await ruf('verdoppeln', { abschnitt: id });
+
+      if (antwort.ok && antwort.html) {
+        abschnitt.after(zustand.dok.createRange().createContextualFragment(antwort.html));
+        abschnitteMarkieren();
+        melden('Verdoppelt.');
+      }
+    }));
+
+    reihe.appendChild(knopf('Löschen', 'wae-knopf wae-knopf--gefahr', async () => {
+      if (!window.confirm('Diesen Abschnitt löschen?')) return;
+
+      const antwort = await ruf('entfernen', { abschnitt: id });
+
+      if (antwort.ok) {
+        abschnitt.remove();
+        abwaehlen();
+        melden('Gelöscht.');
+      }
+    }));
   }
 
-  const response = await fetch(url, options);
-  const payload = await response.json().catch(() => ({}));
+  return [reihe];
+}
 
-  if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Fehlgeschlagen (${response.status})`);
+/**
+ * Verschieben durch Antippen.
+ *
+ * Alle möglichen Plätze werden als grosse Flächen gezeigt; eine davon
+ * antippen setzt den Abschnitt dorthin. Kein Ziehen, kein Zielen.
+ */
+function verschiebemodus(abschnitt) {
+  zustand.verschiebemodus = true;
+  zustand.dok.documentElement.classList.add('wae-verschiebt');
+
+  const reihe = abschnitte();
+  const felder = [];
+
+  reihe.forEach((s, i) => {
+    if (fest(s) || s === abschnitt) return;
+
+    const platz = el('button', 'wae wae-platz');
+
+    platz.type = 'button';
+    platz.textContent = 'Hierhin';
+    platz.style.top = `${s.offsetTop}px`;
+
+    platz.addEventListener('click', async (e) => {
+      e.stopPropagation();
+
+      const antwort = await ruf('ziehen', {
+        abschnitt: abschnitt.dataset.sectionId,
+        position: i,
+      });
+
+      if (antwort.ok) {
+        s.before(abschnitt);
+        melden('Verschoben.');
+      }
+
+      beenden();
+    });
+
+    zustand.dok.body.appendChild(platz);
+    felder.push(platz);
+  });
+
+  const abbrechen = el('button', 'wae wae-platz wae-platz--zurueck');
+
+  abbrechen.type = 'button';
+  abbrechen.textContent = 'Abbrechen';
+  abbrechen.addEventListener('click', beenden);
+  zustand.dok.body.appendChild(abbrechen);
+  felder.push(abbrechen);
+
+  function beenden() {
+    felder.forEach((f) => f.remove());
+    zustand.dok.documentElement.classList.remove('wae-verschiebt');
+    zustand.verschiebemodus = false;
   }
-  return payload;
 }
 
-function el(tag, className = '', children = []) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  children.forEach((child) => node.append(child));
-  return node;
+// ====================================================================
+// Austauschen statt neu laden
+// ====================================================================
+
+/**
+ * Einen Abschnitt durch seine neue Fassung ersetzen.
+ *
+ * Das ist der Kern des "kein Neuladen". Der Server rendert genau diesen
+ * einen Abschnitt und schickt sein HTML; hier wird das Element getauscht
+ * und die Auswahl wieder daraufgesetzt.
+ */
+function ersetzen(alt, html) {
+  if (!alt || !html) return;
+
+  const war = alt === zustand.gewaehlt;
+  const stelle = zustand.dok.createRange().createContextualFragment(html);
+  const neu = stelle.firstElementChild;
+
+  alt.replaceWith(stelle);
+
+  abschnitteMarkieren();
+
+  if (war && neu) {
+    zustand.gewaehlt = zustand.dok
+      .querySelector(`[data-section-id="${neu.dataset.sectionId}"]`);
+    zustand.gewaehlt?.classList.add('wae-gewaehlt');
+  }
 }
 
-function text(value) {
-  return document.createTextNode(String(value ?? ''));
+/** Alle Textfelder, die noch auf ihre Verzögerung warten, jetzt melden. */
+async function offeneSpeichern() {
+  document.querySelectorAll('.wae-blatt .wae-eingabe').forEach((e) => e.blur());
+
+  // Ein Wimpernschlag, damit die blur-Meldungen noch abgehen.
+  await new Promise((fertig) => setTimeout(fertig, 60));
 }
 
-function group(title, children) {
-  return el('div', 'wae-group', [el('h3', 'wae-group__title', [text(title)]), ...children]);
+// ====================================================================
+// Die Schnittstelle
+// ====================================================================
+
+function ruf(was, koerper) {
+  const daten2 = new URLSearchParams();
+
+  Object.entries(koerper || {}).forEach(([k, v]) => daten2.append(k, String(v)));
+  daten2.append('_token', daten.token);
+
+  return schicken(`${daten.api}/${was}`, daten2, null);
 }
 
-function note(kind, title, message) {
-  const box = el('div', 'wae-note' + (kind ? ' wae-note--' + kind : ''));
-  if (title) box.append(el('strong', '', [text(title)]));
-  box.append(text(message));
-  return box;
+function rufJson(was, koerper) {
+  return schicken(
+    `${daten.api}/${was}`,
+    JSON.stringify({ ...koerper, _token: daten.token }),
+    'application/json',
+  );
 }
 
-function formatDate(value) {
-  const date = new Date(String(value).replace(' ', 'T'));
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+async function schicken(adresse, koerper, typ) {
+  const kopf = {
+    Accept: 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
+    'X-CSRF-Token': daten.token,
+  };
+
+  if (typ) kopf['Content-Type'] = typ;
+
+  try {
+    const antwort = await fetch(adresse, { method: 'POST', headers: kopf, body: koerper });
+    const inhalt = await antwort.json().catch(() => ({}));
+
+    if (!antwort.ok || inhalt.ok === false) {
+      melden(inhalt.error || 'Das hat nicht geklappt.', 'fehler');
+      return { ok: false };
+    }
+
+    if (Object.prototype.hasOwnProperty.call(inhalt, 'entwurf')) {
+      standSetzen(inhalt.entwurf);
+    }
+
+    if (inhalt.neuladen) rahmenNeu();
+
+    return inhalt;
+  } catch {
+    melden('Keine Verbindung zum Server.', 'fehler');
+    return { ok: false };
+  }
 }

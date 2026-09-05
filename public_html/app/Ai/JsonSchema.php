@@ -293,6 +293,7 @@ final class JsonSchema
             'properties' => [
                 'content' => self::fields($definition['fields']),
                 'overrides' => self::overrides(),
+                'effects' => self::effects(),
                 'summary' => [
                     'type' => 'string',
                     'description' => 'Ein Satz zur Änderung, für das Protokoll.',
@@ -436,6 +437,48 @@ final class JsonSchema
                 'mobile' => $breakpoint,
             ],
             'required' => ['spacing', 'desktop', 'tablet', 'mobile'],
+        ];
+    }
+
+    /**
+     * Hintergrund, Bewegung und Parallaxe.
+     *
+     * Aufgebaut aus Templates\Effects, damit die Schnittstelle genau die
+     * Wörter angeboten bekommt, die die Prüfung danach durchlässt. Zwei
+     * Listen wären zwei Gelegenheiten, dass eine Antwort formal richtig
+     * ist und trotzdem verworfen wird - und dann sucht jemand den Fehler
+     * dort, wo keiner ist.
+     *
+     * Warum überhaupt ein Wortschatz statt freiem CSS: Die Antwort landet
+     * ungesehen auf einer Kundenwebsite. Ein Wortschatz kann sie nicht
+     * zerlegen.
+     */
+    private static function effects(): array
+    {
+        $wahl = static fn (array $werte): array => [
+            'type' => 'string',
+            'enum' => array_keys($werte),
+        ];
+
+        return [
+            'type' => 'object',
+            'properties' => [
+                'hintergrund' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'art' => $wahl(\WebAtze\Templates\Effects::HINTERGRUND),
+                        'ton' => $wahl(\WebAtze\Templates\Effects::TON),
+                        'staerke' => $wahl(\WebAtze\Templates\Effects::STAERKE),
+                    ],
+                    'required' => ['art', 'ton', 'staerke'],
+                ],
+                'bewegung' => $wahl(\WebAtze\Templates\Effects::BEWEGUNG),
+                'parallaxe' => $wahl(\WebAtze\Templates\Effects::PARALLAXE),
+                'kippen' => ['type' => 'boolean'],
+                'magnet' => ['type' => 'boolean'],
+                'zaehlen' => ['type' => 'boolean'],
+            ],
+            'required' => ['hintergrund', 'bewegung', 'parallaxe', 'kippen', 'magnet', 'zaehlen'],
         ];
     }
 

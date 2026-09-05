@@ -99,11 +99,15 @@ final class Sections
             return self::fehler('Der Abschnitt gehört nicht auf diese Seite.');
         }
 
-        [$erster, $letzter] = self::beweglich($geschwister);
-
-        if ($von < $erster || $von > $letzter) {
+        // Was sich nicht bewegen darf, entscheidet der Typ und nicht die
+        // Stelle. Ein frisch eingesetzter Abschnitt steht kurz ganz
+        // unten - und wurde, solange hier die Stelle zählte, für den
+        // Fuss gehalten und stehengelassen.
+        if (in_array((string) $abschnitt['type'], ['header', 'footer'], true)) {
             return self::fehler('Kopf und Fuss bleiben, wo sie sind.');
         }
+
+        [$erster, $letzter] = self::beweglich($geschwister);
 
         // Ein Ziel ausserhalb des beweglichen Bereichs ist keine
         // Fehleingabe, sondern das Ende der Liste: Wer einen Abschnitt
@@ -120,35 +124,65 @@ final class Sections
 
         self::speichern($geschwister);
 
-        return ['ok' => true, 'error' => '', 'order' => self::ids($geschwister)];
+        return [
+            'ok' => true,
+            'error' => '',
+            'order' => self::ids(self::forPage((int) $abschnitt['page_id'])),
+        ];
     }
 
     /**
      * Welche Plätze beweglich sind.
      *
+     * Kopf und Fuss werden an ihrem Typ erkannt, nicht an ihrer Stelle.
+     * Sie am Rand zu suchen hat genau so lange funktioniert, bis einmal
+     * ein Abschnitt hinter dem Fuss landete – danach galt der als Fuss,
+     * und jeder weitere kam noch dahinter.
+     *
      * @return array{0:int, 1:int} erster und letzter beweglicher Platz
      */
     private static function beweglich(array $geschwister): array
     {
-        $erster = 0;
+        $typen = array_map(static fn (array $z): string => (string) $z['type'], $geschwister);
+
+        $erster = in_array('header', $typen, true) ? 1 : 0;
         $letzter = count($geschwister) - 1;
 
-        if (($geschwister[0]['type'] ?? '') === 'header') {
-            $erster = 1;
-        }
-
-        if ($letzter >= 0 && ($geschwister[$letzter]['type'] ?? '') === 'footer') {
+        if (in_array('footer', $typen, true)) {
             $letzter--;
         }
 
         return [$erster, max($erster, $letzter)];
     }
 
-    /** Die Reihenfolge lückenlos in die Datenbank schreiben. */
+    /**
+     * Die Reihenfolge lückenlos in die Datenbank schreiben.
+     *
+     * Und dabei durchsetzen, was überall vorausgesetzt wird: Kopf
+     * zuerst, Fuss zuletzt. Das ist keine Höflichkeit gegenüber den
+     * Daten, sondern der einzige Ort, an dem sich die Zusage halten
+     * lässt. Wird sie nur angenommen, hält sie bis zum ersten Fehler –
+     * und danach nie wieder, weil jede weitere Rechnung auf der falschen
+     * Reihenfolge aufsetzt.
+     */
     private static function speichern(array $geschwister): void
     {
-        Db::transaction(static function () use ($geschwister): void {
-            foreach ($geschwister as $platz => $zeile) {
+        $kopf = [];
+        $mitte = [];
+        $fuss = [];
+
+        foreach ($geschwister as $zeile) {
+            match ((string) $zeile['type']) {
+                'header' => $kopf[] = $zeile,
+                'footer' => $fuss[] = $zeile,
+                default => $mitte[] = $zeile,
+            };
+        }
+
+        $geordnet = array_merge($kopf, $mitte, $fuss);
+
+        Db::transaction(static function () use ($geordnet): void {
+            foreach ($geordnet as $platz => $zeile) {
                 Db::update(
                     'project_sections',
                     ['sort_order' => $platz, 'updated_at' => Db::now()],
@@ -220,15 +254,21 @@ final class Sections
             'updated_at' => Db::now(),
         ]);
 
-        $geschwister = self::forPage($pageId);
+        // Erst die Reihenfolge geraderücken, dann den Platz ausrechnen.
+        // Andersherum wird auf einer Seite gerechnet, deren Reihenfolge
+        // vielleicht gar nicht stimmt - und das Ergebnis ist dann
+        // genauso schief wie der Ausgangsstand.
+        self::speichern(self::forPage($pageId));
 
-        if ($ziel !== null) {
-            self::move($id, $ziel);
-        } else {
-            self::speichern($geschwister);
-        }
+        // Ohne Platzangabe ans Ende - aber vor den Fuss. "Ans Ende"
+        // heisst für einen Menschen "unten auf der Seite", nicht
+        // "unterhalb der Fusszeile". Der Unterschied fällt erst auf,
+        // wenn man ihn sieht, und dann sieht er aus wie ein Fehler.
+        [$erster, $letzter] = self::beweglich(self::forPage($pageId));
 
-        return ['ok' => true, 'error' => '', 'id' => $id];
+        self::move($id, $ziel ?? $letzter);
+
+        return ['ok' => true, 'error' => '', 'id' => $id, 'order' => self::ids(self::forPage($pageId))];
     }
 
     /** Einen Abschnitt entfernen. */

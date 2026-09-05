@@ -69,6 +69,13 @@ final class SectionEditor
         }
 
         $overrides = self::validateOverrides($response['overrides'] ?? [], $beforeOverrides);
+        $beforeEffects = is_array($section['effects'] ?? null) ? $section['effects'] : [];
+
+        // Hintergrund, Bewegung, Parallaxe. Sie gehen denselben Weg wie
+        // alles andere: Was nicht im Wortschatz steht, kommt hier nicht
+        // durch - egal wie überzeugend die Antwort formuliert war.
+        $effects = \WebAtze\Templates\Effects::clean($response['effects'] ?? []);
+
         $summary = mb_substr(trim((string) ($response['summary'] ?? '')), 0, 400);
 
         // Vorschlag für eine andere Vorlage – nur wenn es sie gibt.
@@ -83,6 +90,7 @@ final class SectionEditor
         Db::update('project_sections', [
             'content' => $content,
             'overrides' => $overrides,
+            'effects' => $effects,
             'template_key' => $template,
             'updated_at' => Db::now(),
         ], 'id = :id AND project_id = :p', [
@@ -97,8 +105,8 @@ final class SectionEditor
             $actor,
             $instruction,
             $summary !== '' ? $summary : 'Abschnitt angepasst.',
-            ['content' => $content, 'overrides' => $overrides],
-            ['content' => $before, 'overrides' => $beforeOverrides]
+            ['content' => $content, 'overrides' => $overrides, 'effects' => $effects],
+            ['content' => $before, 'overrides' => $beforeOverrides, 'effects' => $beforeEffects]
         );
 
         return [
@@ -110,6 +118,32 @@ final class SectionEditor
         ];
     }
 
+    /**
+     * Welche Effekte es gibt, im Klartext.
+     *
+     * Das Schema nennt die Wörter, aber nicht, was sie bedeuten. Ohne
+     * diese Liste würde "mach den Hintergrund lebendiger" zu einem
+     * beliebigen Treffer statt zu einer Wahl.
+     */
+    private static function effektHinweis(): string
+    {
+        $liste = static fn (string $titel, array $werte): string => $titel . ":\n"
+            . implode("\n", array_map(
+                static fn (string $k, string $v): string => '  ' . $k . ' – ' . $v,
+                array_keys($werte),
+                array_values($werte)
+            ));
+
+        return $liste('Hintergrundart', \WebAtze\Templates\Effects::HINTERGRUND) . "\n\n"
+            . $liste('Ton', \WebAtze\Templates\Effects::TON) . "\n\n"
+            . $liste('Stärke', \WebAtze\Templates\Effects::STAERKE) . "\n\n"
+            . $liste('Beim Scrollen', \WebAtze\Templates\Effects::BEWEGUNG) . "\n\n"
+            . $liste('Parallaxe', \WebAtze\Templates\Effects::PARALLAXE) . "\n\n"
+            . "Dazu die Schalter kippen, magnet und zaehlen.\n"
+            . "Alle Farben kommen aus den Variablen der Website - eigene Farbwerte "
+            . "gibt es nicht und wären auch nicht durchsetzbar.";
+    }
+
     private function ask(string $type, string $template, array $content, array $overrides, string $instruction): array
     {
         $definition = Schema::forType($type);
@@ -119,14 +153,16 @@ final class SectionEditor
             . "AKTUELLER INHALT\n================\n%s\n\n"
             . "AKTUELLE DARSTELLUNGSWERTE\n==========================\n%s\n\n"
             . "ANWEISUNG\n=========\n%s\n\n"
-            . "VERFÜGBARE VORLAGEN FÜR DIESEN TYP\n==================================\n%s",
+            . "VERFÜGBARE VORLAGEN FÜR DIESEN TYP\n==================================\n%s\n\n"
+            . "HINTERGRUND, BEWEGUNG UND PARALLAXE\n===================================\n%s",
             $type,
             $definition['label'],
             Catalog::label($type, $template),
             json_encode($content, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             json_encode($overrides ?: new \stdClass(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
             $instruction,
-            Prompts::templateHints($type)
+            Prompts::templateHints($type),
+            self::effektHinweis()
         );
 
         return $this->claude->structured(

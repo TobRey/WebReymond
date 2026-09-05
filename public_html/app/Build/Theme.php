@@ -45,6 +45,7 @@ final class Theme
         $fonts = self::fonts($style);
 
         return [
+            'mode' => ($wishes['mode'] ?? '') === 'dunkel' ? 'dunkel' : 'hell',
             'colors' => [
                 'primary' => $primaryText,
                 'primary_raw' => $primary,
@@ -84,6 +85,12 @@ final class Theme
         $c = $theme['colors'];
         $f = $theme['fonts'];
 
+        // Hell oder dunkel. Kundenwebsites sind hell, solange niemand
+        // etwas anderes wählt; die eigene Website ist dunkel. Das ist
+        // eine Angabe am Thema und keine zweite Farbtabelle - sonst
+        // gäbe es zwei Orte, an denen eine Farbe steht.
+        $dunkel = (string) ($theme['mode'] ?? 'hell') === 'dunkel';
+
         $lines = [
             '/**',
             ' * Farben und Schriften dieser Website.',
@@ -97,7 +104,7 @@ final class Theme
             ' */',
             '',
             ':root {',
-            '  color-scheme: light;',
+            '  color-scheme: ' . ($dunkel ? 'dark' : 'light') . ';',
             '',
         ];
 
@@ -131,6 +138,45 @@ final class Theme
                 $lines[] = sprintf('  %s: %s;', $token, $c[$key]);
             }
         }
+
+        // Auf einer dunklen Website tauschen die Flächen ihre Rollen.
+        // Die Farben selbst bleiben dieselben - was sich ändert, ist,
+        // welche davon der Grund ist und welche der Text.
+        if ($dunkel) {
+            foreach ([
+                '--c-bg' => 'dark_bg',
+                '--c-bg-soft' => 'dark_surface',
+                '--c-surface' => 'dark_surface',
+                '--c-surface-2' => 'dark_bg',
+                '--c-border' => 'dark_border',
+                '--c-text' => 'dark_text',
+                '--c-text-muted' => 'dark_muted',
+            ] as $token => $key) {
+                if (isset($c[$key])) {
+                    $lines[] = sprintf('  %s: %s;', $token, $c[$key]);
+                }
+            }
+
+            $lines[] = '  --c-text-faint: color-mix(in srgb, var(--c-text) 55%, transparent);';
+            $lines[] = '  --c-border-strong: rgb(255 255 255 / 0.24);';
+            $lines[] = '  --c-primary: var(--c-primary-light);';
+        }
+
+        // Flächen und Verläufe, die ein Stilpaket benutzt. Sie stehen
+        // hier, damit ein Milchglaskasten oder ein Leuchten die Farben
+        // der Marke trägt statt selbst erfundener.
+        $lines[] = '';
+        $lines[] = '  --c-surface-glass: color-mix(in srgb, var(--c-text) 6%, transparent);';
+        $lines[] = '  --c-gradient-brand: linear-gradient(112deg, '
+            . 'var(--c-primary-light), var(--c-secondary));';
+        $lines[] = '  --c-gradient-soft: linear-gradient(160deg, '
+            . 'var(--c-bg-soft), var(--c-surface));';
+        $lines[] = '  --c-glow-primary: radial-gradient(closest-side, '
+            . 'color-mix(in srgb, var(--c-primary) 55%, transparent), transparent 72%);';
+        $lines[] = '  --c-glow-secondary: radial-gradient(closest-side, '
+            . 'color-mix(in srgb, var(--c-secondary) 45%, transparent), transparent 72%);';
+        $lines[] = '  --c-shadow-glow: 0 18px 60px -20px '
+            . 'color-mix(in srgb, var(--c-primary) 55%, transparent);';
 
         $lines[] = '';
         $lines[] = sprintf('  --c-font-display: %s;', $f['display']);

@@ -4870,6 +4870,30 @@ test('Ziehen: Kopf und Fuss bleiben, wo sie sind', function (): void {
         'Ganz nach oben heisst: hinter den Kopf');
 });
 
+test('Ziehen: Kopf zuerst und Fuss zuletzt, egal was vorher dastand', function (): void {
+    // Genau so ist es einmal schiefgegangen: Ein Abschnitt landete
+    // hinter dem Fuss, danach galt ER als Fuss, und jeder weitere kam
+    // noch dahinter. Die Zusage muss deshalb bei jedem Schreiben
+    // durchgesetzt werden, nicht bloss angenommen.
+    $s = seite_mit_abschnitten(['header', 'hero', 'footer', 'features']);
+
+    is(['header', 'hero', 'footer', 'features'], reihenfolge($s['seite']),
+        'Der Ausgangsstand ist absichtlich falsch');
+
+    // Irgendein Eingriff genuegt - hier ein neuer Abschnitt.
+    \WebAtze\Domain\Sections::add($s['seite'], 'cta');
+
+    $jetzt = reihenfolge($s['seite']);
+
+    is('header', $jetzt[0], 'Der Kopf steht wieder vorn');
+    is('footer', end($jetzt), 'Und der Fuss hinten');
+    ok(in_array('cta', $jetzt, true), 'Der neue Abschnitt ist da');
+
+    // Und er steht VOR dem Fuss. "Ans Ende" heisst fuer einen Menschen
+    // "unten auf der Seite", nicht "unterhalb der Fusszeile".
+    is('cta', $jetzt[count($jetzt) - 2], 'Und zwar direkt vor dem Fuss');
+});
+
 test('Abschnitte: anlegen, verdoppeln, loeschen', function (): void {
     $s = seite_mit_abschnitten(['header', 'hero', 'footer']);
 
