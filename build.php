@@ -60,6 +60,11 @@ $skipDirs = [
     'storage/documents',
     'storage/briefkopf',
     'storage/cache',
+    // Das installierte Editor-Plugin. Es gehoert der Installation, auf
+    // der es liegt: Ein Paket, das es mitnimmt, wuerde beim naechsten
+    // Aufspielen eine fremde Editorfassung mitbringen - und genau das
+    // soll die Trennung in zwei Pakete ja verhindern.
+    'storage/plugins',
 ];
 
 /** Einzelne Dateien. */
@@ -72,8 +77,18 @@ $skipFiles = [
     'storage/schema-version.txt.lock',
 ];
 
-/** Muster, die nirgends mitkommen. */
+/**
+ * Muster, die nirgends mitkommen.
+ *
+ * Der Editor steht hier, und das ist der Sinn der Sache: Er wird als
+ * eigenes Paket ausgeliefert (webatze-editor-<version>.zip). Damit
+ * braucht ein Editor-Update kein neues Hauptpaket - und, wichtiger, ein
+ * neues Hauptpaket wirft nicht den Editor um, den der Betreiber gerade
+ * installiert hat. Vorher lagen beide im selben Archiv, und jede
+ * Auslieferung war zwangslaeufig eine Auslieferung von beidem.
+ */
 $skipPatterns = [
+    '#^assets/editor-[^/]+\.(js|css)(\.map)?$#',
     '/\.git/',
     '/\.DS_Store$/',
     '/Thumbs\.db$/',
@@ -161,7 +176,14 @@ foreach (dateien($source, $skipDirs, $skipFiles, $skipPatterns) as $absolut => $
 }
 
 // Die leeren Ablageordner müssen mit, sonst fehlen sie auf dem Server.
-foreach (['projects', 'zips', 'previews', 'uploads', 'logs', 'tmp', 'backups', 'documents'] as $ordner) {
+foreach ([
+    'projects', 'zips', 'previews', 'uploads', 'logs', 'tmp', 'backups',
+    'documents', 'cache',
+    // Hier landet das Editor-Plugin. Ohne den Ordner muesste die
+    // Installation ihn selbst anlegen, und das geht auf geteiltem
+    // Hosting nicht immer.
+    'plugins',
+] as $ordner) {
     $zip->addEmptyDir('storage/' . $ordner);
     $zip->addFromString('storage/' . $ordner . '/.gitkeep', '');
     $dateien++;
@@ -288,7 +310,7 @@ for ($i = 0; $i < $prüfung->numFiles; $i++) {
         || str_contains($name, '.sqlite')
         || str_ends_with($name, '.log')
         || (!$istPlatzhalter && preg_match(
-            '#^storage/(projects|zips|previews|uploads|logs|tmp|backups|documents|briefkopf|cache)/#',
+            '#^storage/(projects|zips|previews|uploads|logs|tmp|backups|documents|briefkopf|cache|plugins)/#',
             $name
         ))
         || $name === 'storage/frontend-fix.css'
@@ -325,6 +347,126 @@ if ($fehlend !== [] || $verräterisch !== []) {
 }
 
 // ------------------------------------------------------------------
+// Das Editor-Paket
+// ------------------------------------------------------------------
+
+/**
+ * Der Editor als eigenes, austauschbares Archiv.
+ *
+ * Es enthaelt JavaScript und CSS und sonst nichts - kein PHP, keine
+ * Vorlagen, keine Konfiguration. Der Serverteil des Editors reist im
+ * Hauptpaket; dieses Archiv bringt nur die Oberflaeche.
+ *
+ * Das ist keine Bequemlichkeit, sondern die Grundlage dafuer, das
+ * Hochladen ueberhaupt anbieten zu duerfen: Ein Feld, das
+ * ausfuehrbaren Code entgegennimmt und in den Webserver-Ordner legt,
+ * waere eine Hintertuer mit Formular - auch hinter Anmeldung und
+ * geheimem Pfad. JavaScript und CSS sind es nicht.
+ *
+ * editor.json nennt die Fassung, die noetige Kernfassung und je eine
+ * Pruefsumme. Beim Einspielen wird alles davon geprueft, bevor die
+ * erste Datei geschrieben wird.
+ */
+
+$manifest = json_decode((string) file_get_contents($source . '/assets/manifest.json'), true);
+$manifest = is_array($manifest) ? $manifest : [];
+
+$editorDateien = [];
+$editorSummen = [];
+$editorGroesse = 0;
+
+foreach (['editor.js', 'editor.css'] as $logisch) {
+    $pfad = (string) ($manifest[$logisch] ?? '');
+    $voll = $source . '/assets/' . $pfad;
+
+    if ($pfad === '' || !is_file($voll)) {
+        fwrite(STDERR, "Der Editor fehlt im Build: {$logisch}. Zuerst: cd frontend && npm run build\n");
+        exit(1);
+    }
+
+    $inhalt = (string) file_get_contents($voll);
+
+    $editorDateien[$logisch] = 'assets/' . $pfad;
+    $editorSummen['assets/' . $pfad] = hash('sha256', $inhalt);
+    $editorGroesse += strlen($inhalt);
+}
+
+$editorZiel = $distDir . '/webatze-editor-' . $version . '.zip';
+
+$editorZip = new ZipArchive();
+
+if ($editorZip->open($editorZiel, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+    fwrite(STDERR, "Das Editor-Paket laesst sich nicht anlegen.\n");
+    exit(1);
+}
+
+$editorZip->addFromString('editor.json', json_encode([
+    'name' => 'WebAtze Editor',
+    'version' => $version,
+    // Welche Kernfassung dieses Paket voraussetzt. Der Serverteil
+    // liegt im Hauptpaket - ein Editor, der eine Schnittstelle
+    // braucht, die es dort noch nicht gibt, wird abgewiesen statt
+    // halb installiert und dann stumm.
+    'min_core' => '1.0.0',
+    'files' => $editorDateien,
+    'sha256' => $editorSummen,
+], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+foreach ($editorDateien as $logisch => $imPaket) {
+    $editorZip->addFile($source . '/' . $imPaket, $imPaket);
+
+    // Dasselbe noch einmal unter einem festen Namen fuer die
+    // Kundenbackends. Dort gibt es kein Manifest, das den Pruefwert im
+    // Dateinamen aufloesen koennte - die Datei muss heissen, wie sie
+    // eingebunden wird.
+    $editorZip->addFile(
+        $source . '/' . $imPaket,
+        'kit/' . str_replace('.', '-kit.', $logisch)
+    );
+}
+
+$editorZip->close();
+
+// Nachpruefen: kein PHP, nichts ausserhalb der erlaubten Ordner.
+$editorPruefung = new ZipArchive();
+
+if ($editorPruefung->open($editorZiel) !== true) {
+    fwrite(STDERR, "Das Editor-Paket laesst sich nicht oeffnen.\n");
+    exit(1);
+}
+
+for ($i = 0; $i < $editorPruefung->numFiles; $i++) {
+    $name = (string) $editorPruefung->getNameIndex($i);
+
+    $erlaubt = $name === 'editor.json'
+        || preg_match('#^assets/editor-[A-Za-z0-9_.-]+\.(js|css)$#', $name) === 1
+        || preg_match('#^kit/[A-Za-z0-9_.-]+\.(js|css)$#', $name) === 1;
+
+    if (!$erlaubt) {
+        fwrite(STDERR, "Im Editor-Paket steckt, was nicht hineingehoert: {$name}\n");
+        exit(1);
+    }
+}
+
+$editorPruefung->close();
+
+// Und im Hauptpaket darf der Editor jetzt nicht mehr stecken.
+$ohneEditor = new ZipArchive();
+
+if ($ohneEditor->open($target) === true) {
+    for ($i = 0; $i < $ohneEditor->numFiles; $i++) {
+        $name = (string) $ohneEditor->getNameIndex($i);
+
+        if (preg_match('#^assets/editor-#', $name) === 1) {
+            fwrite(STDERR, "Der Editor steckt noch im Hauptpaket: {$name}\n");
+            exit(1);
+        }
+    }
+
+    $ohneEditor->close();
+}
+
+// ------------------------------------------------------------------
 // Fertig
 // ------------------------------------------------------------------
 
@@ -337,7 +479,12 @@ printf(
     . "  Schon eingerichtet? Dann reicht dieses hier:\n"
     . '  ' . str_replace(dirname(__DIR__) . '/', '', $updateZiel) . "\n"
     . "  Darin ist keine install.php – Konfiguration und Daten bleiben.\n"
-    . '  ' . $updateDateien . " Dateien, " . grösse((int) filesize($updateZiel)) . " gepackt\n\n",
+    . '  ' . $updateDateien . " Dateien, " . grösse((int) filesize($updateZiel)) . " gepackt\n\n"
+    . "  Und der Editor, getrennt davon:\n"
+    . '  ' . str_replace($root . '/', '', $editorZiel) . "\n"
+    . '  ' . grösse((int) filesize($editorZiel)) . " gepackt (" . grösse($editorGroesse) . " ungepackt)\n"
+    . "  Im Backend unter Einstellungen → Editor hochladen. Er bleibt danach\n"
+    . "  liegen, auch wenn das Hauptpaket erneuert wird.\n\n",
     $version,
     str_replace($root . '/', '', $target),
     $dateien,

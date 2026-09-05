@@ -296,6 +296,83 @@ foreach ($diagnostics as $check) {
     </form>
 </section>
 
+<?php
+/**
+ * Der Editor.
+ *
+ * Er kommt seit dieser Fassung als eigenes Paket und nicht mehr im
+ * Hauptpaket. Das heisst zweierlei: Ein Editor-Update braucht kein
+ * neues Hauptpaket, und ein neues Hauptpaket wirft den installierten
+ * Editor nicht um.
+ *
+ * Was hier hochgeladen wird, besteht ausschliesslich aus JavaScript
+ * und CSS – das prüft EditorPlugin, bevor eine einzige Datei
+ * geschrieben wird. Ein Upload-Feld, das PHP annimmt, wäre eine
+ * Hintertür mit Formular.
+ */
+?>
+<section class="wa-panel">
+    <header class="wa-panel__head">
+        <h2 class="wa-panel__title">Editor</h2>
+        <?php if (($editorPlugin ?? null) !== null): ?>
+            <span class="wa-badge wa-badge--ok">
+                Fassung <?= e((string) $editorPlugin['version']) ?>
+            </span>
+        <?php else: ?>
+            <span class="wa-badge wa-badge--warn">nicht installiert</span>
+        <?php endif; ?>
+    </header>
+
+    <?php if (($editorPlugin ?? null) === null): ?>
+        <p class="wa-hint">
+            Ohne Editor lassen sich Websites weiterhin bauen, ausliefern und
+            überwachen &ndash; nur nicht im Browser bearbeiten. Lade
+            <code>webatze-editor-<em>fassung</em>.zip</code> hoch; es bleibt
+            danach liegen, auch über ein neues Hauptpaket hinweg.
+        </p>
+    <?php else: ?>
+        <p class="wa-hint">
+            Installiert am
+            <?= e(date('d.m.Y H:i', strtotime((string) $editorPlugin['installed_at']) ?: time())) ?>.
+            Ein neues Archiv ersetzt diese Fassung; die Websites bleiben davon unberührt.
+            <?php if (!($editorBereit ?? false)): ?>
+                <br><strong>Achtung:</strong> Die Angaben sind da, die Dateien fehlen.
+                Bitte das Archiv erneut hochladen.
+            <?php endif; ?>
+        </p>
+    <?php endif; ?>
+
+    <form method="post" action="<?= e($base) ?>/einstellungen"
+          enctype="multipart/form-data" class="wa-form">
+        <?= Csrf::field() ?>
+        <input type="hidden" name="action" value="editor">
+
+        <div class="wa-field">
+            <label class="wa-label" for="plugin">Editor-Paket (.zip)</label>
+            <input class="wa-input" type="file" id="plugin" name="plugin" accept=".zip,application/zip">
+            <span class="wa-label__hint">
+                Höchstens <?= (int) (\WebAtze\Domain\EditorPlugin::MAX_BYTES / 1024 / 1024) ?>&nbsp;MB.
+                Enthalten sein dürfen nur <code>assets/editor-*.js</code>,
+                <code>assets/editor-*.css</code> und <code>kit/</code> &ndash;
+                alles andere wird abgewiesen, nicht übersprungen.
+            </span>
+        </div>
+
+        <div class="wa-form__actions">
+            <button type="submit" class="wa-btn wa-btn--primary">
+                <?= ($editorPlugin ?? null) === null ? 'Installieren' : 'Ersetzen' ?>
+            </button>
+
+            <?php if (($editorPlugin ?? null) !== null): ?>
+                <button type="submit" name="entfernen" value="editor" class="wa-btn"
+                        data-confirm="Den Editor entfernen? Die Websites bleiben, wie sie sind &ndash; bearbeiten lässt sich danach nichts mehr.">
+                    Entfernen
+                </button>
+            <?php endif; ?>
+        </div>
+    </form>
+</section>
+
 <?php $briefkopf = \WebAtze\Domain\Letterhead::current(); ?>
 
 <section class="wa-panel">

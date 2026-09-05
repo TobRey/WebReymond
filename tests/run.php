@@ -2043,6 +2043,187 @@ test('Der Verbindungstest stuerzt nie ab', function (): void {
 });
 
 // ==================================================================
+test('Das Editor-Plugin nimmt nur an, was hineingehoert', function (): void {
+    // Ein Feld, das ausfuehrbaren Code entgegennimmt und in den
+    // Webserver-Ordner legt, ist eine Hintertuer mit Formular - auch
+    // hinter Anmeldung und geheimem Pfad. Diese Pruefung ist der
+    // Grund, aus dem das Hochladen ueberhaupt angeboten werden darf.
+    if (!class_exists(ZipArchive::class)) {
+        ok(true, 'Ohne ZIP-Erweiterung nicht pruefbar');
+
+        return;
+    }
+
+    $bauen = static function (array $eintraege): string {
+        $pfad = sys_get_temp_dir() . '/wa-plugin-' . bin2hex(random_bytes(6)) . '.zip';
+        $zip = new ZipArchive();
+        $zip->open($pfad, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+
+        foreach ($eintraege as $name => $inhalt) {
+            $zip->addFromString((string) $name, (string) $inhalt);
+        }
+
+        $zip->close();
+
+        return $pfad;
+    };
+
+    $js = "console.log('editor');";
+    $css = '.wa-editor{color:red}';
+
+    $gutesManifest = static fn (array $ueberschreiben = []): string => (string) json_encode(array_merge([
+        'name' => 'Testeditor',
+        'version' => '1.0.0',
+        'min_core' => '1.0.0',
+        'files' => ['editor.js' => 'assets/editor-abc.js', 'editor.css' => 'assets/editor-abc.css'],
+        'sha256' => [
+            'assets/editor-abc.js' => hash('sha256', $js),
+            'assets/editor-abc.css' => hash('sha256', $css),
+        ],
+    ], $ueberschreiben));
+
+    // --- Was abgewiesen werden muss ---------------------------------
+
+    $faelle = [
+        'PHP im Archiv' => [
+            'editor.json' => $gutesManifest(),
+            'assets/editor-abc.js' => $js,
+            'assets/editor-abc.css' => $css,
+            'assets/schadcode.php' => '<?php system($_GET["c"]);',
+        ],
+        'PHP unter falschem Namen' => [
+            'editor.json' => $gutesManifest(),
+            'assets/editor-abc.js' => $js,
+            'assets/editor-abc.css' => $css,
+            'kit/hinterhalt.phtml' => '<?php echo 1;',
+        ],
+        'Pfadausbruch' => [
+            'editor.json' => $gutesManifest(),
+            'assets/editor-abc.js' => $js,
+            'assets/editor-abc.css' => $css,
+            '../../app/config.php' => 'weg damit',
+        ],
+        'Absoluter Pfad' => [
+            'editor.json' => $gutesManifest(),
+            'assets/editor-abc.js' => $js,
+            'assets/editor-abc.css' => $css,
+            '/etc/cron.d/boese' => '* * * * * root sh',
+        ],
+        'htaccess' => [
+            'editor.json' => $gutesManifest(),
+            'assets/editor-abc.js' => $js,
+            'assets/editor-abc.css' => $css,
+            'assets/.htaccess' => 'AddType application/x-httpd-php .js',
+        ],
+        'Falsche Pruefsumme' => [
+            'editor.json' => $gutesManifest(),
+            'assets/editor-abc.js' => $js . ' /* untergeschoben */',
+            'assets/editor-abc.css' => $css,
+        ],
+        'Ohne editor.json' => [
+            'assets/editor-abc.js' => $js,
+            'assets/editor-abc.css' => $css,
+        ],
+        'Ohne Version' => [
+            'editor.json' => $gutesManifest(['version' => '']),
+            'assets/editor-abc.js' => $js,
+            'assets/editor-abc.css' => $css,
+        ],
+        'Braucht einen neueren Kern' => [
+            'editor.json' => $gutesManifest(['min_core' => '99.0.0']),
+            'assets/editor-abc.js' => $js,
+            'assets/editor-abc.css' => $css,
+        ],
+        'Datei fehlt' => [
+            'editor.json' => $gutesManifest(),
+            'assets/editor-abc.css' => $css,
+        ],
+    ];
+
+    foreach ($faelle as $was => $eintraege) {
+        $pfad = $bauen($eintraege);
+        $ergebnis = \WebAtze\Domain\EditorPlugin::install($pfad);
+
+        is(false, $ergebnis['ok'], $was . ': abgewiesen');
+        ok($ergebnis['message'] !== '', $was . ': und mit Begruendung');
+
+        @unlink($pfad);
+    }
+
+    // Und nichts davon darf etwas geschrieben haben.
+    ok(!is_file(BASE_DIR . '/assets/schadcode.php'), 'Kein PHP im Assets-Ordner');
+    ok(!is_file(BASE_DIR . '/assets/.htaccess'), 'Keine .htaccess im Assets-Ordner');
+    ok(\WebAtze\Domain\EditorPlugin::installiert() === null,
+        'Nach lauter Fehlschlaegen ist nichts installiert');
+
+    // --- Und was durchkommen muss -----------------------------------
+
+    $pfad = $bauen([
+        'editor.json' => $gutesManifest(),
+        'assets/editor-abc.js' => $js,
+        'assets/editor-abc.css' => $css,
+        'kit/editor-kit.js' => $js,
+    ]);
+
+    $ergebnis = \WebAtze\Domain\EditorPlugin::install($pfad);
+    @unlink($pfad);
+
+    is(true, $ergebnis['ok'], 'Ein sauberes Paket kommt durch: ' . $ergebnis['message']);
+    is('1.0.0', $ergebnis['version'], 'Mit seiner Fassung');
+
+    $stand = \WebAtze\Domain\EditorPlugin::installiert();
+
+    ok($stand !== null, 'Und ist danach installiert');
+    is('1.0.0', $stand['version'] ?? '', 'Die Fassung steht fest');
+
+    // Der Editor muss jetzt auch auffindbar sein - genau das war
+    // vorher der stille Fehler: Angaben da, Datei weg, zwei 404er.
+    ok(\WebAtze\Domain\EditorPlugin::bereit(), 'Und auffindbar');
+    is('/assets/editor-abc.js', \WebAtze\Core\Assets::url('editor.js'),
+        'Die Ueberlagerung gewinnt gegen das Hauptmanifest');
+
+    // Die Kit-Datei liegt bereit fuer Kundenbackends.
+    ok(array_key_exists('editor-kit.js', \WebAtze\Domain\EditorPlugin::kitFiles()),
+        'Und das Kundenbackend bekommt seine Fassung');
+
+    // --- Austauschen -------------------------------------------------
+
+    $js2 = "console.log('editor 2');";
+
+    $pfad = $bauen([
+        'editor.json' => (string) json_encode([
+            'name' => 'Testeditor',
+            'version' => '1.1.0',
+            'min_core' => '1.0.0',
+            'files' => ['editor.js' => 'assets/editor-xyz.js', 'editor.css' => 'assets/editor-xyz.css'],
+            'sha256' => [
+                'assets/editor-xyz.js' => hash('sha256', $js2),
+                'assets/editor-xyz.css' => hash('sha256', $css),
+            ],
+        ]),
+        'assets/editor-xyz.js' => $js2,
+        'assets/editor-xyz.css' => $css,
+    ]);
+
+    $ergebnis = \WebAtze\Domain\EditorPlugin::install($pfad);
+    @unlink($pfad);
+
+    is(true, $ergebnis['ok'], 'Eine neue Fassung ersetzt die alte');
+    is('/assets/editor-xyz.js', \WebAtze\Core\Assets::url('editor.js'), 'Und wird ausgeliefert');
+
+    // Die alte Fassung darf nicht liegen bleiben - die Namen tragen
+    // einen Pruefwert, also hiesse jede Fassung anders und alle
+    // blieben.
+    ok(!is_file(BASE_DIR . '/assets/editor-abc.js'), 'Die alte Fassung ist weg');
+
+    // --- Entfernen ---------------------------------------------------
+
+    ok(\WebAtze\Domain\EditorPlugin::remove(), 'Es laesst sich wieder entfernen');
+    ok(!is_file(BASE_DIR . '/assets/editor-xyz.js'), 'Und nimmt seine Dateien mit');
+    ok(\WebAtze\Domain\EditorPlugin::installiert() === null, 'Danach ist keines installiert');
+});
+
+// ==================================================================
 test('Sechs Menuepunkte, und nichts wird unerreichbar', function (): void {
     // Zweiundzwanzig Eintraege sind keine Navigation mehr, sondern eine
     // Suchaufgabe. Sechs sind es - aber nur, solange alles Uebrige

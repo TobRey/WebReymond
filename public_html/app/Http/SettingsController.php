@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Http;
 
 use WebAtze\Ai\ClaudeClient;
-use WebAtze\Domain\Letterhead;
+use WebAtze\Domain\{EditorPlugin, Letterhead};
 use WebAtze\Core\{Audit, Config, Crypto, Db, Request, Response, SecondFactor,
     Session, Settings, Totp, Validator, View};
 
@@ -25,6 +25,8 @@ final class SettingsController
                 'imprintComplete' => Settings::imprintComplete(),
                 'twoFactor' => self::twoFactorState(),
                 'cronHint' => self::cronLine(),
+                'editorPlugin' => EditorPlugin::installiert(),
+                'editorBereit' => EditorPlugin::bereit(),
                 'diagnostics' => self::diagnostics([
                     'actual' => ($request->isSecure() ? 'https://' : 'http://') . $request->host(),
                 ]),
@@ -40,6 +42,13 @@ final class SettingsController
         // nicht nur Textfelder.
         if ($action === 'briefkopf') {
             return $this->saveLetterhead($request);
+        }
+
+        // Der Editor. Eigenes Paket, eigener Zweig: Hier kommt ein
+        // Archiv an, und was damit geschieht, gehört nicht zwischen
+        // Kontaktangaben und Impressum.
+        if ($action === 'editor') {
+            return $this->saveEditorPlugin($request);
         }
 
         // Eine Kennung ausprobieren, ohne sie zu speichern und ohne einen
@@ -489,6 +498,81 @@ final class SettingsController
 
         return $checks;
     }
+    /**
+     * Das Editor-Plugin einspielen oder entfernen.
+     *
+     * Der Editor kommt seit dieser Fassung als eigenes Paket: Das
+     * Hauptpaket bringt ihn nicht mehr mit, dafür überlebt ein einmal
+     * installierter Editor jedes Hauptpaket.
+     *
+     * Alles, was geprüft wird, prüft EditorPlugin – hier steht nur der
+     * Weg dorthin. Insbesondere: Das Archiv darf kein PHP enthalten.
+     * Ein Upload-Feld, das ausführbaren Code in den Webserver-Ordner
+     * legt, wäre eine Hintertür mit Formular, auch hinter Anmeldung
+     * und geheimem Pfad.
+     */
+    private function saveEditorPlugin(Request $request): Response
+    {
+        if ($request->input('entfernen') === 'editor') {
+            $weg = EditorPlugin::remove();
+
+            Session::flash(
+                $weg ? 'success' : 'warning',
+                $weg
+                    ? 'Editor entfernt. Die Seiten bleiben, wie sie sind – nur bearbeiten '
+                        . 'lässt sich nichts mehr, bis wieder eines installiert ist.'
+                    : 'Es war keines installiert.'
+            );
+
+            return $this->back();
+        }
+
+        $datei = $request->file('plugin');
+
+        if ($datei === null) {
+            Session::flash('error', 'Es ist keine Datei angekommen.');
+
+            return $this->back();
+        }
+
+        if ((int) ($datei['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+            Session::flash('error', self::uploadFehler((int) $datei['error']));
+
+            return $this->back();
+        }
+
+        $tmp = (string) ($datei['tmp_name'] ?? '');
+
+        // is_uploaded_file und nicht bloss is_file: Ohne diese Prüfung
+        // liesse sich über den Namen jede Datei auf dem Server als
+        // Archiv ausgeben.
+        if ($tmp === '' || !is_uploaded_file($tmp)) {
+            Session::flash('error', 'Diese Datei kam nicht über das Formular. Abgelehnt.');
+
+            return $this->back();
+        }
+
+        $ergebnis = EditorPlugin::install($tmp);
+
+        Session::flash($ergebnis['ok'] ? 'success' : 'error', $ergebnis['message']);
+
+        return $this->back();
+    }
+
+    /** Was PHP zum fehlgeschlagenen Upload sagt, auf Deutsch. */
+    private static function uploadFehler(int $code): string
+    {
+        return match ($code) {
+            UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE =>
+                'Die Datei ist grösser, als dieser Server annimmt (upload_max_filesize).',
+            UPLOAD_ERR_PARTIAL => 'Die Übertragung ist abgebrochen. Nochmal versuchen.',
+            UPLOAD_ERR_NO_FILE => 'Es war keine Datei ausgewählt.',
+            UPLOAD_ERR_NO_TMP_DIR, UPLOAD_ERR_CANT_WRITE =>
+                'Der Server kann die Datei nicht zwischenspeichern. Das ist ein Serverproblem, kein Dateiproblem.',
+            default => 'Die Datei ist nicht angekommen.',
+        };
+    }
+
     /**
      * Briefkopf: Word-Vorlage, Logo, Absenderzeilen.
      *

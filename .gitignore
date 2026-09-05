@@ -18,6 +18,9 @@ public_html/storage/tmp/*
 public_html/storage/documents/*
 public_html/storage/backups/*
 public_html/storage/fonts/*
+# Das installierte Editor-Plugin gehoert der Installation, nicht dem
+# Repository - und erst recht nicht dem Auslieferungspaket.
+public_html/storage/plugins/*
 
 # Die Regelebene der Frontend-Fixes. Sie entsteht aus der Datenbank neu,
 # sobald sie fehlt - im Repository haette sie den Stand eines fremden

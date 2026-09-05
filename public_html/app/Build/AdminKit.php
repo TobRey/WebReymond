@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Build;
 
 use WebAtze\Core\{Config, Db, Logger};
+use WebAtze\Domain\EditorPlugin;
 
 /**
  * Liefert den Bearbeitungsbereich beim Kunden mit.
@@ -101,6 +102,32 @@ final class AdminKit
         // erneutes Bauen nicht zurücksetzen.
         if (!is_file($dataDir . '/admin.php')) {
             write_file_atomic($dataDir . '/admin.php', self::adminConfig($project));
+            $files++;
+        }
+
+        // --- Der Editor ---------------------------------------------------
+        //
+        // Hier fehlte er bisher: Der Serverteil (engine/, editor.php)
+        // wurde mitkopiert, das JavaScript und das CSS nicht. Ein
+        // Kundenbackend bekam also die Hälfte eines Editors und schwieg
+        // dazu - die Oberfläche war da, sie tat nur nichts.
+        //
+        // Die Dateien kommen aus dem Editor-Plugin. Ist keines
+        // installiert, wird das gesagt und nicht stillschweigend die
+        // halbe Installation ausgeliefert.
+        $editor = EditorPlugin::kitFiles();
+
+        if ($editor === []) {
+            Logger::warning(
+                'Kein Editor-Plugin installiert - das Kundenbackend bekommt keinen Editor.',
+                ['projekt' => (string) ($project['slug'] ?? '')]
+            );
+        }
+
+        foreach ($editor as $name => $quelle) {
+            $ziel = $adminDir . '/assets/' . $name;
+            ensure_dir(dirname($ziel));
+            write_file_atomic($ziel, (string) file_get_contents($quelle));
             $files++;
         }
 

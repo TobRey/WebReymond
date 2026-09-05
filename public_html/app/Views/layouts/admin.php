@@ -142,11 +142,15 @@ foreach ($unterNav as $wurzel => $eintraege) {
     /**
      * Der Editor ist ein eigenes Bündel und wird nur dort geladen, wo er
      * gebraucht wird. Er ist das grösste Stück JavaScript im
-     * Adminbereich, und neunzehn von zwanzig Menüpunkten brauchen ihn
-     * nicht.
+     * Adminbereich, und die wenigsten Seiten brauchen ihn.
+     *
+     * Seit er als eigenes Paket ausgeliefert wird, kann er auch fehlen.
+     * Vorher hätte das zwei stille 404er ergeben – die Seite lädt,
+     * nichts funktioniert, und niemand erfährt warum. Deshalb wird
+     * vorher nachgesehen, und wo er fehlt, steht es da.
      */
     ?>
-    <?php if (($bodyClass ?? '') === 'wa-admin--editor'): ?>
+    <?php if (($bodyClass ?? '') === 'wa-admin--editor' && Assets::exists('editor.js')): ?>
         <link rel="stylesheet" href="<?= e(Assets::url('editor.css')) ?>">
         <script type="module" src="<?= e(Assets::url('editor.js')) ?>" defer></script>
     <?php endif; ?>
@@ -242,6 +246,18 @@ foreach ($unterNav as $wurzel => $eintraege) {
     <?php endif; ?>
 
     <main id="admin-inhalt" class="wa-admin__content">
+        <?php if (($bodyClass ?? '') === 'wa-admin--editor' && !Assets::exists('editor.js')): ?>
+            <div class="wa-note wa-note--warning" role="status">
+                <div>
+                    <strong>Der Editor ist nicht installiert.</strong>
+                    Er kommt als eigenes Paket, damit ein Editor-Update kein neues
+                    Hauptpaket braucht &ndash; und ein neues Hauptpaket nicht den
+                    Editor umwirft.
+                    <a href="<?= e($base) ?>/einstellungen#editor">Jetzt hochladen</a>.
+                </div>
+            </div>
+        <?php endif; ?>
+
         <?php foreach ($flash as $message): ?>
             <div class="wa-note wa-note--<?= e($message['type'] === 'error' ? 'danger' : $message['type']) ?>" role="status">
                 <div><?= e($message['message']) ?></div>
