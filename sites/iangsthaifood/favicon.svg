@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Iang's Thai Food">
+  <rect width="64" height="64" rx="14" fill="#0a0a1f"/>
+  <path d="M14 30h36a18 18 0 0 1-18 18 18 18 0 0 1-18-18z" fill="#93c8c8"/>
+  <rect x="10" y="50" width="44" height="4" rx="2" fill="#2b5b9e"/>
+  <path d="M26 22c0-4 4-4 4-8" stroke="#93c8c8" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.75"/>
+  <path d="M36 22c0-4 4-4 4-8" stroke="#2b5b9e" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.9"/>
+</svg>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" width="1200" height="900" role="img" aria-label="Platzhalter: Foto des Take Away">
+  <rect width="1200" height="900" fill="#f1f4f9"/>
+  <rect x="16" y="16" width="1168" height="868" fill="none" stroke="#2b5b9e" stroke-opacity="0.35"
+        stroke-width="3" stroke-dasharray="14 12" rx="18"/>
+  <g transform="translate(600 414)" fill="none" stroke="#2b5b9e" stroke-opacity="0.5" stroke-width="7"
+     stroke-linecap="round">
+    <path d="M-95 10h190a95 95 0 0 1-190 0z"/>
+    <path d="M-120 10h240"/>
+    <path d="M-40 -40c0-24 22-24 22-46"/>
+    <path d="M18 -40c0-24 22-24 22-46"/>
+  </g>
+  <text x="600" y="702" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif"
+        font-size="34" fill="#55566e">Platzhalter: Foto des Take Away</text>
+</svg>

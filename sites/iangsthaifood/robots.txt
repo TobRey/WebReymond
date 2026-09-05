@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /data/
+Disallow: /inc/
+
+Sitemap: https://iangsthaifood.com/sitemap.xml

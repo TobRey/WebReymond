@@ -1,0 +1,6 @@
+# Laufzeitdaten. Entstehen erst auf dem Server und gehören nicht ins Repository.
+data/stats/*.json
+data/stats/bericht-*.txt
+data/support/*.json
+data/anfragen/*.json
+data/anfragen/*.txt
