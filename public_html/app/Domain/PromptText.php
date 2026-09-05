@@ -52,6 +52,7 @@ final class PromptText
             self::gestaltung($brief),
             self::umfang($brief),
             self::technik($brief),
+            self::bearbeitbar(),
             self::betreuung($brief, $anschluss),
             self::zusatz($brief),
             self::regeln($brief),
@@ -59,6 +60,84 @@ final class PromptText
         ];
 
         return implode("\n\n", array_filter($teile, static fn (string $t): bool => trim($t) !== ''));
+    }
+
+    /**
+     * Was die Website bearbeitbar macht.
+     *
+     * Der Editor kennt keine Website. Er kennt Abschnitte, die sich zu
+     * erkennen geben, und Werte, die aus einer Variablen kommen. Alles
+     * andere kann er nicht anfassen - nicht aus Bosheit, sondern weil er
+     * es nicht findet.
+     *
+     * Deshalb steht dieser Block in jedem Auftrag, auch in einem, der
+     * von Hand irgendwo eingefügt wird. Ohne ihn entsteht eine Website,
+     * die gut aussieht und sich nicht bearbeiten lässt - und das merkt
+     * man erst, wenn man es versucht.
+     *
+     * "Neue Website erstellen" ist damit kein Bauauftrag mehr, sondern
+     * ein Themengenerator: Der Aufbau liegt fest, erzeugt werden Farben,
+     * Schriften, Inhalte und die Wahl der Varianten.
+     */
+    private static function bearbeitbar(): string
+    {
+        return <<<'TEXT'
+BEARBEITBARKEIT (nicht verhandelbar)
+====================================
+Diese Website wird später in einem Editor bearbeitet. Damit das geht,
+gelten drei Regeln. Sie kosten nichts und sind später nicht nachtragbar.
+
+1. JEDER ABSCHNITT GIBT SICH ZU ERKENNEN
+
+   Jeder eigenständige Bereich der Seite ist ein <section> (Kopf ein
+   <header>, Fuss ein <footer>) mit zwei Angaben:
+
+       <section class="s-leistungen ..." id="leistungen"
+                data-section="services" data-section-id="3">
+
+   data-section    = die Art des Abschnitts: hero, features, services,
+                     about, gallery, testimonials, team, process, stats,
+                     logos, faq, cta, contact, text, header, footer
+   data-section-id = eine Zahl, auf der ganzen Website eindeutig,
+                     fortlaufend ab 1
+
+   Ohne diese beiden Angaben ist ein Abschnitt für den Editor nicht
+   vorhanden.
+
+2. WAS SICH WIEDERHOLT, STEHT IN EINEM BEHÄLTER MIT DER KLASSE s-items
+
+   Karten, Leistungen, Teammitglieder, Fragen, Logos: Der umgebende
+   Behälter bekommt die Klasse s-items, jedes Kind ist ein direktes Kind
+   davon. Nur so lassen sich Einträge einzeln umordnen statt nur der
+   ganze Abschnitt.
+
+3. JEDE FARBE, SCHRIFT UND GRÖSSE KOMMT AUS EINER VARIABLEN
+
+   Ganz oben im Stylesheet steht ein :root-Block mit allen Werten.
+   Danach kommt im ganzen Dokument kein einziger fester Farbwert mehr
+   vor - kein #hex, kein rgb(), kein Farbname.
+
+       :root {
+         --c-primary: #2b1b9e;
+         --c-secondary: #17c8c8;
+         --c-bg: #ffffff;
+         --c-text: #16172a;
+         --c-text-muted: #55566e;
+         --c-surface: #ffffff;
+         --c-border: rgb(0 0 0 / 0.1);
+         --c-radius: 0.75rem;
+         --c-font-display: "...", system-ui, sans-serif;
+         --c-font-body: "...", system-ui, sans-serif;
+       }
+
+   Wer die Farben der Website ändern will, ändert diesen einen Block -
+   und der Rest zieht nach. Steht irgendwo sonst noch ein Farbwert,
+   stimmt danach genau diese eine Stelle nicht mehr, und niemand findet
+   sie.
+
+Prüfe am Ende selbst: Suche im fertigen Stylesheet nach "#" und "rgb(".
+Was ausserhalb des :root-Blocks steht, gehört hineingezogen.
+TEXT;
     }
 
     /**

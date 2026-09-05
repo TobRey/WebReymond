@@ -5035,6 +5035,29 @@ test('Entwurf und Veroeffentlicht sind zwei Staende', function (): void {
     ok(count($fassungen) >= 2, 'Auch der verworfene Stand liegt noch da');
 });
 
+test('Auftragstext: jede Website kommt bearbeitbar auf die Welt', function (): void {
+    // "Neue Website erstellen" ist ein Themengenerator: Der Aufbau liegt
+    // fest, erzeugt werden Farben, Schriften, Inhalte und Varianten.
+    // Faellt dieser Block weg, entsteht eine Website, die gut aussieht
+    // und sich nicht bearbeiten laesst - und das merkt man erst, wenn
+    // man es versucht.
+    $text = \WebAtze\Domain\PromptText::build(['company' => 'Muster AG']);
+
+    ok(str_contains($text, 'data-section-id'), 'Jeder Abschnitt gibt sich zu erkennen');
+    ok(str_contains($text, 's-items'), 'Wiederholtes steht in einem Behaelter');
+    ok(str_contains($text, '--c-primary'), 'Farben kommen aus Variablen');
+
+    // Auch ohne jede Angabe im Formular. Der Block haengt an nichts, was
+    // jemand vergessen koennte.
+    $nackt = \WebAtze\Domain\PromptText::build([]);
+    ok(str_contains($nackt, 'BEARBEITBARKEIT'), 'Und zwar in jedem Auftrag');
+
+    // Und er verraet nicht, was darunter arbeitet.
+    foreach (['Claude', 'Anthropic', 'KI-', 'GPT'] as $wort) {
+        ok(!str_contains($text, $wort), 'Kein Hinweis auf "' . $wort . '"');
+    }
+});
+
 // ==================================================================
 // Die Bruecke
 //

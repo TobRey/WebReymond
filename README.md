@@ -234,6 +234,106 @@ Eine hinzugefügte Website wird genauso einem Kunden zugeordnet,
 Beim Eintragen lässt sich die Erreichbarkeitsüberwachung gleich
 mitanschalten; sie erscheint dann im Wartungscenter.
 
+### Der Editor
+
+Ein Werkzeug, drei Orte: bei WebAtze fuer jede Kundenwebsite, im
+Bearbeitungsbereich beim Kunden, und - als naechster Schritt - auf der
+eigenen Website. Dasselbe Buendel, dieselben Adressen, dieselben
+Antworten.
+
+**Ziehen.** Abschnitte am Griff anfassen, die moeglichen Plaetze werden
+als Linien gezeigt, ablegen setzt sie dorthin. Dasselbe fuer die Listen
+darin: Karten, Punkte, Bilder, Teammitglieder, Fragen. Kopf und Fuss
+bleiben, wo sie sind.
+
+**Auf dem Handy** dieselbe Oberflaeche. Die Maus zieht ab fuenf Pixeln,
+der Finger erst nach 250 Millisekunden Halten - ohne diese Wartezeit
+waere jede Wischbewegung ein Zug und der Editor dort unbenutzbar. Wer
+nicht ziehen mag, tippt *Verschieben* an und dann den Platz. Am Rand
+rollt die Seite von selbst weiter.
+
+**Ohne Neuladen.** Der Server liefert den einen geaenderten Abschnitt als
+HTML zurueck, der Editor tauscht genau dieses Element aus. Bildlauf,
+Auswahl und Verlauf bleiben stehen.
+
+**Desktop, Tablet, Handy** machen den Rahmen wirklich schmaler, sodass
+die Umbruchregeln der Seite ausloesen. Was man sieht, ist, was der
+Besucher sieht - nachgemessen am tatsaechlich wirksamen Raster: drei
+Spalten, zwei, eine.
+
+**Ein Promptfeld je Abschnitt und je Seite.** Erst wird gespeichert, was
+von Hand geaendert wurde, dann laeuft die Anweisung; andersherum
+arbeitete sie auf einem Stand, den es nicht mehr gibt. Der
+Abschnitts-Prompt darf nur diesen einen Abschnitt aendern, der
+Seiten-Prompt zusaetzlich Abschnitte anlegen, loeschen und umordnen - und
+zwar ueber einen Plan aus Schritten, die es im Editor auch von Hand gibt.
+Eine Antwort, die die ganze Seite auf einmal zurueckgaebe, schriebe bei
+jedem Versuch auch die Abschnitte neu, die niemand angefasst haben
+wollte.
+
+Hintergrund, Bewegung und Parallaxe kommen aus einem festen Wortschatz
+statt als freier Code. Neun Hintergrundarten mal drei Toene mal drei
+Staerken sind 81 Hintergruende, dazu sechs Bewegungen und vier
+Parallaxenstufen. Was fehlt, wird eine neue geprueft Zeile - und gilt
+dann fuer jede Website. Freies CSS aus einem Sprachmodell kann eine Seite
+zerlegen, und niemand merkt es, bis ein Kunde anruft.
+
+**Der freie Abschnitt.** Eine leere Flaeche mit acht Bausteinen:
+Ueberschrift, Text, Bild, Schaltflaeche, Symbol, Abstand, Trennlinie,
+Spalten. Spalten sind der einzige Baustein, der andere aufnimmt, und nur
+eine Ebene tief - Spalten in Spalten in Spalten sind auf einem Telefon
+nicht mehr aufzuloesen, und was sich nicht aufloest, wird dort zu einer
+Textwurst. Eine Ebene loest sich immer auf: Sie rutscht untereinander.
+
+**Entwurf und Veroeffentlichen.** Gearbeitet wird am Entwurf; erst ein
+Knopf schiebt ihn live. Jeder veroeffentlichte Stand bleibt als Fassung
+liegen, *Entwurf verwerfen* holt den letzten zurueck.
+
+### Die Bruecke: auf der Kundendomain veroeffentlichen
+
+Eine Kundenwebsite live von hier aus fernzusteuern geht nicht, und zwar
+grundsaetzlich nicht: Sie sendet `X-Frame-Options: SAMEORIGIN`, und
+JavaScript darf ueber eine fremde Domain hinweg den Inhalt eines Rahmens
+weder lesen noch veraendern. Das ist eine Grundregel des Browsers, keine
+Einstellung.
+
+Deshalb wird die **Kopie auf dem eigenen Server** bearbeitet - gleiche
+Herkunft, also faellt beides weg - und ueber die **Bruecke**
+veroeffentlicht: eine kleine Datei auf dem Kundenserver, die den neuen
+Stand entgegennimmt und die Seite dort neu schreibt. Rund eine Sekunde.
+
+Sie ist die einzige Stelle, an der ein anderer Server dort schreiben
+darf, und entsprechend abgesichert:
+
+* **Unterschrift statt Kennwort.** HMAC-SHA256 ueber Methode, Pfad,
+  Zeitstempel, Einmalwert und den vollstaendigen Rumpf. Der Schluessel
+  steht auf beiden Servern und geht nie ueber die Leitung.
+* **Zeitfenster von zwei Minuten** und ein vermerkter Einmalwert. Eine
+  mitgeschnittene Anfrage ist damit entweder zu alt oder war schon da.
+* **Nur Daten, nie Code.** Was ankommt, geht durch dieselbe Pruefung wie
+  eine Eingabe im Kundenbackend; gerendert wird mit dem Vorlagenwerk,
+  das dort ohnehin liegt. Selbst eine gefaelschte Anfrage koennte kein
+  PHP auf den Kundenserver bringen.
+* **Abschaltbar.** `bridge_secret` in `data/config.php` leeren genuegt.
+  Es ist die Website des Kunden.
+
+Fehlt die Bruecke - eine fremde Seite, ein Kunde ohne Backend -, geht es
+ueber FTP. Langsamer, aber ueberall dort moeglich, wo Zugangsdaten
+hinterlegt sind.
+
+### Die CSS-Notfallebene
+
+Sie hiess einmal *Frontend-Fix* und hatte einen eigenen Menuepunkt. Der
+ist weg: Was sie leistete, leistet jetzt der Editor, und zwar besser - er
+zeigt, was er aendert, statt es zu beschreiben.
+
+Geblieben ist sie, weil sie der einzige Weg ist, das Aussehen der eigenen
+Website zu aendern, **ohne etwas auszuliefern**. Wenn nach einer
+Aktualisierung etwas verrutscht ist und niemand gerade ein ZIP hochladen
+kann, ist das der Rettungsweg. Einen Rettungsweg abzubauen, weil er
+selten benutzt wird, waere ein Fehler. Erreichbar bleibt sie ueber ihre
+Adresse `/create/frontend-fix`.
+
 ### Frontend-Fix: die eigene Website per Textbefehl
 
 Unter *Frontend-Fix* steht ein Textfeld. «Mach die Section Leistungen mit
@@ -355,7 +455,7 @@ php -S 127.0.0.1:8080 -t public_html public_html/index.php
 
 | Befehl | Wofür |
 |---|---|
-| `php tests/run.php` | der Testlauf (1792 Prüfungen) |
+| `php tests/run.php` | der Testlauf (1877 Prüfungen) |
 | `php tests/run.php --seiten-festhalten` | den Aufbau der eigenen Seiten neu festhalten |
 | `php tools/probelauf/durchlauf.php` | eine ganze Website bauen, vom Formular bis zum Paket |
 | `php build.php` | beide ZIPs erzeugen (voll und nur zum Aktualisieren) |

@@ -8,6 +8,23 @@ use WebAtze\Ai\ClaudeClient;
 use WebAtze\Core\{Config, Db, Logger};
 
 /**
+ * Die CSS-Notfallebene für die eigene Website.
+ *
+ * Sie hiess einmal "Frontend Fix" und hatte einen eigenen Menüpunkt.
+ * Der ist weg: Was sie leistete, leistet jetzt der Editor, und zwar
+ * besser - er zeigt, was er ändert, statt es zu beschreiben.
+ *
+ * Geblieben ist sie trotzdem, und aus einem Grund, der nicht sofort
+ * einleuchtet: Sie ist der einzige Weg, das Aussehen der eigenen
+ * Website zu ändern, OHNE etwas auszuliefern. Wenn nach einer
+ * Aktualisierung etwas verrutscht ist und niemand gerade ein ZIP
+ * hochladen kann, ist das der Rettungsweg. Ein Rettungsweg, den man
+ * abbaut, weil er selten benutzt wird, ist keiner.
+ *
+ * Erreichbar bleibt sie über ihre Adresse; im Menü steht sie nicht mehr,
+ * weil sie kein Werkzeug für den Alltag ist.
+ *
+ * Ursprüngliche Beschreibung:
  * Die eigene Website per Textbefehl anpassen.
  *
  * «Mach die Section Leistungen mit einem anderen Hintergrund» – der Satz

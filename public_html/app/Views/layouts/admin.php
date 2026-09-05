@@ -46,7 +46,6 @@ $nav = [
     ['/referenzen', 'Referenzen', 'star'],
     ['/zahlen', 'Besucher', 'chart'],
     ['/kosten', 'Kosten', 'coins'],
-    ['/frontend-fix', 'Frontend-Fix', 'wand'],
     ['/intranet', 'Intranet', 'note'],
     ['/protokoll', 'Protokoll', 'list'],
     ['/einstellungen', 'Einstellungen', 'gear'],

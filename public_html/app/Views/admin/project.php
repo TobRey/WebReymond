@@ -54,8 +54,11 @@ $latestBuild = $builds[0] ?? null;
         </span>
     </div>
     <div class="wa-page-head__actions">
+        <a class="wa-btn wa-btn--primary wa-btn--sm"
+           href="<?= e($base) ?>/editor/<?= $id ?>">Editor öffnen</a>
+
         <?php if ($previewUrl !== ''): ?>
-            <a class="wa-btn wa-btn--primary wa-btn--sm" href="<?= e($previewUrl) ?>" target="_blank" rel="noopener">
+            <a class="wa-btn wa-btn--sm" href="<?= e($previewUrl) ?>" target="_blank" rel="noopener">
                 Vorschau öffnen
             </a>
         <?php endif; ?>
