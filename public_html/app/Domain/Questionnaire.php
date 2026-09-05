@@ -154,10 +154,22 @@ final class Questionnaire
     /**
      * Einen neuen Fragebogen anlegen.
      *
+     * Der Kunde ist freiwillig, und das ist der Punkt: Ein Fragebogen
+     * geht meistens an jemanden, der noch keiner ist – deshalb steht
+     * hier eine Firma und keine Kundennummer. Ist es aber ein
+     * bestehender Kunde, gehört der Fragebogen auf seine Seite, und
+     * ohne diese Angabe käme er dort nie an: `questionnaires.project_id`
+     * wird nirgends gesetzt, es gibt also nichts, woraus sich der Kunde
+     * später ableiten liesse.
+     *
      * @return array{id:int, token:string}
      */
-    public static function create(string $company, string $email, string $note = ''): array
-    {
+    public static function create(
+        string $company,
+        string $email,
+        string $note = '',
+        int $customerId = 0
+    ): array {
         $token = random_token(24);
 
         $id = Db::insert('questionnaires', [
@@ -165,6 +177,7 @@ final class Questionnaire
             'company' => mb_substr(trim($company), 0, 190),
             'email' => mb_substr(trim($email), 0, 190),
             'note' => mb_substr(trim($note), 0, 490),
+            'customer_id' => $customerId > 0 ? $customerId : null,
             'status' => 'open',
             'expires_at' => date('Y-m-d H:i:s', time() + self::DAYS * 86400),
             'created_at' => Db::now(),

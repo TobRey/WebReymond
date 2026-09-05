@@ -53,6 +53,27 @@ $zustand = [
             <input class="wa-input" type="text" id="q-note" name="note" maxlength="490"
                    placeholder="Über Peter kennengelernt, will es bis Ende Monat">
         </div>
+        <?php
+        /**
+         * Der Kunde ist freiwillig – und meistens gibt es noch keinen.
+         * Ist es aber ein bestehender, gehört der Fragebogen auf seine
+         * Seite, und nur diese Angabe bringt ihn dorthin: Ein
+         * Fragebogen hat kein Projekt, aus dem sich der Kunde später
+         * ableiten liesse.
+         */
+        ?>
+        <div class="wa-field">
+            <label class="wa-label" for="q-kunde">Bestehender Kunde</label>
+            <select class="wa-select" id="q-kunde" name="customer_id">
+                <option value="0">— noch keiner —</option>
+                <?php foreach (($kunden ?? []) as $k): ?>
+                    <option value="<?= (int) $k['id'] ?>"><?= e((string) $k['name']) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <span class="wa-label__hint">
+                Dann steht der Fragebogen auch auf seiner Kundenseite.
+            </span>
+        </div>
         <div class="wa-field">
             <label class="wa-checkbox">
                 <input type="checkbox" name="send" value="1" checked>

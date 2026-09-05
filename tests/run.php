@@ -2705,6 +2705,143 @@ test('Die Kundenseite zeigt, was sie laedt', function (): void {
 });
 
 // ==================================================================
+test('Was neu entsteht, findet seinen Kunden', function (): void {
+    // Der Fehler, den diese Pruefung gefunden haette: Die Spalte
+    // customer_id kam mit einer Migration, die Bestehendes nachtrug -
+    // gefuellt hat sie danach keine der drei Einfuegestellen. Jede
+    // neue Zeile landete ohne Kunden und verschwand still von seiner
+    // Seite. In den Gesamtlisten stand sie weiter, nur dort nicht, wo
+    // versprochen war, alles zu einem Kunden zu zeigen.
+    $kundeId = (int) \WebAtze\Core\Db::insert('customers', [
+        'name' => 'Neuzugang GmbH', 'status' => 'aktiv',
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $projektId = (int) \WebAtze\Core\Db::insert('projects', [
+        'name' => 'neuzugang.ch', 'slug' => 'neuzugang-' . bin2hex(random_bytes(4)),
+        'status' => 'live', 'customer_id' => $kundeId,
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    // --- Der Helfer selbst ------------------------------------------
+    is($kundeId, \WebAtze\Domain\Websites::kundeVon($projektId), 'Der Kunde einer Website');
+    is(0, \WebAtze\Domain\Websites::kundeVon(0), 'Keine Website, kein Kunde');
+    is(0, \WebAtze\Domain\Websites::kundeVon(999999), 'Und eine, die es nicht gibt, auch nicht');
+
+    // --- Vertrag ueber den echten Weg -------------------------------
+    $vertragId = \WebAtze\Build\Contracts::create([
+        'project_id' => $projektId,
+        'plan' => 'basis',
+        'price_rappen' => 24000,
+        'interval_months' => 12,
+    ]);
+
+    is($kundeId, (int) \WebAtze\Core\Db::value(
+        'SELECT customer_id FROM contracts WHERE id = :i', ['i' => $vertragId], 0
+    ), 'Ein neuer Vertrag kennt seinen Kunden');
+
+    // --- Supportfaden ueber den echten Weg --------------------------
+    // Nicht mit einem eigenen INSERT: Genau das haette den Fehler
+    // uebersehen, denn kaputt war die Einfuegestelle und nicht die
+    // Tabelle.
+    \WebAtze\Core\Db::update('projects', ['support_token' => str_repeat('t', 40)],
+        'id = :i', ['i' => $projektId]);
+
+    // Der Zugang weist sich ueber den Kopf aus, und die Nachricht kommt
+    // als JSON - so, wie die Kundenseite es tut. Der Rumpf muesste
+    // sonst aus php://input kommen, das auf der Kommandozeile nicht zu
+    // fuellen ist; deshalb wird er hier eingesetzt. Alles danach ist
+    // der echte Weg, und genau dort sass der Fehler.
+    $anfrage = new \WebAtze\Core\Request(
+        [],
+        [],
+        [
+            'REQUEST_METHOD' => 'POST',
+            'REMOTE_ADDR' => '198.51.100.7',
+            'HTTP_X_WEBATZE_TOKEN' => str_repeat('t', 40),
+        ],
+        [],
+        []
+    );
+
+    $rumpf = new ReflectionProperty(\WebAtze\Core\Request::class, 'json');
+    $rumpf->setAccessible(true);
+    $rumpf->setValue($anfrage, [
+        'message' => 'Meine Seite laedt langsam.',
+        'subject' => 'Tempo',
+        'name' => 'Frau Muster',
+        'email' => 'muster@neuzugang.ch',
+    ]);
+
+    $antwort = (new \WebAtze\Http\SupportController())->post($anfrage);
+
+    is(200, $antwort->getStatus(), 'Die Supportfrage kommt an');
+
+    $faden = \WebAtze\Core\Db::first(
+        'SELECT customer_id FROM support_threads WHERE project_id = :p ORDER BY id DESC LIMIT 1',
+        ['p' => $projektId]
+    );
+
+    ok($faden !== null, 'Und liegt als Faden da');
+    is($kundeId, (int) ($faden['customer_id'] ?? 0), 'Ein neuer Supportfaden kennt seinen Kunden');
+
+    // --- Fragebogen -------------------------------------------------
+    // Er hat kein Projekt, aus dem sich etwas ableiten liesse -
+    // questionnaires.project_id wird nirgends gesetzt. Deshalb wird der
+    // Kunde beim Anlegen mitgegeben, und ohne ihn bleibt es leer.
+    $mitKunde = \WebAtze\Domain\Questionnaire::create('Neuzugang GmbH', 'a@b.ch', '', $kundeId);
+
+    is($kundeId, (int) \WebAtze\Core\Db::value(
+        'SELECT customer_id FROM questionnaires WHERE id = :i', ['i' => $mitKunde['id']], 0
+    ), 'Ein Fragebogen fuer einen bestehenden Kunden kennt ihn');
+
+    $ohneKunde = \WebAtze\Domain\Questionnaire::create('Wildfremd AG', 'c@d.ch');
+
+    is(0, (int) \WebAtze\Core\Db::value(
+        'SELECT COALESCE(customer_id, 0) FROM questionnaires WHERE id = :i',
+        ['i' => $ohneKunde['id']], 0
+    ), 'Und einer an einen Fremden bleibt ohne - der Normalfall');
+
+    // --- Und alles davon steht auf der Kundenseite ------------------
+    $html = \WebAtze\Core\View::partial('admin/customer', [
+        'kunde' => \WebAtze\Core\Db::first('SELECT * FROM customers WHERE id = :i', ['i' => $kundeId]),
+        'stand' => \WebAtze\Domain\Billing::statusOf($kundeId),
+        'historie' => [], 'todos' => [], 'termine' => [], 'mitarbeitende' => [], 'projekte' => [],
+        'websites' => \WebAtze\Domain\Websites::forCustomer($kundeId),
+        'rechnungen' => [],
+        'vertraege' => \WebAtze\Core\Db::all(
+            'SELECT c.*, p.name AS website FROM contracts c
+               LEFT JOIN projects p ON p.id = c.project_id
+              WHERE c.customer_id = :c',
+            ['c' => $kundeId]
+        ),
+        'passwoerter' => [],
+        'tresorOffen' => false,
+        'fragebogen' => \WebAtze\Core\Db::all(
+            'SELECT * FROM questionnaires WHERE customer_id = :c', ['c' => $kundeId]
+        ),
+        'faeden' => \WebAtze\Core\Db::all(
+            'SELECT t.*, p.name AS website FROM support_threads t
+               LEFT JOIN projects p ON p.id = t.project_id
+              WHERE t.customer_id = :c',
+            ['c' => $kundeId]
+        ),
+    ]);
+
+    ok(str_contains($html, 'Tempo'), 'Die Supportfrage steht auf der Kundenseite');
+    ok(str_contains($html, 'basis'), 'Der Vertrag auch');
+    ok(str_contains($html, 'Neuzugang GmbH'), 'Und der Fragebogen');
+
+    \WebAtze\Core\Db::delete('questionnaires', 'id = :i', ['i' => $mitKunde['id']]);
+    \WebAtze\Core\Db::delete('questionnaires', 'id = :i', ['i' => $ohneKunde['id']]);
+    \WebAtze\Core\Db::delete('support_messages', 'thread_id IN (SELECT id FROM support_threads WHERE project_id = :p)', ['p' => $projektId]);
+    \WebAtze\Core\Db::delete('support_threads', 'project_id = :p', ['p' => $projektId]);
+    \WebAtze\Core\Db::delete('contracts', 'project_id = :p', ['p' => $projektId]);
+    \WebAtze\Core\Db::delete('projects', 'id = :p', ['p' => $projektId]);
+    \WebAtze\Core\Db::delete('customers', 'id = :i', ['i' => $kundeId]);
+});
+
+// ==================================================================
 test('Ohne Kunde wird nichts unerreichbar', function (): void {
     // Die Listen fuer Websites, Rechnungen, Vertraege und Passwoerter
     // fallen aus dem Menue. Was zu keinem Kunden gehoert, waere damit

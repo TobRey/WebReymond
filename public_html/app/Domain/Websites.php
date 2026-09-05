@@ -401,6 +401,38 @@ final class Websites
     }
 
     /**
+     * Zu welchem Kunden gehört diese Website? 0, wenn zu keinem.
+     *
+     * Gebraucht überall dort, wo etwas Neues entsteht, das zu einer
+     * Website gehört: ein Wartungsvertrag, ein Supportfaden, ein
+     * Fragebogen. Sie alle kennen das Projekt und müssen den Kunden
+     * daraus lesen, damit sie auf dessen Seite auftauchen.
+     *
+     * Ein gemeinsamer Helfer statt drei eigener Abfragen – gerade
+     * weil es drei sind und irgendwann eine vierte dazukommt. Die
+     * Spalte gab es schon, gefüllt hat sie keine der drei
+     * Einfügestellen: Bestehendes trug die Migration nach, alles Neue
+     * landete ohne Kunden und verschwand still von seiner Seite.
+     *
+     * Zieht eine Website später zu einem anderen Kunden um, wandert
+     * ein bereits geschriebener Vertrag *nicht* mit. Das ist Absicht
+     * und kein Versehen: Ein Vertrag gehört dem, der ihn
+     * unterschrieben hat, nicht dem, dem die Website heute gehört.
+     */
+    public static function kundeVon(int $websiteId): int
+    {
+        if ($websiteId <= 0) {
+            return 0;
+        }
+
+        return (int) Db::value(
+            'SELECT customer_id FROM projects WHERE id = :id',
+            ['id' => $websiteId],
+            0
+        );
+    }
+
+    /**
      * Die zweite Verknüpfung nachziehen.
      *
      * Es gibt zwei Wege zwischen Kunde und Website, und sie werden von

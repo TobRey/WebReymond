@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Build;
 
 use WebAtze\Core\{Db, Logger};
+use WebAtze\Domain\Websites;
 
 /**
  * Wartungsverträge.
@@ -63,6 +64,10 @@ final class Contracts
 
         return Db::insert('contracts', [
             'project_id' => (int) $data['project_id'],
+            // Damit der Vertrag auf der Seite seines Kunden auftaucht
+            // und nicht nur in der Gesamtliste. Ohne das hier war die
+            // Spalte da und blieb bei jedem neuen Vertrag leer.
+            'customer_id' => Websites::kundeVon((int) $data['project_id']) ?: null,
             'plan' => $plan,
             'price_rappen' => max(0, min(99_999_900, (int) ($data['price_rappen'] ?? 0))),
             'interval_months' => $interval,

@@ -125,6 +125,7 @@ final class QuestionnaireController
             'content' => View::partial('admin/questionnaires', [
                 'rows' => $rows,
                 'fields' => Questionnaire::fields(),
+                'kunden' => Db::all('SELECT id, name FROM customers ORDER BY name ASC LIMIT 300'),
                 'publicBase' => rtrim((string) Config::get('app_url', ''), '/') . '/fragebogen/',
             ]),
         ]))->noCache()->noIndex();
@@ -136,7 +137,8 @@ final class QuestionnaireController
         $created = Questionnaire::create(
             (string) $request->input('company'),
             (string) $request->input('email'),
-            (string) $request->input('note')
+            (string) $request->input('note'),
+            $request->int('customer_id')
         );
 
         Audit::log('questionnaire.create', (string) $request->input('company'), [], $request);

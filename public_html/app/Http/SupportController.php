@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Http;
 
 use WebAtze\Core\{Audit, Db, Logger, Mailer, RateLimit, Request, Response, Security, Settings};
+use WebAtze\Domain\Websites;
 
 /**
  * Das Relais für den Support-Bereich der Kunden.
@@ -74,6 +75,10 @@ final class SupportController
         } else {
             $threadId = Db::insert('support_threads', [
                 'project_id' => $projectId,
+                // Damit die Frage auch auf der Seite ihres Kunden
+                // steht. Die Liste unter Uebersicht zeigt sie ohnehin -
+                // aber wer beim Kunden nachsieht, soll sie dort finden.
+                'customer_id' => Websites::kundeVon($projectId) ?: null,
                 'subject' => $subject !== '' ? $subject : mb_substr($text, 0, 80),
                 'status' => 'open',
                 'asker_name' => $name,
