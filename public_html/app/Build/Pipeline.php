@@ -54,6 +54,7 @@ final class Pipeline
             'generate', 'rebuild' => self::generate($job, $budget),
             'zip' => self::zipOnly($job),
             'deploy' => self::deploy($job, $budget),
+            'live' => self::pullLive($job, $budget),
             default => throw new RuntimeException('Unbekannte Auftragsart: ' . $type),
         };
     }
@@ -907,6 +908,61 @@ final class Pipeline
 
         Jobs::progress($job['id'], 'fertig', 100, 'Paket ist fertig.', ['zip' => $result]);
         Jobs::finish($job['id'], sprintf('Paket erstellt (%s).', format_bytes((int) $result['bytes'])));
+    }
+
+    /**
+     * Den aktuellen Stand vom Kundenserver holen.
+     *
+     * Als Auftrag und nicht im Web-Request: Eine Website mit
+     * dreihundert Dateien ueber FTP dauert laenger als jedes
+     * max_execution_time auf geteiltem Hosting - und der Browser haette
+     * laengst abgebrochen, waehrend der Download weiterlaeuft.
+     */
+    private static function pullLive(array $job, float $budget): void
+    {
+        $project = Db::first('SELECT * FROM projects WHERE id = :id', ['id' => (int) $job['project_id']]);
+
+        if ($project === null) {
+            Jobs::fail($job['id'], 'Projekt nicht gefunden.', false);
+
+            return;
+        }
+
+        Jobs::progress($job['id'], 'holen', 10, 'Verbindung wird aufgebaut …');
+
+        try {
+            $ergebnis = ZipExporter::pullLive(
+                $project,
+                static function (int $dateien, string $pfad) use ($job): void {
+                    // Ohne bekannte Gesamtzahl gibt es keinen Prozentsatz -
+                    // hier wird gezaehlt, nicht geschaetzt. Eine erfundene
+                    // Prozentzahl, die bei 90 stehen bleibt, ist schlimmer
+                    // als eine ehrliche Anzahl.
+                    Jobs::progress(
+                        $job['id'],
+                        'holen',
+                        min(90, 10 + (int) ($dateien / 5)),
+                        sprintf('%d Dateien geholt … (%s)', $dateien, $pfad)
+                    );
+                },
+                $budget - 10.0
+            );
+        } catch (\Throwable $e) {
+            Jobs::fail($job['id'], $e->getMessage(), false);
+
+            return;
+        }
+
+        Jobs::progress($job['id'], 'fertig', 100, 'Stand geholt.', ['live' => $ergebnis]);
+
+        Jobs::finish($job['id'], sprintf(
+            '%d Dateien geholt (%s).%s',
+            $ergebnis['files'],
+            format_bytes((int) $ergebnis['bytes']),
+            $ergebnis['abgeschnitten']
+                ? ' Achtung: unvollständig, eine Grenze war erreicht.'
+                : ''
+        ));
     }
 
     private static function deploy(array $job, float $budget): void

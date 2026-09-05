@@ -2043,6 +2043,189 @@ test('Der Verbindungstest stuerzt nie ab', function (): void {
 });
 
 // ==================================================================
+test('Der Live-Stand hat Grenzen und meldet, wenn er sie erreicht', function (): void {
+    // fetchDirectory() daneben war fuer die taegliche Sicherung
+    // gemacht: ueber FTP nicht rekursiv, ein leeres Ordnerargument
+    // abgelehnt, jeder Fehler ein stilles leeres Feld - von "der Ordner
+    // ist leer" nicht zu unterscheiden -, und alles im Speicher.
+    $darfWeiter = new ReflectionMethod(\WebAtze\Build\FtpDeployer::class, 'baumDarfWeiter');
+    $darfWeiter->setAccessible(true);
+
+    $neu = new ReflectionMethod(\WebAtze\Build\FtpDeployer::class, 'neuerStand');
+    $neu->setAccessible(true);
+
+    $stand = $neu->invoke(null);
+
+    ok($darfWeiter->invokeArgs(null, [&$stand, microtime(true) + 60]),
+        'Am Anfang ist Luft');
+
+    // Zu viele Dateien.
+    $stand = $neu->invoke(null);
+    $stand['files'] = 5000;
+
+    ok(!$darfWeiter->invokeArgs(null, [&$stand, microtime(true) + 60]),
+        'Bei 5000 Dateien ist Schluss');
+    ok($stand['abgeschnitten'], 'Und das wird vermerkt');
+
+    // Zu viele Bytes.
+    $stand = $neu->invoke(null);
+    $stand['bytes'] = 200 * 1024 * 1024;
+
+    ok(!$darfWeiter->invokeArgs(null, [&$stand, microtime(true) + 60]),
+        'Bei 200 MB ist Schluss');
+
+    // Zeit abgelaufen.
+    $stand = $neu->invoke(null);
+
+    ok(!$darfWeiter->invokeArgs(null, [&$stand, microtime(true) - 1]),
+        'Und wenn die Zeit um ist');
+    ok($stand['abgeschnitten'], 'Auch das wird vermerkt');
+
+    // Was uebergangen wird: Sicherungen einer Sicherung sind der
+    // klassische Weg, aus einer 20-MB-Website ein 400-MB-Archiv zu
+    // machen - mit denselben Daten dreimal darin.
+    $uebergehen = new ReflectionMethod(\WebAtze\Build\FtpDeployer::class, 'baumUebergehen');
+    $uebergehen->setAccessible(true);
+
+    ok($uebergehen->invoke(null, 'data/backups'), 'Sicherungen werden uebergangen');
+    ok($uebergehen->invoke(null, 'data/backups/2026-01-01.zip'), 'Und alles darin');
+    ok($uebergehen->invoke(null, '.git'), 'Die Versionsverwaltung auch');
+    ok($uebergehen->invoke(null, 'node_modules/foo/bar.js'), 'node_modules ebenfalls');
+    ok(!$uebergehen->invoke(null, 'data/site.php'), 'Die Daten des Kunden aber nicht');
+    ok(!$uebergehen->invoke(null, 'index.html'), 'Und die Website erst recht nicht');
+
+    // Ohne Zugangsdaten gibt es kein stilles Nichts, sondern eine
+    // Auskunft. Das war der eigentliche Fehler daran: Ein leeres Feld
+    // sah aus wie ein leerer Ordner.
+    if (class_exists(ZipArchive::class)) {
+        $pfad = sys_get_temp_dir() . '/wa-leer-' . bin2hex(random_bytes(4)) . '.zip';
+        $zip = new ZipArchive();
+        $zip->open($pfad, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+
+        $ergebnis = \WebAtze\Build\FtpDeployer::fetchTree(
+            ['secret' => 'unlesbar', 'protocol' => 'ftp', 'host' => '127.0.0.1',
+             'port' => 1, 'username' => 'x', 'remote_path' => '/'],
+            $zip,
+            2.0
+        );
+
+        $zip->close();
+        @unlink($pfad);
+
+        is(false, $ergebnis['ok'], 'Ohne lesbare Zugangsdaten kein Erfolg');
+        ok($ergebnis['error'] !== '', 'Und eine Begruendung statt eines leeren Feldes');
+        is(0, $ergebnis['files'], 'Keine Dateien');
+    }
+});
+
+// ==================================================================
+test('Live-Staende raeumen sich selbst auf', function (): void {
+    // Ein Live-Stand ist so gross wie die ganze Website, und niemand
+    // denkt daran, ihn zu loeschen. Ohne diese Grenze fuellt ein
+    // wiederholter Knopfdruck das Hosting-Konto.
+    $projektId = (int) \WebAtze\Core\Db::insert('projects', [
+        'name' => 'Aufraeumen', 'slug' => 'aufraeumen-' . bin2hex(random_bytes(4)),
+        'status' => 'ready', 'created_at' => \WebAtze\Core\Db::now(),
+        'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $projekt = \WebAtze\Core\Db::first('SELECT * FROM projects WHERE id = :i', ['i' => $projektId]);
+    $slug = (string) $projekt['slug'];
+    $ordner = STORAGE_DIR . '/zips/' . $slug;
+    @mkdir($ordner, 0755, true);
+
+    // Fuenf Live-Staende und ein gebautes Paket dazwischen.
+    $dateien = [];
+
+    for ($i = 1; $i <= 5; $i++) {
+        $name = $slug . '/' . $slug . '-live-' . $i . '.zip';
+        file_put_contents(STORAGE_DIR . '/zips/' . $name, 'x');
+        $dateien[$i] = STORAGE_DIR . '/zips/' . $name;
+
+        \WebAtze\Core\Db::insert('builds', [
+            'project_id' => $projektId, 'version' => 0, 'zip_path' => $name,
+            'zip_bytes' => 1, 'files_count' => 1, 'notes' => 'Live-Stand vom Server',
+            'created_at' => \WebAtze\Core\Db::now(),
+        ]);
+    }
+
+    $gebaut = $slug . '/' . $slug . '-v1-2026-01-01.zip';
+    file_put_contents(STORAGE_DIR . '/zips/' . $gebaut, 'x');
+
+    \WebAtze\Core\Db::insert('builds', [
+        'project_id' => $projektId, 'version' => 1, 'zip_path' => $gebaut,
+        'zip_bytes' => 1, 'files_count' => 1, 'notes' => '',
+        'created_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $aufraeumen = new ReflectionMethod(\WebAtze\Build\ZipExporter::class, 'liveAufraeumen');
+    $aufraeumen->setAccessible(true);
+    $aufraeumen->invoke(null, $projektId, $slug);
+
+    $uebrig = (int) \WebAtze\Core\Db::value(
+        'SELECT COUNT(*) FROM builds WHERE project_id = :p AND version = 0',
+        ['p' => $projektId],
+        0
+    );
+
+    is(\WebAtze\Build\ZipExporter::LIVE_BEHALTEN, $uebrig, 'Drei Live-Staende bleiben');
+
+    ok(is_file($dateien[5]) && is_file($dateien[4]) && is_file($dateien[3]),
+        'Und zwar die neuesten');
+    ok(!is_file($dateien[1]) && !is_file($dateien[2]),
+        'Die aeltesten sind auch als Datei weg');
+
+    // Das gebaute Paket bleibt unberuehrt. Es ist der Beleg, dass die
+    // Website dem Kunden gehoert - das wegzuraeumen waere etwas
+    // anderes als aufraeumen.
+    is(1, (int) \WebAtze\Core\Db::value(
+        'SELECT COUNT(*) FROM builds WHERE project_id = :p AND version > 0',
+        ['p' => $projektId],
+        0
+    ), 'Das gebaute Paket bleibt');
+    ok(is_file(STORAGE_DIR . '/zips/' . $gebaut), 'Auch als Datei');
+
+    // Aufraeumen
+    foreach (glob($ordner . '/*') ?: [] as $datei) {
+        @unlink($datei);
+    }
+
+    @rmdir($ordner);
+    \WebAtze\Core\Db::delete('builds', 'project_id = :p', ['p' => $projektId]);
+    \WebAtze\Core\Db::delete('projects', 'id = :p', ['p' => $projektId]);
+});
+
+// ==================================================================
+test('Grosse Dateien gehen nicht durch den Arbeitsspeicher', function (): void {
+    // Response::file() las die ganze Datei in den Speicher. Ein
+    // Live-Stand einer Website ist leicht achtzig Megabyte, und das ist
+    // auf geteiltem Hosting mit 128 MB das Ende des Requests - ohne
+    // Fehlermeldung, die jemandem hilft.
+    $quelle = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Core/Response.php'
+    );
+
+    ok(!preg_match('/\$response->body = \(string\) file_get_contents/', $quelle),
+        'file() holt die Datei nicht mehr in den Speicher');
+    ok(str_contains($quelle, 'private ?string $filePath'),
+        'Sie merkt sich stattdessen den Pfad');
+    ok(str_contains($quelle, 'fread($handle, 8192)'),
+        'Und sendet in Bloecken');
+
+    // Und es muss trotzdem funktionieren.
+    $pfad = sys_get_temp_dir() . '/wa-datei-' . bin2hex(random_bytes(4)) . '.bin';
+    file_put_contents($pfad, str_repeat('WebAtze', 5000));
+
+    $antwort = \WebAtze\Core\Response::file($pfad, 'application/octet-stream', true, 'test.bin');
+
+    is(200, $antwort->getStatus(), 'Die Antwort steht');
+    is((string) filesize($pfad), $antwort->getHeader('Content-Length'), 'Die Laenge stimmt');
+    is(35000, strlen($antwort->getBody()), 'Und der Inhalt kommt heraus, wenn man ihn verlangt');
+
+    @unlink($pfad);
+});
+
+// ==================================================================
 test('Das Editor-Plugin nimmt nur an, was hineingehoert', function (): void {
     // Ein Feld, das ausfuehrbaren Code entgegennimmt und in den
     // Webserver-Ordner legt, ist eine Hintertuer mit Formular - auch

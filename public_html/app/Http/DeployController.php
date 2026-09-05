@@ -200,6 +200,53 @@ final class DeployController
         return $this->back($project);
     }
 
+    /**
+     * Den aktuellen Stand vom Server des Kunden holen.
+     *
+     * Der Unterschied zum Paket daneben ist der Punkt: Das Paket ist
+     * das, was hier zuletzt gebaut wurde. Was tatsächlich beim Kunden
+     * liegt, ist etwas anderes, sobald dort jemand etwas geändert hat –
+     * hochgeladene Bilder, eingegangene Anfragen, im Backend
+     * umgeschriebene Texte. Das steht in keinem gebauten Paket.
+     */
+    public function pullLive(Request $request): Response
+    {
+        $project = ProjectController::find($request->paramInt('id'));
+
+        if ($project === null) {
+            return Response::notFound();
+        }
+
+        if (Jobs::activeFor((int) $project['id']) !== null) {
+            Session::flash('warning', 'Für dieses Projekt läuft bereits ein Auftrag.');
+
+            return $this->back($project);
+        }
+
+        $ziel = Db::first(
+            'SELECT id FROM deploy_targets WHERE project_id = :p LIMIT 1',
+            ['p' => (int) $project['id']]
+        );
+
+        if ($ziel === null) {
+            Session::flash(
+                'error',
+                'Für diese Website sind keine Zugangsdaten hinterlegt. '
+                . 'Ohne sie lässt sich nicht nachsehen, was dort liegt.'
+            );
+
+            return $this->back($project);
+        }
+
+        Jobs::enqueue('live', [], (int) $project['id']);
+        Jobs::nudge();
+
+        Audit::log('project.pull.started', (string) $project['name'], [], $request);
+        Session::flash('success', 'Der Stand wird geholt. Das dauert je nach Grösse eine Weile.');
+
+        return $this->back($project);
+    }
+
     private function back(array $project): Response
     {
         return Response::redirect(

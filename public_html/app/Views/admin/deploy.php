@@ -49,10 +49,18 @@ $latest = $builds[0] ?? null;
 <section class="wa-panel">
     <div class="wa-panel__head">
         <h2 class="wa-panel__title">Paket</h2>
-        <form method="post" action="<?= e($base) ?>/projekt/<?= $id ?>/zip">
-            <?= Csrf::field() ?>
-            <button type="submit" class="wa-btn wa-btn--sm">Neues Paket erstellen</button>
-        </form>
+        <div class="wa-panel__actions">
+            <form method="post" action="<?= e($base) ?>/projekt/<?= $id ?>/zip">
+                <?= Csrf::field() ?>
+                <button type="submit" class="wa-btn wa-btn--sm">Neues Paket erstellen</button>
+            </form>
+            <?php if ($target !== null): ?>
+                <form method="post" action="<?= e($base) ?>/projekt/<?= $id ?>/stand-holen">
+                    <?= Csrf::field() ?>
+                    <button type="submit" class="wa-btn wa-btn--sm">Aktuellen Stand holen</button>
+                </form>
+            <?php endif; ?>
+        </div>
     </div>
 
     <?php if ($builds === []): ?>
@@ -64,6 +72,11 @@ $latest = $builds[0] ?? null;
         <p class="wa-panel__hint">
             Das Paket wird in <code>public_html</code> des Kunden entpackt und läuft sofort –
             ohne Installation und ohne Kommandozeile. Ältere Versionen bleiben erhalten.
+            <br>
+            Ein <strong>Live-Stand</strong> ist etwas anderes: nicht das hier Gebaute, sondern
+            das, was in dem Moment tatsächlich auf dem Server lag – samt hochgeladener Bilder,
+            eingegangener Anfragen und im Backend geänderter Texte. Davon bleiben die letzten
+            <?= (int) \WebAtze\Build\ZipExporter::LIVE_BEHALTEN ?> liegen.
         </p>
         <div class="wa-table-wrap">
             <table class="wa-table">
@@ -74,9 +87,17 @@ $latest = $builds[0] ?? null;
                 <?php foreach ($builds as $build): ?>
                     <tr>
                         <td>
-                            v<?= (int) $build['version'] ?>
-                            <?php if ($latest !== null && (int) $build['id'] === (int) $latest['id']): ?>
-                                <span class="wa-badge wa-badge--done">aktuell</span>
+                            <?php /* Version 0 heisst: nicht gebaut, sondern vom
+                                     Server geholt. Eine eigene Zaehlung waere
+                                     eine zweite Reihenfolge neben der gebauten,
+                                     und dann bedeutete "v3" zweierlei. */ ?>
+                            <?php if ((int) $build['version'] === 0): ?>
+                                <span class="wa-badge">Live-Stand</span>
+                            <?php else: ?>
+                                v<?= (int) $build['version'] ?>
+                                <?php if ($latest !== null && (int) $build['id'] === (int) $latest['id']): ?>
+                                    <span class="wa-badge wa-badge--done">aktuell</span>
+                                <?php endif; ?>
                             <?php endif; ?>
                         </td>
                         <td><?= (int) $build['files_count'] ?></td>

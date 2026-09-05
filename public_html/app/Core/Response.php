@@ -18,6 +18,15 @@ final class Response
     /** @var list<array{0:string,1:string,2:array}> */
     private array $cookies = [];
 
+    /**
+     * Eine Datei statt eines Rumpfs.
+     *
+     * Sie wird beim Senden in Blöcken gelesen und nicht vorher in den
+     * Speicher geholt: Ein Live-Stand einer Website sprengt sonst das
+     * memory_limit von geteiltem Hosting.
+     */
+    private ?string $filePath = null;
+
     public static function make(string $body = '', int $status = 200): self
     {
         $response = new self();
@@ -53,6 +62,15 @@ final class Response
         return self::make($message, 404)->header('Content-Type', 'text/plain; charset=utf-8');
     }
 
+    /**
+     * Eine Datei ausliefern.
+     *
+     * Der Inhalt landet bewusst nicht im Rumpf: Ein Live-Stand einer
+     * Website ist leicht achtzig Megabyte, und file_get_contents()
+     * darauf ist auf geteiltem Hosting mit 128 MB memory_limit das Ende
+     * des Requests – ohne Fehlermeldung, die jemandem hülfe. Gesendet
+     * wird stattdessen in Blöcken, direkt von der Platte.
+     */
     public static function file(string $path, string $contentType, bool $download = false, string $name = ''): self
     {
         $response = self::make('', 200)
@@ -63,7 +81,9 @@ final class Response
             $safeName = preg_replace('/[^A-Za-z0-9._\-]/', '_', $name !== '' ? $name : basename($path)) ?? 'download';
             $response->header('Content-Disposition', 'attachment; filename="' . $safeName . '"');
         }
-        $response->body = (string) file_get_contents($path);
+
+        $response->filePath = $path;
+
         return $response;
     }
 
@@ -89,8 +109,20 @@ final class Response
         return $this->status;
     }
 
+    /**
+     * Der Rumpf.
+     *
+     * Bei einer Dateiantwort steht er nicht im Speicher – dann wird er
+     * hier gelesen. Das ist genau der Fall, den send() vermeidet, aber
+     * getBody() heisst nun einmal "gib mir den Inhalt", und ein leerer
+     * String wäre eine Lüge.
+     */
     public function getBody(): string
     {
+        if ($this->filePath !== null && $this->body === '') {
+            return (string) @file_get_contents($this->filePath);
+        }
+
         return $this->body;
     }
 
@@ -147,7 +179,49 @@ final class Response
             ], $options));
         }
 
+        if ($this->filePath !== null) {
+            $this->stream();
+
+            return;
+        }
+
         echo $this->body;
+    }
+
+    /**
+     * Die Datei in Blöcken hinausschicken.
+     *
+     * readfile() täte es auch, puffert aber je nach Konfiguration
+     * ebenfalls. Acht Kilobyte am Stück kommen überall durch, und
+     * zwischendurch wird geleert, damit der Browser den Fortschritt
+     * sieht statt am Ende alles auf einmal.
+     */
+    private function stream(): void
+    {
+        $handle = @fopen((string) $this->filePath, 'rb');
+
+        if ($handle === false) {
+            return;
+        }
+
+        // Was noch in einem Puffer liegt, muss vorher raus - sonst
+        // steht es mitten in der ZIP-Datei.
+        while (ob_get_level() > 0) {
+            ob_end_flush();
+        }
+
+        while (!feof($handle)) {
+            $stueck = fread($handle, 8192);
+
+            if ($stueck === false) {
+                break;
+            }
+
+            echo $stueck;
+            flush();
+        }
+
+        fclose($handle);
     }
 
     /**

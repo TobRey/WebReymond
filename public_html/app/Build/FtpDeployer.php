@@ -30,6 +30,32 @@ final class FtpDeployer
     /** Und keine einzelne grösser als das. */
     private const MAX_FETCH_BYTES = 8 * 1024 * 1024;
 
+    /** Beim Holen des ganzen Stands: höchstens so viele Dateien. */
+    private const MAX_TREE_FILES = 5000;
+
+    /** Und zusammen höchstens so viel. */
+    private const MAX_TREE_BYTES = 200 * 1024 * 1024;
+
+    /** Und keine Verschachtelung tiefer als das. */
+    private const MAX_TREE_DEPTH = 8;
+
+    /**
+     * Was beim Holen des ganzen Stands übersprungen wird.
+     *
+     * Sicherungen einer Sicherung sind der klassische Weg, aus einer
+     * 20-MB-Website ein 400-MB-Archiv zu machen - und das Ergebnis
+     * enthält dieselben Daten dreimal.
+     */
+    private const UEBERGEHEN = [
+        'data/backups',
+        'data/tmp',
+        'data/cache',
+        '.git',
+        'node_modules',
+        '.well-known/acme-challenge',
+        'cgi-bin',
+    ];
+
     /**
      * @param callable|null $onProgress fn(int $erledigt, int $gesamt, string $datei)
      * @return array{ok:bool, files:int, error:string, retryable:bool, verified:bool, url:string}
@@ -304,6 +330,349 @@ final class FtpDeployer
         }
 
         return $files;
+    }
+
+    /**
+     * Den ganzen Stand vom Kundenserver holen - direkt in ein Archiv.
+     *
+     * fetchDirectory() daneben war fuer die taegliche Sicherung
+     * gemacht und taugt dafuer nicht: ueber FTP nicht rekursiv (die
+     * Unterordner fielen einfach weg), ein leeres Ordnerargument wurde
+     * abgelehnt, jeder Fehler endete in einem stillen leeren Feld - von
+     * "der Ordner ist leer" nicht zu unterscheiden -, und alles landete
+     * im Arbeitsspeicher. Auf geteiltem Hosting mit 128 MB ist das bei
+     * einer echten Website das Ende des Auftrags.
+     *
+     * Deshalb hier: rekursiv, mit Grenzen an allen Enden, und jede
+     * Datei wandert sofort ins Archiv statt in ein Array.
+     *
+     * @param callable|null $onProgress fn(int $dateien, string $pfad)
+     * @return array{ok:bool, files:int, bytes:int, error:string, abgeschnitten:bool}
+     */
+    public static function fetchTree(
+        array $target,
+        \ZipArchive $zip,
+        float $budget = 90.0,
+        ?callable $onProgress = null
+    ): array {
+        $password = Crypto::decrypt((string) ($target['secret'] ?? ''));
+
+        if ($password === null) {
+            return self::baumFehler('Die gespeicherten Zugangsdaten lassen sich nicht entschluesseln.');
+        }
+
+        $wurzel = self::cleanPath((string) $target['remote_path']);
+
+        try {
+            return (string) $target['protocol'] === 'sftp'
+                ? self::treeViaSftp($target, $password, $wurzel, $zip, $budget, $onProgress)
+                : self::treeViaFtp($target, $password, $wurzel, $zip, $budget, $onProgress,
+                    (string) $target['protocol'] === 'ftps');
+        } catch (\Throwable $e) {
+            Logger::warning('Herunterladen fehlgeschlagen', ['grund' => $e->getMessage()]);
+
+            return self::baumFehler(self::kurz($e->getMessage()));
+        } finally {
+            Crypto::wipe($password);
+        }
+    }
+
+    /** @return array{ok:bool, files:int, bytes:int, error:string, abgeschnitten:bool} */
+    private static function treeViaFtp(
+        array $target,
+        string $password,
+        string $wurzel,
+        \ZipArchive $zip,
+        float $budget,
+        ?callable $onProgress,
+        bool $verschluesselt
+    ): array {
+        if (!function_exists('ftp_connect')) {
+            return self::baumFehler('Dieser Server kann kein FTP.');
+        }
+
+        if ($verschluesselt && !function_exists('ftp_ssl_connect')) {
+            return self::baumFehler('Dieses PHP kann kein verschluesseltes FTP.');
+        }
+
+        $sauber = self::normalizeHost((string) $target['host'], (int) $target['port'] ?: 21);
+
+        $verbindung = $verschluesselt
+            ? @ftp_ssl_connect($sauber['host'], $sauber['port'], 20)
+            : @ftp_connect($sauber['host'], $sauber['port'], 20);
+
+        if ($verbindung === false) {
+            return self::baumFehler('Keine Verbindung zu ' . $sauber['host'] . '.');
+        }
+
+        if (!@ftp_login($verbindung, (string) $target['username'], $password)) {
+            @ftp_close($verbindung);
+
+            return self::baumFehler('Die Anmeldung wurde abgelehnt.');
+        }
+
+        @ftp_pasv($verbindung, true);
+
+        if (defined('FTP_USEPASVADDRESS') && @ftp_nlist($verbindung, '.') === false) {
+            @ftp_set_option($verbindung, FTP_USEPASVADDRESS, false);
+        }
+
+        $stand = self::neuerStand();
+        $ende = microtime(true) + $budget;
+
+        self::ftpEinsammeln($verbindung, $wurzel, '', $zip, $stand, $ende, 0, $onProgress);
+
+        @ftp_close($verbindung);
+
+        return self::baumErgebnis($stand);
+    }
+
+    /**
+     * Ein Verzeichnis und alles darunter.
+     *
+     * @param array<string, mixed> $stand
+     */
+    private static function ftpEinsammeln(
+        $verbindung,
+        string $wurzel,
+        string $unterPfad,
+        \ZipArchive $zip,
+        array &$stand,
+        float $ende,
+        int $tiefe,
+        ?callable $onProgress
+    ): void {
+        if ($tiefe > self::MAX_TREE_DEPTH || !self::baumDarfWeiter($stand, $ende)) {
+            return;
+        }
+
+        $voll = rtrim($wurzel . '/' . $unterPfad, '/');
+        $eintraege = @ftp_nlist($verbindung, $voll === '' ? '/' : $voll);
+
+        if (!is_array($eintraege)) {
+            // Ein Verzeichnis, das sich nicht auflisten laesst, ist
+            // eine Auskunft und kein Nichts. Ohne diese Notiz saehe ein
+            // gesperrter Ordner aus wie ein leerer.
+            $stand['abgeschnitten'] = true;
+
+            return;
+        }
+
+        $ordner = [];
+
+        foreach ($eintraege as $eintrag) {
+            if (!self::baumDarfWeiter($stand, $ende)) {
+                return;
+            }
+
+            $name = basename((string) $eintrag);
+
+            if ($name === '' || $name === '.' || $name === '..' || str_contains($name, '..')) {
+                continue;
+            }
+
+            $relativ = $unterPfad === '' ? $name : $unterPfad . '/' . $name;
+
+            if (self::baumUebergehen($relativ)) {
+                continue;
+            }
+
+            $fern = $voll . '/' . $name;
+
+            // ftp_size gibt bei einem Verzeichnis -1 zurueck. Das ist
+            // die Unterscheidung, die ueber blankes FTP zu haben ist -
+            // ftp_mlsd gibt es nicht ueberall.
+            $groesse = @ftp_size($verbindung, $fern);
+
+            if ($groesse < 0) {
+                $ordner[] = $relativ;
+
+                continue;
+            }
+
+            if ($groesse > self::MAX_FETCH_BYTES) {
+                $stand['abgeschnitten'] = true;
+
+                continue;
+            }
+
+            $tmp = @tempnam(sys_get_temp_dir(), 'wa-pull');
+
+            if ($tmp === false) {
+                $stand['abgeschnitten'] = true;
+
+                continue;
+            }
+
+            if (@ftp_get($verbindung, $tmp, $fern, FTP_BINARY)) {
+                $zip->addFile($tmp, $relativ);
+
+                // Die Datei muss bis zum close() des Archivs liegen
+                // bleiben - ZipArchive liest sie erst dann. Weggeraeumt
+                // wird sie vom Aufrufer.
+                $stand['tmp'][] = $tmp;
+                $stand['files']++;
+                $stand['bytes'] += (int) $groesse;
+
+                if ($onProgress !== null) {
+                    $onProgress($stand['files'], $relativ);
+                }
+            } else {
+                @unlink($tmp);
+                $stand['abgeschnitten'] = true;
+            }
+        }
+
+        foreach ($ordner as $relativ) {
+            self::ftpEinsammeln($verbindung, $wurzel, $relativ, $zip, $stand, $ende, $tiefe + 1, $onProgress);
+        }
+    }
+
+    /** @return array{ok:bool, files:int, bytes:int, error:string, abgeschnitten:bool} */
+    private static function treeViaSftp(
+        array $target,
+        string $password,
+        string $wurzel,
+        \ZipArchive $zip,
+        float $budget,
+        ?callable $onProgress
+    ): array {
+        if (!class_exists(SFTP::class)) {
+            return self::baumFehler('Die Bibliothek fuer SFTP fehlt im Paket.');
+        }
+
+        $sauber = self::normalizeHost((string) $target['host'], (int) $target['port'] ?: 22);
+        $sftp = new SFTP($sauber['host'], $sauber['port'], 20);
+
+        if (!$sftp->login((string) $target['username'], $password)) {
+            return self::baumFehler('Die Anmeldung wurde abgelehnt.');
+        }
+
+        $stand = self::neuerStand();
+        $ende = microtime(true) + $budget;
+
+        // phpseclib kann rekursiv auflisten - das erspart einen Aufruf
+        // je Verzeichnis, und ueber eine Leitung mit Latenz ist das der
+        // Unterschied zwischen Sekunden und Minuten.
+        $liste = $sftp->nlist($wurzel, true);
+
+        foreach (is_array($liste) ? $liste : [] as $eintrag) {
+            if (!self::baumDarfWeiter($stand, $ende)) {
+                break;
+            }
+
+            $relativ = ltrim((string) $eintrag, './');
+
+            if ($relativ === '' || str_contains($relativ, '..') || self::baumUebergehen($relativ)) {
+                continue;
+            }
+
+            if (substr_count($relativ, '/') > self::MAX_TREE_DEPTH) {
+                continue;
+            }
+
+            $fern = rtrim($wurzel, '/') . '/' . $relativ;
+
+            if ($sftp->is_dir($fern)) {
+                continue;
+            }
+
+            $inhalt = $sftp->get($fern);
+
+            if (!is_string($inhalt)) {
+                $stand['abgeschnitten'] = true;
+
+                continue;
+            }
+
+            if (strlen($inhalt) > self::MAX_FETCH_BYTES) {
+                $stand['abgeschnitten'] = true;
+
+                continue;
+            }
+
+            $zip->addFromString($relativ, $inhalt);
+
+            $stand['files']++;
+            $stand['bytes'] += strlen($inhalt);
+
+            if ($onProgress !== null) {
+                $onProgress($stand['files'], $relativ);
+            }
+        }
+
+        $sftp->disconnect();
+
+        return self::baumErgebnis($stand);
+    }
+
+    /** @return array<string, mixed> */
+    private static function neuerStand(): array
+    {
+        return ['files' => 0, 'bytes' => 0, 'abgeschnitten' => false, 'tmp' => []];
+    }
+
+    /**
+     * Ist noch Luft?
+     *
+     * @param array<string, mixed> $stand
+     */
+    private static function baumDarfWeiter(array &$stand, float $ende): bool
+    {
+        if ($stand['files'] >= self::MAX_TREE_FILES
+            || $stand['bytes'] >= self::MAX_TREE_BYTES
+            || microtime(true) >= $ende
+        ) {
+            $stand['abgeschnitten'] = true;
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Was beim Herunterladen nichts zu suchen hat.
+     *
+     * Sicherungen einer Sicherung sind der klassische Weg, aus einer
+     * 20-MB-Website ein 400-MB-Archiv zu machen.
+     */
+    private static function baumUebergehen(string $relativ): bool
+    {
+        foreach (self::UEBERGEHEN as $muster) {
+            if ($relativ === $muster || str_starts_with($relativ, $muster . '/')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed> $stand
+     * @return array{ok:bool, files:int, bytes:int, error:string, abgeschnitten:bool, tmp:array<int,string>}
+     */
+    private static function baumErgebnis(array $stand): array
+    {
+        return [
+            'ok' => $stand['files'] > 0,
+            'files' => (int) $stand['files'],
+            'bytes' => (int) $stand['bytes'],
+            'error' => $stand['files'] > 0
+                ? ''
+                : 'Es kam keine einzige Datei an. Stimmen Zugang und Verzeichnis?',
+            'abgeschnitten' => (bool) $stand['abgeschnitten'],
+            'tmp' => $stand['tmp'] ?? [],
+        ];
+    }
+
+    /** @return array{ok:bool, files:int, bytes:int, error:string, abgeschnitten:bool, tmp:array<int,string>} */
+    private static function baumFehler(string $text): array
+    {
+        return [
+            'ok' => false, 'files' => 0, 'bytes' => 0,
+            'error' => $text, 'abgeschnitten' => false, 'tmp' => [],
+        ];
     }
 
     /** @return array<string, string> */

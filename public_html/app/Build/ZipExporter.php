@@ -198,11 +198,193 @@ final class ZipExporter
         TEXT;
     }
 
+    // ==================================================================
+    // Der aktuelle Stand vom Server des Kunden
+    // ==================================================================
+
+    /** So viele Live-Stände bleiben je Website liegen. */
+    public const LIVE_BEHALTEN = 3;
+
+    /**
+     * Holt, was gerade wirklich auf dem Kundenserver liegt.
+     *
+     * Der Unterschied zu create() ist der springende Punkt: create()
+     * packt storage/projects/<slug>/dist – also das, was hier zuletzt
+     * gebaut wurde. Was tatsächlich beim Kunden liegt, ist etwas
+     * anderes, sobald jemand dort etwas geändert hat: Bilder, die er
+     * hochgeladen hat, Anfragen, die eingegangen sind, Texte, die er
+     * im Backend umgeschrieben hat. Das steht in keinem gebauten Paket.
+     *
+     * Deshalb: wie eine Sicherung, nur eben jetzt und auf Knopfdruck.
+     *
+     * @param callable|null $onProgress fn(int $dateien, string $pfad)
+     * @return array{path:string, bytes:int, files:int, abgeschnitten:bool}
+     */
+    public static function pullLive(array $project, ?callable $onProgress = null, float $budget = 90.0): array
+    {
+        if (!class_exists(ZipArchive::class)) {
+            throw new RuntimeException('Die PHP-Erweiterung "zip" fehlt auf diesem Server.');
+        }
+
+        $target = Db::first(
+            'SELECT * FROM deploy_targets WHERE project_id = :p ORDER BY id DESC LIMIT 1',
+            ['p' => (int) $project['id']]
+        );
+
+        if ($target === null) {
+            throw new RuntimeException(
+                'Für diese Website sind keine Zugangsdaten hinterlegt. '
+                . 'Ohne sie lässt sich nicht nachsehen, was dort liegt.'
+            );
+        }
+
+        $slug = (string) $project['slug'];
+        $dir = ensure_dir(STORAGE_DIR . '/zips/' . $slug);
+        $name = sprintf('%s-live-%s.zip', $slug, date('Y-m-d-Hi'));
+        $path = $dir . '/' . $name;
+
+        $zip = new ZipArchive();
+
+        if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            throw new RuntimeException('Die ZIP-Datei konnte nicht angelegt werden.');
+        }
+
+        $ergebnis = FtpDeployer::fetchTree($target, $zip, $budget, $onProgress);
+
+        if (!$ergebnis['ok']) {
+            $zip->close();
+            @unlink($path);
+            self::tmpWeg($ergebnis['tmp'] ?? []);
+
+            throw new RuntimeException($ergebnis['error']);
+        }
+
+        $zip->addFromString('STAND.txt', self::livehinweis($project, $ergebnis));
+
+        $zip->close();
+
+        // Erst nach close(): Vorher liest ZipArchive die Dateien noch.
+        self::tmpWeg($ergebnis['tmp'] ?? []);
+
+        if (!is_file($path)) {
+            throw new RuntimeException('Die ZIP-Datei wurde nicht geschrieben.');
+        }
+
+        $bytes = (int) filesize($path);
+
+        Db::insert('builds', [
+            'project_id' => (int) $project['id'],
+            // Version 0 heisst: nicht gebaut, sondern geholt. Eine
+            // eigene Zählung wäre eine zweite Reihenfolge neben der
+            // gebauten, und dann bedeutete "v3" zweierlei.
+            'version' => 0,
+            'zip_path' => $slug . '/' . $name,
+            'zip_bytes' => $bytes,
+            'files_count' => (int) $ergebnis['files'],
+            'notes' => $ergebnis['abgeschnitten']
+                ? 'Live-Stand, unvollständig (Grenze erreicht)'
+                : 'Live-Stand vom Server',
+            'created_at' => Db::now(),
+        ]);
+
+        self::liveAufraeumen((int) $project['id'], $slug);
+
+        Audit::log('project.pulled', $slug, [
+            'dateien' => $ergebnis['files'],
+            'bytes' => $bytes,
+        ]);
+
+        return [
+            'path' => $path,
+            'bytes' => $bytes,
+            'files' => (int) $ergebnis['files'],
+            'abgeschnitten' => (bool) $ergebnis['abgeschnitten'],
+        ];
+    }
+
+    /**
+     * Alte Live-Stände wegräumen.
+     *
+     * Ohne das füllt ein wiederholter Knopfdruck das Hosting-Konto: Ein
+     * Live-Stand ist so gross wie die ganze Website, und niemand denkt
+     * daran, ihn zu löschen. Drei bleiben – genug, um zu vergleichen,
+     * wenig genug, um nicht wehzutun.
+     */
+    private static function liveAufraeumen(int $projectId, string $slug): void
+    {
+        $alte = Db::all(
+            'SELECT id, zip_path FROM builds
+              WHERE project_id = :p AND version = 0
+              ORDER BY id DESC',
+            ['p' => $projectId]
+        );
+
+        foreach (array_slice($alte, self::LIVE_BEHALTEN) as $eintrag) {
+            $relativ = (string) $eintrag['zip_path'];
+
+            // Nur, was unterhalb des eigenen Ordners liegt. Ein
+            // fehlerhafter Eintrag darf nicht dazu führen, dass hier
+            // beliebige Dateien verschwinden.
+            if ($relativ !== ''
+                && !str_contains($relativ, '..')
+                && str_starts_with($relativ, $slug . '/')
+            ) {
+                @unlink(STORAGE_DIR . '/zips/' . $relativ);
+            }
+
+            Db::delete('builds', 'id = :id', ['id' => (int) $eintrag['id']]);
+        }
+    }
+
+    /** @param array<int, string> $dateien */
+    private static function tmpWeg(array $dateien): void
+    {
+        foreach ($dateien as $datei) {
+            if (is_string($datei) && $datei !== '') {
+                @unlink($datei);
+            }
+        }
+    }
+
+    /** @param array<string, mixed> $ergebnis */
+    private static function livehinweis(array $project, array $ergebnis): string
+    {
+        $wann = date('d.m.Y H:i');
+        $name = (string) $project['name'];
+        $anzahl = (int) $ergebnis['files'];
+
+        $text = <<<TEXT
+        {$name} – Stand vom Server
+
+        Geholt am {$wann}.
+        {$anzahl} Dateien.
+
+        Das hier ist nicht das gebaute Paket, sondern das, was in diesem
+        Moment tatsächlich auf dem Server lag – einschliesslich allem,
+        was seither dort hinzugekommen ist: hochgeladene Bilder,
+        eingegangene Anfragen, im Backend geänderte Texte.
+        TEXT;
+
+        if (!empty($ergebnis['abgeschnitten'])) {
+            $text .= "\n\n" . <<<TEXT
+        Achtung: Es wurde nicht alles geholt. Eine der Grenzen war
+        erreicht – Anzahl, Gesamtgrösse, Verschachtelungstiefe oder
+        Zeit. Was fehlt, fehlt; als vollständige Sicherung taugt dieses
+        Archiv deshalb nicht.
+        TEXT;
+        }
+
+        return $text . "\n";
+    }
+
     /** Alle Pakete eines Projekts, neuestes zuerst. */
     public static function listFor(int $projectId): array
     {
+        // Nach id und nicht nach version: Live-Stände tragen alle die
+        // Version 0, und nach version sortiert stünden sie sonst
+        // allesamt am Ende, der neueste irgendwo dazwischen.
         return Db::all(
-            'SELECT * FROM builds WHERE project_id = :p ORDER BY version DESC',
+            'SELECT * FROM builds WHERE project_id = :p ORDER BY id DESC',
             ['p' => $projectId]
         );
     }

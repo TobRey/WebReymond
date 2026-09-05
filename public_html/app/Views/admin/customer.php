@@ -341,6 +341,21 @@ $neu = $id === 0;
                                        href="<?= e(Websites::url($w)) ?>"
                                        target="_blank" rel="noopener noreferrer">Öffnen</a>
                                 <?php endif; ?>
+                                <?php
+                                /* Der aktuelle Stand als ZIP – nicht das
+                                   zuletzt Gebaute, sondern das, was gerade
+                                   wirklich auf dem Server liegt. Nur für
+                                   selbst gebaute Websites: Bei einer nur
+                                   eingetragenen gibt es keinen Zugang. */ ?>
+                                <?php if (!$handgemacht): ?>
+                                    <form method="post"
+                                          action="<?= e($base) ?>/projekt/<?= (int) $w['id'] ?>/stand-holen">
+                                        <?= Csrf::field() ?>
+                                        <button type="submit" class="wa-btn wa-btn--small">
+                                            Stand als ZIP
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>
