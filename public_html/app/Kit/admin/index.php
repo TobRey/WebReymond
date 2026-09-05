@@ -110,6 +110,14 @@ if ($action === 'logout' && $isPost) {
 
 // ------------------------------------------------------------- Aktionen
 
+// Der Editor hat seine eigenen Aktionen und antwortet als JSON. Er
+// steht in einer eigenen Datei, weil er dieselbe Schnittstelle bedient
+// wie WebAtze - und weil er sonst hier zweihundert Zeilen zwischen
+// Formularen läge, mit denen er nichts zu tun hat.
+if ($isPost && str_starts_with($action, 'editor')) {
+    require __DIR__ . '/editor.php';
+}
+
 if ($isPost) {
     switch ($action) {
 
