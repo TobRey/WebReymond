@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Http;
 
 use WebAtze\Ai\ClaudeClient;
-use WebAtze\Domain\{EditorPlugin, Letterhead};
+use WebAtze\Domain\{EditorPlugin, HostingAccount, Letterhead};
 use WebAtze\Core\{Audit, Config, Crypto, Db, Request, Response, SecondFactor,
     Session, Settings, Totp, Validator, View};
 
@@ -25,6 +25,7 @@ final class SettingsController
                 'imprintComplete' => Settings::imprintComplete(),
                 'twoFactor' => self::twoFactorState(),
                 'cronHint' => self::cronLine(),
+                'hostingAccounts' => HostingAccount::all(),
                 'editorPlugin' => EditorPlugin::installiert(),
                 'editorBereit' => EditorPlugin::bereit(),
                 'diagnostics' => self::diagnostics([
@@ -49,6 +50,13 @@ final class SettingsController
         // Kontaktangaben und Impressum.
         if ($action === 'editor') {
             return $this->saveEditorPlugin($request);
+        }
+
+        // Der gemeinsame Hosting-Zugang. Eigener Zweig, weil hier ein
+        // Passwort verschlüsselt wird und nicht bloss ein Text
+        // gespeichert.
+        if ($action === 'hosting') {
+            return $this->saveHosting($request);
         }
 
         // Eine Kennung ausprobieren, ohne sie zu speichern und ohne einen
@@ -498,6 +506,56 @@ final class SettingsController
 
         return $checks;
     }
+    /**
+     * Einen Hosting-Zugang anlegen, ändern oder entfernen.
+     *
+     * Alle Websites liegen auf demselben Konto: Server, Benutzername
+     * und Passwort sind jedes Mal dieselben, nur das Verzeichnis
+     * unterscheidet sich. Hier steht es einmal – ändert der Anbieter
+     * das Passwort, wird es einmal geändert und alle Websites stimmen
+     * wieder.
+     */
+    private function saveHosting(Request $request): Response
+    {
+        $id = $request->int('hosting_id');
+
+        if ($request->input('entfernen') === 'hosting') {
+            $genutzt = HostingAccount::usedBy($id);
+
+            if (HostingAccount::remove($id)) {
+                Session::flash('success', $genutzt > 0
+                    ? 'Zugang entfernt. ' . $genutzt . ' Website(s) haben damit keine '
+                        . 'Zugangsdaten mehr – dort muss wieder etwas hinterlegt werden.'
+                    : 'Zugang entfernt.');
+            } else {
+                Session::flash('warning', 'Diesen Zugang gibt es nicht.');
+            }
+
+            return $this->back();
+        }
+
+        $neu = HostingAccount::save([
+            'name' => $request->input('name'),
+            'provider' => $request->input('provider'),
+            'protocol' => $request->input('protocol'),
+            'host' => $request->input('host'),
+            'port' => $request->int('port'),
+            'username' => $request->input('username'),
+            'password' => $request->input('password'),
+            'note' => $request->input('note'),
+        ], $id);
+
+        Audit::log($id > 0 ? 'hosting.updated' : 'hosting.created', $request->input('name'), [
+            'id' => $neu,
+        ], $request);
+
+        Session::flash('success', $id > 0
+            ? 'Zugang geändert. Alle Websites, die ihn benutzen, sind damit auf dem neuen Stand.'
+            : 'Zugang angelegt. Bei einer Website lässt er sich jetzt auswählen.');
+
+        return $this->back();
+    }
+
     /**
      * Das Editor-Plugin einspielen oder entfernen.
      *

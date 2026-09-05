@@ -53,10 +53,23 @@ $adresse = $website !== null ? Websites::url($website) : '';
         <h2 class="wa-panel__title">
             <?= $neu ? 'Website hinzufügen' : e((string) $website['name']) ?>
         </h2>
-        <?php if ($adresse !== ''): ?>
-            <a class="wa-btn wa-btn--small" href="<?= e($adresse) ?>"
-               target="_blank" rel="noopener noreferrer">Website öffnen</a>
-        <?php endif; ?>
+        <div class="wa-panel__actions">
+            <?php if ($adresse !== ''): ?>
+                <a class="wa-btn wa-btn--small" href="<?= e($adresse) ?>"
+                   target="_blank" rel="noopener noreferrer">Website öffnen</a>
+            <?php endif; ?>
+
+            <?php /* Der Weg zu den Zugangsdaten. Hierher führte gar keiner
+                     mehr, seit die Website-Liste nicht mehr im Menü steht -
+                     eine hinzugefügte Website hatte damit überhaupt keinen
+                     FTP-Zugang mehr. */ ?>
+            <?php if (!$neu): ?>
+                <a class="wa-btn wa-btn--small"
+                   href="<?= e($base) ?>/projekt/<?= (int) $website['id'] ?>/veroeffentlichen">
+                    Server &amp; FTP
+                </a>
+            <?php endif; ?>
+        </div>
     </header>
 
     <?php if ($neu): ?>

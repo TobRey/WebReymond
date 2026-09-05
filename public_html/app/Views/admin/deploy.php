@@ -63,7 +63,26 @@ $latest = $builds[0] ?? null;
         </div>
     </div>
 
-    <?php if ($builds === []): ?>
+    <?php
+    /**
+     * Eine hinzugefügte Website hat kein gebautes Paket – sie wurde ja
+     * nicht hier gebaut. Ihr zu sagen „muss zuerst gebaut werden" wäre
+     * ein Rat, den man nicht befolgen kann. Für sie ist FTP der Weg zum
+     * Herunterladen, nicht zum Hochladen, und genau das steht dann da.
+     */
+    $handgemacht = (string) ($project['source'] ?? '') === 'hand';
+    ?>
+    <?php if ($builds === [] && $handgemacht): ?>
+        <div class="wa-empty-state">
+            <p>
+                Diese Website wurde nicht hier gebaut, also gibt es kein Paket zum
+                Hochladen. Die Zugangsdaten unten sind trotzdem sinnvoll: Damit
+                lässt sich der <strong>aktuelle Stand vom Server holen</strong> &ndash;
+                als ZIP, mit allem, was inzwischen dort liegt.
+            </p>
+            <a class="wa-btn" href="<?= e($base) ?>/websites/<?= $id ?>">Zurück zur Website</a>
+        </div>
+    <?php elseif ($builds === []): ?>
         <div class="wa-empty-state">
             <p>Noch kein Paket vorhanden. Die Website muss zuerst gebaut werden.</p>
             <a class="wa-btn" href="<?= e($base) ?>/projekt/<?= $id ?>">Zurück zum Projekt</a>
@@ -172,6 +191,45 @@ $latest = $builds[0] ?? null;
     <form class="wa-form" method="post" action="<?= e($base) ?>/projekt/<?= $id ?>/ftp" autocomplete="off">
         <?= Csrf::field() ?>
 
+        <?php
+        /**
+         * Der gemeinsame Zugang zuerst.
+         *
+         * Alle Websites liegen auf demselben Konto - Server,
+         * Benutzername und Passwort sind jedes Mal dieselben. Wer einen
+         * Zugang hinterlegt hat, waehlt ihn hier aus und traegt darunter
+         * nur noch das Verzeichnis ein.
+         */
+        $konten = (array) ($hostingAccounts ?? []);
+        $gewaehlt = (int) ($target['hosting_account_id'] ?? 0);
+        ?>
+        <?php if ($konten !== []): ?>
+            <div class="wa-field">
+                <label class="wa-label" for="hosting_account_id">Hosting-Zugang</label>
+                <select class="wa-select" id="hosting_account_id" name="hosting_account_id"
+                        data-hosting-select>
+                    <option value="0">– eigene Angaben unten –</option>
+                    <?php foreach ($konten as $h): ?>
+                        <option value="<?= (int) $h['id'] ?>"<?= $gewaehlt === (int) $h['id'] ? ' selected' : '' ?>>
+                            <?= e((string) $h['name']) ?>
+                            (<?= e((string) $h['username']) ?> auf <?= e((string) $h['host']) ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <span class="wa-label__hint">
+                    Ausgewählt zählt nur noch das <strong>Verzeichnis</strong> weiter
+                    unten. Ändert der Anbieter das Passwort, wird es einmal unter
+                    Einstellungen geändert und alle Websites stimmen wieder.
+                </span>
+            </div>
+        <?php else: ?>
+            <p class="wa-hint">
+                Alle Websites beim selben Anbieter? Dann lohnt ein
+                <a href="<?= e($base) ?>/einstellungen#hosting">Hosting-Zugang</a>
+                &ndash; einmal eintragen statt bei jeder Website neu.
+            </p>
+        <?php endif; ?>
+
         <div class="wa-grid-2">
             <div class="wa-field">
                 <label class="wa-label" for="protocol">Verbindungsart</label>
@@ -190,6 +248,9 @@ $latest = $builds[0] ?? null;
                 <label class="wa-label" for="port">Port</label>
                 <input class="wa-input" type="number" id="port" name="port" min="1" max="65535" data-ftp-field="port"
                        value="<?= $port ?>">
+                <span class="wa-label__hint">
+                    Beispiel: <code>21</code> für FTP, <code>22</code> für SFTP.
+                </span>
             </div>
         </div>
 
@@ -212,7 +273,13 @@ $latest = $builds[0] ?? null;
             <div class="wa-field">
                 <label class="wa-label" for="username">Benutzername</label>
                 <input class="wa-input" type="text" id="username" name="username" autocomplete="off"
+                       placeholder="web@deine-domain.ch"
                        value="<?= e((string) ($target['username'] ?? '')) ?>">
+                <span class="wa-label__hint">
+                    Beispiel: <code>sarahbernhart@preview2.web-atze.com</code> &ndash;
+                    cPanel schreibt Unterkonten immer in dieser vollen Form mit
+                    <code>@</code>. Das Hauptkonto hat keines.
+                </span>
             </div>
         </div>
 
@@ -227,6 +294,7 @@ $latest = $builds[0] ?? null;
             <div class="wa-field">
                 <label class="wa-label" for="path">Verzeichnis</label>
                 <input class="wa-input" type="text" id="path" name="path" data-ftp-field="path"
+                       placeholder="/public_html"
                        value="<?= e((string) ($target['remote_path'] ?? '/public_html')) ?>">
                 <span class="wa-label__hint">
                     <?php /* Hier stand vorher, ein eigener Zugang je Subdomain sei
@@ -322,7 +390,11 @@ $latest = $builds[0] ?? null;
                 <?= Csrf::field() ?>
                 <button type="submit" class="wa-btn">Verbindung testen</button>
             </form>
+            <?php /* Ohne gebautes Paket gibt es nichts hochzuladen - dann
+                     bleibt der Knopf weg, statt eine Fehlermeldung zu
+                     versprechen. */ ?>
             <form method="post" action="<?= e($base) ?>/projekt/<?= $id ?>/hochladen"
+                  <?= $builds === [] ? 'hidden' : '' ?>
                   data-confirm="Die Website jetzt auf den Server des Kunden laden? Bestehende Dateien im Zielverzeichnis werden überschrieben.">
                 <?= Csrf::field() ?>
                 <button type="submit" class="wa-btn wa-btn--primary">Website hochladen</button>

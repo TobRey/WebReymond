@@ -62,10 +62,7 @@ final class FtpDeployer
      */
     public static function deploy(array $project, ?callable $onProgress = null, float $budget = 120.0): array
     {
-        $target = Db::first(
-            'SELECT * FROM deploy_targets WHERE project_id = :p ORDER BY id DESC LIMIT 1',
-            ['p' => (int) $project['id']]
-        );
+        $target = self::targetFor((int) $project['id']);
 
         if ($target === null) {
             return self::error('Für dieses Projekt sind keine Zugangsdaten hinterlegt.', false);
@@ -847,6 +844,10 @@ final class FtpDeployer
             'username' => mb_substr(trim((string) ($data['username'] ?? '')), 0, 190),
             'secret' => $secret,
             'remote_path' => self::cleanPath((string) ($data['path'] ?? '/public_html')),
+            // Null und nicht 0: Die Spalte ist eine Verknuepfung, und
+            // "keine" heisst dort NULL. Eine 0 zeigte auf ein Konto,
+            // das es nicht gibt.
+            'hosting_account_id' => ((int) ($data['hosting_account_id'] ?? 0)) ?: null,
             'updated_at' => Db::now(),
         ];
 
@@ -859,6 +860,58 @@ final class FtpDeployer
             'project_id' => $projectId,
             'created_at' => Db::now(),
         ]));
+    }
+
+    /**
+     * Das Ziel einer Website - mit dem Hosting-Zugang aufgeloest.
+     *
+     * Alle Websites liegen auf demselben Konto: Server, Benutzername
+     * und Passwort sind jedes Mal dieselben, nur das Verzeichnis
+     * unterscheidet sich. Steht ein Hosting-Zugang am Ziel, kommen die
+     * drei von dort und nur `remote_path` von der Website.
+     *
+     * Steht keiner daran, bleibt alles wie bisher. Das ist die
+     * Bedingung dafuer, diese Aenderung ueberhaupt einspielen zu
+     * duerfen: Was hinterlegt ist, funktioniert unveraendert weiter.
+     */
+    public static function targetFor(int $projectId): ?array
+    {
+        $target = Db::first(
+            'SELECT * FROM deploy_targets WHERE project_id = :p ORDER BY id DESC LIMIT 1',
+            ['p' => $projectId]
+        );
+
+        return $target === null ? null : self::withAccount($target);
+    }
+
+    /**
+     * Die Zugangsdaten eines gemeinsamen Kontos einsetzen.
+     *
+     * @param array<string, mixed> $target
+     * @return array<string, mixed>
+     */
+    public static function withAccount(array $target): array
+    {
+        $kontoId = (int) ($target['hosting_account_id'] ?? 0);
+
+        if ($kontoId <= 0) {
+            return $target;
+        }
+
+        $konto = Db::first('SELECT * FROM hosting_accounts WHERE id = :id', ['id' => $kontoId]);
+
+        if ($konto === null) {
+            // Das Konto ist weg, das Ziel zeigt ins Leere. Lieber mit
+            // dem, was am Ziel selbst steht, weitermachen als gar
+            // nichts - und der Verbindungstest sagt dann, was fehlt.
+            return $target;
+        }
+
+        foreach (['protocol', 'host', 'port', 'username', 'secret'] as $feld) {
+            $target[$feld] = $konto[$feld];
+        }
+
+        return $target;
     }
 
     /**
@@ -951,10 +1004,7 @@ final class FtpDeployer
      */
     public static function test(int $projectId): array
     {
-        $target = Db::first(
-            'SELECT * FROM deploy_targets WHERE project_id = :p ORDER BY id DESC LIMIT 1',
-            ['p' => $projectId]
-        );
+        $target = self::targetFor($projectId);
 
         if ($target === null) {
             return self::pruefErgebnis(false, 'Es sind keine Zugangsdaten hinterlegt.');

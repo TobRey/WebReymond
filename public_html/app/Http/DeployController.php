@@ -37,6 +37,9 @@ final class DeployController
                 'brief' => json_decode((string) $project['brief'], true) ?: [],
                 // Was der letzte Verbindungstest dort gefunden hat.
                 'gefunden' => (array) Session::get('ftp_ordner_' . (int) $project['id'], []),
+                // Der gemeinsame Zugang: Alle Websites liegen auf
+                // demselben Konto, also gehoert er hier zur Auswahl.
+                'hostingAccounts' => \WebAtze\Domain\HostingAccount::all(),
             ]),
         ]))->noCache()->noIndex();
     }
@@ -118,6 +121,7 @@ final class DeployController
             'username' => $request->input('username'),
             'password' => $request->input('password'),
             'path' => $request->input('path', '/public_html'),
+            'hosting_account_id' => $request->int('hosting_account_id'),
         ]);
 
         Audit::log('deploy.target_saved', (string) $project['name'], [

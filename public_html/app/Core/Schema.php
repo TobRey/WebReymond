@@ -1169,6 +1169,37 @@ final class Schema
                 CREATE INDEX IF NOT EXISTS idx_threads_customer ON support_threads (customer_id);
                 CREATE INDEX IF NOT EXISTS idx_questionnaires_customer ON questionnaires (customer_id);
             ',
+
+            // ------------------------------------------ Ein Hosting-Zugang
+            //
+            // Alle Websites liegen auf demselben Konto: Server,
+            // Benutzername und Passwort sind jedes Mal dieselben, nur
+            // das Verzeichnis unterscheidet sich. Bisher wurde das je
+            // Website eingetippt und je Website verschluesselt
+            // abgelegt - und beim naechsten Passwortwechsel musste es
+            // ueberall neu eingetragen werden.
+            //
+            // deploy_targets bleibt, wie es ist. Steht kein Zugang
+            // daran, gilt weiterhin, was dort selbst hinterlegt ist -
+            // bestehende Websites merken von dieser Aenderung nichts.
+            '048_hosting_zugaenge' => '
+                CREATE TABLE IF NOT EXISTS hosting_accounts (
+                    id {id},
+                    name {string:120} NOT NULL DEFAULT \'\',
+                    provider {string:40} NOT NULL DEFAULT \'godaddy\',
+                    protocol {string:10} NOT NULL DEFAULT \'ftp\',
+                    host {string:191} NOT NULL DEFAULT \'\',
+                    port {int} NOT NULL DEFAULT 21,
+                    username {string:191} NOT NULL DEFAULT \'\',
+                    secret {text} NULL,
+                    note {string:500} NOT NULL DEFAULT \'\',
+                    created_at {datetime} NOT NULL,
+                    updated_at {datetime} NOT NULL
+                );
+
+                ALTER TABLE deploy_targets ADD COLUMN hosting_account_id {int} NULL;
+                CREATE INDEX IF NOT EXISTS idx_deploy_account ON deploy_targets (hosting_account_id);
+            ',
         ];
     }
 

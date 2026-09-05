@@ -298,6 +298,107 @@ foreach ($diagnostics as $check) {
 
 <?php
 /**
+ * Der gemeinsame Hosting-Zugang.
+ *
+ * Alle Websites liegen auf demselben Konto: Server, Benutzername und
+ * Passwort sind jedes Mal dieselben, nur das Verzeichnis
+ * unterscheidet sich. Bisher wurde das je Website eingetippt – bei
+ * acht Websites acht Gelegenheiten, beim nächsten Passwortwechsel eine
+ * zu vergessen, und die fällt erst beim nächsten Hochladen auf.
+ */
+$anbieter = require APP_DIR . '/Support/providers.php';
+?>
+<section class="wa-panel" id="hosting">
+    <header class="wa-panel__head">
+        <h2 class="wa-panel__title">Hosting-Zugänge</h2>
+        <p class="wa-panel__hint">
+            Einmal hinterlegt, bei jeder Website auswählbar. Dort bleibt dann
+            nur noch das Verzeichnis einzutragen &ndash; und ändert der Anbieter
+            das Passwort, wird es hier einmal geändert.
+        </p>
+    </header>
+
+    <?php if (($hostingAccounts ?? []) !== []): ?>
+        <div class="wa-table-wrap">
+            <table class="wa-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Server</th>
+                        <th>Benutzername</th>
+                        <th>Websites</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($hostingAccounts as $h): ?>
+                        <tr>
+                            <td>
+                                <strong class="wa-table__main"><?= e((string) $h['name']) ?></strong>
+                                <span class="wa-table__quiet">
+                                    <?= e(mb_strtoupper((string) $h['protocol'])) ?> · Port <?= (int) $h['port'] ?>
+                                </span>
+                            </td>
+                            <td><?= e((string) $h['host']) ?></td>
+                            <td><?= e((string) $h['username']) ?></td>
+                            <td class="wa-table__quiet">
+                                <?= (int) \WebAtze\Domain\HostingAccount::usedBy((int) $h['id']) ?>
+                            </td>
+                            <td class="wa-table__actions">
+                                <button type="button" class="wa-icon-btn"
+                                        data-dialog="#hosting-<?= (int) $h['id'] ?>"
+                                        aria-label="<?= e((string) $h['name']) ?> ändern" title="Ändern">
+                                    <?= View_partial('partials/admin-icons', ['name' => 'pencil']) ?>
+                                </button>
+
+                                <form method="post" action="<?= e($base) ?>/einstellungen"
+                                      data-confirm="Diesen Zugang entfernen? Websites, die ihn benutzen, haben danach keine Zugangsdaten mehr.">
+                                    <?= Csrf::field() ?>
+                                    <input type="hidden" name="action" value="hosting">
+                                    <input type="hidden" name="hosting_id" value="<?= (int) $h['id'] ?>">
+                                    <button type="submit" name="entfernen" value="hosting"
+                                            class="wa-icon-btn wa-icon-btn--danger"
+                                            aria-label="<?= e((string) $h['name']) ?> entfernen" title="Entfernen">
+                                        <?= View_partial('partials/admin-icons', ['name' => 'trash']) ?>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <?php foreach ($hostingAccounts as $h): ?>
+            <?= View_partial('partials/dialog', [
+                'id' => 'hosting-' . (int) $h['id'],
+                'titel' => (string) $h['name'],
+                'inhalt' => View_partial('partials/hosting-form', [
+                    'konto' => $h,
+                    'base' => $base,
+                    'anbieter' => $anbieter,
+                ]),
+            ]) ?>
+        <?php endforeach; ?>
+    <?php else: ?>
+        <p class="wa-empty">
+            Noch kein Zugang hinterlegt. Wer alle Websites bei demselben Anbieter
+            hat, trägt ihn hier einmal ein statt bei jeder Website neu.
+        </p>
+    <?php endif; ?>
+
+    <details class="wa-details"<?= ($hostingAccounts ?? []) === [] ? ' open' : '' ?>>
+        <summary>Zugang hinzufügen</summary>
+        <?= View_partial('partials/hosting-form', [
+            'konto' => [],
+            'base' => $base,
+            'anbieter' => $anbieter,
+        ]) ?>
+    </details>
+</section>
+
+<?php
+/**
  * Der Editor.
  *
  * Er kommt seit dieser Fassung als eigenes Paket und nicht mehr im

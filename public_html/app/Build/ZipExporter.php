@@ -226,10 +226,9 @@ final class ZipExporter
             throw new RuntimeException('Die PHP-Erweiterung "zip" fehlt auf diesem Server.');
         }
 
-        $target = Db::first(
-            'SELECT * FROM deploy_targets WHERE project_id = :p ORDER BY id DESC LIMIT 1',
-            ['p' => (int) $project['id']]
-        );
+        // Ueber targetFor(), damit auch hier der gemeinsame
+        // Hosting-Zugang greift und nicht nur beim Hochladen.
+        $target = FtpDeployer::targetFor((int) $project['id']);
 
         if ($target === null) {
             throw new RuntimeException(

@@ -343,10 +343,25 @@ $neu = $id === 0;
                             </td>
                             <td class="wa-table__actions">
                                 <?php if ((string) $w['domain'] !== ''): ?>
-                                    <a class="wa-btn wa-btn--small"
+                                    <a class="wa-icon-btn"
                                        href="<?= e(Websites::url($w)) ?>"
-                                       target="_blank" rel="noopener noreferrer">Öffnen</a>
+                                       target="_blank" rel="noopener noreferrer"
+                                       aria-label="<?= e((string) $w['name']) ?> im Browser öffnen"
+                                       title="Website öffnen">
+                                        <?= View_partial('partials/admin-icons', ['name' => 'external']) ?>
+                                    </a>
                                 <?php endif; ?>
+
+                                <?php /* Der Weg zu FTP und Veröffentlichen. Seit
+                                         die Website-Liste nicht mehr im Menü
+                                         steht, führte hierher gar kein Weg
+                                         mehr – man kam an die Zugangsdaten
+                                         nicht mehr heran. */ ?>
+                                <a class="wa-btn wa-btn--small"
+                                   href="<?= e($base) ?>/projekt/<?= (int) $w['id'] ?>/veroeffentlichen">
+                                    Server
+                                </a>
+
                                 <?php
                                 /* Der aktuelle Stand als ZIP – nicht das
                                    zuletzt Gebaute, sondern das, was gerade

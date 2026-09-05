@@ -2694,8 +2694,14 @@ tr.is-inactive { opacity: 0.55; }
  */
 
 .wa-dialog {
+  /* margin: auto zentriert ein <dialog> - der Reset der Seite setzt
+     es auf 0, und dann klebt das Fenster oben links in der Ecke. */
+  margin: auto;
   inline-size: min(46rem, 92vw);
   max-block-size: 88vh;
+  /* Die Schriftgroesse kommt sonst vom Wurzelelement und nicht vom
+     Adminbereich - im Fenster stand alles eine Nummer zu gross. */
+  font-size: var(--wa-text-sm);
   padding: 0;
   border: 1px solid var(--wa-border-strong);
   border-radius: var(--wa-radius-lg, 1rem);
@@ -2732,6 +2738,23 @@ tr.is-inactive { opacity: 0.55; }
   padding: var(--wa-space-5);
   overflow-y: auto;
   max-block-size: calc(88vh - 4.5rem);
+}
+
+/*
+ * Die Beispiele stehen unter dem Feld und sollen dort auch bleiben:
+ * Sie helfen einmal und dürfen danach nicht lauter sein als das, was
+ * man eingetragen hat.
+ */
+.wa-dialog .wa-label__hint {
+  display: block;
+  margin-inline-start: 0;
+  margin-block-start: 0.35rem;
+  font-size: var(--wa-text-xs);
+  line-height: 1.45;
+}
+
+.wa-dialog .wa-label__hint code {
+  font-size: 0.95em;
 }
 
 /* Im Fenster ist Platz für zwei Spalten. Genau dafür ist es da. */

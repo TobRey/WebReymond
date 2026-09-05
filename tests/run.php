@@ -2903,6 +2903,144 @@ test('Ohne Kunde wird nichts unerreichbar', function (): void {
 });
 
 // ==================================================================
+test('Ein Hosting-Zugang gilt fuer alle Websites', function (): void {
+    // Alle Websites liegen auf demselben Konto: Server, Benutzername
+    // und Passwort sind jedes Mal dieselben, nur das Verzeichnis
+    // unterscheidet sich. Bei acht Websites war das bisher achtmal
+    // eingetippt - und beim naechsten Passwortwechsel acht
+    // Gelegenheiten, eine zu vergessen.
+    $kontoId = \WebAtze\Domain\HostingAccount::save([
+        'name' => 'GoDaddy',
+        'protocol' => 'ftp',
+        // Bewusst mit Schema und Pfad: Was hineinkopiert wird, soll
+        // auch hier zurechtgerueckt werden und nicht erst beim Test.
+        'host' => 'ftp://hosting.example/public_html',
+        'port' => 21,
+        'username' => 'web@example.ch',
+        'password' => 'geheim',
+    ]);
+
+    $konto = \WebAtze\Domain\HostingAccount::find($kontoId);
+
+    is('hosting.example', (string) $konto['host'], 'Der Servername wird auch hier geputzt');
+    ok((string) $konto['secret'] !== 'geheim', 'Das Passwort liegt nicht im Klartext');
+
+    // Zwei Websites am selben Zugang, mit verschiedenen Verzeichnissen.
+    $ids = [];
+
+    foreach (['/', '/public_html/zwei'] as $nummer => $pfad) {
+        $ids[$nummer] = (int) \WebAtze\Core\Db::insert('projects', [
+            'name' => 'Konto ' . $nummer, 'slug' => 'konto-' . $nummer . '-' . bin2hex(random_bytes(3)),
+            'status' => 'ready',
+            'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+        ]);
+
+        \WebAtze\Build\FtpDeployer::saveTarget($ids[$nummer], [
+            'protocol' => 'ftp', 'host' => '', 'port' => 21,
+            'username' => '', 'password' => '', 'path' => $pfad,
+            'hosting_account_id' => $kontoId,
+        ]);
+    }
+
+    foreach ($ids as $nummer => $projektId) {
+        $ziel = \WebAtze\Build\FtpDeployer::targetFor($projektId);
+
+        is('hosting.example', (string) $ziel['host'], 'Website ' . $nummer . ': Server aus dem Zugang');
+        is('web@example.ch', (string) $ziel['username'], 'Website ' . $nummer . ': Benutzer aus dem Zugang');
+        ok((string) $ziel['secret'] !== '', 'Website ' . $nummer . ': Passwort aus dem Zugang');
+    }
+
+    is('/', (string) \WebAtze\Build\FtpDeployer::targetFor($ids[0])['remote_path'],
+        'Das Verzeichnis bleibt bei der Website');
+    is('/public_html/zwei', (string) \WebAtze\Build\FtpDeployer::targetFor($ids[1])['remote_path'],
+        'Und zwar je Website ein anderes');
+
+    is(2, \WebAtze\Domain\HostingAccount::usedBy($kontoId), 'Beide haengen daran');
+
+    // Einmal aendern, beide stimmen wieder. Das ist der ganze Punkt.
+    \WebAtze\Domain\HostingAccount::save([
+        'name' => 'GoDaddy', 'protocol' => 'ftp', 'host' => 'neu.example',
+        'port' => 21, 'username' => 'web2@example.ch', 'password' => '',
+    ], $kontoId);
+
+    foreach ($ids as $nummer => $projektId) {
+        $ziel = \WebAtze\Build\FtpDeployer::targetFor($projektId);
+
+        is('neu.example', (string) $ziel['host'], 'Website ' . $nummer . ': zieht mit');
+        ok((string) $ziel['secret'] !== '', 'Website ' . $nummer . ': das Passwort bleibt');
+    }
+
+    // Eine Website mit eigenen Angaben darf davon nichts merken. Das
+    // ist die Bedingung, diese Aenderung ueberhaupt einspielen zu
+    // duerfen: Was hinterlegt ist, funktioniert unveraendert weiter.
+    $eigen = (int) \WebAtze\Core\Db::insert('projects', [
+        'name' => 'Eigen', 'slug' => 'eigen-' . bin2hex(random_bytes(3)),
+        'status' => 'ready',
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    \WebAtze\Build\FtpDeployer::saveTarget($eigen, [
+        'protocol' => 'sftp', 'host' => 'eigener.example', 'port' => 22,
+        'username' => 'nur-ich', 'password' => 'meins', 'path' => '/web',
+    ]);
+
+    $ziel = \WebAtze\Build\FtpDeployer::targetFor($eigen);
+
+    is('eigener.example', (string) $ziel['host'], 'Eigene Angaben bleiben eigene Angaben');
+    is('nur-ich', (string) $ziel['username'], 'Auch der Benutzername');
+
+    // Und wenn der Zugang weg ist, verlieren die Websites ihre Daten -
+    // aber es kracht nicht, und gezaehlt wurde vorher, wie viele es
+    // betrifft.
+    ok(\WebAtze\Domain\HostingAccount::remove($kontoId), 'Der Zugang laesst sich entfernen');
+
+    $ziel = \WebAtze\Build\FtpDeployer::targetFor($ids[0]);
+
+    ok($ziel !== null, 'Das Ziel gibt es noch');
+    is(0, (int) ($ziel['hosting_account_id'] ?? 0), 'Ohne Verweis auf ein Konto, das es nicht mehr gibt');
+
+    foreach ($ids as $projektId) {
+        \WebAtze\Core\Db::delete('deploy_targets', 'project_id = :p', ['p' => $projektId]);
+        \WebAtze\Core\Db::delete('projects', 'id = :p', ['p' => $projektId]);
+    }
+
+    \WebAtze\Core\Db::delete('deploy_targets', 'project_id = :p', ['p' => $eigen]);
+    \WebAtze\Core\Db::delete('projects', 'id = :p', ['p' => $eigen]);
+});
+
+// ==================================================================
+test('Zu jeder Website fuehrt ein Weg zu ihren Zugangsdaten', function (): void {
+    // Seit die Website-Liste nicht mehr im Menue steht, fuehrte
+    // hierher gar kein Weg mehr: Die Seite einer hinzugefuegten
+    // Website verlinkte nirgends auf die Zugangsdaten, und die
+    // Kundenseite auch nicht. Damit war FTP fuer diese Websites
+    // unerreichbar.
+    foreach (['customer.php', 'websites.php', 'website.php'] as $datei) {
+        $view = (string) file_get_contents(
+            dirname(__DIR__) . '/public_html/app/Views/admin/' . $datei
+        );
+
+        ok(str_contains($view, '/veroeffentlichen'),
+            $datei . ' fuehrt zu den Zugangsdaten');
+    }
+
+    // Und das Vorschaubild darf nicht aus dem Ordner ausbrechen.
+    $aufloesen = new ReflectionMethod(\WebAtze\Http\PreviewController::class, 'resolve');
+    $aufloesen->setAccessible(true);
+
+    $wurzel = sys_get_temp_dir() . '/wa-mini-' . bin2hex(random_bytes(4));
+    @mkdir($wurzel, 0755, true);
+    file_put_contents($wurzel . '/index.html', '<html>x</html>');
+
+    ok($aufloesen->invoke(null, $wurzel, '') !== null, 'Ohne Pfad kommt die Startseite');
+    is(null, $aufloesen->invoke(null, $wurzel, '../../../etc/passwd'), 'Ausbrechen geht nicht');
+    is(null, $aufloesen->invoke(null, $wurzel, '/etc/passwd'), 'Ein absoluter Pfad auch nicht');
+
+    @unlink($wurzel . '/index.html');
+    @rmdir($wurzel);
+});
+
+// ==================================================================
 test('Der Servername wird zurechtgerueckt', function (): void {
     // In dieses Feld wird kopiert, und mitkopiert wird alles, was der
     // Anbieter drumherum anzeigt. Jedes Stueck davon ergab frueher
