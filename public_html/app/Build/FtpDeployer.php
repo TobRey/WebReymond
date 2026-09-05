@@ -1219,23 +1219,25 @@ final class FtpDeployer
                 : $pfad . ' gibt es von diesem Zugang aus nicht.'
         );
 
+        // Wie bei FTP: eigene Frage, eigenes Urteil. Die Schreibprobe
+        // darf nicht sagen, den Ordner gebe es nicht.
+        $schreibbar = null;
+
         if ($vorhanden) {
             $probe = rtrim($pfad, '/') . '/.webatze-probe-' . bin2hex(random_bytes(4));
-            $konnte = $sftp->put($probe, 'webatze');
+            $schreibbar = (bool) $sftp->put($probe, 'webatze');
 
-            if ($konnte) {
+            if ($schreibbar) {
                 $sftp->delete($probe);
             }
 
             $stufen[] = self::stufe(
                 'Schreibprobe',
-                (bool) $konnte,
-                $konnte
+                $schreibbar,
+                $schreibbar
                     ? 'Datei angelegt und wieder entfernt - der Zugang darf schreiben.'
-                    : 'Anmeldung und Ordner stimmen, aber der Zugang darf dort nicht schreiben.'
+                    : self::schreibHilfe($pfad)
             );
-
-            $vorhanden = (bool) $konnte;
         }
 
         $sftp->disconnect();
@@ -1243,10 +1245,8 @@ final class FtpDeployer
         $vorschlag = $vorhanden ? '' : self::ordnerVorschlag($obenAuf, $daHeim, $user);
 
         return self::pruefErgebnis(
-            $vorhanden,
-            $vorhanden
-                ? 'Alles bereit: angemeldet, ' . $pfad . ' vorhanden und beschreibbar.'
-                : self::zielHilfe($pfad, $vorschlag, $user),
+            (bool) $vorhanden,
+            self::endMeldung((bool) $vorhanden, $schreibbar, $pfad, $vorschlag, $user),
             $ordner,
             $vorschlag !== '' ? $vorschlag : self::vorschlagen($ordner, $pfad),
             $stufen
@@ -1362,18 +1362,27 @@ final class FtpDeployer
                 : $pfad . ' gibt es von diesem Zugang aus nicht.'
         );
 
+        // Die Schreibprobe ist eine eigene Frage und darf das Urteil
+        // ueber den Ordner nicht ueberschreiben.
+        //
+        // Genau das tat sie: $vorhanden wurde mit dem Ergebnis der
+        // Schreibprobe ueberschrieben, und dann meldete die
+        // Zusammenfassung "den Ordner gibt es nicht" - obwohl die Stufe
+        // darueber gruen war und der Ordner sehr wohl da. Eine Meldung,
+        // die der Stufenkette direkt widerspricht, ist schlimmer als
+        // gar keine: Man sucht dann an der falschen Stelle.
+        $schreibbar = null;
+
         if ($vorhanden) {
-            $konnte = self::schreibprobeFtp($verbindung, $pfad);
+            $schreibbar = self::schreibprobeFtp($verbindung, $pfad);
 
             $stufen[] = self::stufe(
                 'Schreibprobe',
-                $konnte,
-                $konnte
+                $schreibbar,
+                $schreibbar
                     ? 'Datei angelegt und wieder entfernt - der Zugang darf schreiben.'
-                    : 'Anmeldung und Ordner stimmen, aber der Zugang darf dort nicht schreiben.'
+                    : self::schreibHilfe($pfad)
             );
-
-            $vorhanden = $konnte;
         }
 
         @ftp_close($verbindung);
@@ -1381,14 +1390,57 @@ final class FtpDeployer
         $vorschlag = $vorhanden ? '' : self::ordnerVorschlag($obenAuf, $daHeim, $user);
 
         return self::pruefErgebnis(
-            $vorhanden,
-            $vorhanden
-                ? 'Alles bereit: angemeldet, ' . $pfad . ' vorhanden und beschreibbar.'
-                : self::zielHilfe($pfad, $vorschlag, $user),
+            (bool) $vorhanden,
+            self::endMeldung((bool) $vorhanden, $schreibbar, $pfad, $vorschlag, $user),
             $ordner,
             $vorschlag !== '' ? $vorschlag : self::vorschlagen($ordner, $pfad),
             $stufen
         );
+    }
+
+    /**
+     * Die Zusammenfassung - und zwar dieselbe Auskunft wie die Stufen.
+     *
+     * Der Ordner und das Schreiben sind zwei Fragen. Ein Zugang, der
+     * lesen aber nicht schreiben darf, ist zum Stand-Holen vollkommen
+     * brauchbar und nur zum Hochladen nicht - das gehoert gesagt,
+     * statt beides in ein rotes "geht nicht" zu werfen.
+     */
+    private static function endMeldung(
+        bool $vorhanden,
+        ?bool $schreibbar,
+        string $pfad,
+        string $vorschlag,
+        string $user
+    ): string {
+        if (!$vorhanden) {
+            return self::zielHilfe($pfad, $vorschlag, $user);
+        }
+
+        if ($schreibbar === false) {
+            return 'Angemeldet, und ' . $pfad . ' ist da - aber das Schreiben hat nicht '
+                . 'geklappt. Zum Herunterladen des aktuellen Stands reicht das; zum '
+                . 'Hochladen nicht. ' . self::schreibHilfe($pfad);
+        }
+
+        return 'Alles bereit: angemeldet, ' . $pfad . ' vorhanden und beschreibbar.';
+    }
+
+    /**
+     * Warum das Schreiben scheitern kann.
+     *
+     * Zwei Ursachen, und sie sehen von aussen gleich aus: Entweder darf
+     * der Zugang dort nicht schreiben, oder die Datenverbindung kommt
+     * nicht zustande. Das Auflisten geht dabei manchmal trotzdem - es
+     * benutzt dieselbe Art Verbindung, aber nicht dieselbe.
+     */
+    private static function schreibHilfe(string $pfad): string
+    {
+        return 'Entweder darf dieser Zugang in ' . $pfad . ' nicht schreiben - bei '
+            . 'cPanel ist das Heimatverzeichnis oft schreibgeschuetzt, dann gehoert '
+            . 'public_html an den Pfad -, oder die Datenverbindung wird unterwegs '
+            . 'blockiert. Mit FTP mit Verschluesselung (Port 21) geht Letzteres '
+            . 'haeufiger durch.';
     }
 
     /**
@@ -1431,6 +1483,16 @@ final class FtpDeployer
         file_put_contents($tmp, 'webatze');
 
         $ok = @ftp_put($verbindung, $ziel, $tmp, FTP_BINARY);
+
+        // Noch einmal ohne die Adresse, die der Server im Passivmodus
+        // nennt. Auf geteiltem Hosting steht dort haeufig eine interne
+        // NAT-Adresse; die Auflistung kommt damit manchmal trotzdem
+        // durch, das Hochladen nicht - und dann sieht es aus, als
+        // duerfte der Zugang nicht schreiben.
+        if (!$ok && defined('FTP_USEPASVADDRESS')) {
+            @ftp_set_option($verbindung, FTP_USEPASVADDRESS, false);
+            $ok = @ftp_put($verbindung, $ziel, $tmp, FTP_BINARY);
+        }
 
         @unlink($tmp);
 

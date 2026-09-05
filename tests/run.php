@@ -3163,6 +3163,60 @@ test('Der Test sagt, an welcher Stufe es haengt', function (): void {
 });
 
 // ==================================================================
+test('Die Zusammenfassung widerspricht der Stufenkette nicht', function (): void {
+    // Der Fehler, der ihn eine Runde gekostet hat: $vorhanden wurde mit
+    // dem Ergebnis der Schreibprobe ueberschrieben. Stand der Ordner
+    // gruen da und scheiterte nur das Schreiben, meldete die
+    // Zusammenfassung trotzdem "den Ordner gibt es nicht" - also
+    // wortwoertlich das Gegenteil der Stufe darueber. Er hat daraufhin
+    // drei Pfade durchprobiert, von denen der erste richtig war.
+    $meldung = new ReflectionMethod(\WebAtze\Build\FtpDeployer::class, 'endMeldung');
+    $meldung->setAccessible(true);
+
+    // Ordner da, Schreiben geht: alles gut.
+    $text = (string) $meldung->invoke(null, true, true, '/', '', 'web@example.ch');
+    ok(str_contains($text, 'Alles bereit'), 'Alles gruen wird auch so gemeldet');
+
+    // Ordner da, Schreiben geht nicht: Das ist eine andere Auskunft.
+    $text = (string) $meldung->invoke(null, true, false, '/', '', 'web@example.ch');
+
+    ok(!str_contains($text, 'gibt es von diesem Zugang aus nicht'),
+        'Ein gescheitertes Schreiben behauptet nicht, den Ordner gebe es nicht');
+    ok(str_contains($text, 'ist da'), 'Sondern sagt, dass er da ist');
+    ok(str_contains($text, 'Schreiben'), 'Und dass es am Schreiben liegt');
+    ok(str_contains($text, 'Herunterladen'),
+        'Und wozu es trotzdem reicht - der Stand laesst sich holen');
+
+    // Ordner nicht da: der alte, richtige Weg.
+    $text = (string) $meldung->invoke(null, false, null, '/falsch', '/', 'web@example.ch');
+    ok(str_contains($text, 'gibt es von diesem Zugang aus nicht'),
+        'Ein fehlender Ordner wird weiterhin als solcher gemeldet');
+    ok(str_contains($text, 'Trage / ein'), 'Mit dem Vorschlag, der passt');
+
+    // Und das Ergebnis insgesamt: Ein Zugang, der lesen aber nicht
+    // schreiben darf, ist zum Stand-Holen brauchbar. Ihn als
+    // Fehlschlag zu melden hiesse, eine funktionierende Verbindung
+    // wegzuwerfen.
+    $quelle = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Build/FtpDeployer.php'
+    );
+
+    ok(!str_contains($quelle, '$vorhanden = $konnte;'),
+        'Die Schreibprobe ueberschreibt das Urteil ueber den Ordner nicht mehr');
+    ok(!str_contains($quelle, '$vorhanden = (bool) $konnte;'),
+        'Auch nicht im SFTP-Weg');
+
+    // Die Schreibprobe versucht es ohne die NAT-Adresse noch einmal.
+    // Auf geteiltem Hosting kommt die Auflistung manchmal durch und das
+    // Hochladen nicht - dann sieht es aus wie eine fehlende Berechtigung.
+    $probe = substr($quelle, strpos($quelle, 'function schreibprobeFtp'));
+    $probe = substr($probe, 0, 1400);
+
+    ok(str_contains($probe, 'FTP_USEPASVADDRESS'),
+        'Die Schreibprobe versucht es ohne die Passivadresse noch einmal');
+});
+
+// ==================================================================
 test('Ein festgenageltes cPanel-Konto bekommt den richtigen Ordner', function (): void {
     // Der Fall, der eine Woche gekostet hat: Ein FTP-Unterkonto wird in
     // cPanel auf sein Verzeichnis festgenagelt. Nach der Anmeldung ist
