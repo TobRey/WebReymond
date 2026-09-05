@@ -34,11 +34,16 @@ return [
                 'Beim gewünschten Konto auf <strong>Konfigurieren Sie den FTP-Client</strong> klicken – dort stehen Server, Benutzername und Port.',
                 'Das Passwort ist das, das beim Anlegen vergeben wurde. Es lässt sich dort auch neu setzen.',
             ],
-            'note' => 'Als Verzeichnis fast immer <code>/public_html</code>. Soll die Seite in einen Unterordner, hängt man ihn an: <code>/public_html/neu</code>.',
+            'note' => 'Der Server ist die Domain oder der Servername aus cPanel – <strong>nie</strong> '
+                . '<code>ftp.</code> davor, diesen Eintrag legt cPanel nicht an. '
+                . 'Beim Verzeichnis kommt es auf den Zugang an: Ein Unterkonto (Benutzername mit '
+                . '<code>@</code>) sitzt bereits in seinem Ordner, dort ist es <code>/</code>. '
+                . 'Beim Hauptkonto ist es <code>/public_html</code>, bei einer Subdomain '
+                . '<code>/public_html/subdomain.deine-domain.ch</code>.',
         ],
 
         'godaddy' => [
-            'name' => 'GoDaddy',
+            'name' => 'GoDaddy (cPanel)',
             'protocol' => 'ftp',
             'port' => 21,
             'path' => '/public_html',
@@ -46,9 +51,21 @@ return [
                 'Bei GoDaddy anmelden und zu <strong>Meine Produkte</strong> gehen.',
                 'Beim Webhosting-Paket auf <strong>Verwalten</strong> klicken.',
                 'Über <strong>cPanel-Admin</strong> das cPanel öffnen.',
-                'Dort unter „Dateien" auf <strong>FTP-Konten</strong> – Server, Benutzername und Port stehen unter „Konfigurieren Sie den FTP-Client".',
+                'Unter „Dateien" auf <strong>FTP-Konten</strong>. Ein bestehendes Konto nehmen oder ein neues anlegen.',
+                'Als <strong>Server</strong> die Domain selbst eintragen, also <code>deine-domain.ch</code> – <strong>nicht</strong> <code>ftp.deine-domain.ch</code>. Diesen Namen gibt es bei cPanel nicht. Alternativ der Servername, der in cPanel rechts unter „Allgemeine Informationen" steht.',
+                'Als <strong>Benutzername</strong> genau das, was cPanel anzeigt – die volle Form mit <code>@</code>, also <code>web@deine-domain.ch</code>.',
+                'Port <strong>21</strong>, Übertragungsart <strong>FTP</strong>. SFTP ist bei GoDaddy im Standardpaket meist nicht freigeschaltet.',
             ],
-            'note' => 'GoDaddy setzt cPanel ein; der Weg entspricht ab Schritt 3 dem cPanel-Weg.',
+            'note' => '<strong>Das Verzeichnis ist die häufigste Stolperstelle.</strong> '
+                . 'Ein FTP-Unterkonto (Benutzername mit <code>@</code>) wird beim Anlegen auf sein '
+                . 'Verzeichnis festgenagelt: Nach der Anmeldung ist man bereits darin, und der Pfad, '
+                . 'der in cPanel stand, existiert von dort aus nicht mehr. Für ein solches Konto ist '
+                . 'das Verzeichnis <code>/</code>. '
+                . 'Nur beim <em>Haupt</em>-cPanel-Konto (Benutzername ohne <code>@</code>) ist es der '
+                . 'volle Pfad, also <code>/public_html</code> bzw. bei einer Subdomain '
+                . '<code>/public_html/subdomain.deine-domain.ch</code>. '
+                . 'Im Zweifel einmal „Verbindung testen" – der Test sieht nach der Anmeldung nach '
+                . 'und schlägt den passenden Ordner vor.',
         ],
 
         'plesk' => [

@@ -1,10 +1,16 @@
 <?php
 
 /**
- * Ein Kunde: Stammdaten, Kosten, Zahlungen, Aufgaben, Termine.
+ * Ein Kunde: alles, was zu ihm gehört, auf einer Seite.
  *
- * Alles auf einer Seite. Wer wissen will, ob ein Kunde bezahlt hat,
- * soll nicht durch vier Reiter klicken müssen.
+ * Websites, Offerten und Rechnungen, Wartungsverträge, Passwörter,
+ * Support, Kosten, Zahlungen, Aufgaben, Termine.
+ *
+ * Das war vorher über sechs Menüpunkte verteilt, und jeder davon
+ * zeigte eine Liste über alle Kunden hinweg. Wer wissen wollte, wie es
+ * um einen einzelnen steht, musste sechsmal filtern. Jetzt steht es
+ * hier – und die Listen bleiben als Auswertung erhalten, für die
+ * Fragen, die tatsächlich über alle Kunden gehen.
  */
 
 use WebAtze\Core\{Config, Csrf};
@@ -19,6 +25,11 @@ use WebAtze\Domain\{Billing, Websites};
 /** @var array<int, array<string, mixed>> $projekte */
 /** @var array<int, array<string, mixed>> $rechnungen */
 /** @var array<int, array<string, mixed>> $websites */
+/** @var array<int, array<string, mixed>> $vertraege */
+/** @var array<int, array<string, mixed>> $passwoerter */
+/** @var array<int, array<string, mixed>> $fragebogen */
+/** @var array<int, array<string, mixed>> $faeden */
+/** @var bool $tresorOffen */
 
 $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
 $id = (int) ($kunde['id'] ?? 0);
@@ -338,18 +349,255 @@ $neu = $id === 0;
         </div>
     <?php endif; ?>
 </section>
+<?php
+/**
+ * Offerten und Rechnungen dieses Kunden.
+ *
+ * Diese Liste wurde seit jeher geladen und weggeworfen: Der Controller
+ * holte sie, der Kopfkommentar kündigte sie an, gerendert wurde sie
+ * nie. Stattdessen stand hier ein Link auf eine Liste aller Rechnungen
+ * aller Kunden – also genau der Umweg, der jetzt wegfällt.
+ */
+?>
+<section class="wa-panel">
+    <header class="wa-panel__head">
+        <h2 class="wa-panel__title">Offerten und Rechnungen</h2>
+        <div class="wa-panel__actions">
+            <a class="wa-btn wa-btn--small" href="<?= e($base) ?>/rechnungen?art=offer&amp;kunde=<?= $id ?>">
+                Offerte schreiben
+            </a>
+            <a class="wa-btn wa-btn--primary wa-btn--small"
+               href="<?= e($base) ?>/rechnungen?art=invoice&amp;kunde=<?= $id ?>">
+                Rechnung erstellen
+            </a>
+        </div>
+    </header>
+
+    <?php if (($rechnungen ?? []) === []): ?>
+        <p class="wa-empty">
+            Für diesen Kunden gibt es noch keine Offerte und keine Rechnung.
+        </p>
+    <?php else: ?>
+        <div class="wa-table-wrap">
+            <table class="wa-table">
+                <thead>
+                    <tr>
+                        <th>Nummer</th>
+                        <th>Titel</th>
+                        <th>Datum</th>
+                        <th>Zustand</th>
+                        <th class="wa-table__num">Betrag</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($rechnungen as $d): ?>
+                        <?php
+                            $art = (string) ($d['kind'] ?? 'offer');
+                            $zustand = (string) ($d['status'] ?? 'draft');
+                            $ueberfaellig = $art === 'invoice'
+                                && $zustand === 'sent'
+                                && (string) ($d['due_on'] ?? '') !== ''
+                                && (string) $d['due_on'] < date('Y-m-d');
+                        ?>
+                        <tr>
+                            <td>
+                                <span class="wa-table__main"><?= e((string) ($d['number'] ?? '')) ?></span>
+                                <span class="wa-table__quiet">
+                                    <?= e(\WebAtze\Build\DocumentBuilder::KINDS[$art] ?? $art) ?>
+                                </span>
+                            </td>
+                            <td><?= e((string) ($d['title'] ?? '')) ?></td>
+                            <td class="wa-table__quiet"><?= e((string) ($d['issued_on'] ?? '')) ?></td>
+                            <td>
+                                <?php if ($ueberfaellig): ?>
+                                    <span class="wa-badge wa-badge--bad">überfällig</span>
+                                <?php elseif ($zustand === 'paid'): ?>
+                                    <span class="wa-badge wa-badge--ok">bezahlt</span>
+                                <?php else: ?>
+                                    <span class="wa-badge">
+                                        <?= e(\WebAtze\Build\DocumentBuilder::STATUS[$zustand] ?? $zustand) ?>
+                                    </span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="wa-table__num">
+                                <?= e(Billing::money((int) ($d['total_rappen'] ?? 0))) ?>
+                            </td>
+                            <td class="wa-table__actions">
+                                <a class="wa-btn wa-btn--small"
+                                   href="<?= e($base) ?>/rechnungen/<?= (int) $d['id'] ?>/pdf">PDF</a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</section>
+
+<?php /* ---------------------------------------------------- Verträge */ ?>
+<section class="wa-panel">
+    <header class="wa-panel__head">
+        <h2 class="wa-panel__title">Wartungsverträge</h2>
+        <div class="wa-panel__actions">
+            <a class="wa-btn wa-btn--small" href="<?= e($base) ?>/vertraege?kunde=<?= $id ?>">
+                Vertrag anlegen
+            </a>
+        </div>
+    </header>
+
+    <?php if (($vertraege ?? []) === []): ?>
+        <p class="wa-empty">Kein laufender Vertrag.</p>
+    <?php else: ?>
+        <div class="wa-table-wrap">
+            <table class="wa-table">
+                <thead>
+                    <tr>
+                        <th>Website</th>
+                        <th>Paket</th>
+                        <th>Nächste Rechnung</th>
+                        <th class="wa-table__num">Betrag</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($vertraege as $v): ?>
+                        <?php $beendet = (string) ($v['cancelled_on'] ?? '') !== ''; ?>
+                        <tr>
+                            <td><?= e((string) ($v['website'] ?? '—')) ?></td>
+                            <td class="wa-table__quiet"><?= e((string) ($v['plan'] ?? '')) ?></td>
+                            <td class="wa-table__quiet">
+                                <?= $beendet
+                                    ? 'gekündigt am ' . e((string) $v['cancelled_on'])
+                                    : e((string) ($v['next_invoice_on'] ?? '')) ?>
+                            </td>
+                            <td class="wa-table__num">
+                                <?= e(Billing::money((int) ($v['price_rappen'] ?? 0))) ?>
+                                <span class="wa-table__quiet">
+                                    / <?= (int) ($v['interval_months'] ?? 12) ?> Mt.
+                                </span>
+                            </td>
+                            <td class="wa-table__actions">
+                                <?php if (!$beendet): ?>
+                                    <form method="post"
+                                          action="<?= e($base) ?>/vertraege/<?= (int) $v['id'] ?>/kuendigen"
+                                          data-confirm="Diesen Vertrag wirklich kündigen?">
+                                        <?= Csrf::field() ?>
+                                        <button type="submit" class="wa-btn wa-btn--small">Kündigen</button>
+                                    </form>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</section>
+
+<?php
+/**
+ * Passwörter dieses Kunden.
+ *
+ * Gezeigt wird nur, dass es sie gibt – Bezeichnung, Art, Benutzername.
+ * Das Geheimnis selbst kommt weiterhin ausschliesslich über den Tresor
+ * und dessen eigene Entsperrung heraus. Diese Seite bekommt es nie zu
+ * sehen, auch nicht kurz.
+ */
+?>
+<section class="wa-panel">
+    <header class="wa-panel__head">
+        <h2 class="wa-panel__title">Passwörter</h2>
+        <div class="wa-panel__actions">
+            <a class="wa-btn wa-btn--small" href="<?= e($base) ?>/passwoerter?kunde=<?= $id ?>">
+                Im Tresor öffnen
+            </a>
+        </div>
+    </header>
+
+    <?php if (($passwoerter ?? []) === []): ?>
+        <p class="wa-empty">Für diesen Kunden liegt nichts im Tresor.</p>
+    <?php else: ?>
+        <ul class="wa-keys">
+            <?php foreach ($passwoerter as $s): ?>
+                <li class="wa-keys__item">
+                    <span class="wa-keys__label"><?= e((string) $s['label']) ?></span>
+                    <span class="wa-keys__kind"><?= e((string) $s['kind']) ?></span>
+                    <?php if ((string) ($s['username'] ?? '') !== ''): ?>
+                        <span class="wa-keys__user"><?= e((string) $s['username']) ?></span>
+                    <?php endif; ?>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+        <p class="wa-hint">
+            <?= ($tresorOffen ?? false)
+                ? 'Der Tresor ist offen. Zum Ansehen im Tresor öffnen.'
+                : 'Der Tresor ist zu. Zum Ansehen dort das Tresorpasswort eingeben.' ?>
+        </p>
+    <?php endif; ?>
+</section>
+
+<?php /* ------------------------------------- Support und Fragebögen */ ?>
+<?php if (($faeden ?? []) !== [] || ($fragebogen ?? []) !== []): ?>
+<section class="wa-panel">
+    <header class="wa-panel__head">
+        <h2 class="wa-panel__title">Support und Fragebögen</h2>
+    </header>
+
+    <?php if (($faeden ?? []) !== []): ?>
+        <div class="wa-table-wrap">
+            <table class="wa-table">
+                <tbody>
+                    <?php foreach ($faeden as $f): ?>
+                        <tr>
+                            <td>
+                                <a class="wa-table__main"
+                                   href="<?= e($base) ?>/support#faden-<?= (int) $f['id'] ?>">
+                                    <?= e((string) ($f['subject'] ?? 'Ohne Betreff')) ?>
+                                </a>
+                                <span class="wa-table__quiet"><?= e((string) ($f['website'] ?? '')) ?></span>
+                            </td>
+                            <td class="wa-table__quiet"><?= e((string) ($f['last_message_at'] ?? '')) ?></td>
+                            <td>
+                                <?php if ((int) ($f['unread_for_owner'] ?? 0) === 1): ?>
+                                    <span class="wa-badge wa-badge--warn">ungelesen</span>
+                                <?php elseif ((string) ($f['status'] ?? '') === 'open'): ?>
+                                    <span class="wa-badge">offen</span>
+                                <?php else: ?>
+                                    <span class="wa-badge wa-badge--ok">erledigt</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+
+    <?php if (($fragebogen ?? []) !== []): ?>
+        <ul class="wa-keys">
+            <?php foreach ($fragebogen as $q): ?>
+                <li class="wa-keys__item">
+                    <span class="wa-keys__label">
+                        Fragebogen <?= e((string) ($q['company'] ?? '')) ?>
+                    </span>
+                    <span class="wa-keys__kind"><?= e((string) ($q['status'] ?? '')) ?></span>
+                    <a class="wa-keys__user" href="<?= e($base) ?>/fragebogen">ansehen</a>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+    <?php endif; ?>
+</section>
+<?php endif; ?>
 <?php endif; ?>
 
 <section class="wa-panel">
     <header class="wa-panel__head">
         <h2 class="wa-panel__title">Zahlungshistorie</h2>
         <div class="wa-panel__actions">
-            <a class="wa-btn" href="<?= e($base) ?>/rechnungen?art=offer&amp;kunde=<?= $id ?>">
-                Offerte schreiben
-            </a>
             <form method="post" action="<?= e($base) ?>/kunden/<?= $id ?>/rechnung">
                 <?= Csrf::field() ?>
-                <button type="submit" class="wa-btn wa-btn--primary"
+                <button type="submit" class="wa-btn"
                         <?= $stand['offen_rappen'] > 0 ? '' : 'disabled' ?>>
                     Rechnung aus offenen Posten
                 </button>

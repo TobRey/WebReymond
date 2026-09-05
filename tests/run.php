@@ -2043,6 +2043,453 @@ test('Der Verbindungstest stuerzt nie ab', function (): void {
 });
 
 // ==================================================================
+test('Sechs Menuepunkte, und nichts wird unerreichbar', function (): void {
+    // Zweiundzwanzig Eintraege sind keine Navigation mehr, sondern eine
+    // Suchaufgabe. Sechs sind es - aber nur, solange alles Uebrige
+    // darunter zu finden ist. Sonst ist "aufgeraeumt" bloss ein
+    // anderes Wort fuer "verloren".
+    $layout = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Views/layouts/admin.php'
+    );
+
+    // Die sechs Punkte selbst.
+    preg_match('/\$nav = \[(.*?)\n\];/s', $layout, $treffer);
+    preg_match_all("/\['(\/[a-z-]+)'/", (string) ($treffer[1] ?? ''), $punkte);
+
+    $menue = $punkte[1] ?? [];
+
+    is(6, count($menue), 'Das Menue hat sechs Punkte');
+
+    foreach (['/start', '/kunden', '/neu', '/kalender', '/buchhaltung', '/einstellungen'] as $pfad) {
+        ok(in_array($pfad, $menue, true), $pfad . ' ist einer davon');
+    }
+
+    // Und alles, was frueher im Menue stand, muss weiterhin von
+    // irgendwo aus verlinkt sein - aus der Unternavigation, von der
+    // Kundenseite oder aus der Sammelstelle.
+    preg_match('/\$unterNav = \[(.*?)\n\];/s', $layout, $unter);
+    $unterNav = (string) ($unter[1] ?? '');
+
+    $kunde = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Views/admin/customer.php'
+    );
+    $liste = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Views/admin/customers.php'
+    );
+
+    $erreichbar = $layout . $unterNav . $kunde . $liste;
+
+    $frueher = [
+        '/kundensuche', '/potenzielle-kunden', '/rechnungen', '/vertraege',
+        '/mitarbeitende', '/websites', '/wartung', '/passwoerter', '/anfragen',
+        '/support', '/fragebogen', '/referenzen', '/zahlen', '/kosten',
+        '/intranet', '/protokoll',
+    ];
+
+    foreach ($frueher as $pfad) {
+        ok(str_contains($erreichbar, $pfad . "'") || str_contains($erreichbar, $pfad . '?'),
+            'Zu ' . $pfad . ' fuehrt weiterhin ein Weg');
+    }
+
+    // Die Routen selbst bleiben bestehen. Ein Lesezeichen, das ins
+    // Leere laeuft, waere teurer als ein Eintrag zu viel im Router.
+    $router = new Router();
+    \WebAtze\Core\Routes::register($router);
+
+    $basis = '/' . trim((string) \WebAtze\Core\Config::get('create_path', 'create'), '/');
+
+    foreach ($frueher as $pfad) {
+        ok(route($router, 'GET', $basis . $pfad) !== null,
+            'Die Adresse ' . $pfad . ' antwortet weiterhin');
+    }
+});
+
+// ==================================================================
+test('Die Zeichen finden auf sechs Punkten zusammen', function (): void {
+    // Die Zahlen hingen an den alten Pfaden. Ohne das Zusammenfassen
+    // waere nach dem Umbau kein einziges Zeichen mehr sichtbar - und
+    // damit genau das zurueck, wogegen sie gebaut wurden.
+    $roh = \WebAtze\Domain\Notices::all();
+    $menue = \WebAtze\Domain\Notices::forMenu();
+
+    foreach (array_keys($menue) as $pfad) {
+        ok(in_array($pfad, ['/start', '/kunden', '/neu', '/kalender', '/buchhaltung', '/einstellungen'], true),
+            'Das Zeichen ' . $pfad . ' haengt an einem Punkt, den es gibt');
+    }
+
+    // Keine Zahl darf unterwegs verloren gehen.
+    $summeRoh = array_sum(array_map(static fn (array $z): int => $z['anzahl'], $roh));
+    $summeMenue = array_sum(array_map(static fn (array $z): int => $z['anzahl'], $menue));
+
+    is($summeRoh, $summeMenue, 'Keine Zahl geht beim Zusammenfassen verloren');
+
+    // Und die Beschreibung muss die des dringendsten Postens sein -
+    // "3 Dinge warten" bringt niemanden dazu hinzusehen.
+    $zusammen = new ReflectionMethod(\WebAtze\Domain\Notices::class, 'zeichen');
+    $zusammen->setAccessible(true);
+
+    ok($zusammen->invoke(null, 0, 'eins', 'viele') === null, 'Null ergibt kein Zeichen');
+    ok(($zusammen->invoke(null, 1, 'eins', 'viele')['was'] ?? '') === 'eins', 'Einzahl bei eins');
+    ok(($zusammen->invoke(null, 5, 'eins', 'viele')['was'] ?? '') === 'viele', 'Mehrzahl sonst');
+});
+
+// ==================================================================
+test('Die Kundenseite zeigt, was sie laedt', function (): void {
+    // Der Fehler, der hier steckte: Der Controller holte die Rechnungen
+    // des Kunden, die Ansicht kuendigte sie im Kopfkommentar an - und
+    // rendern tat sie sie nie. Sie wurden also seit jeher geladen und
+    // weggeworfen, und wer sie sehen wollte, ging ueber eine Liste
+    // aller Rechnungen aller Kunden.
+    $kundeId = (int) \WebAtze\Core\Db::insert('customers', [
+        'name' => 'Muster GmbH',
+        'status' => 'aktiv',
+        'created_at' => \WebAtze\Core\Db::now(),
+        'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    \WebAtze\Core\Db::insert('documents', [
+        'customer_id' => $kundeId,
+        'kind' => 'invoice',
+        'number' => 'R-2026-0042',
+        'title' => 'Website und Betreuung',
+        'total_rappen' => 420000,
+        'status' => 'sent',
+        'issued_on' => '2026-01-15',
+        'due_on' => '2026-02-15',
+        'created_at' => \WebAtze\Core\Db::now(),
+        'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    \WebAtze\Core\Db::insert('secrets', [
+        'customer_id' => $kundeId,
+        'label' => 'cPanel Muster',
+        'kind' => 'hosting',
+        'username' => 'muster@muster.ch',
+        'created_at' => \WebAtze\Core\Db::now(),
+        'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $projektId = (int) \WebAtze\Core\Db::insert('projects', [
+        'name' => 'muster.ch', 'slug' => 'muster-' . bin2hex(random_bytes(4)),
+        'status' => 'ready', 'customer_id' => $kundeId,
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    \WebAtze\Core\Db::insert('contracts', [
+        'project_id' => $projektId,
+        'customer_id' => $kundeId,
+        'plan' => 'pflege',
+        'price_rappen' => 24000,
+        'interval_months' => 12,
+        'started_on' => '2026-01-01',
+        'next_invoice_on' => '2027-01-01',
+        'created_at' => \WebAtze\Core\Db::now(),
+        'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $html = \WebAtze\Core\View::partial('admin/customer', [
+        'kunde' => \WebAtze\Core\Db::first('SELECT * FROM customers WHERE id = :i', ['i' => $kundeId]),
+        'stand' => \WebAtze\Domain\Billing::statusOf($kundeId),
+        'historie' => [],
+        'todos' => [],
+        'termine' => [],
+        'mitarbeitende' => [],
+        'projekte' => [],
+        'websites' => \WebAtze\Domain\Websites::forCustomer($kundeId),
+        'rechnungen' => \WebAtze\Core\Db::all(
+            'SELECT * FROM documents WHERE customer_id = :c', ['c' => $kundeId]
+        ),
+        'vertraege' => \WebAtze\Core\Db::all(
+            'SELECT c.*, p.name AS website FROM contracts c
+               LEFT JOIN projects p ON p.id = c.project_id
+              WHERE c.customer_id = :c',
+            ['c' => $kundeId]
+        ),
+        'passwoerter' => \WebAtze\Core\Db::all(
+            'SELECT id, label, kind, username, url FROM secrets WHERE customer_id = :c',
+            ['c' => $kundeId]
+        ),
+        'tresorOffen' => false,
+        'fragebogen' => [],
+        'faeden' => [],
+    ]);
+
+    ok(str_contains($html, 'R-2026-0042'), 'Die Rechnungsnummer steht auf der Seite');
+    ok(str_contains($html, 'Website und Betreuung'), 'Und der Titel');
+    // e() maskiert das Tausendertrennzeichen zu &apos; - gesucht wird
+    // deshalb im entschluesselten Text, sonst prueft man die
+    // Maskierung statt den Betrag. Und ENT_HTML5, weil &apos; erst
+    // dort bekannt ist.
+    ok(str_contains(html_entity_decode($html, ENT_QUOTES | ENT_HTML5), "4'200.00"),
+        'Und der Betrag');
+    ok(str_contains($html, 'Rechnung erstellen'),
+        'Von hier aus laesst sich eine Rechnung anlegen');
+
+    ok(str_contains($html, 'Wartungsvertr'), 'Die Vertraege stehen dort');
+    ok(str_contains($html, 'pflege'), 'Und zwar mit ihrem Paket');
+
+    ok(str_contains($html, 'cPanel Muster'), 'Die Passwoerter des Kunden stehen dort');
+
+    // Aber nur, dass es sie gibt. Das Geheimnis selbst kommt
+    // ausschliesslich ueber den Tresor heraus - diese Seite bekommt es
+    // nie zu sehen, auch nicht kurz.
+    ok(!str_contains($html, 'secret_enc'), 'Das Geheimnis selbst nicht');
+
+    \WebAtze\Core\Db::delete('contracts', 'customer_id = :c', ['c' => $kundeId]);
+    \WebAtze\Core\Db::delete('secrets', 'customer_id = :c', ['c' => $kundeId]);
+    \WebAtze\Core\Db::delete('documents', 'customer_id = :c', ['c' => $kundeId]);
+    \WebAtze\Core\Db::delete('projects', 'id = :p', ['p' => $projektId]);
+    \WebAtze\Core\Db::delete('customers', 'id = :i', ['i' => $kundeId]);
+});
+
+// ==================================================================
+test('Ohne Kunde wird nichts unerreichbar', function (): void {
+    // Die Listen fuer Websites, Rechnungen, Vertraege und Passwoerter
+    // fallen aus dem Menue. Was zu keinem Kunden gehoert, waere damit
+    // unerreichbar - deshalb die Sammelstelle oben in der Kundenliste.
+    // Ohne sie duerfte das Menue gar nicht schrumpfen.
+    $projektId = (int) \WebAtze\Core\Db::insert('projects', [
+        'name' => 'Herrenlos', 'slug' => 'herrenlos-' . bin2hex(random_bytes(4)),
+        'status' => 'ready', 'source' => 'hand',
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $stand = \WebAtze\Http\CustomerController::ohneZuordnung();
+
+    ok($stand['websites'] >= 1, 'Die Website ohne Kunden wird gezaehlt');
+    ok($stand['summe'] >= 1, 'Und faellt in die Summe');
+
+    // Und sie muss sich auch auflisten lassen, sonst ist die Zahl ein
+    // Hinweis auf etwas, das man trotzdem nicht findet.
+    $liste = \WebAtze\Domain\Websites::all('', '', -1);
+    $ids = array_map(static fn (array $z): int => (int) $z['id'], $liste);
+
+    ok(in_array($projektId, $ids, true), 'Und laesst sich auflisten');
+
+    // Einem Kunden zugeordnet, verschwindet sie aus der Sammelstelle.
+    $kundeId = (int) \WebAtze\Core\Db::insert('customers', [
+        'name' => 'Findet sie', 'status' => 'aktiv',
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    \WebAtze\Domain\Websites::assign($projektId, $kundeId);
+
+    $ids = array_map(
+        static fn (array $z): int => (int) $z['id'],
+        \WebAtze\Domain\Websites::all('', '', -1)
+    );
+
+    ok(!in_array($projektId, $ids, true), 'Zugeordnet ist sie nicht mehr herrenlos');
+
+    // Und die zweite Verknuepfung zieht mit. Bisher schrieben zwei
+    // Stellen zwei Richtungen, und sie konnten sich widersprechen -
+    // dann kam je nach Abfrage eine andere Antwort auf dieselbe Frage.
+    $kunde = \WebAtze\Core\Db::first('SELECT project_id FROM customers WHERE id = :i', ['i' => $kundeId]);
+    is($projektId, (int) ($kunde['project_id'] ?? 0), 'Der Kunde fuehrt sie als Hauptwebsite');
+
+    // Und kein zweiter Kunde behaelt sie.
+    $zweiter = (int) \WebAtze\Core\Db::insert('customers', [
+        'name' => 'Der andere', 'status' => 'aktiv', 'project_id' => $projektId,
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    \WebAtze\Domain\Websites::assign($projektId, $kundeId);
+
+    $zeile = \WebAtze\Core\Db::first('SELECT project_id FROM customers WHERE id = :i', ['i' => $zweiter]);
+    is(0, (int) ($zeile['project_id'] ?? 0), 'Der andere fuehrt sie nicht mehr');
+
+    \WebAtze\Core\Db::delete('customers', 'id = :i', ['i' => $zweiter]);
+    \WebAtze\Core\Db::delete('customers', 'id = :i', ['i' => $kundeId]);
+    \WebAtze\Core\Db::delete('projects', 'id = :p', ['p' => $projektId]);
+});
+
+// ==================================================================
+test('Der Servername wird zurechtgerueckt', function (): void {
+    // In dieses Feld wird kopiert, und mitkopiert wird alles, was der
+    // Anbieter drumherum anzeigt. Jedes Stueck davon ergab frueher
+    // denselben roten Kasten, und keiner sagte warum.
+    $n = \WebAtze\Build\FtpDeployer::normalizeHost(...);
+
+    is('beispiel.ch', $n('ftp://beispiel.ch', 21)['host'], 'Das Schema faellt weg');
+    is('beispiel.ch', $n('https://beispiel.ch', 21)['host'], 'Auch ein falsches');
+    is('beispiel.ch', $n('beispiel.ch/public_html', 21)['host'], 'Der Pfad faellt weg');
+    is('beispiel.ch', $n('  beispiel.ch  ', 21)['host'], 'Leerzeichen fallen weg');
+    is('beispiel.ch', $n('beispiel.ch.', 21)['host'], 'Der Punkt am Ende auch');
+    is('beispiel.ch', $n('web@beispiel.ch', 21)['host'], 'Ein Benutzername davor faellt weg');
+    is('beispiel.ch', $n('ftp://web:geheim@beispiel.ch/public_html', 21)['host'], 'Und alles zusammen');
+
+    // Ein angehaengter Port gehoert ins Portfeld, nicht in den Namen.
+    $mitPort = $n('beispiel.ch:2121', 21);
+    is('beispiel.ch', $mitPort['host'], 'Der Port wird abgetrennt');
+    is(2121, $mitPort['port'], 'Und ins Portfeld uebernommen');
+
+    // IPv6 besteht aus Doppelpunkten - da darf nichts abgetrennt werden.
+    is('::1', $n('::1', 21)['host'], 'Eine IPv6-Adresse bleibt heil');
+    is(21, $n('::1', 21)['port'], 'Und ihr Port auch');
+
+    // Jede Aenderung wird auch gesagt, sonst wundert sich der Betreiber.
+    ok($n('ftp://beispiel.ch', 21)['hinweis'] !== '', 'Eine Aenderung wird begruendet');
+    is('', $n('beispiel.ch', 21)['hinweis'], 'Ein sauberer Name gibt keinen Hinweis');
+
+    // Der Port bleibt in seinen Grenzen.
+    is(1, $n('beispiel.ch', 0)['port'], 'Kein Port unter 1');
+    is(65535, $n('beispiel.ch', 999999)['port'], 'Und keiner darueber');
+
+    // Und was gespeichert wird, ist bereits sauber - sonst steckt der
+    // Fehler dauerhaft in der Datenbank und der Test sucht ihn jedes
+    // Mal aufs Neue.
+    $projectId = (int) \WebAtze\Core\Db::insert('projects', [
+        'name' => 'Normalisierung', 'slug' => 'norm-' . bin2hex(random_bytes(4)),
+        'status' => 'ready', 'created_at' => \WebAtze\Core\Db::now(),
+        'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    \WebAtze\Build\FtpDeployer::saveTarget($projectId, [
+        'protocol' => 'ftp',
+        'host' => 'ftp://beispiel.ch:2121/public_html',
+        'port' => 21,
+        'username' => 'web@beispiel.ch',
+        'password' => 'geheim',
+        'path' => '/public_html',
+    ]);
+
+    $ziel = \WebAtze\Core\Db::first(
+        'SELECT host, port FROM deploy_targets WHERE project_id = :p',
+        ['p' => $projectId]
+    );
+
+    is('beispiel.ch', (string) ($ziel['host'] ?? ''), 'Gespeichert wird der saubere Name');
+    is(2121, (int) ($ziel['port'] ?? 0), 'Und der Port aus dem Namen');
+
+    \WebAtze\Core\Db::delete('deploy_targets', 'project_id = :p', ['p' => $projectId]);
+    \WebAtze\Core\Db::delete('projects', 'id = :p', ['p' => $projectId]);
+});
+
+// ==================================================================
+test('Der Test sagt, an welcher Stufe es haengt', function (): void {
+    // Frueher war das Ergebnis am Ende schlicht der Rueckgabewert von
+    // ftp_chdir(). Eine tadellose Anmeldung mit falschem Ordner sah
+    // damit exakt aus wie ein Server, den es nicht gibt - beides
+    // "fehlgeschlagen", beide Male dieselbe Ratlosigkeit.
+    $projectId = (int) \WebAtze\Core\Db::insert('projects', [
+        'name' => 'Stufen', 'slug' => 'stufen-' . bin2hex(random_bytes(4)),
+        'status' => 'ready', 'created_at' => \WebAtze\Core\Db::now(),
+        'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    // Einen Namen, den es sicher nicht gibt: Das ist der Fall, der in
+    // der Praxis auftrat ("ftp." vor eine cPanel-Domain geschrieben).
+    \WebAtze\Build\FtpDeployer::saveTarget($projectId, [
+        'protocol' => 'ftp',
+        'host' => 'ftp.example.invalid',
+        'port' => 21,
+        'username' => 'web@example.invalid',
+        'password' => 'geheim',
+        'path' => '/public_html/preview',
+    ]);
+
+    $ergebnis = \WebAtze\Build\FtpDeployer::test($projectId);
+
+    is(false, $ergebnis['ok'], 'Meldet einen Fehlschlag');
+    ok(is_array($ergebnis['stufen'] ?? null), 'Die Antwort enthaelt die Stufen');
+    ok(($ergebnis['stufen'][0]['name'] ?? '') === 'Servername',
+        'Und die erste Stufe ist der Servername');
+    is(false, $ergebnis['stufen'][0]['ok'] ?? true, 'Die als Erste scheitert');
+
+    // Die Meldung muss den Fall benennen, sonst hat die Stufe nichts
+    // gebracht: Es wurde kein Server abgewiesen, es wurde keiner gefunden.
+    $meldung = mb_strtolower((string) $ergebnis['message']);
+    ok(str_contains($meldung, 'gibt es nicht'), 'Sie sagt, dass es den Namen nicht gibt');
+    ok(str_contains($meldung, 'ftp.'), 'Und nennt das ftp. davor als Ursache');
+
+    // Ab der ersten roten Stufe wird nicht weitergeraten.
+    is(1, count($ergebnis['stufen']), 'Nach der roten Stufe hoert der Test auf');
+
+    \WebAtze\Core\Db::delete('deploy_targets', 'project_id = :p', ['p' => $projectId]);
+    \WebAtze\Core\Db::delete('projects', 'id = :p', ['p' => $projectId]);
+});
+
+// ==================================================================
+test('Ein festgenageltes cPanel-Konto bekommt den richtigen Ordner', function (): void {
+    // Der Fall, der eine Woche gekostet hat: Ein FTP-Unterkonto wird in
+    // cPanel auf sein Verzeichnis festgenagelt. Nach der Anmeldung ist
+    // man bereits darin - der Pfad, der in cPanel stand, existiert von
+    // dort aus nicht mehr, weil er die Wurzel geworden ist.
+    $vorschlag = new ReflectionMethod(\WebAtze\Build\FtpDeployer::class, 'ordnerVorschlag');
+    $vorschlag->setAccessible(true);
+
+    // Hauptkonto: public_html liegt daneben, also der volle Pfad.
+    is('/public_html',
+        $vorschlag->invoke(null, ['public_html', 'mail', 'logs'], '/', 'kunde'),
+        'Neben public_html ist es das Hauptkonto');
+
+    is('/home/kunde/public_html',
+        $vorschlag->invoke(null, ['public_html', '.cpanel'], '/home/kunde', 'kunde'),
+        'Auch wenn der Startordner tiefer liegt');
+
+    // Unterkonto: eine Startseite an der Wurzel heisst festgenagelt.
+    is('/',
+        $vorschlag->invoke(null, ['index.html', 'assets', 'admin'], '/', 'web@preview.beispiel.ch'),
+        'Eine Startseite an der Wurzel heisst: schon drin');
+
+    // Leerer Ordner, aber @-Form: bei cPanel der zuverlaessigste Hinweis.
+    is('/',
+        $vorschlag->invoke(null, [], '/', 'web@preview.beispiel.ch'),
+        'Ein leeres Unterkonto sitzt trotzdem in seinem Ordner');
+
+    // Ohne @ und ohne Anhaltspunkt wird nichts erfunden.
+    is('', $vorschlag->invoke(null, [], '/', 'kunde'),
+        'Ohne Anhaltspunkt wird nicht geraten');
+
+    // Und Plesk hat andere Namen.
+    is('/httpdocs', $vorschlag->invoke(null, ['httpdocs', 'logs'], '/', 'kunde'),
+        'Bei Plesk heisst die Wurzel httpdocs');
+});
+
+// ==================================================================
+test('Der Hinweis im Formular widerspricht cPanel nicht mehr', function (): void {
+    // Hier stand: "Ein FTP-Zugang der Hauptdomain kommt dort hin - ein
+    // eigener Zugang je Subdomain ist nicht noetig." Also das Gegenteil
+    // dessen, was cPanel nahelegt. Wer einen anlegte und dann den vollen
+    // Pfad eintrug, bekam genau eine Meldung: fehlgeschlagen.
+    $view = (string) file_get_contents(
+        dirname(__DIR__) . '/public_html/app/Views/admin/deploy.php'
+    );
+
+    ok(!str_contains($view, 'ein eigener Zugang je Subdomain ist nicht nötig'),
+        'Der irrefuehrende Satz ist weg');
+    ok(str_contains($view, 'sitzt bereits in seinem Ordner'),
+        'Stattdessen steht dort, was ein Unterkonto besonders macht');
+
+    // Und die Felder muessen so heissen, wie das JavaScript sie sucht -
+    // sonst folgt der Port der Uebertragungsart nicht, und Port 21 gegen
+    // einen SSH-Dienst sieht von aussen aus wie ein toter Server.
+    foreach (['protocol', 'port', 'path', 'host'] as $feld) {
+        ok(str_contains($view, 'data-ftp-field="' . $feld . '"'),
+            'Das Feld ' . $feld . ' ist fuer das JavaScript auffindbar');
+    }
+
+    $js = (string) file_get_contents(dirname(__DIR__) . '/frontend/src/admin/admin.js');
+
+    ok(!str_contains($js, "getElementById('ftp_protocol')"),
+        'Das JavaScript sucht nicht mehr nach einer ID, die es nur auf einer Seite gibt');
+    ok(str_contains($js, 'initFtpPortFollowsProtocol'),
+        'Und der Port folgt der Uebertragungsart');
+
+    // Der Anbietereintrag muss die beiden Tatsachen nennen, an denen es
+    // tatsaechlich haengt.
+    $anbieter = require dirname(__DIR__) . '/public_html/app/Support/providers.php';
+    $godaddy = $anbieter['hosting']['godaddy'];
+
+    $text = implode(' ', $godaddy['steps']) . ' ' . $godaddy['note'];
+
+    ok(str_contains($text, 'nicht</strong> <code>ftp.'),
+        'Bei GoDaddy steht, dass kein ftp. davor gehoert');
+    ok(str_contains($text, 'festgenagelt'),
+        'Und dass ein Unterkonto in seinem Ordner sitzt');
+});
+
+// ==================================================================
 test('Der Pfad einer Subdomain wird gefunden', function (): void {
     // Ein FTP-Zugang laesst sich in cPanel nur fuer die Hauptdomain
     // anlegen. Der Ordner einer Subdomain liegt darunter, meist in

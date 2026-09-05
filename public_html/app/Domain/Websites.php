@@ -90,6 +90,12 @@ final class Websites
         if ($kunde > 0) {
             $wo[] = 'p.customer_id = :kunde';
             $werte['kunde'] = $kunde;
+        } elseif ($kunde < 0) {
+            // Minus eins heisst "ohne Zuordnung". Von der Kundenliste
+            // aus ist das der einzige Weg zu einer Website, die keinem
+            // Kunden gehört - und seit die Website-Liste nicht mehr im
+            // Menü steht, der einzige überhaupt.
+            $wo[] = '(p.customer_id IS NULL OR p.customer_id = 0)';
         }
 
         if ($wo !== []) {
@@ -382,10 +388,58 @@ final class Websites
     /** Eine Website einem Kunden zuordnen – oder die Zuordnung lösen. */
     public static function assign(int $id, int $kunde): bool
     {
-        return Db::update('projects', [
+        $ok = Db::update('projects', [
             'customer_id' => $kunde > 0 ? $kunde : null,
             'updated_at' => Db::now(),
         ], 'id = :id', ['id' => $id]) > 0;
+
+        if ($ok) {
+            self::gleichziehen($id, $kunde);
+        }
+
+        return $ok;
+    }
+
+    /**
+     * Die zweite Verknüpfung nachziehen.
+     *
+     * Es gibt zwei Wege zwischen Kunde und Website, und sie werden von
+     * verschiedenen Stellen geschrieben: `projects.customer_id` und
+     * `customers.project_id`. Bisher konnten sie sich widersprechen –
+     * ein Kunde zeigte auf eine Website, die längst einem anderen
+     * gehörte, und je nachdem, welche Abfrage gerade lief, kam eine
+     * andere Antwort.
+     *
+     * `projects.customer_id` gewinnt: Es ist die Richtung, die mehrere
+     * Websites je Kunde halten kann. `customers.project_id` behält nur
+     * noch die Bedeutung "das ist seine Hauptwebsite" und wird hier
+     * nachgeführt, damit die beiden nie auseinanderlaufen.
+     */
+    public static function gleichziehen(int $websiteId, int $kunde): void
+    {
+        // Kein anderer Kunde darf diese Website noch als seine führen.
+        Db::update(
+            'customers',
+            ['project_id' => null, 'updated_at' => Db::now()],
+            'project_id = :w' . ($kunde > 0 ? ' AND id <> :k' : ''),
+            $kunde > 0 ? ['w' => $websiteId, 'k' => $kunde] : ['w' => $websiteId]
+        );
+
+        if ($kunde <= 0) {
+            return;
+        }
+
+        // Und der neue bekommt sie, falls er noch keine Hauptwebsite hat.
+        $zeile = Db::first('SELECT project_id FROM customers WHERE id = :k', ['k' => $kunde]);
+
+        if ($zeile !== null && (int) ($zeile['project_id'] ?? 0) === 0) {
+            Db::update(
+                'customers',
+                ['project_id' => $websiteId, 'updated_at' => Db::now()],
+                'id = :k',
+                ['k' => $kunde]
+            );
+        }
     }
 
     /**

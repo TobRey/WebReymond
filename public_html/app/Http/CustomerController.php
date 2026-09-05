@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WebAtze\Http;
 
 use WebAtze\Core\{Audit, Config, Db, Request, Response, Session, View};
-use WebAtze\Domain\{Billing, Websites};
+use WebAtze\Domain\{Billing, Vault, Websites};
 
 /**
  * Die Kundenverwaltung.
@@ -62,8 +62,47 @@ final class CustomerController
                 'suche' => $suche,
                 'zeigen' => $zeigen,
                 'zahlen' => self::zahlen(),
+                'ohneZuordnung' => self::ohneZuordnung(),
             ]),
         ]))->noCache()->noIndex();
+    }
+
+    /**
+     * Was zu keinem Kunden gehört.
+     *
+     * Das Menü schrumpft von 22 Punkten auf 6, und die Listen, die
+     * verschwinden, waren bisher der einzige Weg zu allem ohne
+     * Zuordnung: eine Website ohne Kunden stand nur in der
+     * Website-Liste, ein Vertrag ohne Kunden nur in der Vertragsliste.
+     *
+     * Ohne diese Sammelstelle würde beides mit dem Menüpunkt
+     * unerreichbar – und das ist die Bedingung dafür, die Listen
+     * überhaupt aus dem Menü nehmen zu dürfen.
+     *
+     * @return array{websites:int, rechnungen:int, vertraege:int, passwoerter:int, summe:int}
+     */
+    public static function ohneZuordnung(): array
+    {
+        $zahl = static fn (string $sql): int => (int) Db::value($sql, [], 0);
+
+        $stand = [
+            'websites' => $zahl(
+                "SELECT COUNT(*) FROM projects WHERE (customer_id IS NULL OR customer_id = 0) AND source <> 'eigen'"
+            ),
+            'rechnungen' => $zahl(
+                'SELECT COUNT(*) FROM documents WHERE customer_id IS NULL OR customer_id = 0'
+            ),
+            'vertraege' => $zahl(
+                'SELECT COUNT(*) FROM contracts WHERE customer_id IS NULL OR customer_id = 0'
+            ),
+            'passwoerter' => $zahl(
+                'SELECT COUNT(*) FROM secrets WHERE customer_id IS NULL OR customer_id = 0'
+            ),
+        ];
+
+        $stand['summe'] = array_sum($stand);
+
+        return $stand;
     }
 
     /** Das leere Formular fuer einen neuen Kunden. */
@@ -82,6 +121,11 @@ final class CustomerController
                 'projekte' => Db::all('SELECT id, name FROM projects ORDER BY name'),
                 'websites' => [],
                 'rechnungen' => [],
+                'vertraege' => [],
+                'passwoerter' => [],
+                'tresorOffen' => false,
+                'fragebogen' => [],
+                'faeden' => [],
             ]),
         ]))->noCache()->noIndex();
     }
@@ -119,6 +163,39 @@ final class CustomerController
                 'websites' => Websites::forCustomer($id),
                 'rechnungen' => Db::all(
                     'SELECT * FROM documents WHERE customer_id = :c ORDER BY id DESC LIMIT 30',
+                    ['c' => $id]
+                ),
+
+                // Alles, was bisher einen eigenen Menuepunkt hatte,
+                // gehoert hierher: Wer wissen will, wie es um einen
+                // Kunden steht, soll es an einer Stelle sehen und nicht
+                // in sechs Listen suchen muessen.
+                'vertraege' => Db::all(
+                    'SELECT c.*, p.name AS website
+                       FROM contracts c
+                       LEFT JOIN projects p ON p.id = c.project_id
+                      WHERE c.customer_id = :c
+                      ORDER BY c.cancelled_on <> \'\', c.next_invoice_on ASC
+                      LIMIT 40',
+                    ['c' => $id]
+                ),
+                'passwoerter' => Db::all(
+                    'SELECT id, label, kind, username, url FROM secrets
+                      WHERE customer_id = :c ORDER BY label ASC LIMIT 60',
+                    ['c' => $id]
+                ),
+                'tresorOffen' => Vault::isOpen(),
+                'fragebogen' => Db::all(
+                    'SELECT * FROM questionnaires WHERE customer_id = :c ORDER BY id DESC LIMIT 20',
+                    ['c' => $id]
+                ),
+                'faeden' => Db::all(
+                    'SELECT t.*, p.name AS website
+                       FROM support_threads t
+                       LEFT JOIN projects p ON p.id = t.project_id
+                      WHERE t.customer_id = :c
+                      ORDER BY t.unread_for_owner DESC, t.last_message_at DESC
+                      LIMIT 20',
                     ['c' => $id]
                 ),
             ]),
@@ -166,6 +243,18 @@ final class CustomerController
             Db::update('customers', $werte, 'id = :id', ['id' => $id]);
             Audit::log('customer.updated', $name, ['id' => $id], $request);
             Session::flash('success', 'Gespeichert.');
+        }
+
+        // Die andere Richtung nachziehen. Es gibt zwei Verknüpfungen
+        // zwischen Kunde und Website, und sie wurden von verschiedenen
+        // Stellen geschrieben – hier customers.project_id, anderswo
+        // projects.customer_id. Ohne diesen Schritt konnten sie sich
+        // widersprechen, und dann kam je nach Abfrage eine andere
+        // Antwort auf dieselbe Frage.
+        $hauptwebsite = (int) ($werte['project_id'] ?? 0);
+
+        if ($hauptwebsite > 0) {
+            Websites::assign($hauptwebsite, $id);
         }
 
         return Response::redirect(self::base() . '/kunden/' . $id)->noCache()->noIndex();

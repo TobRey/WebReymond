@@ -9,13 +9,15 @@ use WebAtze\Core\{Db, Logger};
 /**
  * Die Zeichen an den Menüpunkten.
  *
- * Der Adminbereich hat zwanzig Einträge. Ohne ein Zeichen daran heisst
- * «schau nach, ob etwas da ist» in jeden einzelnen hineinklicken – und
- * genau das tut niemand jeden Tag. Eine Supportfrage lag deshalb schon
- * einmal drei Tage, weil sie niemand gesehen hat.
+ * Ohne ein Zeichen daran heisst «schau nach, ob etwas da ist» in jeden
+ * einzelnen Punkt hineinklicken – und genau das tut niemand jeden Tag.
+ * Eine Supportfrage lag deshalb schon einmal drei Tage, weil sie
+ * niemand gesehen hat.
  *
- * Also: eine Zahl je Menüpunkt, an einer Stelle gesammelt, bei jedem
- * Seitenaufbau einmal. Es sind ausschliesslich COUNT-Abfragen über
+ * Also: eine Zahl je Bereich, an einer Stelle gesammelt, bei jedem
+ * Seitenaufbau einmal. Gezählt wird weiter fein (all()), angezeigt
+ * wird grob (forMenu()) – seit das Menü nur noch sechs Punkte hat,
+ * müssen mehrere Zahlen an einem davon zusammenfinden. Es sind ausschliesslich COUNT-Abfragen über
  * indizierte Spalten; zusammen kosten sie weniger als das Rendern der
  * Seite.
  *
@@ -81,6 +83,66 @@ final class Notices
 
             return [];
         }
+    }
+
+    /**
+     * Dieselben Zahlen, zusammengefasst auf die sechs Menüpunkte.
+     *
+     * Das Menü ist von 22 Einträgen auf 6 geschrumpft. Die Zahlen
+     * hingen aber an den alten Pfaden – ohne diesen Schritt wäre nach
+     * dem Umbau kein einziges Zeichen mehr sichtbar gewesen, und damit
+     * genau das zurück, wogegen sie gebaut wurden: eine Supportfrage,
+     * die drei Tage liegt, weil niemand sie sieht.
+     *
+     * Zusammengefasst heisst: Die Zahlen werden addiert und die
+     * Beschreibung wird die des dringendsten Postens. „3 Dinge warten"
+     * ist unbrauchbar; „2 unbeantwortete Fragen" bringt jemanden dazu,
+     * hinzusehen.
+     *
+     * @return array<string, array{anzahl:int, was:string, dringend:bool}>
+     */
+    public static function forMenu(): array
+    {
+        // Wohin welcher alte Pfad wandert. Was hier fehlt, verschwindet
+        // still - deshalb steht unten eine Prüfung, die genau das
+        // bemerkt.
+        $wohin = [
+            '/anfragen' => '/start',
+            '/support' => '/start',
+            '/wartung' => '/start',
+            '/fragebogen' => '/start',
+            '/potenzielle-kunden' => '/start',
+            '/rechnungen' => '/kunden',
+            '/kalender' => '/kalender',
+        ];
+
+        $gesammelt = [];
+
+        foreach (self::all() as $pfad => $zeichen) {
+            $ziel = $wohin[$pfad] ?? $pfad;
+
+            if (!isset($gesammelt[$ziel])) {
+                $gesammelt[$ziel] = $zeichen;
+
+                continue;
+            }
+
+            $bisher = $gesammelt[$ziel];
+
+            // Der dringendste Posten gibt den Text vor. Bei gleicher
+            // Dringlichkeit der grössere - er ist der, der auffallen soll.
+            $neuerFuehrt = ($zeichen['dringend'] && !$bisher['dringend'])
+                || ($zeichen['dringend'] === $bisher['dringend']
+                    && $zeichen['anzahl'] > $bisher['anzahl']);
+
+            $gesammelt[$ziel] = [
+                'anzahl' => $bisher['anzahl'] + $zeichen['anzahl'],
+                'was' => $neuerFuehrt ? $zeichen['was'] : $bisher['was'],
+                'dringend' => $bisher['dringend'] || $zeichen['dringend'],
+            ];
+        }
+
+        return $gesammelt;
     }
 
     /**

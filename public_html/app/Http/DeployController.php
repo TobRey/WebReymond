@@ -161,6 +161,12 @@ final class DeployController
         Session::put('ftp_ordner_' . (int) $project['id'], [
             'ordner' => (array) ($result['ordner'] ?? []),
             'vorschlag' => (string) ($result['vorschlag'] ?? ''),
+            // Die einzelnen Stufen: Servername, Verbindung, Anmeldung,
+            // Passivmodus, Startordner, Inhalt, Zielordner, Schreibprobe.
+            // Die erste rote Stufe ist die Diagnose - und dass die
+            // gruenen davor sitzen, ist die halbe Antwort.
+            'stufen' => (array) ($result['stufen'] ?? []),
+            'zeit' => date('d.m.Y H:i'),
         ]);
 
         return $this->back($project);

@@ -116,8 +116,9 @@ final class FtpDeployer
             );
         }
 
-        $host = (string) $target['host'];
-        $port = (int) $target['port'] ?: 22;
+        $sauber = self::normalizeHost((string) $target['host'], (int) $target['port'] ?: 22);
+        $host = $sauber['host'];
+        $port = $sauber['port'];
 
         try {
             $sftp = new SFTP($host, $port, 20);
@@ -186,8 +187,9 @@ final class FtpDeployer
             );
         }
 
-        $host = (string) $target['host'];
-        $port = (int) $target['port'] ?: 21;
+        $sauber = self::normalizeHost((string) $target['host'], (int) $target['port'] ?: 21);
+        $host = $sauber['host'];
+        $port = $sauber['port'];
 
         $connection = $secure
             ? @ftp_ssl_connect($host, $port, 20)
@@ -208,6 +210,16 @@ final class FtpDeployer
 
         // Fast alle Hosting-Anbieter brauchen den passiven Modus.
         @ftp_pasv($connection, true);
+
+        // Und manche nennen darin eine interne Adresse, weil sie hinter
+        // NAT stehen - auf geteiltem Hosting eher Regel als Ausnahme.
+        // Der Verbindungsversuch geht dann an eine Adresse, die es von
+        // hier aus nicht gibt, und das sieht aus wie eine Zeitueber-
+        // schreitung. Merkt man an einer Auflistung, die leer bleibt,
+        // obwohl die Anmeldung sass.
+        if (defined('FTP_USEPASVADDRESS') && @ftp_nlist($connection, '.') === false) {
+            @ftp_set_option($connection, FTP_USEPASVADDRESS, false);
+        }
 
         $remoteRoot = self::cleanPath((string) $target['remote_path']);
         $created = [];
@@ -301,7 +313,8 @@ final class FtpDeployer
             return [];
         }
 
-        $sftp = new SFTP((string) $target['host'], (int) $target['port'] ?: 22, 20);
+        $sauber = self::normalizeHost((string) $target['host'], (int) $target['port'] ?: 22);
+        $sftp = new SFTP($sauber['host'], $sauber['port'], 20);
 
         if (!$sftp->login((string) $target['username'], $password)) {
             return [];
@@ -351,8 +364,9 @@ final class FtpDeployer
             return [];
         }
 
-        $host = (string) $target['host'];
-        $port = (int) $target['port'] ?: 21;
+        $sauber = self::normalizeHost((string) $target['host'], (int) $target['port'] ?: 21);
+        $host = $sauber['host'];
+        $port = $sauber['port'];
 
         $connection = $secure ? @ftp_ssl_connect($host, $port, 20) : @ftp_connect($host, $port, 20);
 
@@ -370,6 +384,13 @@ final class FtpDeployer
         $out = [];
         $started = microtime(true);
         $names = @ftp_nlist($connection, $remote);
+
+        // Leere Antwort trotz sitzender Anmeldung: fast immer eine
+        // interne Adresse aus dem Passivmodus. Einmal ohne sie.
+        if ($names === false && defined('FTP_USEPASVADDRESS')) {
+            @ftp_set_option($connection, FTP_USEPASVADDRESS, false);
+            $names = @ftp_nlist($connection, $remote);
+        }
 
         foreach (is_array($names) ? $names : [] as $entry) {
             if (microtime(true) - $started > $budget || count($out) >= self::MAX_FETCH_FILES) {
@@ -441,10 +462,19 @@ final class FtpDeployer
             ? Crypto::encrypt($password)
             : (string) ($existing['secret'] ?? '');
 
+        // Was hier ankommt, ist kopiert - und oft ist mehr mitgekommen
+        // als der Servername. Einmal zurechtruecken, bevor es in die
+        // Datenbank geht: Sonst steht der Fehler dauerhaft darin und der
+        // Test sucht ihn jedes Mal neu.
+        $sauber = self::normalizeHost(
+            (string) ($data['host'] ?? ''),
+            (int) ($data['port'] ?? 22)
+        );
+
         $values = [
             'protocol' => in_array($data['protocol'] ?? '', ['ftp', 'ftps', 'sftp'], true) ? $data['protocol'] : 'sftp',
-            'host' => mb_substr(trim((string) ($data['host'] ?? '')), 0, 190),
-            'port' => max(1, min(65535, (int) ($data['port'] ?? 22))),
+            'host' => $sauber['host'],
+            'port' => $sauber['port'],
             'username' => mb_substr(trim((string) ($data['username'] ?? '')), 0, 190),
             'secret' => $secret,
             'remote_path' => self::cleanPath((string) ($data['path'] ?? '/public_html')),
@@ -463,20 +493,92 @@ final class FtpDeployer
     }
 
     /**
-     * Die Verbindung pruefen - und beim Verzeichnis helfen.
+     * Den Servernamen zurechtruecken.
      *
-     * Hier stand vorher ein FTP-Aufruf ohne die Pruefung,
-     * ob es die FTP-Erweiterung auf diesem Server ueberhaupt gibt. Fehlt
-     * sie - auf geteiltem Hosting oft der Fall - ist das kein Fehler,
-     * den man abfangen kann, sondern ein Absturz: Fehler 500, ohne einen
-     * Hinweis, woran es lag.
+     * In dieses Feld wird kopiert, was der Anbieter irgendwo anzeigt -
+     * und das ist oft mehr als ein Servername: ein "ftp://" davor, ein
+     * Pfad dahinter, ein ":21" am Ende. Wortwoertlich verwendet ergibt
+     * jedes davon denselben roten Kasten, und keiner sagt warum.
      *
-     * Ausserdem sagte die Antwort frueher nur, dass das Verzeichnis
-     * nicht da ist - nicht, welche es gibt. Bei einer Subdomain, deren
-     * Ordner irgendwo unter public_html liegt, ist das der Unterschied
-     * zwischen Raten und Wissen. Deshalb kommt jetzt eine Liste mit.
+     * @return array{host:string, port:int, hinweis:string}
+     */
+    public static function normalizeHost(string $host, int $port): array
+    {
+        $roh = trim($host);
+        $hinweis = '';
+
+        if (preg_match('#^([a-z][a-z0-9+.\-]*)://#i', $roh, $treffer) === 1) {
+            $roh = substr($roh, strlen($treffer[0]));
+            $hinweis = 'Das „' . $treffer[1] . '://“ gehoert nicht in dieses Feld.';
+        }
+
+        // "benutzer:passwort@server" - der Teil davor ist kein Server.
+        $at = strrpos($roh, '@');
+
+        if ($at !== false) {
+            $roh = substr($roh, $at + 1);
+            $hinweis = 'Der Benutzername gehoert in sein eigenes Feld, nicht vor den Server.';
+        }
+
+        $schraeg = strpos($roh, '/');
+
+        if ($schraeg !== false) {
+            $roh = substr($roh, 0, $schraeg);
+            $hinweis = 'Der Pfad hinter dem Servernamen gehoert ins Feld „Verzeichnis“.';
+        }
+
+        // Ein angehaengter Port wandert ins Portfeld. Die Bedingung
+        // schuetzt IPv6-Adressen, die selbst voller Doppelpunkte sind.
+        if (preg_match('/^([^:]+):(\d{1,5})$/', $roh, $treffer) === 1) {
+            $roh = $treffer[1];
+            $port = max(1, min(65535, (int) $treffer[2]));
+            $hinweis = 'Der Port stand am Servernamen und ist jetzt im Portfeld.';
+        }
+
+        $roh = trim($roh, " \t\n\r\0\x0B.");
+
+        return [
+            'host' => mb_substr($roh, 0, 190),
+            'port' => max(1, min(65535, $port)),
+            'hinweis' => $hinweis,
+        ];
+    }
+
+    /**
+     * Loest dieser Name auf?
      *
-     * @return array{ok:bool, message:string, ordner:array<int,string>, vorschlag:string}
+     * gethostbyname() gibt bei Misserfolg die Eingabe unveraendert
+     * zurueck - das ist die Pruefung, die ohne zusaetzliche Erweiterung
+     * ueberall funktioniert.
+     */
+    private static function loestAuf(string $host): bool
+    {
+        if ($host === '') {
+            return false;
+        }
+
+        if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
+            return true;
+        }
+
+        return @gethostbyname($host) !== $host;
+    }
+
+    /**
+     * Die Verbindung pruefen - Stufe fuer Stufe.
+     *
+     * Frueher war das Ergebnis ein einziges Ja oder Nein, und es war am
+     * Ende schlicht der Rueckgabewert von ftp_chdir(). Eine tadellose
+     * Anmeldung mit falschem Ordner sah damit exakt so aus wie ein
+     * Server, den es gar nicht gibt. Beides "Verbindung fehlgeschlagen",
+     * beide Male dieselbe Ratlosigkeit.
+     *
+     * Jetzt wird jede Stufe einzeln gemeldet: Servername, Verbindung,
+     * Anmeldung, Passivmodus, Startordner, Inhalt, Zielordner,
+     * Schreibprobe. Die erste rote Stufe ist die Diagnose - und die
+     * gruenen davor sind der Beweis, dass alles andere stimmt.
+     *
+     * @return array{ok:bool, message:string, stufen:array<int, array{name:string, ok:bool, info:string}>, ordner:array<int,string>, vorschlag:string}
      */
     public static function test(int $projectId): array
     {
@@ -492,11 +594,12 @@ final class FtpDeployer
         $password = Crypto::decrypt((string) ($target['secret'] ?? ''));
 
         if ($password === null) {
-            return self::pruefErgebnis(false, 'Die Zugangsdaten lassen sich nicht entschlüsseln.');
+            return self::pruefErgebnis(false, 'Die Zugangsdaten lassen sich nicht entschluesseln.');
         }
 
-        $host = (string) $target['host'];
-        $port = (int) $target['port'];
+        $sauber = self::normalizeHost((string) $target['host'], (int) $target['port']);
+        $host = $sauber['host'];
+        $port = $sauber['port'];
         $user = (string) $target['username'];
         $protokoll = (string) $target['protocol'];
         $pfad = self::cleanPath((string) $target['remote_path']);
@@ -504,10 +607,27 @@ final class FtpDeployer
         // Ein Handschlag ueber SFTP kann auf schwachen Servern dauern.
         @set_time_limit(90);
 
+        $stufen = [];
+
+        // ------------------------------------------------- Stufe: Name
+        if (!self::loestAuf($host)) {
+            $stufen[] = self::stufe('Servername', false, self::namensHilfe($host));
+
+            Crypto::wipe($password);
+
+            return self::pruefErgebnis(false, self::namensHilfe($host), [], '', $stufen);
+        }
+
+        $stufen[] = self::stufe('Servername', true, $host . ' loest auf.');
+
+        if ($sauber['hinweis'] !== '') {
+            $stufen[] = self::stufe('Hinweis', true, $sauber['hinweis']);
+        }
+
         try {
             return $protokoll === 'sftp'
-                ? self::testSftp($host, $port, $user, $password, $pfad)
-                : self::testFtp($host, $port, $user, $password, $pfad, $protokoll === 'ftps');
+                ? self::testSftp($host, $port, $user, $password, $pfad, $stufen)
+                : self::testFtp($host, $port, $user, $password, $pfad, $protokoll === 'ftps', $stufen);
         } catch (\Throwable $e) {
             Logger::warning('Verbindungstest fehlgeschlagen', [
                 'host' => $host,
@@ -515,104 +635,423 @@ final class FtpDeployer
                 'grund' => $e->getMessage(),
             ]);
 
-            return self::pruefErgebnis(false,
-                'Die Verbindung ist fehlgeschlagen: ' . self::kurz($e->getMessage()));
+            $stufen[] = self::stufe('Abbruch', false, self::kurz($e->getMessage()));
+
+            return self::pruefErgebnis(
+                false,
+                'Die Verbindung ist fehlgeschlagen: ' . self::kurz($e->getMessage()),
+                [],
+                '',
+                $stufen
+            );
         } finally {
             Crypto::wipe($password);
         }
     }
 
-    /** @return array{ok:bool, message:string, ordner:array<int,string>, vorschlag:string} */
+    /**
+     * Was tun, wenn es den Servernamen nicht gibt?
+     *
+     * Genau hier faellt der haeufigste Fall an: "ftp." vor die Domain
+     * geschrieben, weil es bei manchen Anbietern so heisst. Bei cPanel -
+     * und damit bei GoDaddy - gibt es diesen Eintrag nicht.
+     */
+    private static function namensHilfe(string $host): string
+    {
+        $meldung = 'Diesen Servernamen gibt es nicht: ' . $host
+            . '. Es wurde also nie ein Server abgewiesen - es wurde keiner gefunden.';
+
+        if (str_starts_with($host, 'ftp.')) {
+            $ohne = substr($host, 4);
+
+            if (self::loestAuf($ohne)) {
+                return $meldung . ' Nimm ' . $ohne . ' ohne das „ftp.“ davor:'
+                    . ' bei cPanel (und damit bei GoDaddy) gibt es keinen ftp-Eintrag.';
+            }
+
+            return $meldung . ' Bei cPanel gibt es kein „ftp.“ vor der Domain.'
+                . ' Nimm die Domain selbst oder den Servernamen, der in cPanel'
+                . ' rechts unter „Allgemeine Informationen“ steht.';
+        }
+
+        return $meldung . ' Tippfehler? Sonst hilft der Servername aus cPanel'
+            . ' (rechts unter „Allgemeine Informationen“) oder die Domain selbst.';
+    }
+
+    /** Eine einzelne Stufe des Tests. */
+    private static function stufe(string $name, bool $ok, string $info): array
+    {
+        return ['name' => $name, 'ok' => $ok, 'info' => $info];
+    }
+
+    /**
+     * Der Ordner, der vermutlich gemeint ist.
+     *
+     * Zwei Faelle, und sie sehen von aussen gleich aus:
+     *
+     * Ein cPanel-Unterkonto (Benutzername mit @) wird beim Anlegen auf
+     * sein Verzeichnis festgenagelt. Nach der Anmeldung ist man bereits
+     * darin - der Pfad, den man in cPanel gesehen hat, existiert von
+     * dort aus nicht mehr, weil er die Wurzel geworden ist. Richtig ist
+     * dann "/".
+     *
+     * Das Hauptkonto sieht dagegen public_html neben sich liegen. Dann
+     * ist der volle Pfad richtig.
+     *
+     * Unterschieden wird an dem, was oben liegt: eine Startseite an der
+     * Wurzel heisst festgenagelt, ein public_html daneben heisst
+     * Hauptkonto.
+     *
+     * @param array<int, string> $obenAuf Namen im Startordner
+     */
+    private static function ordnerVorschlag(array $obenAuf, string $heim, string $user): string
+    {
+        $klein = array_map('mb_strtolower', $obenAuf);
+
+        foreach (['public_html', 'httpdocs', 'www', 'web'] as $name) {
+            if (in_array($name, $klein, true)) {
+                return self::cleanPath(rtrim($heim, '/') . '/' . $name);
+            }
+        }
+
+        // Keine Web-Wurzel daneben, aber eine Startseite darin: Das
+        // Konto sitzt bereits im Zielordner.
+        foreach (['index.html', 'index.php', 'index.htm', 'wp-config.php', 'assets'] as $name) {
+            if (in_array($name, $klein, true)) {
+                return $heim === '' ? '/' : self::cleanPath($heim);
+            }
+        }
+
+        // Ein Unterkonto ohne erkennbaren Inhalt: Die @-Form ist bei
+        // cPanel der zuverlaessigste Hinweis auf ein festgenageltes Konto.
+        if (str_contains($user, '@')) {
+            return $heim === '' ? '/' : self::cleanPath($heim);
+        }
+
+        return '';
+    }
+
+    /** @return array{ok:bool, message:string, stufen:array<int, array{name:string, ok:bool, info:string}>, ordner:array<int,string>, vorschlag:string} */
     private static function testSftp(
         string $host,
         int $port,
         string $user,
         string $password,
-        string $pfad
+        string $pfad,
+        array $stufen = []
     ): array {
         if (!class_exists(SFTP::class)) {
-            return self::pruefErgebnis(false, 'Die Bibliothek für SFTP fehlt im Paket.');
+            $stufen[] = self::stufe('Verbindung', false, 'Die Bibliothek fuer SFTP fehlt im Paket.');
+
+            return self::pruefErgebnis(false, 'Die Bibliothek fuer SFTP fehlt im Paket.', [], '', $stufen);
         }
 
         $sftp = new SFTP($host, $port ?: 22, 20);
 
-        if (!$sftp->login($user, $password)) {
-            return self::pruefErgebnis(false,
-                'Anmeldung abgelehnt. Benutzername oder Passwort stimmt nicht. '
-                . 'Bei cPanel gehoert oft der volle Name dazu, also '
-                . 'benutzer@deine-domain.ch statt nur benutzer.');
+        if (!$sftp->isConnected()) {
+            $meldung = 'Der Server ist da, nimmt auf Port ' . ($port ?: 22)
+                . ' aber keine SSH-Verbindung an. Bei cPanel ist SFTP oft nicht'
+                . ' freigeschaltet - dann ist FTP auf Port 21 der richtige Weg.';
+            $stufen[] = self::stufe('Verbindung', false, $meldung);
+
+            return self::pruefErgebnis(false, $meldung, [], '', $stufen);
         }
 
+        $stufen[] = self::stufe('Verbindung', true, 'Port ' . ($port ?: 22) . ' antwortet.');
+
+        if (!$sftp->login($user, $password)) {
+            $meldung = self::anmeldeHilfe($user);
+            $stufen[] = self::stufe('Anmeldung', false, $meldung);
+
+            return self::pruefErgebnis(false, $meldung, [], '', $stufen);
+        }
+
+        $stufen[] = self::stufe('Anmeldung', true, 'Benutzer ' . $user . ' angenommen.');
+
         $daHeim = (string) ($sftp->pwd() ?: '/');
+        $stufen[] = self::stufe('Startordner', true, 'Nach der Anmeldung stehst du in ' . $daHeim . '.');
+
+        $obenAuf = [];
+
+        foreach ((array) ($sftp->nlist($daHeim) ?: []) as $eintrag) {
+            $name = basename((string) $eintrag);
+
+            if ($name !== '' && $name !== '.' && $name !== '..') {
+                $obenAuf[] = $name;
+            }
+        }
+
+        $stufen[] = self::stufe(
+            'Inhalt lesen',
+            $obenAuf !== [],
+            $obenAuf === []
+                ? 'Der Startordner liess sich nicht auflisten.'
+                : count($obenAuf) . ' Eintraege im Startordner.'
+        );
+
         $ordner = self::verzeichnisseSftp($sftp, $pfad, $daHeim);
         $vorhanden = $sftp->is_dir($pfad);
 
+        $stufen[] = self::stufe(
+            'Zielordner',
+            $vorhanden,
+            $vorhanden
+                ? $pfad . ' ist vorhanden.'
+                : $pfad . ' gibt es von diesem Zugang aus nicht.'
+        );
+
+        if ($vorhanden) {
+            $probe = rtrim($pfad, '/') . '/.webatze-probe-' . bin2hex(random_bytes(4));
+            $konnte = $sftp->put($probe, 'webatze');
+
+            if ($konnte) {
+                $sftp->delete($probe);
+            }
+
+            $stufen[] = self::stufe(
+                'Schreibprobe',
+                (bool) $konnte,
+                $konnte
+                    ? 'Datei angelegt und wieder entfernt - der Zugang darf schreiben.'
+                    : 'Anmeldung und Ordner stimmen, aber der Zugang darf dort nicht schreiben.'
+            );
+
+            $vorhanden = (bool) $konnte;
+        }
+
         $sftp->disconnect();
+
+        $vorschlag = $vorhanden ? '' : self::ordnerVorschlag($obenAuf, $daHeim, $user);
 
         return self::pruefErgebnis(
             $vorhanden,
             $vorhanden
-                ? 'Verbindung steht, das Verzeichnis ' . $pfad . ' ist vorhanden.'
-                : 'Anmeldung hat geklappt, aber ' . $pfad . ' gibt es dort nicht.',
+                ? 'Alles bereit: angemeldet, ' . $pfad . ' vorhanden und beschreibbar.'
+                : self::zielHilfe($pfad, $vorschlag, $user),
             $ordner,
-            self::vorschlagen($ordner, $pfad)
+            $vorschlag !== '' ? $vorschlag : self::vorschlagen($ordner, $pfad),
+            $stufen
         );
     }
 
-    /** @return array{ok:bool, message:string, ordner:array<int,string>, vorschlag:string} */
+    /** @return array{ok:bool, message:string, stufen:array<int, array{name:string, ok:bool, info:string}>, ordner:array<int,string>, vorschlag:string} */
     private static function testFtp(
         string $host,
         int $port,
         string $user,
         string $password,
         string $pfad,
-        bool $verschluesselt
+        bool $verschluesselt,
+        array $stufen = []
     ): array {
-        // Die Pruefung, die hier gefehlt hat. Ohne sie stuerzt der ganze
-        // Aufruf ab, statt zu sagen, was los ist.
         if (!function_exists('ftp_connect')) {
-            return self::pruefErgebnis(false,
-                'Dieser Server kann kein FTP - die passende PHP-Erweiterung ist nicht '
+            $meldung = 'Dieser Server kann kein FTP - die passende PHP-Erweiterung ist nicht '
                 . 'eingebaut. Stelle im Formular auf SFTP um (Port 22). Das bringt '
-                . 'WebAtze selbst mit, funktioniert ueberall und ist ausserdem '
-                . 'verschluesselt.');
+                . 'WebAtze selbst mit und ist ausserdem verschluesselt.';
+            $stufen[] = self::stufe('Verbindung', false, $meldung);
+
+            return self::pruefErgebnis(false, $meldung, [], '', $stufen);
         }
+
+        // Ohne diese Pruefung ist ein PHP ohne OpenSSL kein Fehler,
+        // den man melden kann, sondern ein Absturz.
+        if ($verschluesselt && !function_exists('ftp_ssl_connect')) {
+            $meldung = 'Dieses PHP kann kein verschluesseltes FTP (es fehlt OpenSSL). '
+                . 'Stelle auf einfaches FTP um oder - besser - auf SFTP.';
+            $stufen[] = self::stufe('Verbindung', false, $meldung);
+
+            return self::pruefErgebnis(false, $meldung, [], '', $stufen);
+        }
+
+        $port = $port ?: 21;
 
         $verbindung = $verschluesselt
-            ? @ftp_ssl_connect($host, $port ?: 21, 20)
-            : @ftp_connect($host, $port ?: 21, 20);
+            ? @ftp_ssl_connect($host, $port, 15)
+            : @ftp_connect($host, $port, 15);
 
         if ($verbindung === false) {
-            return self::pruefErgebnis(false,
-                'Keine Verbindung zu ' . $host . ':' . ($port ?: 21) . '. '
-                . 'Stimmt die Adresse, und ist der Port richtig? FTP ist 21, SFTP ist 22.');
+            $meldung = 'Der Servername stimmt, aber auf Port ' . $port . ' antwortet nichts. '
+                . ($port === 22
+                    ? 'Port 22 ist SSH - fuer FTP ist es 21.'
+                    : 'Ist der Port richtig? FTP ist 21, FTP mit Verschluesselung meist auch 21, SFTP ist 22.');
+            $stufen[] = self::stufe('Verbindung', false, $meldung);
+
+            return self::pruefErgebnis(false, $meldung, [], '', $stufen);
         }
+
+        $stufen[] = self::stufe('Verbindung', true, 'Port ' . $port . ' antwortet.');
 
         if (!@ftp_login($verbindung, $user, $password)) {
             @ftp_close($verbindung);
 
-            return self::pruefErgebnis(false,
-                'Anmeldung abgelehnt. Benutzername oder Passwort stimmt nicht. '
-                . 'Bei cPanel gehoert oft der volle Name dazu, also '
-                . 'benutzer@deine-domain.ch statt nur benutzer.');
+            $meldung = self::anmeldeHilfe($user);
+            $stufen[] = self::stufe('Anmeldung', false, $meldung);
+
+            return self::pruefErgebnis(false, $meldung, [], '', $stufen);
         }
 
-        @ftp_pasv($verbindung, true);
+        $stufen[] = self::stufe('Anmeldung', true, 'Benutzer ' . $user . ' angenommen.');
+
+        $passiv = @ftp_pasv($verbindung, true);
+        $stufen[] = self::stufe(
+            'Passivmodus',
+            (bool) $passiv,
+            $passiv
+                ? 'Passivmodus aktiv - das ist der Modus, der durch Firewalls kommt.'
+                : 'Der Server lehnt den Passivmodus ab. Ohne ihn scheitert jede Uebertragung.'
+        );
 
         $daHeim = (string) (@ftp_pwd($verbindung) ?: '/');
+        $stufen[] = self::stufe('Startordner', true, 'Nach der Anmeldung stehst du in ' . $daHeim . '.');
+
+        $obenAuf = self::namenOben($verbindung, $daHeim);
+
+        // Meldet der Server im Passivmodus eine interne Adresse - auf
+        // geteiltem Hosting hinter NAT die Regel -, laeuft die
+        // Datenverbindung ins Leere und sieht aus wie eine Zeitueber-
+        // schreitung. Dann noch einmal, mit der Adresse, die wir kennen.
+        if ($obenAuf === [] && defined('FTP_USEPASVADDRESS')) {
+            @ftp_set_option($verbindung, FTP_USEPASVADDRESS, false);
+            $obenAuf = self::namenOben($verbindung, $daHeim);
+
+            if ($obenAuf !== []) {
+                $stufen[] = self::stufe(
+                    'Passivadresse',
+                    true,
+                    'Der Server nannte im Passivmodus eine interne Adresse. '
+                    . 'Ich habe stattdessen die bekannte verwendet - das ist beim Hochladen genauso noetig.'
+                );
+            }
+        }
+
+        $stufen[] = self::stufe(
+            'Inhalt lesen',
+            $obenAuf !== [],
+            $obenAuf === []
+                ? 'Der Startordner liess sich nicht auflisten - meist eine blockierte Datenverbindung.'
+                : count($obenAuf) . ' Eintraege im Startordner: ' . implode(', ', array_slice($obenAuf, 0, 8))
+        );
+
         $ordner = self::verzeichnisseFtp($verbindung, $pfad, $daHeim);
         $vorhanden = @ftp_chdir($verbindung, $pfad);
 
+        $stufen[] = self::stufe(
+            'Zielordner',
+            (bool) $vorhanden,
+            $vorhanden
+                ? $pfad . ' ist vorhanden.'
+                : $pfad . ' gibt es von diesem Zugang aus nicht.'
+        );
+
+        if ($vorhanden) {
+            $konnte = self::schreibprobeFtp($verbindung, $pfad);
+
+            $stufen[] = self::stufe(
+                'Schreibprobe',
+                $konnte,
+                $konnte
+                    ? 'Datei angelegt und wieder entfernt - der Zugang darf schreiben.'
+                    : 'Anmeldung und Ordner stimmen, aber der Zugang darf dort nicht schreiben.'
+            );
+
+            $vorhanden = $konnte;
+        }
+
         @ftp_close($verbindung);
+
+        $vorschlag = $vorhanden ? '' : self::ordnerVorschlag($obenAuf, $daHeim, $user);
 
         return self::pruefErgebnis(
             $vorhanden,
             $vorhanden
-                ? 'Verbindung steht, das Verzeichnis ' . $pfad . ' ist vorhanden.'
-                : 'Anmeldung hat geklappt, aber ' . $pfad . ' gibt es dort nicht.',
+                ? 'Alles bereit: angemeldet, ' . $pfad . ' vorhanden und beschreibbar.'
+                : self::zielHilfe($pfad, $vorschlag, $user),
             $ordner,
-            self::vorschlagen($ordner, $pfad)
+            $vorschlag !== '' ? $vorschlag : self::vorschlagen($ordner, $pfad),
+            $stufen
         );
+    }
+
+    /**
+     * Die Namen im Startordner - Dateien wie Ordner.
+     *
+     * @return array<int, string>
+     */
+    private static function namenOben($verbindung, string $heim): array
+    {
+        $namen = [];
+
+        foreach ((array) (@ftp_nlist($verbindung, $heim) ?: []) as $eintrag) {
+            $name = basename((string) $eintrag);
+
+            if ($name !== '' && $name !== '.' && $name !== '..') {
+                $namen[] = $name;
+            }
+        }
+
+        return array_values(array_unique($namen));
+    }
+
+    /**
+     * Darf dieser Zugang dort wirklich schreiben?
+     *
+     * Ohne diese Probe heisst "gruen" nur, dass der Ordner existiert.
+     * Ein nur lesender Zugang faellt dann erst beim Hochladen auf - also
+     * genau dann, wenn es eilig ist.
+     */
+    private static function schreibprobeFtp($verbindung, string $pfad): bool
+    {
+        $name = '.webatze-probe-' . bin2hex(random_bytes(4));
+        $ziel = rtrim($pfad, '/') . '/' . $name;
+        $tmp = tempnam(sys_get_temp_dir(), 'wa');
+
+        if ($tmp === false) {
+            return false;
+        }
+
+        file_put_contents($tmp, 'webatze');
+
+        $ok = @ftp_put($verbindung, $ziel, $tmp, FTP_BINARY);
+
+        @unlink($tmp);
+
+        if ($ok) {
+            @ftp_delete($verbindung, $ziel);
+        }
+
+        return (bool) $ok;
+    }
+
+    private static function anmeldeHilfe(string $user): string
+    {
+        $meldung = 'Der Server ist erreichbar, lehnt aber die Anmeldung ab. '
+            . 'Benutzername oder Passwort stimmt nicht.';
+
+        if (!str_contains($user, '@')) {
+            return $meldung . ' Bei cPanel gehoert der volle Name dazu, also'
+                . ' benutzer@deine-domain.ch statt nur benutzer.';
+        }
+
+        return $meldung . ' Das Passwort ist das, das beim Anlegen des FTP-Kontos'
+            . ' vergeben wurde - nicht das cPanel-Passwort. In cPanel unter'
+            . ' „FTP-Konten“ laesst es sich neu setzen.';
+    }
+
+    /** Was tun, wenn der Zielordner nicht passt? */
+    private static function zielHilfe(string $pfad, string $vorschlag, string $user): string
+    {
+        $meldung = 'Anmeldung geklappt - aber ' . $pfad . ' gibt es von diesem Zugang aus nicht.';
+
+        if ($vorschlag !== '' && $vorschlag !== $pfad) {
+            $meldung .= ' Trage ' . $vorschlag . ' ein.';
+        }
+
+        if (str_contains($user, '@')) {
+            $meldung .= ' Ein cPanel-Unterkonto (Name mit @) sitzt bereits in seinem Ordner:'
+                . ' Was in cPanel als Verzeichnis stand, ist von hier aus die Wurzel „/“.';
+        }
+
+        return $meldung;
     }
 
     /**
@@ -749,15 +1188,23 @@ final class FtpDeployer
 
     /**
      * @param array<int, string> $ordner
-     * @return array{ok:bool, message:string, ordner:array<int,string>, vorschlag:string}
+     * @param array<int, array{name:string, ok:bool, info:string}> $stufen
+     * @return array{ok:bool, message:string, stufen:array<int, array{name:string, ok:bool, info:string}>, ordner:array<int,string>, vorschlag:string}
      */
     private static function pruefErgebnis(
         bool $ok,
         string $message,
         array $ordner = [],
-        string $vorschlag = ''
+        string $vorschlag = '',
+        array $stufen = []
     ): array {
-        return ['ok' => $ok, 'message' => $message, 'ordner' => $ordner, 'vorschlag' => $vorschlag];
+        return [
+            'ok' => $ok,
+            'message' => $message,
+            'stufen' => $stufen,
+            'ordner' => $ordner,
+            'vorschlag' => $vorschlag,
+        ];
     }
 
     /** Technische Meldungen kurz halten - der Rest steht im Protokoll. */

@@ -154,7 +154,7 @@ $latest = $builds[0] ?? null;
         <div class="wa-grid-2">
             <div class="wa-field">
                 <label class="wa-label" for="protocol">Verbindungsart</label>
-                <select class="wa-select" id="protocol" name="protocol">
+                <select class="wa-select" id="protocol" name="protocol" data-ftp-field="protocol">
                     <option value="sftp" <?= $protocol === 'sftp' ? 'selected' : '' ?>>SFTP (empfohlen)</option>
                     <option value="ftps" <?= $protocol === 'ftps' ? 'selected' : '' ?>>FTP mit Verschlüsselung</option>
                     <option value="ftp" <?= $protocol === 'ftp' ? 'selected' : '' ?>>FTP</option>
@@ -167,7 +167,7 @@ $latest = $builds[0] ?? null;
 
             <div class="wa-field">
                 <label class="wa-label" for="port">Port</label>
-                <input class="wa-input" type="number" id="port" name="port" min="1" max="65535"
+                <input class="wa-input" type="number" id="port" name="port" min="1" max="65535" data-ftp-field="port"
                        value="<?= $port ?>">
             </div>
         </div>
@@ -175,8 +175,17 @@ $latest = $builds[0] ?? null;
         <div class="wa-grid-2">
             <div class="wa-field">
                 <label class="wa-label" for="host">Server</label>
-                <input class="wa-input" type="text" id="host" name="host" placeholder="ftp.beispiel.ch"
+                <input class="wa-input" type="text" id="host" name="host" placeholder="beispiel.ch"
+                       data-ftp-field="host"
                        value="<?= e((string) ($target['host'] ?? '')) ?>">
+                <span class="wa-label__hint">
+                    Nur der Name, ohne <code>ftp://</code> und ohne Pfad.
+                    <strong>Bei cPanel und GoDaddy kein <code>ftp.</code> davor</strong> &ndash;
+                    diesen Eintrag gibt es dort nicht, und dann findet der Test
+                    keinen Server statt einen falschen. Die Domain selbst passt,
+                    sonst der Servername aus cPanel rechts unter
+                    &bdquo;Allgemeine Informationen&ldquo;.
+                </span>
             </div>
 
             <div class="wa-field">
@@ -196,13 +205,34 @@ $latest = $builds[0] ?? null;
 
             <div class="wa-field">
                 <label class="wa-label" for="path">Verzeichnis</label>
-                <input class="wa-input" type="text" id="path" name="path"
+                <input class="wa-input" type="text" id="path" name="path" data-ftp-field="path"
                        value="<?= e((string) ($target['remote_path'] ?? '/public_html')) ?>">
                 <span class="wa-label__hint">
-                    Meist <code>/public_html</code>, bei Plesk <code>/httpdocs</code>.
-                    Bei einer <strong>Subdomain</strong> der Ordner darunter, also etwa
-                    <code>/public_html/preview</code>. Ein FTP-Zugang der Hauptdomain
-                    kommt dort hin &ndash; ein eigener Zugang je Subdomain ist nicht nötig.
+                    <?php /* Hier stand vorher, ein eigener Zugang je Subdomain sei
+                             nicht nötig – also das Gegenteil dessen, was cPanel
+                             nahelegt. Wer einen anlegt und dann den vollen Pfad
+                             einträgt, bekommt genau eine Meldung: fehlgeschlagen. */ ?>
+                    Es kommt darauf an, <em>welcher</em> Zugang:
+                </span>
+                <ul class="wa-label__hint">
+                    <li>
+                        Benutzername <strong>mit <code>@</code></strong>
+                        (cPanel-Unterkonto, etwa <code>web@preview.deine-domain.ch</code>):
+                        Verzeichnis <strong><code>/</code></strong>. Ein solches Konto
+                        sitzt bereits in seinem Ordner &ndash; was in cPanel als
+                        Verzeichnis stand, ist von dort aus die Wurzel.
+                    </li>
+                    <li>
+                        Benutzername <strong>ohne <code>@</code></strong>
+                        (Haupt-cPanel-Konto): der volle Pfad, also
+                        <code>/public_html</code> bzw. bei einer Subdomain
+                        <code>/public_html/preview.deine-domain.ch</code>.
+                    </li>
+                    <li>Bei Plesk heisst er <code>/httpdocs</code>, bei Infomaniak <code>/web</code>.</li>
+                </ul>
+                <span class="wa-label__hint">
+                    Unsicher? Einmal &bdquo;Verbindung testen&ldquo; &ndash; der Test
+                    sieht nach der Anmeldung nach und schlägt den passenden Ordner vor.
                 </span>
 
                 <?php
@@ -231,6 +261,39 @@ $latest = $builds[0] ?? null;
             <button type="submit" class="wa-btn wa-btn--primary">Zugangsdaten speichern</button>
         </div>
     </form>
+
+    <?php
+    /**
+     * Das Ergebnis des letzten Tests, Stufe fuer Stufe.
+     *
+     * Frueher stand hier eine einzige rote Zeile. Sieben verschiedene
+     * Ursachen sahen damit gleich aus - ein Servername, den es nicht
+     * gibt, genauso wie ein Ordner, der eine Ebene tiefer liegt. Die
+     * Kette macht sichtbar, wie weit es gekommen ist: Die erste rote
+     * Stufe ist die Antwort, und alles Gruene davor ist der Beweis,
+     * dass daran nichts mehr zu suchen ist.
+     */
+    $stufen = (array) ($gefunden['stufen'] ?? []);
+    ?>
+    <?php if ($stufen !== []): ?>
+        <div class="wa-stufen">
+            <h3 class="wa-stufen__title">
+                Letzter Verbindungstest
+                <?php if ((string) ($gefunden['zeit'] ?? '') !== ''): ?>
+                    <span class="wa-stufen__time"><?= e((string) $gefunden['zeit']) ?></span>
+                <?php endif; ?>
+            </h3>
+            <ol class="wa-stufen__list">
+                <?php foreach ($stufen as $stufe): ?>
+                    <li class="wa-stufen__item<?= ($stufe['ok'] ?? false) ? ' is-ok' : ' is-bad' ?>">
+                        <span class="wa-stufen__mark" aria-hidden="true"><?= ($stufe['ok'] ?? false) ? '&check;' : '&times;' ?></span>
+                        <span class="wa-stufen__name"><?= e((string) ($stufe['name'] ?? '')) ?></span>
+                        <span class="wa-stufen__info"><?= e((string) ($stufe['info'] ?? '')) ?></span>
+                    </li>
+                <?php endforeach; ?>
+            </ol>
+        </div>
+    <?php endif; ?>
 
     <?php if ($target !== null): ?>
         <div class="wa-form__actions">

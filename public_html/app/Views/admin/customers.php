@@ -13,6 +13,7 @@ use WebAtze\Domain\Billing;
 /** @var string $suche */
 /** @var string $zeigen */
 /** @var array<string, int> $zahlen */
+/** @var array<string, int> $ohneZuordnung */
 
 $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
 ?>
@@ -31,6 +32,48 @@ $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
         <strong class="wa-tile__value"><?= e(Billing::money((int) $zahlen['monat_rappen'])) ?></strong>
     </div>
 </div>
+
+<?php
+/**
+ * Was zu keinem Kunden gehört.
+ *
+ * Die Listen für Websites, Rechnungen, Verträge und Passwörter sind
+ * nicht mehr im Menü – sie stehen jetzt beim jeweiligen Kunden. Was
+ * keinen hat, wäre damit unerreichbar geworden. Deshalb steht es hier,
+ * ganz oben, und zwar nur dann, wenn es tatsächlich etwas gibt: Ein
+ * Hinweis, der immer da ist, wird nach einer Woche nicht mehr gelesen.
+ */
+?>
+<?php if ((int) ($ohneZuordnung['summe'] ?? 0) > 0): ?>
+    <section class="wa-panel">
+        <header class="wa-panel__head">
+            <h2 class="wa-panel__title">Ohne Zuordnung</h2>
+        </header>
+
+        <p class="wa-hint">
+            Das hier gehört zu keinem Kunden. Beim Kunden zugeordnet, taucht es
+            auf dessen Seite auf – und ist von dort aus zu finden.
+        </p>
+
+        <div class="wa-found__list">
+            <?php
+            $orte = [
+                'websites' => ['Websites', '/websites?kunde=-1'],
+                'rechnungen' => ['Offerten und Rechnungen', '/rechnungen'],
+                'vertraege' => ['Wartungsverträge', '/vertraege'],
+                'passwoerter' => ['Passwörter', '/passwoerter'],
+            ];
+            ?>
+            <?php foreach ($orte as $schluessel => [$text, $ziel]): ?>
+                <?php if ((int) ($ohneZuordnung[$schluessel] ?? 0) > 0): ?>
+                    <a class="wa-found__item" href="<?= e($base . $ziel) ?>">
+                        <?= (int) $ohneZuordnung[$schluessel] ?> <?= e($text) ?>
+                    </a>
+                <?php endif; ?>
+            <?php endforeach; ?>
+        </div>
+    </section>
+<?php endif; ?>
 
 <section class="wa-panel">
     <header class="wa-panel__head">

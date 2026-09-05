@@ -468,23 +468,56 @@ function initHostingHelp() {
 
     // Übertragungsart, Port und Verzeichnis passend vorbelegen – der
     // Benutzer kann sie danach immer noch ändern.
-    const protocol = document.getElementById('ftp_protocol');
-    const port = document.getElementById('ftp_port');
-    const path = document.getElementById('ftp_path');
+    //
+    // Gesucht wird über data-ftp-field und nicht über feste IDs: Die
+    // Felder heissen im Erfassungsformular ftp_protocol und auf der
+    // Veröffentlichen-Seite protocol. Solange hier IDs standen, tat
+    // diese Funktion auf der zweiten Seite schlicht nichts – ein
+    // Wechsel auf SFTP liess den Port auf 21 stehen, und der Test
+    // scheiterte an Port 21 gegen einen SSH-Dienst.
+    const protocol = ftpField('protocol');
+    const port = ftpField('port');
+    const path = ftpField('path');
 
     if (protocol && !protocol.dataset.touched) protocol.value = option.dataset.protocol ?? 'sftp';
     if (port && !port.dataset.touched) port.value = option.dataset.port ?? '22';
     if (path && !path.dataset.touched) path.value = option.dataset.path ?? '/public_html';
   };
 
-  ['ftp_protocol', 'ftp_port', 'ftp_path'].forEach((id) => {
-    document.getElementById(id)?.addEventListener('input', (event) => {
+  ['protocol', 'port', 'path'].forEach((name) => {
+    ftpField(name)?.addEventListener('input', (event) => {
       event.target.dataset.touched = '1';
     });
   });
 
   select.addEventListener('change', apply);
   apply();
+}
+
+/** Ein FTP-Feld, egal wie es auf dieser Seite heisst. */
+function ftpField(name) {
+  return document.querySelector(`[data-ftp-field="${name}"]`);
+}
+
+/**
+ * Der Port folgt der Übertragungsart.
+ *
+ * SFTP ist 22, FTP ist 21. Wer umstellt und den Port stehen lässt,
+ * bekommt eine Zeitüberschreitung ohne erkennbaren Grund – Port 21
+ * gegen einen SSH-Dienst sieht von aussen aus wie ein toter Server.
+ * Angefasste Portfelder bleiben unangetastet.
+ */
+function initFtpPortFollowsProtocol() {
+  const protocol = ftpField('protocol');
+  const port = ftpField('port');
+
+  if (!protocol || !port) return;
+
+  protocol.addEventListener('change', () => {
+    if (port.dataset.touched) return;
+
+    port.value = protocol.value === 'sftp' ? '22' : '21';
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -602,6 +635,7 @@ function boot() {
   initToggles();
   initColours();
   initHostingHelp();
+  initFtpPortFollowsProtocol();
   initPasswordGenerator();
   initVault();
 }

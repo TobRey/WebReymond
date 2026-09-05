@@ -18,38 +18,106 @@ use WebAtze\Core\{Assets, Config, Csrf};
 $title = $title ?? 'Verwaltung';
 $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
 
-// Zeichen an den Menuepunkten: eine Zahl je Eintrag, an dem etwas auf
-// mich wartet. Zwanzig Menuepunkte einzeln durchzuklicken tut niemand
-// jeden Tag - eine Supportfrage lag deshalb schon einmal drei Tage.
-$zeichen = \WebAtze\Domain\Notices::all();
+// Zeichen an den Menuepunkten: eine Zahl je Bereich, an dem etwas auf
+// mich wartet. Gezaehlt wird weiterhin fein, angezeigt wird grob -
+// seit das Menue nur noch sechs Punkte hat, muessen mehrere Zahlen an
+// einem davon zusammenfinden. Sonst waere nach dem Umbau kein einziges
+// Zeichen mehr sichtbar, und eine Supportfrage laege wieder drei Tage.
+$zeichen = \WebAtze\Domain\Notices::forMenu();
 
-// Die Navigation in zwei Bloecken: erst das Tagesgeschaeft mit Kunden,
-// dann das Werkzeug fuer die Websites. Wer morgens hereinkommt, will
-// wissen, was ansteht - nicht, welche Vorlage es gibt.
+/**
+ * Sechs Punkte. Vorher waren es zweiundzwanzig.
+ *
+ * Zweiundzwanzig Eintraege sind keine Navigation mehr, sondern eine
+ * Suchaufgabe: Man liest sie nicht, man scannt sie, und beim dritten
+ * Mal klickt man daneben. Und die meisten davon waren Listen ueber
+ * alle Kunden hinweg - waehrend die Frage, die man tatsaechlich hat,
+ * fast immer einen einzelnen Kunden betrifft.
+ *
+ * Also gilt jetzt: Was zu einem Kunden gehoert, steht beim Kunden.
+ * Rechnungen, Vertraege, Websites, Passwoerter, Support, Fragebogen,
+ * Besucherzahlen - alles auf seiner Seite, mit "Rechnung erstellen"
+ * daneben statt einem Umweg ueber eine gefilterte Gesamtliste.
+ *
+ * Was zu keinem gehoert, sammelt "Ohne Zuordnung" oben in der
+ * Kundenliste. Ohne diese Sammelstelle waere es unerreichbar geworden,
+ * und dann duerfte das Menue gar nicht schrumpfen.
+ *
+ * Keine einzige Route wurde geloescht. Alte Lesezeichen, Verweise aus
+ * dem Protokoll und Links in verschickten E-Mails funktionieren
+ * weiter - nur steht ihr Ziel nicht mehr im Menue. Sechs Punkte sind
+ * eine Vermutung darueber, was taeglich gebraucht wird; ein
+ * Lesezeichen, das ins Leere laeuft, waere teurer als ein Eintrag zu
+ * viel im Router.
+ */
 $nav = [
     ['/start', 'Übersicht', 'grid'],
     ['/kunden', 'Kunden', 'users'],
-    ['/kalender', 'Kalender', 'calendar'],
-    ['/kundensuche', 'Kundensuche', 'search'],
-    ['/potenzielle-kunden', 'Potenzielle Kunden', 'inbox'],
-    ['/buchhaltung', 'Buchhaltung', 'coins'],
-    ['/rechnungen', 'Rechnungen', 'tag'],
-    ['/vertraege', 'Verträge', 'refresh'],
-    ['/mitarbeitende', 'Mitarbeitende', 'user'],
-    ['/websites', 'Websites', 'globe'],
     ['/neu', 'Neue Website', 'plus'],
-    ['/wartung', 'Wartungscenter', 'shield'],
-    ['/passwoerter', 'Passwörter', 'key'],
-    ['/anfragen', 'Anfragen', 'inbox'],
-    ['/support', 'Support', 'chat'],
-    ['/fragebogen', 'Fragebögen', 'document'],
-    ['/referenzen', 'Referenzen', 'star'],
-    ['/zahlen', 'Besucher', 'chart'],
-    ['/kosten', 'Kosten', 'coins'],
-    ['/intranet', 'Intranet', 'note'],
-    ['/protokoll', 'Protokoll', 'list'],
+    ['/kalender', 'Kalender', 'calendar'],
+    ['/buchhaltung', 'Buchhaltung', 'coins'],
     ['/einstellungen', 'Einstellungen', 'gear'],
 ];
+
+/**
+ * Was unter den sechs Punkten liegt.
+ *
+ * Aus dem Menue genommen heisst nicht abgeschafft: Diese Bereiche
+ * beantworten Fragen, die tatsaechlich ueber alle Kunden gehen - "wer
+ * schuldet mir noch was", "welche Website ist ausgefallen", "was habe
+ * ich letzten Monat ausgegeben". Nur sind das keine Fragen, die man
+ * jeden Morgen stellt, und deshalb kosten sie jetzt einen Klick mehr
+ * statt einen Menueplatz.
+ *
+ * Gezeigt wird die Zeile ueberall unterhalb des jeweiligen Punktes -
+ * zentral hier und nicht in jeder Ansicht einzeln, weil sie sonst
+ * genau dort fehlt, wo man sie das erste Mal sucht.
+ */
+$unterNav = [
+    '/start' => [
+        ['/anfragen', 'Anfragen'],
+        ['/support', 'Support'],
+        ['/fragebogen', 'Fragebögen'],
+        ['/wartung', 'Wartungscenter'],
+        ['/potenzielle-kunden', 'Potenzielle Kunden'],
+    ],
+    '/kunden' => [
+        ['/kunden', 'Alle Kunden'],
+        ['/kundensuche', 'Kundensuche'],
+        ['/websites', 'Alle Websites'],
+    ],
+    '/buchhaltung' => [
+        ['/buchhaltung', 'Übersicht'],
+        ['/rechnungen', 'Offerten und Rechnungen'],
+        ['/vertraege', 'Wartungsverträge'],
+        ['/kosten', 'Kosten'],
+    ],
+    '/einstellungen' => [
+        ['/einstellungen', 'Grundeinstellungen'],
+        ['/mitarbeitende', 'Mitarbeitende'],
+        ['/passwoerter', 'Passwörter'],
+        ['/referenzen', 'Referenzen'],
+        ['/zahlen', 'Besucher'],
+        ['/intranet', 'Intranet'],
+        ['/protokoll', 'Protokoll'],
+    ],
+];
+
+/* Zu welchem der sechs Punkte gehoert die Seite, auf der wir gerade
+   sind? Gesucht wird ueber die Unternavigation selbst - so bleibt die
+   Zuordnung an genau einer Stelle stehen. */
+$bereich = '';
+
+foreach ($unterNav as $wurzel => $eintraege) {
+    foreach ($eintraege as [$pfad, $unused]) {
+        $ziel = $base . $pfad;
+
+        if ($currentPath === $ziel || str_starts_with($currentPath, $ziel . '/')) {
+            $bereich = $wurzel;
+            break 2;
+        }
+    }
+}
 ?>
 <!doctype html>
 <html lang="de" class="no-js">
@@ -110,7 +178,11 @@ $nav = [
                 /* Nicht nur str_starts_with: '/create/kundensuche' beginnt
                    mit '/create/kunden', und dann leuchteten beide Eintraege.
                    Es zaehlt der Eintrag selbst oder ein Pfad darunter. */
-                $hier = $currentPath === $href || str_starts_with($currentPath, $href . '/');
+                $hier = $currentPath === $href
+                    || str_starts_with($currentPath, $href . '/')
+                    // Auch von einem Unterbereich aus: Wer im Protokoll
+                    // steht, soll sehen, dass er unter Einstellungen ist.
+                    || $bereich === $path;
             ?>
             <?php $meldung = $zeichen[$path] ?? null; ?>
             <a class="wa-admin__link" href="<?= e($href) ?>"
@@ -153,6 +225,21 @@ $nav = [
             <div class="wa-admin__actions"><?= $headerActions ?></div>
         <?php endif; ?>
     </header>
+
+    <?php if ($bereich !== '' && count($unterNav[$bereich]) > 1): ?>
+        <nav class="wa-subnav" aria-label="Bereiche">
+            <?php foreach ($unterNav[$bereich] as [$pfad, $text]): ?>
+                <?php
+                    $ziel = $base . $pfad;
+                    $aktiv = $currentPath === $ziel || str_starts_with($currentPath, $ziel . '/');
+                ?>
+                <a class="wa-subnav__link<?= $aktiv ? ' is-active' : '' ?>"
+                   href="<?= e($ziel) ?>"<?= $aktiv ? ' aria-current="page"' : '' ?>>
+                    <?= e($text) ?>
+                </a>
+            <?php endforeach; ?>
+        </nav>
+    <?php endif; ?>
 
     <main id="admin-inhalt" class="wa-admin__content">
         <?php foreach ($flash as $message): ?>

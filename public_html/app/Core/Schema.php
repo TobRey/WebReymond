@@ -1136,6 +1136,39 @@ final class Schema
                 ALTER TABLE projects ADD COLUMN bridge_state {string:64} NOT NULL DEFAULT \'\';
                 ALTER TABLE projects ADD COLUMN editor_version {string:20} NOT NULL DEFAULT \'\';
             ',
+
+            // ------------------------------------------ Alles am Kunden
+            //
+            // Das Menue schrumpft von 22 Punkten auf 6, und was
+            // verschwindet, muss vom Kunden aus erreichbar sein. Drei
+            // Tabellen hingen bisher nur am Projekt: Ein Vertrag ohne
+            // Website hatte gar keinen Kunden, und ein Kunde ohne
+            // Website hatte keine Vertraege - obwohl beides vorkommt.
+            //
+            // Befuellt wird aus projects.customer_id. Das ist die
+            // Richtung, die gewinnt: customers.project_id kann nur eine
+            // Website halten, projects.customer_id beliebig viele.
+            '047_alles_am_kunden' => '
+                ALTER TABLE contracts ADD COLUMN customer_id {int} NULL;
+                ALTER TABLE support_threads ADD COLUMN customer_id {int} NULL;
+                ALTER TABLE questionnaires ADD COLUMN customer_id {int} NULL;
+
+                UPDATE contracts SET customer_id = (
+                    SELECT p.customer_id FROM projects p WHERE p.id = contracts.project_id
+                ) WHERE customer_id IS NULL;
+
+                UPDATE support_threads SET customer_id = (
+                    SELECT p.customer_id FROM projects p WHERE p.id = support_threads.project_id
+                ) WHERE customer_id IS NULL;
+
+                UPDATE questionnaires SET customer_id = (
+                    SELECT p.customer_id FROM projects p WHERE p.id = questionnaires.project_id
+                ) WHERE customer_id IS NULL;
+
+                CREATE INDEX IF NOT EXISTS idx_contracts_customer ON contracts (customer_id);
+                CREATE INDEX IF NOT EXISTS idx_threads_customer ON support_threads (customer_id);
+                CREATE INDEX IF NOT EXISTS idx_questionnaires_customer ON questionnaires (customer_id);
+            ',
         ];
     }
 
