@@ -648,6 +648,13 @@ section {
   display: none;
 }
 
+/* Zusatz auf einer Schaltfläche, etwa Dateiart und Grösse */
+.btn__meta {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  opacity: 0.8;
+}
+
 @media (max-width: 30rem) {
   .wrap {
     padding-inline: var(--sp-4);
