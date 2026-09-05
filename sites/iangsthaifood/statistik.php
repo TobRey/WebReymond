@@ -57,11 +57,11 @@ seite_kopf([
     'lang' => 'de',
     'titel' => 'Besucherzahlen — Iang’s Thai Food',
     'beschreibung' => 'Geschützte Übersicht der Seitenaufrufe.',
-    'kopf_id' => 106,
+    'kopf_id' => 52,
     'noindex' => true,
 ]);
 ?>
-  <section class="hero hero--slim" id="aufmacher" data-section="hero" data-section-id="107">
+  <section class="hero hero--slim" id="aufmacher" data-section="hero" data-section-id="53">
     <div class="hero__glow js-parallax" data-parallax="0.08" aria-hidden="true"></div>
     <div class="hero__rule" aria-hidden="true"></div>
     <div class="wrap">
@@ -74,7 +74,7 @@ seite_kopf([
     </div>
   </section>
 
-  <section class="band--alt" id="zahlen" data-section="stats" data-section-id="108">
+  <section class="band--alt" id="zahlen" data-section="stats" data-section-id="54">
     <div class="wrap">
 <?php foreach ($meldungen as [$art, $text]): ?>
       <div class="msg msg--<?= $art === 'err' ? 'err' : 'ok' ?>" role="status"><p><?= h($text) ?></p></div>
@@ -141,7 +141,7 @@ seite_kopf([
     </div>
   </section>
 
-  <section id="erklaerung" data-section="text" data-section-id="109">
+  <section id="erklaerung" data-section="text" data-section-id="55">
     <div class="wrap wrap--narrow prose">
       <h2>Was hier gezählt wird – und was nicht</h2>
       <p>Für jeden Aufruf wird eine Zahl um eins erhöht: Seite, Tag, fertig. Es werden keine IP-Adressen
@@ -155,4 +155,4 @@ seite_kopf([
     </div>
   </section>
 <?php
-seite_fuss(['lang' => 'de', 'fuss_id' => 110]);
+seite_fuss(['lang' => 'de', 'fuss_id' => 56]);

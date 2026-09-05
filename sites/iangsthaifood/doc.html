@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Anleitung zu deiner Website — Iang’s Thai Food</title>
-  <meta name="description" content="Anleitung für den Betrieb: Aufbau der Website, Kontaktformular, Dateien, Besucherzahlen und der Weg über die Support-Seite.">
+  <meta name="description" content="Anleitung für den Betrieb: Aufbau der Website, Dateien, Besucherzahlen und der Weg über die Support-Seite.">
   <meta name="robots" content="noindex, nofollow">
   <link rel="canonical" href="https://iangsthaifood.com/doc.html">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Iang's Thai Food">
   <meta property="og:title" content="Anleitung zu deiner Website — Iang’s Thai Food">
-  <meta property="og:description" content="Anleitung für den Betrieb: Aufbau der Website, Kontaktformular, Dateien, Besucherzahlen und der Weg über die Support-Seite.">
+  <meta property="og:description" content="Anleitung für den Betrieb: Aufbau der Website, Dateien, Besucherzahlen und der Weg über die Support-Seite.">
   <meta property="og:url" content="https://iangsthaifood.com/doc.html">
   <meta property="og:image" content="https://iangsthaifood.com/assets/img/og-standard.png">
   <meta property="og:image:width" content="1200">
@@ -23,7 +23,7 @@
 </head>
 <body>
   <a class="skip-link" href="#inhalt">Direkt zum Inhalt</a>
-  <header class="site-header" id="seitenkopf" data-section="header" data-section-id="87">
+  <header class="site-header" id="seitenkopf" data-section="header" data-section-id="33">
     <div class="wrap site-header__inner">
       <a class="brand" href="index.html">
         <span class="brand__name">Iang’s Thai Food</span>
@@ -34,10 +34,9 @@
       </button>
       <nav class="nav" id="hauptnavigation" aria-label="Hauptnavigation">
         <ul class="nav__list">
-            <li><a class="nav__link" href="index.html">Start</a></li>
-            <li><a class="nav__link" href="speisekarte.html">Speisekarte</a></li>
-            <li><a class="nav__link" href="ueber-uns.html">Über uns</a></li>
-            <li><a class="nav__link" href="kontakt.html">Kontakt</a></li>
+            <li><a class="nav__link" href="index.html#angebot">Angebot</a></li>
+            <li><a class="nav__link" href="index.html#catering">Catering</a></li>
+            <li><a class="nav__link" href="index.html#kontakt">Öffnungszeiten</a></li>
         </ul>
         <div class="lang">
           <span class="visually-hidden">Sprache wählen</span>
@@ -53,101 +52,85 @@
     </div>
   </header>
   <main id="inhalt">
-  <section class="hero hero--slim" id="aufmacher" data-section="hero" data-section-id="88">
+  <section class="hero hero--slim" id="aufmacher" data-section="hero" data-section-id="34">
     <div class="hero__glow js-parallax" data-parallax="0.08" aria-hidden="true"></div>
     <div class="hero__rule" aria-hidden="true"></div>
     <div class="wrap">
       <div class="hero__inner">
         <p class="eyebrow">Nur für dich</p>
         <h1>Anleitung zu deiner Website</h1>
-        <p class="lead">Auf dieser Seite steht, wie deine Website aufgebaut ist, was du selbst ändern kannst und was du tun kannst, wenn etwas nicht stimmt. Sie ist für Suchmaschinen gesperrt – nur wer die Adresse kennt, sieht sie.</p>
+        <p class="lead">Hier steht, wie deine Website aufgebaut ist, was du selbst ändern kannst und was du tun kannst, wenn etwas nicht stimmt. Die Seite ist für Suchmaschinen gesperrt.</p>
       </div>
     </div>
   </section>
-  <section class="" id="seiten" data-section="text" data-section-id="89">
+  <section class="" id="seiten" data-section="text" data-section-id="35">
     <div class="wrap prose">
       <h2>Was wo steht</h2>
-      <p>Deine Website hat vier öffentliche Seiten, dazu zwei rechtliche Seiten – jeweils auf Deutsch und auf Englisch. Deutsch liegt im Hauptverzeichnis, Englisch im Ordner <code>/en/</code>.</p>
+      <p>Deine Website ist eine Seite, auf Deutsch und auf Englisch, dazu die beiden rechtlichen Seiten. Deutsch liegt im Hauptverzeichnis, Englisch im Ordner <code>/en/</code>.</p>
       <div class="table-scroll">
         <table class="table">
-          <thead><tr><th scope="col">Seite</th><th scope="col">Adresse (Deutsch)</th><th scope="col">Adresse (Englisch)</th><th scope="col">Was dort hingehört</th></tr></thead>
+          <thead><tr><th scope="col">Seite</th><th scope="col">Deutsch</th><th scope="col">Englisch</th><th scope="col">Was dort steht</th></tr></thead>
           <tbody>
-          <tr><th scope="row">Start</th><td><code>/</code></td><td><code>/en/</code></td><td>Der erste Eindruck: was ihr macht, Öffnungszeiten, Telefonnummer, Ablauf einer Bestellung, Catering.</td></tr>
-          <tr><th scope="row">Speisekarte</th><td><code>/speisekarte.html</code></td><td><code>/en/menu.html</code></td><td>Die Gerichte mit Beschreibung und Preis. Hier stehen zurzeit sechs Platzhalter.</td></tr>
-          <tr><th scope="row">Über uns</th><td><code>/ueber-uns.html</code></td><td><code>/en/about.html</code></td><td>Wer ihr seid, wie ihr kocht, Bilder vom Betrieb.</td></tr>
-          <tr><th scope="row">Kontakt</th><td><code>/kontakt.html</code></td><td><code>/en/contact.html</code></td><td>Adresse, Telefon, Öffnungszeiten und das Kontaktformular.</td></tr>
-          <tr><th scope="row">Impressum</th><td><code>/impressum.html</code></td><td><code>/en/imprint.html</code></td><td>Pflichtangaben zum Betrieb. Hier fehlen noch Angaben von dir.</td></tr>
-          <tr><th scope="row">Datenschutz</th><td><code>/datenschutz.html</code></td><td><code>/en/privacy.html</code></td><td>Was die Website mit Daten macht. Hier fehlt noch der Name des Hosting-Anbieters.</td></tr>
+          <tr><th scope="row">Startseite</th><td><code>/</code></td><td><code>/en/</code></td><td>Name, Angebot, Catering, Öffnungszeiten, Adresse und Telefonnummer. Alles auf einer Seite, die Navigation springt zu den Abschnitten.</td></tr>
+          <tr><th scope="row">Impressum</th><td><code>/impressum.html</code></td><td><code>/en/imprint.html</code></td><td>Betrieb, Adresse, Telefon, Haftung und Urheberrecht.</td></tr>
+          <tr><th scope="row">Datenschutz</th><td><code>/datenschutz.html</code></td><td><code>/en/privacy.html</code></td><td>Was die Website mit Daten macht. Vor allem: sehr wenig.</td></tr>
           </tbody>
         </table>
       </div>
-      <p>Dazu kommen drei Seiten, die nicht in der Navigation stehen: diese Anleitung, die Support-Seite und die Seite mit den Besucherzahlen. Sie sind für Suchmaschinen gesperrt.</p>
+      <p>Dazu kommen drei Seiten, die nicht in der Navigation stehen und für Suchmaschinen gesperrt sind: diese Anleitung, die Support-Seite und die Seite mit den Besucherzahlen. Und eine Fehlerseite, die erscheint, wenn jemand eine Adresse aufruft, die es nicht gibt.</p>
     </div>
   </section>
-  <section class="band--alt" id="anfragen" data-section="text" data-section-id="90">
+  <section class="band--alt" id="anfragen" data-section="text" data-section-id="36">
     <div class="wrap prose">
-      <h2>Wie Anfragen bei dir ankommen</h2>
-      <p>Wenn jemand das Kontaktformular ausfüllt, schickt der Server dir die Nachricht als E-Mail. Antworten kannst du direkt aus deinem E-Mail-Programm – die Adresse des Absenders steht als Antwortadresse drin.</p>
-      <div class="note note--todo">
-        <p><strong>Eine Sache fehlt noch:</strong> In der Datei <code>data/config.php</code> steht bei <code>'contact_email'</code> noch nichts. Trag dort die E-Mail-Adresse ein, an die Anfragen gehen sollen – zwischen die beiden Hochkommas. Zum Beispiel so: <code>'contact_email' =&gt; 'info@iangsthaifood.com',</code></p>
-        <p>Solange dort nichts steht, geht keine E-Mail raus; die Nachrichten werden stattdessen auf dem Server unter <code>data/anfragen/</code> abgelegt, damit nichts verloren geht.</p>
+      <h2>Wie dich Leute erreichen</h2>
+      <p>Über das Telefon. Die Nummer <strong>076 442 70 44</strong> steht oben rechts auf jeder Seite, im Aufmacher, beim Catering, im Kontaktabschnitt und in der Fusszeile. Auf dem Handy genügt ein Tippen darauf, dann wählt das Telefon.</p>
+      <p>Ein Kontaktformular hat die Website bewusst nicht: Ein Formular braucht eine E-Mail-Adresse, an die es schickt, und die müsstest du eintragen und danach den Posteingang im Auge behalten. Wenn du eines möchtest, sag Bescheid und nenn mir die Adresse – dann baue ich es ein.</p>
+      <div class="note">
+        <p><strong>Wenn du E-Mails vom Server erwartest</strong> – zum Beispiel den Wochenbericht mit den Besucherzahlen – und nichts ankommt: Schau zuerst im Spam-Ordner nach. Neue Absender landen dort besonders oft. Markiere die Nachricht dann als „kein Spam“, damit die nächsten normal ankommen.</p>
       </div>
-      <h3>Es kommt nichts an?</h3>
-      <ol>
-        <li><strong>Schau im Spam-Ordner nach.</strong> Neue Absender landen dort besonders oft. Wenn du die Nachricht findest, markiere sie als „kein Spam“ – dann kommen die nächsten normal an.</li>
-        <li><strong>Schick dir selbst eine Testnachricht</strong> über das Formular auf der Kontaktseite.</li>
-        <li><strong>Prüf die Adresse</strong> in <code>data/config.php</code> auf Tippfehler.</li>
-        <li><strong>Melde dich bei mir</strong> über die Support-Seite, wenn es dann immer noch nicht geht.</li>
-      </ol>
-      <p>Gegen Werbemüll ist das Formular abgesichert: ein für Menschen unsichtbares Feld, eine Zeitfalle und eine Begrenzung, wie viele Nachrichten pro Stunde von derselben Adresse kommen dürfen. Du musst dafür nichts tun, und deine Besucher müssen keine Rätsel lösen.</p>
     </div>
   </section>
-  <section class="" id="aendern" data-section="text" data-section-id="91">
+  <section class="" id="aendern" data-section="text" data-section-id="37">
     <div class="wrap prose">
       <h2>Was du selbst ändern kannst</h2>
-      <p>Alles, was Text ist: Überschriften, Absätze, Gerichte, Preise, Öffnungszeiten. Die Website ist so gebaut, dass ein Editor jeden Abschnitt einzeln erkennt und du ihn bearbeiten oder verschieben kannst.</p>
+      <p>Alles, was Text ist. Die Website ist so gebaut, dass ein Editor jeden Abschnitt einzeln erkennt und du ihn bearbeiten oder verschieben kannst.</p>
       <ul>
         <li><strong>Texte:</strong> überall, in beiden Sprachen. Denk daran, eine Änderung auch in der anderen Sprachfassung nachzuziehen.</li>
-        <li><strong>Gerichte:</strong> auf der Speisekarte. Jede Karte ist ein Eintrag in einer Liste – du kannst Einträge ergänzen, löschen und umsortieren.</li>
-        <li><strong>Bilder:</strong> Die Platzhalter tauschst du gegen eigene Fotos aus. Behalte dabei das Seitenverhältnis bei, dann springt beim Laden nichts.</li>
-        <li><strong>Öffnungszeiten und Telefonnummer:</strong> Sie stehen an mehreren Stellen. Such am besten nach der alten Zeit oder Nummer und ersetze überall.</li>
+        <li><strong>Listen:</strong> Die drei Karten unter „Angebot“ und die drei unter „Catering“ sind Einträge einer Liste. Du kannst Einträge ergänzen, löschen und umsortieren.</li>
+        <li><strong>Öffnungszeiten, Adresse und Telefonnummer:</strong> Sie stehen an mehreren Stellen. Such nach der alten Zeit oder Nummer und ersetze sie überall.</li>
       </ul>
       <h3>Was du besser mir überlässt</h3>
       <ul>
-        <li>Die Datei <code>data/config.php</code> – ausser der E-Mail-Adresse fürs Kontaktformular.</li>
+        <li>Die Datei <code>data/config.php</code>. Dort stehen Zugangsdaten.</li>
         <li>Alles, was auf <code>.php</code> endet.</li>
         <li>Die Datei <code>assets/css/style.css</code>. Wenn du Farben ändern willst: Ganz oben steht ein Block <code>:root</code> mit allen Farben und Grössen. Änderst du dort einen Wert, zieht die ganze Website nach. Weiter unten stehen keine Farben mehr.</li>
-        <li><code>robots.txt</code> und <code>sitemap.xml</code>.</li>
+        <li><code>robots.txt</code>, <code>sitemap.xml</code> und <code>.htaccess</code>.</li>
       </ul>
     </div>
   </section>
-  <section class="band--alt" id="dateien" data-section="text" data-section-id="92">
+  <section class="band--alt" id="dateien" data-section="text" data-section-id="38">
     <div class="wrap prose">
       <h2>Die Dateien</h2>
       <div class="table-scroll">
         <table class="table">
           <thead><tr><th scope="col">Datei oder Ordner</th><th scope="col">Wofür sie da ist</th></tr></thead>
           <tbody>
-          <tr><th scope="row"><code>index.html</code></th><td>Startseite auf Deutsch</td></tr>
-          <tr><th scope="row"><code>speisekarte.html</code></th><td>Speisekarte auf Deutsch</td></tr>
-          <tr><th scope="row"><code>ueber-uns.html</code></th><td>Über uns auf Deutsch</td></tr>
-          <tr><th scope="row"><code>kontakt.html</code></th><td>Kontakt und Formular auf Deutsch</td></tr>
+          <tr><th scope="row"><code>index.html</code></th><td>Die Startseite auf Deutsch</td></tr>
           <tr><th scope="row"><code>impressum.html</code>, <code>datenschutz.html</code></th><td>Die rechtlichen Seiten auf Deutsch</td></tr>
           <tr><th scope="row"><code>en/</code></th><td>Dieselben Seiten auf Englisch</td></tr>
           <tr><th scope="row"><code>404.html</code></th><td>Wird gezeigt, wenn jemand eine Adresse aufruft, die es nicht gibt</td></tr>
           <tr><th scope="row"><code>doc.html</code></th><td>Diese Anleitung</td></tr>
           <tr><th scope="row"><code>support.php</code></th><td>Die Seite, über die du mir schreibst</td></tr>
           <tr><th scope="row"><code>statistik.php</code></th><td>Die Besucherzahlen</td></tr>
-          <tr><th scope="row"><code>formular.php</code></th><td>Nimmt das Kontaktformular entgegen und verschickt die E-Mail</td></tr>
           <tr><th scope="row"><code>zaehler.php</code></th><td>Nimmt die Zählung eines Seitenaufrufs entgegen</td></tr>
           <tr><th scope="row"><code>wochenbericht.php</code></th><td>Verschickt den wöchentlichen Bericht über die Besucherzahlen</td></tr>
           <tr><th scope="row"><code>assets/css/style.css</code></th><td>Das gesamte Aussehen der Website</td></tr>
           <tr><th scope="row"><code>assets/js/site.js</code></th><td>Menü, ruhige Bewegung beim Scrollen, Zählung</td></tr>
-          <tr><th scope="row"><code>assets/img/</code></th><td>Bilder. Zurzeit Platzhalter</td></tr>
+          <tr><th scope="row"><code>assets/img/og-standard.png</code></th><td>Das Bild, das erscheint, wenn jemand die Adresse in einem Chat oder in einem sozialen Netz teilt</td></tr>
           <tr><th scope="row"><code>inc/</code></th><td>Gemeinsame Programmteile. Nicht über den Browser erreichbar</td></tr>
-          <tr><th scope="row"><code>data/config.php</code></th><td>Zugangsdaten und Adressen. Streng vertraulich</td></tr>
+          <tr><th scope="row"><code>data/config.php</code></th><td>Zugangsdaten. Streng vertraulich</td></tr>
           <tr><th scope="row"><code>data/</code></th><td>Gespeicherte Zahlen und Nachrichten. Per <code>.htaccess</code> gesperrt</td></tr>
-          <tr><th scope="row"><code>.htaccess</code></th><td>Einstellungen für den Server: Fehlerseite, Sicherheit</td></tr>
+          <tr><th scope="row"><code>.htaccess</code></th><td>Einstellungen für den Server: Fehlerseite, Sicherheit, kurze Adressen</td></tr>
           <tr><th scope="row"><code>robots.txt</code>, <code>sitemap.xml</code></th><td>Angaben für Suchmaschinen</td></tr>
           <tr><th scope="row"><code>favicon.svg</code></th><td>Das kleine Symbol im Browser-Tab</td></tr>
           </tbody>
@@ -155,25 +138,24 @@
       </div>
     </div>
   </section>
-  <section class="" id="zahlen" data-section="stats" data-section-id="93">
+  <section class="" id="zahlen" data-section="stats" data-section-id="39">
     <div class="wrap prose">
       <h2>Die Besucherzahlen</h2>
       <p>Deine Website zählt selbst mit, wie oft welche Seite aufgerufen wird. Gespeichert wird nur die Seite, der Tag und die Anzahl – keine IP-Adresse, kein Cookie, keine Kennung. Deshalb braucht deine Website kein Zustimmungsbanner.</p>
       <ul>
         <li><strong>Ansehen:</strong> <a href="statistik.php">statistik.php</a>. Beim ersten Aufruf fragt die Seite nach deinem Zugangscode – es ist derselbe wie beim Support.</li>
-        <li><strong>Wochenbericht:</strong> Jeden Montag geht eine kurze Zusammenfassung an die Betreuung (<code>support@web-atze.com</code>). Das passiert von allein, du musst nichts einrichten.</li>
+        <li><strong>Wochenbericht:</strong> Jeden Montag geht eine kurze Zusammenfassung an die Betreuung. Das passiert von allein, du musst nichts einrichten.</li>
         <li><strong>Wo die Zahlen liegen:</strong> in <code>data/stats/</code>, eine Datei je Tag. Über den Browser ist der Ordner gesperrt.</li>
       </ul>
-      <p>Wenn dein Hosting Cron-Aufträge kennt und du den Bericht lieber zu einer festen Zeit möchtest, geht das mit <code>php /pfad/zur/website/wochenbericht.php</code>, zum Beispiel montags um 7 Uhr. Nötig ist es nicht.</p>
     </div>
   </section>
-  <section class="band--dark" id="hilfe" data-section="cta" data-section-id="94">
+  <section class="band--dark" id="hilfe" data-section="cta" data-section-id="40">
     <div class="wrap split">
       <div>
         <p class="eyebrow">Wenn etwas nicht stimmt</p>
         <h2>Schreib mir über die Support-Seite</h2>
         <p>Auf <a href="support.php">support.php</a> schreibst du mir direkt. Beim ersten Mal fragt die Seite nach deinem <strong>Zugangscode</strong> – den hast du von mir erhalten. Danach merkt sich dein Browser den Zugang, und du siehst dort auch den bisherigen Verlauf.</p>
-        <p>Es ist kein Sofort-Chat: Ich antworte, sobald ich kann, aber nicht innerhalb von Minuten. Schreib ruhig auf, was du erwartet hast und was stattdessen passiert ist – das spart eine Rückfrage.</p>
+        <p>Es ist kein Sofort-Chat: Ich antworte, sobald ich kann, aber nicht innerhalb von Minuten. Schreib auf, was du erwartet hast und was stattdessen passiert ist – das spart eine Rückfrage.</p>
         <div class="btn-row">
           <a class="btn btn--mint" href="support.php">Zur Support-Seite</a>
         </div>
@@ -185,30 +167,18 @@
       </div>
     </div>
   </section>
-  <section class="" id="liefern" data-section="text" data-section-id="95">
+  <section class="" id="hochladen" data-section="text" data-section-id="41">
     <div class="wrap prose">
-      <h2>Was du noch liefern musst</h2>
-      <p>An diesen Stellen steht heute ein erkennbarer Platzhalter. Erfunden wurde nichts – sobald du die Angaben schickst, trage ich sie ein (oder du machst es selbst).</p>
-      <div class="table-scroll">
-        <table class="table">
-          <thead><tr><th scope="col">Was fehlt</th><th scope="col">Wo es hingehört</th><th scope="col">Warum</th></tr></thead>
-          <tbody>
-          <tr><th scope="row">Die Speisekarte: Gerichte, Beschreibungen, Preise</th><td><code>/speisekarte.html</code> und <code>/en/menu.html</code></td><td>Sechs Platzhalterkarten warten darauf. Preise und Gerichte dürfen nicht geraten werden.</td></tr>
-          <tr><th scope="row">E-Mail-Adresse des Betriebs</th><td><code>data/config.php</code>, Impressum, Datenschutz</td><td>Ohne sie kann das Kontaktformular nichts verschicken.</td></tr>
-          <tr><th scope="row">Name der verantwortlichen Person, Rechtsform, UID, Mehrwertsteuernummer</th><td>Impressum (beide Sprachen)</td><td>Pflichtangaben.</td></tr>
-          <tr><th scope="row">Name und Sitz des Hosting-Anbieters</th><td>Datenschutz (beide Sprachen)</td><td>Gehört in die Datenschutzerklärung.</td></tr>
-          <tr><th scope="row">Eigene Fotos: Gericht, Küche, Take Away</th><td><code>assets/img/</code></td><td>Zurzeit stehen dort drei Platzhalter-Grafiken.</td></tr>
-          <tr><th scope="row">Ein Bild fürs Teilen in Nachrichten und sozialen Netzen (1200 × 630 Pixel)</th><td><code>assets/img/og-standard.png</code></td><td>Zurzeit eine schlichte Grafik in euren Farben, ohne Foto.</td></tr>
-          <tr><th scope="row">Schreibweise des Namens</th><td>überall</td><td>Auf der Website steht „Iang’s Thai Food“. Wenn der Betrieb offiziell anders heisst, sag Bescheid.</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <h3>Und wenn du die Website umziehst?</h3>
-      <p>Kopier den ganzen Ordner auf das Webhosting, in das Verzeichnis, aus dem die Domain ausgeliefert wird. Der Server muss PHP können und E-Mails verschicken dürfen. Sonst ist nichts einzurichten – die Zugangsdaten liegen bereits in <code>data/config.php</code>.</p>
+      <h2>Die Website hochladen</h2>
+      <p>Entpack das Archiv und kopier den <strong>Inhalt</strong> des Ordners auf dein Webhosting, in das Verzeichnis, aus dem die Domain ausgeliefert wird (je nach Anbieter heisst es <code>public_html</code>, <code>htdocs</code> oder <code>www</code>). Danach ist nichts mehr einzurichten – die Zugangsdaten liegen bereits in <code>data/config.php</code>.</p>
+      <p>Zwei Dinge muss der Server können: <strong>PHP</strong> und <strong>E-Mails verschicken</strong>. Ohne PHP bleiben die Seiten sichtbar, aber Support, Statistik und Zählung arbeiten nicht.</p>
+      <p>Achte darauf, dass die versteckten Dateien mitkopiert werden – die Namen beginnen mit einem Punkt (<code>.htaccess</code>). Manche Programme blenden sie aus.</p>
+      <h3>Wenn du später mehr willst</h3>
+      <p>Eine Speisekarte mit Gerichten und Preisen, Fotos vom Betrieb oder ein Kontaktformular lassen sich jederzeit ergänzen. Es steht heute nichts davon auf der Website, weil nichts erfunden werden sollte. Schick mir die Angaben über die Support-Seite, dann kommen sie hinein.</p>
     </div>
   </section>
   </main>
-  <footer class="site-footer" id="seitenfuss" data-section="footer" data-section-id="96">
+  <footer class="site-footer" id="seitenfuss" data-section="footer" data-section-id="42">
     <div class="wrap">
       <div class="footer-grid">
         <div>
@@ -234,10 +204,9 @@
         <div>
           <h3>Seiten</h3>
           <ul>
-            <li><a href="index.html">Start</a></li>
-            <li><a href="speisekarte.html">Speisekarte</a></li>
-            <li><a href="ueber-uns.html">Über uns</a></li>
-            <li><a href="kontakt.html">Kontakt</a></li>
+            <li><a href="index.html#angebot">Angebot</a></li>
+            <li><a href="index.html#catering">Catering</a></li>
+            <li><a href="index.html#kontakt">Öffnungszeiten</a></li>
           </ul>
         </div>
         <div>

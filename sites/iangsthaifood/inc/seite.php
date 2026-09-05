@@ -11,16 +11,14 @@ require_once __DIR__ . '/bootstrap.php';
 
 const IANG_NAV = [
     'de' => [
-        ['index.html', 'Start', 'start'],
-        ['speisekarte.html', 'Speisekarte', 'speisekarte'],
-        ['ueber-uns.html', 'Über uns', 'ueber'],
-        ['kontakt.html', 'Kontakt', 'kontakt'],
+        ['index.html#angebot', 'Angebot'],
+        ['index.html#catering', 'Catering'],
+        ['index.html#kontakt', 'Öffnungszeiten'],
     ],
     'en' => [
-        ['en/index.html', 'Home', 'start'],
-        ['en/menu.html', 'Menu', 'speisekarte'],
-        ['en/about.html', 'About', 'ueber'],
-        ['en/contact.html', 'Contact', 'kontakt'],
+        ['en/index.html#angebot', 'What we cook'],
+        ['en/index.html#catering', 'Catering'],
+        ['en/index.html#kontakt', 'Opening hours'],
     ],
 ];
 
@@ -81,9 +79,8 @@ function seite_kopf(array $o): void
     echo "      </button>\n";
     echo '      <nav class="nav" id="hauptnavigation" aria-label="' . $navlabel . '">' . "\n";
     echo '        <ul class="nav__list">' . "\n";
-    foreach (IANG_NAV[$lang] as [$href, $label, $key]) {
-        $cur = $key === $aktiv ? ' aria-current="page"' : '';
-        echo '          <li><a class="nav__link" href="' . $href . '"' . $cur . '>' . h($label) . "</a></li>\n";
+    foreach (IANG_NAV[$lang] as [$href, $label]) {
+        echo '          <li><a class="nav__link" href="' . $href . '">' . h($label) . "</a></li>\n";
     }
     echo "        </ul>\n";
     echo '        <div class="lang">' . "\n";
@@ -127,7 +124,7 @@ function seite_fuss(array $o): void
     }
     echo "          </ul>\n        </div>\n";
     echo '        <div>' . "\n          <h3>" . $t['pages'] . "</h3>\n          <ul>\n";
-    foreach (IANG_NAV[$lang] as [$href, $label, $key]) {
+    foreach (IANG_NAV[$lang] as [$href, $label]) {
         echo '            <li><a href="' . $href . '">' . h($label) . "</a></li>\n";
     }
     echo "          </ul>\n        </div>\n";

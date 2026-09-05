@@ -225,11 +225,11 @@ seite_kopf([
     'lang' => 'de',
     'titel' => 'Support — Iang’s Thai Food',
     'beschreibung' => 'Geschützter Bereich für den Betrieb: Nachrichten an die Betreuung der Website.',
-    'kopf_id' => 101,
+    'kopf_id' => 47,
     'noindex' => true,
 ]);
 ?>
-  <section class="hero hero--slim" id="aufmacher" data-section="hero" data-section-id="102">
+  <section class="hero hero--slim" id="aufmacher" data-section="hero" data-section-id="48">
     <div class="hero__glow js-parallax" data-parallax="0.08" aria-hidden="true"></div>
     <div class="hero__rule" aria-hidden="true"></div>
     <div class="wrap">
@@ -242,7 +242,7 @@ seite_kopf([
     </div>
   </section>
 
-  <section class="band--alt" id="nachricht" data-section="contact" data-section-id="103">
+  <section class="band--alt" id="nachricht" data-section="contact" data-section-id="49">
     <div class="wrap wrap--narrow">
 <?php foreach ($meldungen as [$art, $text]): ?>
       <div class="msg msg--<?= $art === 'err' ? 'err' : ($art === 'ok' ? 'ok' : 'info') ?>" role="status">
@@ -304,7 +304,7 @@ seite_kopf([
     </div>
   </section>
 
-  <section id="verlauf" data-section="text" data-section-id="104">
+  <section id="verlauf" data-section="text" data-section-id="50">
     <div class="wrap wrap--narrow">
       <div class="section-head">
         <p class="eyebrow">Verlauf</p>
@@ -342,4 +342,4 @@ seite_kopf([
     </div>
   </section>
 <?php
-seite_fuss(['lang' => 'de', 'fuss_id' => 105]);
+seite_fuss(['lang' => 'de', 'fuss_id' => 51]);

@@ -862,6 +862,15 @@ section {
   box-shadow: none;
 }
 
+/* Karte, die nur eine Bezeichnung trägt */
+.card--label {
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.card--label h3 {
+  margin-bottom: 0;
+}
+
 .card--flat:hover {
   transform: none;
   box-shadow: none;
