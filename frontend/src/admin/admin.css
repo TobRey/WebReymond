@@ -420,16 +420,6 @@
   background: var(--wa-surface-glass-solid, var(--wa-surface));
 }
 
-/* Ein Schatten nach links, solange tatsaechlich etwas darunter liegt. */
-.wa-table td.wa-table__actions::before {
-  content: '';
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: -0.75rem;
-  inline-size: 0.75rem;
-  background: linear-gradient(to right, transparent, rgb(0 0 0 / 18%));
-  pointer-events: none;
-}
 
 .wa-table th {
   font-size: var(--wa-text-xs);
@@ -2791,4 +2781,77 @@ tr.is-inactive { opacity: 0.55; }
   position: static;
   inline-size: 100%;
   margin-block: var(--wa-space-3);
+}
+
+
+/* ================================================================== */
+/* Vorschaubild einer Website                                          */
+/* ================================================================== */
+
+/*
+ * Die echte Startseite, verkleinert. Der Rahmen wird in voller Breite
+ * gerendert und danach zusammengeschoben – nur so greifen die
+ * Umbruchregeln der Website wie auf einem Bildschirm; ein schmal
+ * gerenderter Rahmen zeigte die Handyansicht.
+ */
+
+.wa-thumb {
+  position: relative;
+  inline-size: 7.5rem;
+  block-size: 5rem;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--wa-border);
+  border-radius: var(--wa-radius-sm);
+  background: var(--wa-surface-glass);
+}
+
+.wa-thumb__rahmen {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: 1280px;
+  block-size: 832px;
+  border: 0;
+  transform: scale(0.094);
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+.wa-thumb--leer {
+  display: grid;
+  place-items: center;
+}
+
+.wa-thumb__zeichen {
+  font-size: 2rem;
+  font-weight: var(--wa-weight-semibold);
+  color: var(--wa-text-faint);
+}
+
+/* In der Tabelle steht das Bild in seiner eigenen Spalte. */
+.wa-table td.wa-thumbcell {
+  inline-size: 7.5rem;
+  padding-inline-end: 0;
+}
+
+@media (max-width: 60rem) {
+  /* In der Karte sitzt es oben, über dem Namen. */
+  .wa-table td.wa-thumbcell {
+    inline-size: 100%;
+    padding-inline-end: 0;
+  }
+
+  .wa-table td.wa-thumbcell::before { content: none; }
+
+  .wa-thumb {
+    inline-size: 100%;
+    block-size: 8rem;
+  }
+
+  .wa-thumb__rahmen {
+    transform: scale(0.3);
+    inline-size: 1280px;
+    block-size: 1067px;
+  }
 }

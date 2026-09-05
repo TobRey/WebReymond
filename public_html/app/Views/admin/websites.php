@@ -89,6 +89,7 @@ $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
             <table class="wa-table">
                 <thead>
                     <tr>
+                        <th></th>
                         <th>Website</th>
                         <th>Kunde</th>
                         <th>Herkunft</th>
@@ -106,6 +107,15 @@ $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
                             $waechter = $w['waechter'] ?? null;
                         ?>
                         <tr>
+                            <?php /* Der Anblick der Seite, nicht nur ihr Name -
+                                     bei acht Websites erkennt man die gesuchte
+                                     schneller am Bild als am Text. */ ?>
+                            <td class="wa-thumbcell">
+                                <?= View_partial('partials/website-thumb', [
+                                    'website' => $w,
+                                    'base' => $base,
+                                ]) ?>
+                            </td>
                             <td class="wa-sitecell">
                                 <a class="wa-table__main" href="<?= e($ziel) ?>"><?= e((string) $w['name']) ?></a>
                                 <?php if ((string) $w['domain'] !== ''): ?>
@@ -142,7 +152,11 @@ $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
                                 <?= $hand ? 'Hinzugefügt' : 'Von WebAtze' ?>
                             </td>
                             <td>
-                                <span class="wa-badge<?= (string) $w['status'] === 'live' ? ' wa-badge--ok' : '' ?>">
+                                <?php /* Kurz auf der Marke, ausgeschrieben im Titel:
+                                         Als ganzer Satz war der Zustand zweihundert
+                                         Pixel breit und schob die Liste ueber den Rand. */ ?>
+                                <span class="wa-badge<?= (string) $w['status'] === 'live' ? ' wa-badge--ok' : '' ?>"
+                                      title="<?= e(Websites::STATUS_LANG[(string) $w['status']] ?? '') ?>">
                                     <?= e($status[(string) $w['status']] ?? (string) $w['status']) ?>
                                 </span>
                             </td>
@@ -160,11 +174,32 @@ $base = '/' . trim((string) Config::get('create_path', 'create'), '/');
                                 <?php endif; ?>
                             </td>
                             <td class="wa-table__actions">
+                                <?php /* Zeichen fuer die zwei Handgriffe, die
+                                         ueberall gleich aussehen. Das haelt die
+                                         Spalte schmal genug, dass die Tabelle
+                                         gar nicht erst ueberlaeuft. */ ?>
                                 <?php if ($adresse !== ''): ?>
-                                    <a class="wa-btn wa-btn--small" href="<?= e($adresse) ?>"
-                                       target="_blank" rel="noopener noreferrer">Öffnen</a>
+                                    <a class="wa-icon-btn" href="<?= e($adresse) ?>"
+                                       target="_blank" rel="noopener noreferrer"
+                                       aria-label="<?= e((string) $w['name']) ?> im Browser öffnen"
+                                       title="Website öffnen">
+                                        <?= View_partial('partials/admin-icons', ['name' => 'external']) ?>
+                                    </a>
                                 <?php endif; ?>
-                                <a class="wa-btn wa-btn--small" href="<?= e($ziel) ?>">Ansehen</a>
+
+                                <a class="wa-icon-btn" href="<?= e($ziel) ?>"
+                                   aria-label="<?= e((string) $w['name']) ?> ansehen"
+                                   title="Ansehen">
+                                    <?= View_partial('partials/admin-icons', ['name' => 'eye']) ?>
+                                </a>
+
+                                <?php /* Der Weg zu FTP und Veroeffentlichen. Er
+                                         behaelt seinen Text: „Server" ist kein
+                                         Handgriff, den ein Zeichen erklaert. */ ?>
+                                <a class="wa-btn wa-btn--small"
+                                   href="<?= e($base) ?>/projekt/<?= (int) $w['id'] ?>/veroeffentlichen">
+                                    Server
+                                </a>
                             </td>
                         </tr>
                     <?php endforeach; ?>

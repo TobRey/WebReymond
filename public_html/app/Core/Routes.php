@@ -211,6 +211,11 @@ final class Routes
             $r->get($base . '/projekt/{id}/domain', 'DomainController@show');
             $r->get($base . '/projekt/{id}/veroeffentlichen', 'DeployController@show');
             $r->get($base . '/projekt/{id}/zip/{build}', 'DeployController@download');
+            // Das Vorschaubild in den Listen. Hinter der Anmeldung und
+            // ohne ablaufendes Kennwort - anders als die Vorschau, die
+            // nach einem Tag erlischt und dann ein leeres Bild ergaebe.
+            $r->get($base . '/projekt/{id}/miniatur', 'PreviewController@thumbnail');
+            $r->get($base . '/projekt/{id}/miniatur/{path:.+}', 'PreviewController@thumbnail');
 
             // Verwaltung
             // ------------------------------------------- Unternehmen

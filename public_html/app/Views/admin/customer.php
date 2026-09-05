@@ -314,6 +314,12 @@ $neu = $id === 0;
                             $waechter = $w['waechter'] ?? null;
                         ?>
                         <tr>
+                            <td class="wa-thumbcell">
+                                <?= View_partial('partials/website-thumb', [
+                                    'website' => $w,
+                                    'base' => $base,
+                                ]) ?>
+                            </td>
                             <td class="wa-sitecell">
                                 <a class="wa-table__main" href="<?= e($ziel) ?>"><?= e((string) $w['name']) ?></a>
                                 <?php if ((string) $w['domain'] !== ''): ?>

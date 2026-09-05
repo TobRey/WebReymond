@@ -31,14 +31,32 @@ final class Websites
         'hand' => 'Hinzugefügt',
     ];
 
-    /** In welchem Zustand sie ist. */
+    /**
+     * In welchem Zustand sie ist.
+     *
+     * Kurz, weil es als Marke in einer Tabellenzelle steht: „Fertig,
+     * noch nicht online" war als eine Zeile zweihundert Pixel breit
+     * und damit der Grund, aus dem die Liste über den Rand lief. Der
+     * volle Satz steht in STATUS_LANG und erscheint als Titel, wenn
+     * man darauf zeigt.
+     */
     public const STATUS = [
         'draft' => 'Entwurf',
         'building' => 'Wird gebaut',
-        'ready' => 'Fertig, noch nicht online',
+        'ready' => 'Fertig',
         'live' => 'Online',
         'paused' => 'Ruht',
         'failed' => 'Fehlgeschlagen',
+    ];
+
+    /** Derselbe Zustand, ausgeschrieben. */
+    public const STATUS_LANG = [
+        'draft' => 'Entwurf – noch nicht gebaut',
+        'building' => 'Wird gerade gebaut',
+        'ready' => 'Fertig gebaut, aber noch nicht veröffentlicht',
+        'live' => 'Veröffentlicht und erreichbar',
+        'paused' => 'Ruht – vorübergehend nicht betreut',
+        'failed' => 'Der Bau ist fehlgeschlagen',
     ];
 
     /** Womit sie gebaut ist – nur ein Vorschlag, eintippen geht auch. */
@@ -398,6 +416,27 @@ final class Websites
         }
 
         return $ok;
+    }
+
+    /**
+     * Gibt es einen gebauten Stand, den man zeigen kann?
+     *
+     * Das Vorschaubild in den Listen ist die echte Startseite, in einem
+     * Rahmen verkleinert. Dafür braucht es die gebauten Dateien. Eine
+     * von Hand hinzugefügte Website hat keine – die fremde Seite
+     * einzubetten geht nicht, weil Websites `X-Frame-Options` senden
+     * (unsere eigenen inbegriffen, das setzen wir selbst so). Dort
+     * steht deshalb eine Kachel statt eines Bildes.
+     */
+    public static function hatVorschau(array $website): bool
+    {
+        $slug = trim((string) ($website['slug'] ?? ''));
+
+        if ($slug === '' || str_contains($slug, '..') || str_contains($slug, '/')) {
+            return false;
+        }
+
+        return is_file(STORAGE_DIR . '/projects/' . $slug . '/dist/index.html');
     }
 
     /**

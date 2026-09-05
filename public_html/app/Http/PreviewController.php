@@ -49,6 +49,56 @@ final class PreviewController
         return $this->serve($request, $request->param('path'));
     }
 
+    /**
+     * Das Vorschaubild einer Website in der Liste.
+     *
+     * Ein echter Anblick der Startseite – gerendert vom Browser, der
+     * die Liste anzeigt. Auf geteiltem Hosting gibt es keinen Browser
+     * auf dem Server, also kann dort auch niemand eine Seite
+     * abfotografieren; der Browser des Betrachters kann es umsonst.
+     *
+     * Warum nicht einfach die Vorschau? Weil deren Kennwort nach
+     * vierundzwanzig Stunden abläuft (`preview_expires_at`) – ein
+     * Vorschaubild wäre am nächsten Tag leer. Diese Adresse liegt
+     * stattdessen hinter der Anmeldung und läuft nicht ab.
+     *
+     * Ausgeliefert wird der gebaute Stand aus
+     * `storage/projects/<slug>/dist`, mit derselben Pfadauflösung wie
+     * die Vorschau: `resolve()` löst über realpath() alle Verweise auf
+     * und prüft danach, dass das Ergebnis noch im Ordner liegt.
+     */
+    public function thumbnail(Request $request): Response
+    {
+        $project = Db::first(
+            'SELECT id, slug, name FROM projects WHERE id = :id',
+            ['id' => $request->paramInt('id')]
+        );
+
+        if ($project === null) {
+            return Response::notFound();
+        }
+
+        $root = STORAGE_DIR . '/projects/' . (string) $project['slug'] . '/dist';
+        $file = self::resolve($root, (string) $request->param('path'));
+
+        if ($file === null) {
+            return Response::notFound();
+        }
+
+        $extension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+
+        return Response::make((string) file_get_contents($file))
+            ->header('Content-Type', self::TYPES[$extension] ?? 'application/octet-stream')
+            ->header('X-Robots-Tag', 'noindex, nofollow, noarchive')
+            // Nur wir selbst dürfen das einbetten. Ohne diese Zeile
+            // könnte eine fremde Seite die Kundenwebsite in einen
+            // Rahmen holen und damit den Anschein erwecken, sie gehöre
+            // ihr.
+            ->header('X-Frame-Options', 'SAMEORIGIN')
+            ->header('Cache-Control', 'private, max-age=300')
+            ->header('Content-Security-Policy', self::previewPolicy(false));
+    }
+
     private function serve(Request $request, string $path): Response
     {
         $token = self::cleanToken($request->param('token'));
