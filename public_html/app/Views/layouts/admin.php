@@ -75,6 +75,11 @@ $nav = [
  */
 $unterNav = [
     '/start' => [
+        // Der Bereich selbst gehoert in die Liste: Ueber sie wird
+        // bestimmt, in welchem Bereich man steht, und ohne diesen
+        // Eintrag zeigte die Uebersicht ihre eigene Unternavigation
+        // nicht an - man sah sie erst, wenn man schon drin war.
+        ['/start', 'Was ansteht'],
         ['/anfragen', 'Anfragen'],
         ['/support', 'Support'],
         ['/fragebogen', 'Fragebögen'],

@@ -2867,6 +2867,22 @@ test('Der Test sagt, an welcher Stufe es haengt', function (): void {
     // Ab der ersten roten Stufe wird nicht weitergeraten.
     is(1, count($ergebnis['stufen']), 'Nach der roten Stufe hoert der Test auf');
 
+    // Und was die Meldung vorschlaegt, muss auch anklickbar sein.
+    // Herausgekommen war: "trage / ein", daneben lauter Ordner, unter
+    // denen "/" nicht ist - weil die Liste nur Unterverzeichnisse
+    // sammelt und "/" keines ist.
+    $mitVorschlag = new ReflectionMethod(\WebAtze\Build\FtpDeployer::class, 'pruefErgebnis');
+    $mitVorschlag->setAccessible(true);
+
+    $antwort = $mitVorschlag->invoke(null, false, 'Trage / ein.', ['/assets', '/data'], '/');
+
+    ok(in_array('/', $antwort['ordner'], true), 'Der Vorschlag steht in der Liste zum Anklicken');
+    is('/', $antwort['ordner'][0], 'Und zwar vorn');
+
+    $antwort = $mitVorschlag->invoke(null, false, 'x', ['/public_html'], '/public_html');
+
+    is(1, count($antwort['ordner']), 'Ein Vorschlag, den es schon gibt, kommt nicht doppelt');
+
     \WebAtze\Core\Db::delete('deploy_targets', 'project_id = :p', ['p' => $projectId]);
     \WebAtze\Core\Db::delete('projects', 'id = :p', ['p' => $projectId]);
 });

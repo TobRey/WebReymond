@@ -1567,6 +1567,14 @@ final class FtpDeployer
         string $vorschlag = '',
         array $stufen = []
     ): array {
+        // Der Vorschlag gehört in die Liste zum Anklicken - sonst steht
+        // in der Meldung "trage / ein" und daneben lauter Ordner, unter
+        // denen "/" nicht ist. Genau das kam heraus, weil die Liste nur
+        // Unterverzeichnisse sammelt und "/" keines ist.
+        if ($vorschlag !== '' && !in_array($vorschlag, $ordner, true)) {
+            array_unshift($ordner, $vorschlag);
+        }
+
         return [
             'ok' => $ok,
             'message' => $message,

@@ -318,12 +318,24 @@ foreach ($diagnostics as $check) {
             <span class="wa-badge wa-badge--ok">
                 Fassung <?= e((string) $editorPlugin['version']) ?>
             </span>
+        <?php elseif ($editorBereit ?? false): ?>
+            <?php /* Der Fall auf dem Entwicklungsrechner: Der Editor
+                     liegt aus einem lokalen Build da, ohne dass je ein
+                     Paket eingespielt wurde. "Nicht installiert" wäre
+                     hier schlicht falsch – er funktioniert ja. */ ?>
+            <span class="wa-badge">aus dem Build</span>
         <?php else: ?>
             <span class="wa-badge wa-badge--warn">nicht installiert</span>
         <?php endif; ?>
     </header>
 
-    <?php if (($editorPlugin ?? null) === null): ?>
+    <?php if (($editorPlugin ?? null) === null && ($editorBereit ?? false)): ?>
+        <p class="wa-hint">
+            Der Editor liegt aus einem lokalen Build vor und funktioniert.
+            Ein hochgeladenes Paket würde ihn ersetzen &ndash; und
+            überlebt anders als dieser das nächste Hauptpaket.
+        </p>
+    <?php elseif (($editorPlugin ?? null) === null): ?>
         <p class="wa-hint">
             Ohne Editor lassen sich Websites weiterhin bauen, ausliefern und
             überwachen &ndash; nur nicht im Browser bearbeiten. Lade
