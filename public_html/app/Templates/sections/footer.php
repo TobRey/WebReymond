@@ -13,7 +13,7 @@ $email = R::value($c, 'email', (string) ($ctx['email'] ?? ''));
 $phone = R::value($c, 'phone', (string) ($ctx['phone'] ?? ''));
 $address = R::value($c, 'address', (string) ($ctx['address'] ?? ''));
 ?>
-<footer class="<?= e($classes) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="footer" data-section-id="<?= (int) $sectionDbId ?>">
+<footer class="<?= e($classes) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="footer" data-section-id="<?= (int) $sectionDbId ?>"<?= $attrs ?>>
     <div class="s-shell">
         <div class="s-footer__grid s-items">
 

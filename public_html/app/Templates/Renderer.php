@@ -44,10 +44,23 @@ final class Renderer
 
         $content = is_array($section['content'] ?? null) ? $section['content'] : [];
         $overrides = is_array($section['overrides'] ?? null) ? $section['overrides'] : [];
+        $effects = Effects::clean($section['effects'] ?? null);
 
-        $classes = self::classes($type, $key, $overrides);
-        $id = self::anchorId($type, (int) ($section['id'] ?? 0), $content);
+        $classes = self::classes($type, $key, $overrides, $effects);
+        $id = self::anchorId($type, (int) ($section['id'] ?? 0), $content, $overrides);
         $style = self::inlineStyle($overrides);
+
+        // Was sich bewegen soll, steht als Attribut am Abschnitt - die
+        // Vorlagen bleiben davon unberuehrt. Ein Effekt ist damit eine
+        // Angabe und kein Eingriff ins Markup.
+        $attrs = Effects::attributes($effects) . self::hooks($type, $key);
+        $itemAttrs = Effects::itemAttributes($effects);
+
+        // Welche Ebene die Ueberschrift bekommt. Eine Unterseite braucht
+        // ihre h1, eine Startseite hat sie schon im Auftakt - und h2
+        // fest zu verdrahten hat auf jeder Unterseite die h1 gekostet,
+        // ohne dass man es im Browser gesehen haette.
+        $heading = self::headingLevel($overrides);
 
         $render = static function (string $__file, array $__vars): string {
             extract($__vars, EXTR_SKIP);
@@ -64,12 +77,19 @@ final class Renderer
             'style' => $style,
             'variant' => $key,
             'sectionDbId' => (int) ($section['id'] ?? 0),
+            'attrs' => $attrs,
+            'itemAttrs' => $itemAttrs,
+            'heading' => $heading,
         ]);
     }
 
     /** Alle CSS-Klassen eines Abschnitts. */
-    public static function classes(string $type, string $key, array $overrides = []): string
-    {
+    public static function classes(
+        string $type,
+        string $key,
+        array $overrides = [],
+        array $effects = []
+    ): string {
         $base = 's-' . $type;
         $mods = Catalog::modifiers($type, $key);
 
@@ -99,7 +119,73 @@ final class Renderer
             $classes[] = 'is-inverted';
         }
 
+        $hintergrund = Effects::classes($effects);
+
+        if ($hintergrund !== '') {
+            $classes[] = $hintergrund;
+        }
+
         return implode(' ', $classes);
+    }
+
+    /**
+     * Die Attribute, die eine Vorlage von sich aus mitbringt.
+     *
+     * Im Katalog steht bei jeder Variante, welche Bewegung zu ihr
+     * gehoert - "nummeriert" erscheint nacheinander, der 3D-Auftakt
+     * enthuellt seine Ueberschrift Wort fuer Wort. Das ist Teil der
+     * Variante und keine Einstellung, die jemand treffen muesste.
+     *
+     * Kundenwebsites bekommen davon nichts: Sie tragen das Stilpaket
+     * 'basis', und dort ist die Hakenliste ueberall leer. Ihre Ausgabe
+     * bleibt damit Byte fuer Byte dieselbe wie vorher.
+     */
+    public static function hooks(string $type, string $key): string
+    {
+        $haken = Catalog::hooks($type, $key);
+
+        if ($haken === '') {
+            return '';
+        }
+
+        $attribute = [];
+
+        foreach (preg_split('/\s+/', trim($haken)) ?: [] as $name) {
+            $attribute += match ($name) {
+                'reveal' => ['data-reveal' => 'up'],
+                'fade' => ['data-reveal' => 'fade'],
+                'stagger' => ['data-reveal-stagger' => ''],
+                'words' => ['data-words' => ''],
+                'parallax' => ['data-parallax' => 'deep', 'data-speed' => '0.35'],
+                'tilt' => ['data-tilt-zone' => ''],
+                'magnet' => ['data-magnet-zone' => '0.24'],
+                'count' => ['data-zaehlen' => ''],
+                'marquee' => ['data-marquee' => ''],
+                default => [],
+            };
+        }
+
+        $teile = [];
+
+        foreach ($attribute as $name => $wert) {
+            $teile[] = $wert === '' ? $name : $name . '="' . e($wert) . '"';
+        }
+
+        return $teile === [] ? '' : ' ' . implode(' ', $teile);
+    }
+
+    /**
+     * Welche Ebene die Ueberschrift eines Abschnitts bekommt.
+     *
+     * Vorgabe bleibt h2 - so war es immer, und so bleibt jede bestehende
+     * Seite unveraendert. Nur wer es ausdruecklich setzt, bekommt etwas
+     * anderes.
+     */
+    public static function headingLevel(array $overrides): string
+    {
+        $ebene = (string) ($overrides['heading'] ?? '');
+
+        return in_array($ebene, ['h1', 'h2', 'h3'], true) ? $ebene : 'h2';
     }
 
     /**
@@ -165,9 +251,27 @@ final class Renderer
         return $value;
     }
 
-    /** Sprungmarke für die Navigation und den Bearbeitungsbereich. */
-    private static function anchorId(string $type, int $id, array $content): string
-    {
+    /**
+     * Sprungmarke für die Navigation und den Bearbeitungsbereich.
+     *
+     * Eine festgelegte Marke schlägt den Titel. Der Grund ist ein Fehler,
+     * den man nicht sieht: Zeigt die Navigation auf #leistungen und
+     * jemand benennt die Überschrift in "Was wir machen" um, wird daraus
+     * #was-wir-machen - und der Verweis führt ins Leere. Im Browser sieht
+     * beides gleich aus, bis jemand darauf klickt.
+     */
+    public static function anchorId(
+        string $type,
+        int $id,
+        array $content,
+        array $overrides = []
+    ): string {
+        $fest = trim((string) ($overrides['anchor'] ?? ''));
+
+        if ($fest !== '') {
+            return str_slug($fest, 40);
+        }
+
         $title = (string) ($content['title'] ?? '');
         if ($title !== '') {
             return str_slug($title, 40);
@@ -348,7 +452,7 @@ final class Renderer
      * Einleitung. Steht in fast jedem Abschnitt und wird deshalb hier
      * einmal gebaut statt sechzehnmal abgeschrieben.
      */
-    public static function head(array $content): string
+    public static function head(array $content, string $level = 'h2'): string
     {
         $eyebrow = self::value($content, 'eyebrow');
         $title = self::value($content, 'title');
@@ -363,7 +467,9 @@ final class Renderer
             $html .= '<p class="s-eyebrow">' . e($eyebrow) . '</p>';
         }
         if ($title !== '') {
-            $html .= '<h2 class="s-title">' . e($title) . '</h2>';
+            $tag = in_array($level, ['h1', 'h2', 'h3'], true) ? $level : 'h2';
+
+            $html .= '<' . $tag . ' class="s-title">' . e($title) . '</' . $tag . '>';
         }
         if ($lead !== '') {
             $html .= '<p class="s-lead">' . e($lead) . '</p>';

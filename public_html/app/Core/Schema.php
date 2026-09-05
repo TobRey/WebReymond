@@ -1062,6 +1062,80 @@ final class Schema
                 );
                 CREATE INDEX IF NOT EXISTS idx_fixes_active ON frontend_fixes (active, id);
             ',
+
+            // ------------------------------------------------- Der Editor
+            //
+            // Vier Dinge, die der Editor braucht und die es bisher nicht
+            // gab.
+            //
+            // effects: Hintergrund, Bewegung und Parallaxe eines
+            // Abschnitts. Getrennt von overrides, weil overrides Masse
+            // sind (Spalten, Abstand) und effects Verhalten. Wer beides
+            // in eine Spalte legt, kann spaeter nicht mehr sagen, was
+            // beim Umschalten der Vorlage mitgehen soll.
+            //
+            // style_pack: welches Stilpaket eine Website traegt. 'basis'
+            // ist der Grundstil, den jede Kundenwebsite bekommt.
+            //
+            // chrome: die Seitenkulisse - 3D-Buehne, Aura, Raster. Sie
+            // gehoert zur Seite, nicht zu einem Abschnitt, denn sie
+            // liegt hinter allen.
+            //
+            // route_key: der Schluessel aus I18n::routeMap(). Eine
+            // Kundenwebsite besteht aus Dateien und braucht ihn nicht;
+            // die eigene wird geroutet und ohne ihn waeren /leistungen
+            // und /en/services zwei verschiedene Seiten.
+            '044_editor_felder' => '
+                ALTER TABLE project_sections ADD COLUMN effects {text} NULL;
+                ALTER TABLE projects ADD COLUMN style_pack {string:40} NOT NULL DEFAULT \'basis\';
+                ALTER TABLE projects ADD COLUMN chrome {text} NULL;
+                ALTER TABLE project_pages ADD COLUMN route_key {string:40} NOT NULL DEFAULT \'\';
+                ALTER TABLE project_pages ADD COLUMN layout {string:40} NOT NULL DEFAULT \'flach\';
+            ',
+
+            // ----------------------------------- Entwurf und Veroeffentlicht
+            //
+            // Gearbeitet wird am Entwurf: Das sind die Zeilen in
+            // project_sections. Veroeffentlicht wird eine Abschrift
+            // davon - und die bleibt liegen.
+            //
+            // Zwei Dinge werden dadurch moeglich, die vorher nicht
+            // gingen: "Entwurf verwerfen" (zurueck auf die letzte
+            // Veroeffentlichung) und "auf die Fassung von Dienstag
+            // zurueck". Beides braucht man erst, wenn man es braucht -
+            // und dann sofort.
+            '045_veroeffentlichungen' => '
+                CREATE TABLE IF NOT EXISTS publications (
+                    id {id},
+                    project_id {int} NOT NULL,
+                    page_id {int} NOT NULL,
+                    data {text} NULL,
+                    note {string:191} NOT NULL DEFAULT \'\',
+                    actor {string:120} NOT NULL DEFAULT \'\',
+                    created_at {datetime} NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_publications_page
+                    ON publications (page_id, id);
+                CREATE INDEX IF NOT EXISTS idx_publications_project
+                    ON publications (project_id, id);
+            ',
+
+            // -------------------------------------------------- Die Bruecke
+            //
+            // Der Schluessel, mit dem WebAtze auf dem Kundenserver
+            // veroeffentlichen darf. Er steht auf beiden Servern und
+            // geht nie ueber die Leitung - unterschrieben wird damit
+            // nur.
+            //
+            // bridge_seen haelt fest, wann die Bruecke zuletzt geantwortet
+            // hat und welchen Stand der Kunde hat. Ohne das wuerde jede
+            // Veroeffentlichung blind losschicken.
+            '046_bruecke' => '
+                ALTER TABLE projects ADD COLUMN bridge_secret {string:191} NOT NULL DEFAULT \'\';
+                ALTER TABLE projects ADD COLUMN bridge_seen {datetime} NULL;
+                ALTER TABLE projects ADD COLUMN bridge_state {string:64} NOT NULL DEFAULT \'\';
+                ALTER TABLE projects ADD COLUMN editor_version {string:20} NOT NULL DEFAULT \'\';
+            ',
         ];
     }
 

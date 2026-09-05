@@ -5,14 +5,14 @@ use WebAtze\Templates\Renderer as R;
 $withPhone = str_contains($classes, 'with-phone');
 $hasImage = str_contains($classes, 'media-');
 ?>
-<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="cta" data-section-id="<?= (int) $sectionDbId ?>">
+<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="cta" data-section-id="<?= (int) $sectionDbId ?>"<?= $attrs ?>>
     <?php if ($hasImage): ?>
         <div class="s-cta__media s-media"><?= R::image($c['image'] ?? null, 's-cta__image s-img', ['label' => '']) ?></div>
     <?php endif; ?>
 
     <div class="s-shell s-cta__inner s-inner">
         <div class="s-cta__body">
-            <h2 class="s-cta__title"><?= e(R::value($c, 'title')) ?></h2>
+            <<?= $heading ?> class="s-cta__title"><?= e(R::value($c, 'title')) ?></<?= $heading ?>>
             <?php if (R::value($c, 'lead') !== ''): ?>
                 <p class="s-cta__lead"><?= e(R::value($c, 'lead')) ?></p>
             <?php endif; ?>

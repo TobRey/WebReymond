@@ -528,3 +528,176 @@
 
 .s-link::after { content: '→'; transition: transform var(--c-dur) var(--c-ease); }
 .s-link:hover::after { transform: translateX(3px); }
+
+/* ------------------------------------------------------------------ */
+/* Hintergründe aus dem Effekt-Wortschatz                              */
+/*                                                                     */
+/* Gesetzt werden sie aus Templates/Effects.php, und zwar nur aus       */
+/* dessen festen Listen. Deshalb kann hier nie eine Farbe stehen, die   */
+/* niemand geprüft hat: Alles kommt aus den Variablen der Website, und  */
+/* die sind beim Bauen auf Kontrast geprüft worden.                     */
+/*                                                                     */
+/* Der Hintergrund liegt als eigene Ebene hinter dem Abschnitt, nicht   */
+/* auf ihm. Sonst müsste jede Musterung mit der Hintergrundfarbe        */
+/* verrechnet werden, und ein Abschnitt mit dunkler Fläche verlöre sein */
+/* Muster.                                                             */
+/* ------------------------------------------------------------------ */
+
+[class*='bg-'] { position: relative; isolation: isolate; }
+
+[class*='bg-']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--bg-staerke, 1);
+}
+
+/* Wie kräftig */
+.bg-zart { --bg-staerke: 0.45; }
+.bg-normal { --bg-staerke: 0.8; }
+.bg-kraeftig { --bg-staerke: 1; }
+
+/* Welche Farbe. Zwei Töne, damit Verlauf und Leuchten etwas haben,
+   zwischen dem sie verlaufen können. */
+.bg-ton-sanft { --bg-a: var(--c-bg-soft); --bg-b: var(--c-surface); }
+.bg-ton-hell { --bg-a: #fff; --bg-b: var(--c-bg-soft); }
+.bg-ton-dunkel { --bg-a: var(--c-dark-bg); --bg-b: var(--c-dark-surface); }
+.bg-ton-marke { --bg-a: var(--c-primary); --bg-b: var(--c-primary-dark); }
+.bg-ton-akzent { --bg-a: var(--c-secondary); --bg-b: var(--c-secondary-dark); }
+
+/* Auf einem dunklen oder farbigen Grund muss der Text mitziehen –
+   sonst steht Dunkelgrau auf Dunkelblau und niemand liest es. */
+.bg-ton-dunkel, .bg-ton-marke, .bg-ton-akzent {
+  color: var(--c-dark-text);
+  --c-text: var(--c-dark-text);
+  --c-text-muted: color-mix(in srgb, var(--c-dark-text) 76%, transparent);
+  --c-surface: color-mix(in srgb, var(--c-dark-text) 10%, transparent);
+  --c-border: color-mix(in srgb, var(--c-dark-text) 22%, transparent);
+  --c-primary: var(--c-primary-light);
+}
+
+.bg-ton-dunkel h1, .bg-ton-dunkel h2, .bg-ton-dunkel h3, .bg-ton-dunkel h4,
+.bg-ton-marke h1, .bg-ton-marke h2, .bg-ton-marke h3, .bg-ton-marke h4,
+.bg-ton-akzent h1, .bg-ton-akzent h2, .bg-ton-akzent h3, .bg-ton-akzent h4 {
+  color: var(--c-dark-text);
+}
+
+/* Welche Art */
+.bg-flaeche::before { background: var(--bg-a); }
+
+.bg-verlauf::before {
+  background: linear-gradient(155deg, var(--bg-a) 0%, var(--bg-b) 100%);
+}
+
+.bg-strahlen::before {
+  background:
+    radial-gradient(60% 55% at 18% 12%, color-mix(in srgb, var(--bg-a) 62%, transparent), transparent 70%),
+    radial-gradient(52% 48% at 84% 78%, color-mix(in srgb, var(--bg-b) 58%, transparent), transparent 72%);
+}
+
+.bg-raster::before {
+  background-color: var(--bg-a);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--bg-b) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--bg-b) 55%, transparent) 1px, transparent 1px);
+  background-size: 3rem 3rem;
+  mask-image: radial-gradient(80% 70% at 50% 45%, #000, transparent 92%);
+}
+
+.bg-punkte::before {
+  background-color: var(--bg-a);
+  background-image: radial-gradient(color-mix(in srgb, var(--bg-b) 70%, transparent) 1.5px, transparent 1.5px);
+  background-size: 1.6rem 1.6rem;
+  mask-image: radial-gradient(85% 75% at 50% 45%, #000, transparent 94%);
+}
+
+.bg-linien::before {
+  background-color: var(--bg-a);
+  background-image: repeating-linear-gradient(
+    118deg,
+    transparent 0 1.4rem,
+    color-mix(in srgb, var(--bg-b) 45%, transparent) 1.4rem 1.5rem
+  );
+}
+
+.bg-wellen::before {
+  background: var(--bg-a);
+  clip-path: ellipse(140% 100% at 50% 0%);
+}
+
+.bg-rauschen::before {
+  background-color: var(--bg-a);
+  /* Ein Korn aus dem Browser selbst, kein Bild: Ein Bild müsste geladen
+     werden, und eine Kundenwebsite lädt nichts, was sie nicht braucht. */
+  background-image:
+    repeating-conic-gradient(color-mix(in srgb, var(--bg-b) 30%, transparent) 0% 25%, transparent 0% 50%);
+  background-size: 4px 4px;
+}
+
+/* Wer weniger Bewegung will, bekommt die ruhige Fläche statt des
+   Musters. Muster bewegen sich nicht, aber sie flimmern beim Scrollen –
+   und genau darum geht es bei dieser Einstellung. */
+@media (prefers-reduced-motion: reduce) {
+  .bg-raster::before, .bg-punkte::before, .bg-linien::before, .bg-rauschen::before {
+    background-image: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Der freie Abschnitt und seine Bausteine                             */
+/*                                                                     */
+/* Die Spalten sind der einzige Baustein, der andere aufnimmt, und sie  */
+/* rutschen unterhalb von 48rem von selbst untereinander. Das ist der   */
+/* Grund, warum "frei" hier trotzdem nicht heisst, dass etwas auf dem   */
+/* Telefon auseinanderfallen kann: Die einzige Anordnung, die           */
+/* auseinanderfallen könnte, löst sich automatisch auf.                 */
+/* ------------------------------------------------------------------ */
+
+.s-frei__inner { display: flex; flex-direction: column; gap: var(--s-gap, 1.25rem); }
+
+.b-links { text-align: start; }
+.b-mitte { text-align: center; }
+.b-rechts { text-align: end; }
+
+.b-text { color: var(--c-text-muted); line-height: var(--c-leading); max-inline-size: var(--c-measure); }
+.b-mitte.b-text, .b-rechts.b-text { max-inline-size: none; }
+.b-text > * + * { margin-block-start: 0.85em; }
+
+.b-ueberschrift { margin: 0; }
+
+.b-symbol .s-ico { display: inline-flex; inline-size: 2.5rem; block-size: 2.5rem; color: var(--c-primary); }
+.b-mitte.b-symbol { justify-content: center; }
+
+.b-bild { margin: 0; }
+.b-bild .s-img { inline-size: 100%; block-size: auto; border-radius: var(--s-radius, var(--c-radius-lg)); }
+.b-bild__text { margin-block-start: 0.6rem; font-size: var(--c-text-sm); color: var(--c-text-faint); }
+
+.b-breite--schmal { max-inline-size: 34rem; }
+.b-breite--normal { max-inline-size: 52rem; }
+.b-breite--breit { max-inline-size: 72rem; }
+.b-breite--voll { max-inline-size: none; }
+
+.b-knopf .s-btn, .b-knopf .s-link { display: inline-flex; }
+.b-mitte.b-knopf { display: flex; justify-content: center; }
+.b-rechts.b-knopf { display: flex; justify-content: flex-end; }
+
+.b-abstand--klein { block-size: var(--c-space-4); }
+.b-abstand--mittel { block-size: var(--c-space-7); }
+.b-abstand--gross { block-size: var(--c-space-9); }
+
+.b-linie { border: 0; border-block-start: 1px solid var(--c-border); margin: 0; }
+
+.b-spalten {
+  display: grid;
+  gap: var(--s-gap, 1.5rem);
+  grid-template-columns: repeat(var(--b-cols, 2), minmax(0, 1fr));
+  align-items: start;
+}
+
+.b-spalte { display: flex; flex-direction: column; gap: var(--s-gap, 1.25rem); min-inline-size: 0; }
+
+@media (max-width: 48rem) {
+  .b-spalten { grid-template-columns: 1fr; }
+}

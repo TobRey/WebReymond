@@ -211,7 +211,17 @@ test('Vorlagen: 20 je Abschnittstyp, und jede lässt sich bauen', function (): v
 
     foreach ($typen as $typ) {
         $varianten = Catalog::forType($typ);
-        is(20, count($varianten), '20 Varianten für "' . $typ . '"');
+
+        // Der freie Abschnitt bestimmt sein Aussehen über seine
+        // Bausteine; die Variante steuert nur noch die Fläche darum.
+        // Zwanzig Knöpfe anzubieten, von denen vierzehn dasselbe tun,
+        // waere eine Behauptung und keine Auswahl.
+        if ($typ === 'frei') {
+            ok(count($varianten) >= 4, 'Der freie Abschnitt hat eine eigene, kurze Liste ('
+                . count($varianten) . ')');
+        } else {
+            is(20, count($varianten), '20 Varianten für "' . $typ . '"');
+        }
 
         // Jede Variante muss sich rendern lassen – auch mit leerem Inhalt.
         foreach (array_keys($varianten) as $key) {
@@ -4755,6 +4765,250 @@ test('Die Karte nennt die Abschnitte beim Namen', function (): void {
     ok(!str_contains($karte, 'services.title'),
         'Der Sprachschluessel selbst steht nicht drin');
     ok(!str_contains($karte, '<?'), 'Und kein PHP');
+});
+
+// ==================================================================
+// Das Datenmodell des Editors
+//
+// Ziehen heisst: "setze diesen Abschnitt auf Platz N". Vorher gab es nur
+// "tausche mit dem Nachbarn" - fuer zwei Knoepfe gebaut, nicht fuer eine
+// Maus, die einen Abschnitt ueber fuenf andere hinwegzieht.
+// ==================================================================
+
+/** Eine Seite mit Abschnitten anlegen, wie sie der Generator erzeugt. */
+function seite_mit_abschnitten(array $typen): array
+{
+    $projekt = \WebAtze\Core\Db::insert('projects', [
+        'name' => 'Ziehprobe', 'slug' => 'ziehprobe-' . bin2hex(random_bytes(3)),
+        'status' => 'done', 'brief' => [], 'theme' => [],
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $seite = \WebAtze\Core\Db::insert('project_pages', [
+        'project_id' => $projekt, 'path' => '/', 'title' => 'Start',
+        'sort_order' => 0, 'in_navigation' => 1,
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $ids = [];
+
+    foreach ($typen as $platz => $typ) {
+        $ids[] = \WebAtze\Core\Db::insert('project_sections', [
+            'project_id' => $projekt, 'page_id' => $seite, 'type' => $typ,
+            'template_key' => Catalog::defaultKey($typ),
+            'content' => ['title' => ucfirst($typ)], 'overrides' => [], 'effects' => [],
+            'hidden' => 0, 'sort_order' => $platz,
+            'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+        ]);
+    }
+
+    return ['projekt' => $projekt, 'seite' => $seite, 'ids' => $ids];
+}
+
+/** Die Typen einer Seite in ihrer Reihenfolge. */
+function reihenfolge(int $seite): array
+{
+    return array_map(
+        static fn (array $a): string => (string) $a['type'],
+        \WebAtze\Domain\Sections::forPage($seite)
+    );
+}
+
+test('Ziehen: ein Abschnitt landet auf dem Platz, auf den er gezogen wird', function (): void {
+    $s = seite_mit_abschnitten(['header', 'hero', 'features', 'services', 'faq', 'cta', 'footer']);
+
+    // Von Platz 1 (hero) auf Platz 5 (vor den Fuss).
+    $ergebnis = \WebAtze\Domain\Sections::move($s['ids'][1], 5);
+
+    ok($ergebnis['ok'], 'Der Zug wurde ausgefuehrt');
+    is(
+        ['header', 'features', 'services', 'faq', 'cta', 'hero', 'footer'],
+        reihenfolge($s['seite']),
+        'Hero steht jetzt vor dem Fuss'
+    );
+
+    // Und wieder zurueck an den Anfang des beweglichen Bereichs.
+    \WebAtze\Domain\Sections::move($s['ids'][1], 1);
+    is(
+        ['header', 'hero', 'features', 'services', 'faq', 'cta', 'footer'],
+        reihenfolge($s['seite']),
+        'Und wieder zurueck'
+    );
+});
+
+test('Ziehen: die Sortierung bleibt lueckenlos', function (): void {
+    $s = seite_mit_abschnitten(['header', 'hero', 'features', 'cta', 'footer']);
+
+    \WebAtze\Domain\Sections::move($s['ids'][3], 1);
+
+    $werte = array_map(
+        static fn (array $a): int => (int) $a['sort_order'],
+        \WebAtze\Domain\Sections::forPage($s['seite'])
+    );
+
+    is([0, 1, 2, 3, 4], $werte, 'Die Plaetze sind 0 bis 4, ohne Luecke');
+});
+
+test('Ziehen: Kopf und Fuss bleiben, wo sie sind', function (): void {
+    $s = seite_mit_abschnitten(['header', 'hero', 'features', 'footer']);
+
+    $kopf = \WebAtze\Domain\Sections::move($s['ids'][0], 2);
+    ok(!$kopf['ok'], 'Der Kopf laesst sich nicht wegziehen');
+
+    $fuss = \WebAtze\Domain\Sections::move($s['ids'][3], 1);
+    ok(!$fuss['ok'], 'Der Fuss auch nicht');
+
+    // Und niemand kann einen anderen Abschnitt ueber sie hinwegziehen:
+    // Ein Ziel ausserhalb wird auf den Rand gezogen, nicht abgelehnt -
+    // wer ganz nach unten zieht, meint "so weit wie moeglich".
+    \WebAtze\Domain\Sections::move($s['ids'][1], 99);
+    is(['header', 'features', 'hero', 'footer'], reihenfolge($s['seite']),
+        'Ganz nach unten heisst: vor den Fuss');
+
+    \WebAtze\Domain\Sections::move($s['ids'][1], -5);
+    is(['header', 'hero', 'features', 'footer'], reihenfolge($s['seite']),
+        'Ganz nach oben heisst: hinter den Kopf');
+});
+
+test('Abschnitte: anlegen, verdoppeln, loeschen', function (): void {
+    $s = seite_mit_abschnitten(['header', 'hero', 'footer']);
+
+    $neu = \WebAtze\Domain\Sections::add($s['seite'], 'features', 2);
+    ok($neu['ok'], 'Ein Abschnitt wurde eingesetzt');
+    is(['header', 'hero', 'features', 'footer'], reihenfolge($s['seite']), 'Und zwar an der Stelle');
+
+    // Er kommt mit Beispielinhalt, nicht leer: Ein leerer Abschnitt sieht
+    // im Editor aus wie ein Fehler.
+    $inhalt = \WebAtze\Domain\Sections::find($neu['id'])['content'];
+    ok(($inhalt['title'] ?? '') !== '', 'Mit einer Ueberschrift');
+    ok(count($inhalt['items'] ?? []) >= 1, 'Und mit mindestens einem Eintrag');
+
+    $kopie = \WebAtze\Domain\Sections::duplicate($neu['id']);
+    ok($kopie['ok'], 'Verdoppeln geht');
+    is(['header', 'hero', 'features', 'features', 'footer'], reihenfolge($s['seite']),
+        'Die Kopie steht direkt darunter');
+
+    \WebAtze\Domain\Sections::remove($kopie['id']);
+    is(['header', 'hero', 'features', 'footer'], reihenfolge($s['seite']), 'Und wieder weg');
+
+    // Kopf und Fuss gibt es nur einmal, und geloescht werden sie nicht.
+    ok(!\WebAtze\Domain\Sections::add($s['seite'], 'header')['ok'], 'Kein zweiter Kopf');
+    ok(!\WebAtze\Domain\Sections::remove($s['ids'][0])['ok'], 'Der Kopf bleibt');
+});
+
+test('Listen: Eintraege ziehen, anlegen, loeschen', function (): void {
+    $s = seite_mit_abschnitten(['header', 'features', 'footer']);
+    $id = $s['ids'][1];
+
+    \WebAtze\Core\Db::update('project_sections', ['content' => ['title' => 'Vorteile', 'items' => [
+        ['title' => 'A', 'text' => 'a'], ['title' => 'B', 'text' => 'b'], ['title' => 'C', 'text' => 'c'],
+    ]]], 'id = :id', ['id' => $id]);
+
+    $titel = static fn (): array => array_column(
+        \WebAtze\Domain\Sections::find($id)['content']['items'], 'title'
+    );
+
+    \WebAtze\Domain\Sections::moveItem($id, 0, 2);
+    is(['B', 'C', 'A'], $titel(), 'Der erste Eintrag ist jetzt der letzte');
+
+    \WebAtze\Domain\Sections::addItem($id, 0);
+    is(4, count($titel()), 'Ein Eintrag kam dazu');
+
+    \WebAtze\Domain\Sections::removeItem($id, 1);
+    is(3, count($titel()), 'Und einer ging wieder');
+
+    // Unter das Mindestmass des Schemas geht es nicht: features
+    // braucht zwei Eintraege, sonst ist es keine Liste mehr.
+    \WebAtze\Domain\Sections::removeItem($id, 0);
+    $letzter = \WebAtze\Domain\Sections::removeItem($id, 0);
+    ok(!$letzter['ok'], 'Der vorletzte Eintrag bleibt: ' . $letzter['error']);
+    is(2, count($titel()), 'Es sind noch zwei da');
+});
+
+test('Effekte: was nicht im Wortschatz steht, kommt nicht durch', function (): void {
+    $sauber = \WebAtze\Templates\Effects::clean([
+        'hintergrund' => ['art' => 'verlauf', 'ton' => 'marke', 'staerke' => 'kraeftig'],
+        'bewegung' => 'hoch',
+        'parallaxe' => 'sanft',
+        'kippen' => true,
+        // Alles ab hier ist erfunden und muss verschwinden.
+        'css' => 'body{display:none}',
+        'javascript' => 'alert(1)',
+    ]);
+
+    is('verlauf', $sauber['hintergrund']['art'], 'Der Verlauf bleibt');
+    is('hoch', $sauber['bewegung'], 'Die Bewegung bleibt');
+    ok(!isset($sauber['css']), 'Freies CSS kommt nicht durch');
+    ok(!isset($sauber['javascript']), 'Und JavaScript erst recht nicht');
+
+    // Ein erfundener Wert scheitert nicht laut, sondern faellt auf die
+    // Vorgabe zurueck. Ein Sprachmodell, das "supersanft" schreibt, soll
+    // nicht die ganze Aenderung kosten.
+    $daneben = \WebAtze\Templates\Effects::clean([
+        'hintergrund' => ['art' => 'regenbogen'],
+        'parallaxe' => 'supersanft',
+    ]);
+
+    is([], $daneben, 'Was es nicht gibt, ergibt gar nichts');
+
+    // Und das Ergebnis wird zu Klassen und Attributen, nie zu Stil.
+    $klassen = \WebAtze\Templates\Effects::classes($sauber);
+    ok(str_contains($klassen, 'bg-verlauf'), 'Der Hintergrund wird eine Klasse');
+    ok(!str_contains($klassen, ':'), 'Und niemals eine Eigenschaft');
+
+    $attribute = \WebAtze\Templates\Effects::attributes($sauber);
+    ok(str_contains($attribute, 'data-reveal="up"'), 'Die Bewegung wird ein Attribut');
+    ok(str_contains($attribute, 'data-parallax'), 'Die Parallaxe auch');
+});
+
+test('Bausteine: eine Ebene Spalten, und kein fremdes Markup', function (): void {
+    $blocks = \WebAtze\Templates\Blocks::clean([
+        ['art' => 'ueberschrift', 'text' => 'Titel', 'ebene' => 'h3'],
+        ['art' => 'text', 'text' => '<p>Gut</p><script>alert(1)</script>'],
+        ['art' => 'spalten', 'anzahl' => 2, 'spalten' => [
+            [['art' => 'text', 'text' => '<p>Links</p>']],
+            [['art' => 'spalten', 'anzahl' => 3]],
+        ]],
+        ['art' => 'gibtsnicht'],
+    ]);
+
+    is(3, count($blocks), 'Der erfundene Baustein faellt weg');
+    ok(!str_contains($blocks[1]['text'], '<script'), 'Und das Skript aus dem Text');
+    is(0, count($blocks[2]['spalten'][1]), 'Spalten in Spalten gibt es nicht');
+
+    // Warum nur eine Ebene: Spalten in Spalten in Spalten sind auf einem
+    // Telefon nicht mehr sinnvoll aufzuloesen. Eine Ebene loest sich
+    // immer auf - sie rutscht untereinander.
+    $html = \WebAtze\Templates\Blocks::render($blocks);
+    ok(str_contains($html, 'data-block="ueberschrift"'), 'Jeder Baustein traegt seine Kennung');
+    ok(str_contains($html, '<h3'), 'Die gewaehlte Ebene wird benutzt');
+    ok(!str_contains($html, '<script'), 'Und es entsteht kein Skript');
+});
+
+test('Entwurf und Veroeffentlicht sind zwei Staende', function (): void {
+    $s = seite_mit_abschnitten(['header', 'hero', 'features', 'footer']);
+
+    // Vor der ersten Veroeffentlichung ist alles Entwurf.
+    ok(\WebAtze\Domain\Publications::hasDraft($s['seite']), 'Am Anfang gibt es einen Entwurf');
+
+    $fassung = \WebAtze\Domain\Publications::record($s['seite'], 'Erste Fassung');
+    ok($fassung > 0, 'Eine Fassung wurde festgehalten');
+    ok(!\WebAtze\Domain\Publications::hasDraft($s['seite']), 'Danach nicht mehr');
+
+    // Umbauen macht wieder einen Entwurf daraus.
+    \WebAtze\Domain\Sections::move($s['ids'][1], 2);
+    ok(\WebAtze\Domain\Publications::hasDraft($s['seite']), 'Ein Zug erzeugt einen Entwurf');
+    is(['header', 'features', 'hero', 'footer'], reihenfolge($s['seite']), 'Und wirkt sofort');
+
+    // Verwerfen holt den veroeffentlichten Stand zurueck.
+    $weg = \WebAtze\Domain\Publications::discard($s['seite']);
+    ok($weg['ok'], 'Der Entwurf laesst sich verwerfen');
+    is(['header', 'hero', 'features', 'footer'], reihenfolge($s['seite']), 'Der alte Stand ist wieder da');
+
+    // Und wer sich beim Verwerfen vertut, kommt zurueck: Vorher wurde
+    // festgehalten, was dastand.
+    $fassungen = \WebAtze\Domain\Publications::forPage($s['seite']);
+    ok(count($fassungen) >= 2, 'Auch der verworfene Stand liegt noch da');
 });
 
 // ==================================================================

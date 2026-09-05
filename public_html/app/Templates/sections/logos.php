@@ -5,7 +5,7 @@ use WebAtze\Templates\Renderer as R;
 $items = R::items($c);
 $marquee = str_contains($classes, 'marquee');
 ?>
-<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="logos" data-section-id="<?= (int) $sectionDbId ?>">
+<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="logos" data-section-id="<?= (int) $sectionDbId ?>"<?= $attrs ?>>
     <div class="s-shell">
         <?php if (R::value($c, 'title') !== ''): ?>
             <p class="s-logos__title"><?= e(R::value($c, 'title')) ?></p>

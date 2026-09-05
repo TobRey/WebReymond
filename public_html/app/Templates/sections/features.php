@@ -4,13 +4,13 @@
 use WebAtze\Templates\Renderer as R;
 $items = R::items($c);
 ?>
-<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="features" data-section-id="<?= (int) $sectionDbId ?>">
+<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="features" data-section-id="<?= (int) $sectionDbId ?>"<?= $attrs ?>>
     <div class="s-shell">
-        <?= R::head($c) ?>
+        <?= R::head($c, $heading) ?>
 
         <div class="s-features__grid s-items">
             <?php foreach ($items as $index => $item): ?>
-                <article class="s-feature" style="--i: <?= (int) $index ?>">
+                <article class="s-feature" style="--i: <?= (int) $index ?>"<?= $itemAttrs ?>>
                     <span class="s-feature__num s-num" aria-hidden="true"><?= e(str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT)) ?></span>
 
                     <?php if (($item['image'] ?? null) !== null && ($item['image']['src'] ?? '') !== ''): ?>

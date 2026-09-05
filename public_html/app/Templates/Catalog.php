@@ -412,7 +412,31 @@ final class Catalog
                 ['gross-schrift', 'Grosse Verweise', 'grid cols-3 display'],
                 ['minimal', 'Nur eine Zeile mit Rechtsverweisen', 'slim minimal'],
             ]),
+
+            // ------------------------------------------- Freier Abschnitt
+            'frei' => self::frei(),
         ];
+    }
+
+    /**
+     * Die Varianten des freien Abschnitts.
+     *
+     * Sechs statt zwanzig, und das mit Absicht: Ein freier Abschnitt
+     * bestimmt sein Aussehen über seine Bausteine. Was die Variante noch
+     * beisteuert, ist die Fläche darum herum - Breite, Abstand, Grund.
+     * Zwanzig Knöpfe anzubieten, von denen vierzehn dasselbe tun, wäre
+     * eine Behauptung und keine Auswahl.
+     */
+    private static function frei(): array
+    {
+        return self::build([
+            ['standard', 'Normal breit', ''],
+            ['schmal', 'Schmal', 'narrow'],
+            ['breit', 'Über die volle Breite', 'wide'],
+            ['dunkel', 'Auf dunkler Fläche', 'dark'],
+            ['gedraengt', 'Wenig Abstand', 'compact'],
+            ['luftig', 'Viel Abstand', 'roomy'],
+        ]);
     }
 
     /** Alle Varianten eines Typs. */
@@ -440,6 +464,18 @@ final class Catalog
         return (string) (self::all()[$type][$key]['mods'] ?? '');
     }
 
+    /**
+     * Welche Bewegung zu einer Vorlage gehört.
+     *
+     * Leer bei allen 320 bestehenden Varianten – deshalb ändert sich an
+     * einer Kundenwebsite kein einziges Byte. Gefüllt wird das erst bei
+     * den Varianten, die für ein Stilpaket dazukommen.
+     */
+    public static function hooks(string $type, string $key): string
+    {
+        return (string) (self::all()[$type][$key]['hooks'] ?? '');
+    }
+
     public static function label(string $type, string $key): string
     {
         return (string) (self::all()[$type][$key]['label'] ?? $key);
@@ -454,13 +490,23 @@ final class Catalog
     /**
      * Aus der kurzen Schreibweise die vollständige Struktur machen.
      *
-     * @param list<array{0:string,1:string,2:string}> $rows
+     * Das vierte Feld ist die Bewegung und darf fehlen: Alle bisherigen
+     * Zeilen haben drei, und sie sollen nicht angefasst werden müssen,
+     * nur damit überall eine leere Zeichenkette mehr steht.
+     *
+     * @param list<array{0:string,1:string,2:string,3?:string}> $rows
      */
     private static function build(array $rows): array
     {
         $out = [];
-        foreach ($rows as [$key, $label, $mods]) {
-            $out[$key] = ['label' => $label, 'mods' => $mods];
+        foreach ($rows as $row) {
+            [$key, $label, $mods] = $row;
+
+            $out[$key] = [
+                'label' => $label,
+                'mods' => $mods,
+                'hooks' => (string) ($row[3] ?? ''),
+            ];
         }
         return $out;
     }

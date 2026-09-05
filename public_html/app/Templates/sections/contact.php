@@ -14,11 +14,11 @@ $address = R::value($c, 'address', (string) ($ctx['address'] ?? ''));
 $hours = R::value($c, 'hours');
 $mapQuery = R::value($c, 'map_query', $address);
 ?>
-<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="contact" data-section-id="<?= (int) $sectionDbId ?>">
+<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="contact" data-section-id="<?= (int) $sectionDbId ?>"<?= $attrs ?>>
     <div class="s-shell s-contact__inner s-inner">
 
         <div class="s-contact__info">
-            <?= R::head($c) ?>
+            <?= R::head($c, $heading) ?>
 
             <ul class="s-contact__list s-items" role="list">
                 <?php if ($email !== ''): ?>

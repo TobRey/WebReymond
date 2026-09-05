@@ -18,7 +18,7 @@ $media = $hasMedia
         . '</div>'
     : '';
 ?>
-<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="hero" data-section-id="<?= (int) $sectionDbId ?>">
+<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="hero" data-section-id="<?= (int) $sectionDbId ?>"<?= $attrs ?>>
     <?php if ($coverMedia): ?>
         <?= $media ?>
     <?php endif; ?>

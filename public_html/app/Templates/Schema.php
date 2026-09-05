@@ -256,6 +256,26 @@ final class Schema
                     'note' => self::text('Zusatzzeile', 200),
                 ],
             ],
+
+            // Der freie Abschnitt.
+            //
+            // Er hat als einziger kein festes Feldergerüst, sondern eine
+            // Liste von Bausteinen (Templates\Blocks). Deshalb steht
+            // hier nur der Platz dafür - geprüft wird der Inhalt dort,
+            // nach denselben Regeln, aber mit einer eigenen Beschreibung.
+            //
+            // Warum er trotzdem ein Abschnittstyp ist und kein Sonderweg:
+            // Alles andere - ziehen, umordnen, Effekte, Übersetzungen,
+            // Veröffentlichen - soll für ihn gelten wie für jeden
+            // anderen. Ein Sonderweg hätte jede dieser Stellen um einen
+            // Wenn-dann-Fall erweitert.
+            'frei' => [
+                'label' => 'Freier Abschnitt',
+                'description' => 'Eine leere Fläche für eigene Bausteine.',
+                'fields' => [
+                    'blocks' => ['type' => 'blocks', 'label' => 'Bausteine', 'required' => false],
+                ],
+            ],
         ];
     }
 

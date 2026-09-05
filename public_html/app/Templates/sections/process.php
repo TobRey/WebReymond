@@ -5,13 +5,13 @@ use WebAtze\Templates\Renderer as R;
 $items = R::items($c);
 $numbered = str_contains($classes, 'numbered');
 ?>
-<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="process" data-section-id="<?= (int) $sectionDbId ?>">
+<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="process" data-section-id="<?= (int) $sectionDbId ?>"<?= $attrs ?>>
     <div class="s-shell">
-        <?= R::head($c) ?>
+        <?= R::head($c, $heading) ?>
 
         <ol class="s-process__track s-items" role="list">
             <?php foreach ($items as $index => $item): ?>
-                <li class="s-step" style="--i: <?= (int) $index ?>">
+                <li class="s-step" style="--i: <?= (int) $index ?>"<?= $itemAttrs ?>>
                     <?php if ($numbered): ?>
                         <span class="s-step__num s-num" aria-hidden="true"><?= (int) $index + 1 ?></span>
                     <?php elseif (($item['icon'] ?? '') !== ''): ?>

@@ -6,9 +6,9 @@ $items = R::items($c);
 $rated = str_contains($classes, 'rated');
 $avatar = str_contains($classes, 'avatar') || str_contains($classes, 'logo');
 ?>
-<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="testimonials" data-section-id="<?= (int) $sectionDbId ?>">
+<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="testimonials" data-section-id="<?= (int) $sectionDbId ?>"<?= $attrs ?>>
     <div class="s-shell">
-        <?= R::head($c) ?>
+        <?= R::head($c, $heading) ?>
 
         <div class="s-testimonials__grid s-items">
             <?php foreach ($items as $index => $item): ?>

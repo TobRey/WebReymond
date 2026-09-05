@@ -5,10 +5,10 @@ use WebAtze\Templates\Renderer as R;
 $items = R::items($c);
 $counting = str_contains($classes, 'counting');
 ?>
-<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="stats" data-section-id="<?= (int) $sectionDbId ?>">
+<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="stats" data-section-id="<?= (int) $sectionDbId ?>"<?= $attrs ?>>
     <div class="s-shell">
         <?php if (R::value($c, 'title') !== ''): ?>
-            <h2 class="s-title s-stats__title"><?= e(R::value($c, 'title')) ?></h2>
+            <<?= $heading ?> class="s-title s-stats__title"><?= e(R::value($c, 'title')) ?></<?= $heading ?>>
         <?php endif; ?>
 
         <dl class="s-stats__grid s-items">

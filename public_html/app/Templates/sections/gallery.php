@@ -5,9 +5,9 @@ use WebAtze\Templates\Renderer as R;
 $items = R::items($c);
 $captions = str_contains($classes, 'captions');
 ?>
-<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="gallery" data-section-id="<?= (int) $sectionDbId ?>">
+<section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="gallery" data-section-id="<?= (int) $sectionDbId ?>"<?= $attrs ?>>
     <div class="s-shell">
-        <?= R::head($c) ?>
+        <?= R::head($c, $heading) ?>
 
         <ul class="s-gallery__grid s-items" role="list">
             <?php foreach ($items as $index => $item): ?>
