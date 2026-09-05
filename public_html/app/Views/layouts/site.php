@@ -61,6 +61,20 @@ $other = $locale === 'de' ? 'en' : 'de';
 
     <link rel="stylesheet" href="<?= e(Assets::url('app.css')) ?>">
 
+    <?php
+    /**
+     * Das Stylesheet aus Daten.
+     *
+     * Es kommt nur, wenn die Seite aus Abschnittsdaten gerendert wurde –
+     * also im Vergleichsmodus und später, wenn eine Seite umgestellt
+     * ist. Es liegt NACH app.css, weil app.css den Rahmen macht
+     * (Kopfzeile, Fusszeile, Kulisse) und dieses hier die Abschnitte.
+     */
+    ?>
+    <?php if (!empty($stylesheet)): ?>
+        <link rel="stylesheet" href="<?= e((string) $stylesheet) ?>">
+    <?php endif; ?>
+
     <?php /*
         Die Anpassungen aus dem Frontend-Fix, NACH dem Stylesheet - so
         gewinnen sie bei gleicher Gewichtung, ohne dass ueberall

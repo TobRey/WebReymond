@@ -9,7 +9,7 @@ $numbered = str_contains($classes, 'numbered');
 ?>
 <section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="faq" data-section-id="<?= (int) $sectionDbId ?>"<?= $attrs ?>>
     <div class="s-shell">
-        <?= R::head($c, $heading) ?>
+        <?= R::head($c, $heading, $titelAttrs) ?>
 
         <div class="s-faq__list s-items">
             <?php foreach ($items as $index => $item): ?>

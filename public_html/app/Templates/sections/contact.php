@@ -18,7 +18,7 @@ $mapQuery = R::value($c, 'map_query', $address);
     <div class="s-shell s-contact__inner s-inner">
 
         <div class="s-contact__info">
-            <?= R::head($c, $heading) ?>
+            <?= R::head($c, $heading, $titelAttrs) ?>
 
             <ul class="s-contact__list s-items" role="list">
                 <?php if ($email !== ''): ?>

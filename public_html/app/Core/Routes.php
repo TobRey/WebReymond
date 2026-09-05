@@ -101,6 +101,11 @@ final class Routes
         // storage/ und werden hier ausgeliefert - so braucht der Server
         // keine Schreibrechte im Web-Ordner.
         $router->get('/frontend-fix.css', 'FrontendFixController@stylesheet');
+
+        // Das Stylesheet der eigenen Website, aus PHP statt aus dem
+        // gebauten Paket. Die Prüfsumme steht in der Adresse - deshalb
+        // darf der Browser es lange behalten.
+        $router->get('/site.css', 'StyleController@stylesheet');
     }
 
     // ------------------------------------------------------------------

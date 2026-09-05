@@ -419,6 +419,46 @@ final class Catalog
     }
 
     /**
+     * Varianten, die es nur mit einem Stilpaket gibt.
+     *
+     * Sie werden an die Liste des jeweiligen Typs angehängt, statt eine
+     * der zwanzig zu verdrängen. Eine Kundenwebsite sieht sie nie: Sie
+     * trägt das Stilpaket 'basis', und dort sind die Haken leer und die
+     * zugehörigen Regeln nicht vorhanden - die Variante fiele auf ihr
+     * Grundlayout zurück.
+     *
+     * Warum sie überhaupt Varianten sind und keine eigenen Typen: Ein
+     * eigener Typ würde in jedes Kundenbackend mitkopiert und bräuchte
+     * zwanzig erfundene Geschwister, die genau eine Website benutzen
+     * kann.
+     *
+     * @return array<string, array<string, array{label:string, mods:string, hooks:string}>>
+     */
+    private static function stilpakete(): array
+    {
+        return [
+            'hero' => self::build([
+                ['wa-3d', 'Mit 3D-Auftritt', 'center display no-media', 'words magnet reveal'],
+            ]),
+            'logos' => self::build([
+                ['wa-laufband', 'Als Laufband', 'marquee', 'marquee'],
+            ]),
+            'process' => self::build([
+                ['wa-waagerecht', 'Waagerecht zum Wischen', 'waagerecht', 'stagger'],
+            ]),
+            'features' => self::build([
+                ['wa-karten', 'Kippende Karten', 'grid cols-3 numbered', 'stagger tilt'],
+            ]),
+            'services' => self::build([
+                ['wa-karten', 'Kippende Karten', 'grid cols-3 carded', 'stagger tilt'],
+            ]),
+            'cta' => self::build([
+                ['wa-karte', 'Als Karte mit Leuchten', 'center carded', 'reveal magnet'],
+            ]),
+        ];
+    }
+
+    /**
      * Die Varianten des freien Abschnitts.
      *
      * Sechs statt zwanzig, und das mit Absicht: Ein freier Abschnitt
@@ -439,16 +479,16 @@ final class Catalog
         ]);
     }
 
-    /** Alle Varianten eines Typs. */
+    /** Alle Varianten eines Typs, samt denen aus den Stilpaketen. */
     public static function forType(string $type): array
     {
-        return self::all()[$type] ?? [];
+        return (self::all()[$type] ?? []) + (self::stilpakete()[$type] ?? []);
     }
 
     /** Gibt es diese Vorlage? */
     public static function exists(string $type, string $key): bool
     {
-        return isset(self::all()[$type][$key]);
+        return isset(self::forType($type)[$key]);
     }
 
     /** Die erste (und damit voreingestellte) Vorlage eines Typs. */
@@ -461,7 +501,7 @@ final class Catalog
     /** CSS-Klassen einer Vorlage. */
     public static function modifiers(string $type, string $key): string
     {
-        return (string) (self::all()[$type][$key]['mods'] ?? '');
+        return (string) (self::forType($type)[$key]['mods'] ?? '');
     }
 
     /**
@@ -473,12 +513,12 @@ final class Catalog
      */
     public static function hooks(string $type, string $key): string
     {
-        return (string) (self::all()[$type][$key]['hooks'] ?? '');
+        return (string) (self::forType($type)[$key]['hooks'] ?? '');
     }
 
     public static function label(string $type, string $key): string
     {
-        return (string) (self::all()[$type][$key]['label'] ?? $key);
+        return (string) (self::forType($type)[$key]['label'] ?? $key);
     }
 
     /** Wie viele Varianten gibt es insgesamt? */

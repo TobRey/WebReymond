@@ -8,7 +8,7 @@ $avatar = str_contains($classes, 'avatar') || str_contains($classes, 'logo');
 ?>
 <section class="<?= e($classes) ?>" id="<?= e($sectionId) ?>"<?= $style !== '' ? ' style="' . e($style) . '"' : '' ?> data-section="testimonials" data-section-id="<?= (int) $sectionDbId ?>"<?= $attrs ?>>
     <div class="s-shell">
-        <?= R::head($c, $heading) ?>
+        <?= R::head($c, $heading, $titelAttrs) ?>
 
         <div class="s-testimonials__grid s-items">
             <?php foreach ($items as $index => $item): ?>

@@ -29,7 +29,7 @@ $media = $hasMedia
                 <p class="s-eyebrow"><?= e(R::value($c, 'eyebrow')) ?></p>
             <?php endif; ?>
 
-            <h1 class="s-hero__title"><?= e(R::value($c, 'title')) ?></h1>
+            <h1 class="s-hero__title"<?= $titelAttrs ?>><?= e(R::value($c, 'title')) ?></h1>
 
             <?php if (R::value($c, 'lead') !== ''): ?>
                 <p class="s-hero__lead"><?= e(R::value($c, 'lead')) ?></p>

@@ -17,7 +17,7 @@ $hasMedia = !str_contains($classes, 'no-media');
             <?php if (R::value($c, 'eyebrow') !== ''): ?>
                 <p class="s-eyebrow"><?= e(R::value($c, 'eyebrow')) ?></p>
             <?php endif; ?>
-            <<?= $heading ?> class="s-title"><?= e(R::value($c, 'title')) ?></<?= $heading ?>>
+            <<?= $heading ?> class="s-title"<?= $titelAttrs ?>><?= e(R::value($c, 'title')) ?></<?= $heading ?>>
 
             <div class="s-prose"><?= R::richtext(R::value($c, 'body')) ?></div>
 

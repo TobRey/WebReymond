@@ -46,6 +46,13 @@ final class Renderer
         $overrides = is_array($section['overrides'] ?? null) ? $section['overrides'] : [];
         $effects = Effects::clean($section['effects'] ?? null);
 
+        // Ein gebundener Abschnitt holt seine Eintraege aus dem Bestand
+        // statt aus dem Inhalt. Die Referenzen sind so einer: Sie
+        // stehen in einer Tabelle und werden gepflegt, nicht getippt.
+        // Sie in den Inhalt zu kopieren hiesse, sie zweimal zu haben -
+        // und die zweite Fassung veraltet ab dem naechsten Eintrag.
+        $content = self::binden($content, $overrides, $context);
+
         $classes = self::classes($type, $key, $overrides, $effects);
         $id = self::anchorId($type, (int) ($section['id'] ?? 0), $content, $overrides);
         $style = self::inlineStyle($overrides);
@@ -54,6 +61,20 @@ final class Renderer
         // Vorlagen bleiben davon unberuehrt. Ein Effekt ist damit eine
         // Angabe und kein Eingriff ins Markup.
         $attrs = Effects::attributes($effects) . self::hooks($type, $key);
+
+        // Die Wort-fuer-Wort-Enthuellung gehoert an die Ueberschrift und
+        // niemals an den Abschnitt.
+        //
+        // Der Bewegungsapparat ersetzt den gesamten Inhalt des
+        // markierten Elements durch Wortspannen. Am Abschnitt gesetzt
+        // zerlegt er damit den ganzen Abschnitt - Ueberzeile, Ueberschrift,
+        // Schaltflaechen, alles wird zu einer Wortwurst, und die h1 der
+        // Seite ist weg. Im Browser sieht das aus wie ein Effekt und ist
+        // ein Totalverlust.
+        $titelAttrs = str_contains(' ' . Catalog::hooks($type, $key) . ' ', ' words ')
+            || (string) ($effects['bewegung'] ?? '') === 'worte'
+            ? ' data-words'
+            : '';
         $itemAttrs = Effects::itemAttributes($effects);
 
         // Welche Ebene die Ueberschrift bekommt. Eine Unterseite braucht
@@ -79,8 +100,37 @@ final class Renderer
             'sectionDbId' => (int) ($section['id'] ?? 0),
             'attrs' => $attrs,
             'itemAttrs' => $itemAttrs,
+            'titelAttrs' => $titelAttrs,
             'heading' => $heading,
         ]);
+    }
+
+    /**
+     * Die Eintraege eines gebundenen Abschnitts nachreichen.
+     *
+     * Welche Quelle es gibt, steht hier und nirgends sonst: Ein
+     * Abschnitt darf sich nicht aussuchen, was er aus der Datenbank
+     * liest.
+     */
+    private static function binden(array $content, array $overrides, array $context): array
+    {
+        $quelle = (string) ($overrides['quelle'] ?? '');
+
+        if ($quelle === '') {
+            return $content;
+        }
+
+        $daten = $context['daten'][$quelle] ?? null;
+
+        if (is_array($daten) && $daten !== []) {
+            $wieviele = (int) ($overrides['anzahl'] ?? 0);
+
+            $content['items'] = $wieviele > 0
+                ? array_slice($daten, 0, $wieviele)
+                : $daten;
+        }
+
+        return $content;
     }
 
     /** Alle CSS-Klassen eines Abschnitts. */
@@ -155,7 +205,6 @@ final class Renderer
                 'reveal' => ['data-reveal' => 'up'],
                 'fade' => ['data-reveal' => 'fade'],
                 'stagger' => ['data-reveal-stagger' => ''],
-                'words' => ['data-words' => ''],
                 'parallax' => ['data-parallax' => 'deep', 'data-speed' => '0.35'],
                 'tilt' => ['data-tilt-zone' => ''],
                 'magnet' => ['data-magnet-zone' => '0.24'],
@@ -452,7 +501,7 @@ final class Renderer
      * Einleitung. Steht in fast jedem Abschnitt und wird deshalb hier
      * einmal gebaut statt sechzehnmal abgeschrieben.
      */
-    public static function head(array $content, string $level = 'h2'): string
+    public static function head(array $content, string $level = 'h2', string $titelAttrs = ''): string
     {
         $eyebrow = self::value($content, 'eyebrow');
         $title = self::value($content, 'title');
@@ -469,7 +518,8 @@ final class Renderer
         if ($title !== '') {
             $tag = in_array($level, ['h1', 'h2', 'h3'], true) ? $level : 'h2';
 
-            $html .= '<' . $tag . ' class="s-title">' . e($title) . '</' . $tag . '>';
+            $html .= '<' . $tag . ' class="s-title"' . $titelAttrs . '>'
+                . e($title) . '</' . $tag . '>';
         }
         if ($lead !== '') {
             $html .= '<p class="s-lead">' . e($lead) . '</p>';

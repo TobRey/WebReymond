@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace WebAtze\Http;
 
-use WebAtze\Core\{Config, Db, I18n, Request, Response, Settings, View};
+use WebAtze\Core\{Config, Db, I18n, Request, Response, Session, Settings, View};
 
 /**
  * Die öffentlichen Seiten.
@@ -28,8 +28,122 @@ final class SiteController
         'woff' => 'font/woff',
     ];
 
+    /**
+     * Die eigene Seite zusätzlich aus Abschnittsdaten rendern.
+     *
+     * Sichtbar nur für den angemeldeten Betreiber und nur mit ?stil=daten
+     * in der Adresse. Damit stehen beide Fassungen gleichzeitig in zwei
+     * Browserfenstern und lassen sich vergleichen - während öffentlich
+     * weiterhin die alte steht.
+     *
+     * Das ist der Grund, warum der Umbau der eigenen Website überhaupt
+     * vertretbar ist. Ohne diesen Zwischenschritt wäre jede Umstellung
+     * ein Sprung: erst umschalten, dann sehen, was fehlt. Mit ihm wird
+     * verglichen, nachgebessert und erst umgeschaltet, wenn kein
+     * Unterschied mehr zu sehen ist.
+     *
+     * @return Response|null null heisst: die handgeschriebene Fassung gilt
+     */
+    private function ausDaten(Request $request, string $routeKey): ?Response
+    {
+        if ($request->query('stil') !== 'daten' || !Session::isLoggedIn()) {
+            return null;
+        }
+
+        $projekt = \WebAtze\Http\StyleController::eigenes();
+
+        if ($projekt === null) {
+            return null;
+        }
+
+        $seite = Db::first(
+            'SELECT * FROM project_pages WHERE project_id = :p AND route_key = :r LIMIT 1',
+            ['p' => (int) $projekt['id'], 'r' => $routeKey]
+        );
+
+        if ($seite === null) {
+            return null;
+        }
+
+        $seite['sections'] = \WebAtze\Domain\Sections::forPage((int) $seite['id']);
+
+        if ($seite['sections'] === []) {
+            return null;
+        }
+
+        $inhalt = '';
+
+        $kontext = \WebAtze\Templates\Page::context(
+            $this->websiteDaten($projekt),
+            $seite,
+            I18n::locale()
+        );
+
+        // Die Referenzen kommen aus ihrer Tabelle, nicht aus dem Inhalt
+        // eines Abschnitts. Ein gebundener Abschnitt greift darauf zu -
+        // welche Quellen es gibt, entscheidet der Renderer.
+        $kontext['daten'] = ['showcase' => array_map(
+            static fn (array $r): array => [
+                'title' => (string) $r['title'],
+                'text' => (string) ($r['subtitle'] ?? ''),
+                'icon' => 'globe',
+                'link' => [
+                    'label' => __t('work.visit'),
+                    'url' => '/referenzen/' . (string) $r['slug'],
+                ],
+            ],
+            // Wie viele, entscheidet der Abschnitt ueber overrides.anzahl.
+            // Auf der Startseite sind es ein paar, auf der Referenzseite
+            // alle - dieselbe Quelle, zwei Ausschnitte.
+            $this->showcase(60)
+        )];
+
+        foreach ($seite['sections'] as $abschnitt) {
+            if (!empty($abschnitt['hidden'])) {
+                continue;
+            }
+
+            $inhalt .= \WebAtze\Templates\Renderer::section($abschnitt, $kontext) . "\n";
+        }
+
+        // Derselbe Rahmen wie sonst: Kopfzeile, Fusszeile, Kulisse, die
+        // Sicherheitskopfzeilen. Nur der Inhalt kommt aus Daten. Ein
+        // eigener Rahmen wäre ein zweiter, der auseinanderläuft.
+        return Response::html(View::partial('layouts/site', [
+            'title' => (string) $seite['title'],
+            'description' => (string) ($seite['meta_description'] ?? ''),
+            'showHero' => $routeKey === '',
+            'pageClass' => 'wa-body--daten',
+            'content' => $inhalt,
+            'stylesheet' => \WebAtze\Http\StyleController::url($projekt),
+        ]));
+    }
+
+    /** Die Angaben zur eigenen Website, wie der Seitenbau sie erwartet. */
+    private function websiteDaten(array $projekt): array
+    {
+        return [
+            'brand' => (string) $projekt['name'],
+            'locale' => (string) ($projekt['locale'] ?? 'de'),
+            'locales' => array_filter(explode(',', (string) ($projekt['locales'] ?? 'de'))),
+            'theme' => is_array($projekt['theme'] ?? null) ? $projekt['theme'] : [],
+            'domain' => (string) ($projekt['domain'] ?? ''),
+            'contact' => ['email' => '', 'phone' => '', 'address' => ''],
+            'pages' => Db::all(
+                'SELECT * FROM project_pages WHERE project_id = :p ORDER BY sort_order ASC',
+                ['p' => (int) $projekt['id']]
+            ),
+        ];
+    }
+
     public function home(Request $request): Response
     {
+        $daten = $this->ausDaten($request, '');
+
+        if ($daten !== null) {
+            return $daten;
+        }
+
         return Response::html(View::page('pages/home', [
             'title' => __t('meta.tagline'),
             'description' => __t('meta.description'),
@@ -41,6 +155,12 @@ final class SiteController
 
     public function services(Request $request): Response
     {
+        $daten = $this->ausDaten($request, 'services');
+
+        if ($daten !== null) {
+            return $daten;
+        }
+
         return Response::html(View::page('pages/services', [
             'title' => __t('services.title'),
             'description' => __t('services.lead'),
@@ -49,6 +169,12 @@ final class SiteController
 
     public function process(Request $request): Response
     {
+        $daten = $this->ausDaten($request, 'process');
+
+        if ($daten !== null) {
+            return $daten;
+        }
+
         return Response::html(View::page('pages/process', [
             'title' => __t('process.title'),
             'description' => __t('process.lead'),
@@ -57,6 +183,12 @@ final class SiteController
 
     public function work(Request $request): Response
     {
+        $daten = $this->ausDaten($request, 'work');
+
+        if ($daten !== null) {
+            return $daten;
+        }
+
         return Response::html(View::page('pages/work', [
             'title' => __t('work.title'),
             'description' => __t('work.lead'),
@@ -170,6 +302,12 @@ final class SiteController
 
     public function contact(Request $request): Response
     {
+        $daten = $this->ausDaten($request, 'contact');
+
+        if ($daten !== null) {
+            return $daten;
+        }
+
         return Response::html(View::page('pages/contact', [
             'title' => __t('contact.title'),
             'description' => __t('contact.lead'),
@@ -178,6 +316,12 @@ final class SiteController
 
     public function imprint(Request $request): Response
     {
+        $daten = $this->ausDaten($request, 'imprint');
+
+        if ($daten !== null) {
+            return $daten;
+        }
+
         return Response::html(View::page('pages/imprint', [
             'title' => __t('imprint.title'),
             'description' => __t('imprint.intro'),
@@ -186,6 +330,12 @@ final class SiteController
 
     public function privacy(Request $request): Response
     {
+        $daten = $this->ausDaten($request, 'privacy');
+
+        if ($daten !== null) {
+            return $daten;
+        }
+
         return Response::html(View::page('pages/privacy', [
             'title' => __t('privacy.title'),
             'description' => __t('privacy.intro'),

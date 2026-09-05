@@ -11,7 +11,7 @@ use WebAtze\Templates\Renderer as R;
                     <p class="s-eyebrow"><?= e(R::value($c, 'eyebrow')) ?></p>
                 <?php endif; ?>
                 <?php if (R::value($c, 'title') !== ''): ?>
-                    <<?= $heading ?> class="s-title"><?= e(R::value($c, 'title')) ?></<?= $heading ?>>
+                    <<?= $heading ?> class="s-title"<?= $titelAttrs ?>><?= e(R::value($c, 'title')) ?></<?= $heading ?>>
                 <?php endif; ?>
             </div>
         <?php endif; ?>

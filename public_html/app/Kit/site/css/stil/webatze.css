@@ -1,0 +1,248 @@
+/**
+ * Das Stilpaket von WebAtze.
+ *
+ * Es legt sich NACH dem Grundstil über dieselben Klassen und holt alle
+ * Werte aus denselben Variablen. Das ist der Kern der Entscheidung:
+ * Gleich wird das Markup, verschieden bleibt das Aussehen.
+ *
+ * Warum nicht einfach Varianten im Katalog? Weil Varianten eine
+ * Absicht beschreiben ("Bild rechts", "drei Spalten", "nummeriert") und
+ * das hier Geschmack ist (Milchglas, Leuchten, Verlaufsschrift). Beides
+ * zu vermischen hiesse, jedem Schreiner in seiner Vorlagenliste
+ * "hero/milchglas-leuchten" anzubieten - wo es falsch aussieht - und
+ * den Grundstil trotzdem zwingen, es zu können.
+ *
+ * Fehlt hier eine Regel, greift der Grundstil. Der schlimmste Fall ist
+ * deshalb "schlichter", nie "kaputt". Das ist die Absicherung, die den
+ * Umbau der eigenen Website überhaupt vertretbar macht.
+ *
+ * Es steht kein einziger fester Farbwert darin. Wer die Marke ändert,
+ * ändert die Variablen, und dieses Paket zieht nach.
+ */
+
+/* ------------------------------------------------------------------ */
+/* Flächen: Milchglas statt Kasten                                     */
+/* ------------------------------------------------------------------ */
+
+.s-feature,
+.s-service,
+.s-step,
+.s-quote,
+.s-member,
+.s-stat,
+.s-faq__item {
+  position: relative;
+  border: 1px solid var(--c-border);
+  border-radius: var(--c-radius-lg);
+  background: var(--c-surface-glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: clamp(1.5rem, 3vw, 2.25rem);
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    border-color var(--c-dur) var(--c-ease),
+    transform var(--c-dur) var(--c-ease),
+    box-shadow var(--c-dur) var(--c-ease);
+}
+
+/* Der Glanz, der dem Mauszeiger folgt. Die beiden Werte --px und --py
+   setzt der Bewegungsapparat; ohne ihn steht der Glanz mittig und
+   bleibt unsichtbar, weil die Deckkraft 0 ist. Kein Skript, kein
+   Schaden. */
+.s-feature::before,
+.s-service::before,
+.s-step::before,
+.s-quote::before,
+.s-member::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(
+    24rem circle at var(--px, 50%) var(--py, 50%),
+    color-mix(in srgb, var(--c-primary) 22%, transparent),
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 420ms var(--c-ease);
+}
+
+.s-feature:hover::before,
+.s-service:hover::before,
+.s-step:hover::before,
+.s-quote:hover::before,
+.s-member:hover::before { opacity: 1; }
+
+.s-feature:hover,
+.s-service:hover,
+.s-step:hover,
+.s-quote:hover,
+.s-member:hover {
+  border-color: var(--c-border-strong);
+  box-shadow: var(--c-shadow-glow);
+}
+
+/* Karten, die sich unter dem Mauszeiger im Raum neigen. Die Winkel
+   kommen aus dem Bewegungsapparat; ohne ihn stehen sie auf 0. */
+[data-tilt] {
+  transform-style: preserve-3d;
+  will-change: transform;
+  transform:
+    perspective(1100px)
+    rotateX(var(--rx, 0deg))
+    rotateY(var(--ry, 0deg))
+    translate3d(0, var(--lift, 0px), 0);
+}
+
+[data-tilt] > * { transform: translateZ(28px); }
+
+/* ------------------------------------------------------------------ */
+/* Schrift: die Überschrift mit Verlauf                                */
+/* ------------------------------------------------------------------ */
+
+.s-hero__title,
+.s-title {
+  font-family: var(--c-font-display);
+  letter-spacing: -0.02em;
+  line-height: var(--c-leading-tight);
+}
+
+.s-hero__title {
+  background: var(--c-gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* Fällt der Verlauf aus (alte Browser, hoher Kontrast), bleibt die
+     Textfarbe stehen statt nichts. */
+  -webkit-text-fill-color: transparent;
+}
+
+@supports not (background-clip: text) {
+  .s-hero__title { color: var(--c-text); -webkit-text-fill-color: currentColor; }
+}
+
+.s-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: var(--c-surface-glass);
+  font-size: var(--c-text-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Schaltflächen                                                       */
+/* ------------------------------------------------------------------ */
+
+.s-btn {
+  position: relative;
+  border-radius: 999px;
+  font-weight: 600;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Der Schein hinter dem Knopf. Er liegt innerhalb der Fläche, nicht
+   darüber hinaus: Ein Schein, der über den Rand ragt, wird von jedem
+   Behälter mit overflow abgeschnitten - und dann sieht der Knopf auf
+   einer Seite kaputt aus. */
+.s-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(
+    circle at var(--px, 50%) var(--py, 50%),
+    color-mix(in srgb, var(--c-on-primary) 30%, transparent),
+    transparent 65%
+  );
+  opacity: 0;
+  transition: opacity var(--c-dur) var(--c-ease);
+}
+
+.s-btn:hover::before { opacity: 1; }
+
+/* Doppelte Klasse, damit diese Regel eine Verweisregel (a:hover) sicher
+   schlägt. Genau daran ist die Schrift auf den Knöpfen schon einmal
+   unleserlich geworden: violett auf violett. */
+.s-btn.s-btn:hover { color: var(--c-on-primary); }
+.s-btn--ghost.s-btn--ghost:hover { color: var(--c-text); }
+
+/* ------------------------------------------------------------------ */
+/* Der Ablauf, waagerecht                                              */
+/*                                                                     */
+/* Reines CSS, kein Skript: Die Schritte liegen nebeneinander und       */
+/* rasten beim Wischen ein. Auf schmalen Schirmen kippt es von selbst   */
+/* untereinander.                                                      */
+/* ------------------------------------------------------------------ */
+
+.s-process.m-waagerecht .s-items {
+  display: flex;
+  gap: var(--s-gap);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-block-end: 1rem;
+  scrollbar-width: thin;
+}
+
+.s-process.m-waagerecht .s-items > * {
+  flex: 0 0 min(22rem, 82vw);
+  scroll-snap-align: start;
+}
+
+@media (max-width: 48rem) {
+  .s-process.m-waagerecht .s-items {
+    display: grid;
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Symbole                                                             */
+/* ------------------------------------------------------------------ */
+
+.s-ico {
+  display: grid;
+  place-items: center;
+  inline-size: 3rem;
+  block-size: 3rem;
+  border-radius: var(--c-radius-md);
+  background: var(--c-gradient-brand);
+  color: var(--c-on-primary);
+}
+
+.s-ico svg { inline-size: 1.5rem; block-size: 1.5rem; }
+
+/* ------------------------------------------------------------------ */
+/* Ziffern                                                             */
+/* ------------------------------------------------------------------ */
+
+.s-num {
+  font-family: var(--c-font-display);
+  font-size: var(--c-text-2xl);
+  font-weight: 700;
+  background: var(--c-gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ------------------------------------------------------------------ */
+/* Ruhe, wenn sie gewünscht ist                                        */
+/* ------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  [data-tilt] { transform: none; }
+
+  .s-feature, .s-service, .s-step, .s-quote, .s-member,
+  .s-btn, .s-btn::before { transition: none; }
+}

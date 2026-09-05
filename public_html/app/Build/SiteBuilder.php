@@ -220,7 +220,13 @@ final class SiteBuilder
      * Sie stehen bereits im erzeugten Farbblock davor; doppelte Werte
      * würden die Kundenfarben wieder überschreiben.
      */
-    private static function stripDefaultColours(string $css): string
+    /**
+     * Öffentlich, weil das Stylesheet der eigenen Website zur Laufzeit
+     * aus denselben Teilen entsteht (Http\StyleController). Zwei
+     * Fassungen derselben Regel würden auseinanderlaufen, und dann sähe
+     * die eigene Website anders aus als eine gebaute.
+     */
+    public static function stripDefaultColours(string $css): string
     {
         // Nur genau diese Namen dürfen weg. Eine Suche nach "beginnt mit
         // --c-text" würde auch --c-text-hero und die ganze Schriftskala

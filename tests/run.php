@@ -220,7 +220,12 @@ test('Vorlagen: 20 je Abschnittstyp, und jede lässt sich bauen', function (): v
             ok(count($varianten) >= 4, 'Der freie Abschnitt hat eine eigene, kurze Liste ('
                 . count($varianten) . ')');
         } else {
-            is(20, count($varianten), '20 Varianten für "' . $typ . '"');
+            // Zwanzig im Grundkatalog - das ist die Zusage an jede
+            // Kundenwebsite. Varianten aus einem Stilpaket kommen
+            // obendrauf und stehen nur einer Website zur Verfuegung, die
+            // dieses Paket traegt.
+            is(20, count(Catalog::all()[$typ]), '20 Grundvarianten für "' . $typ . '"');
+            ok(count($varianten) >= 20, 'Und mindestens so viele insgesamt');
         }
 
         // Jede Variante muss sich rendern lassen – auch mit leerem Inhalt.
