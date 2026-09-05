@@ -206,7 +206,22 @@ final class Pipeline
         Jobs::progress($job['id'], 'fertig', 100, 'Fertig.', $state);
         Jobs::finish($job['id'], $meldung);
 
-        Db::update('jobs', ['state' => array_merge($state, ['redirect' => $previewUrl])],
+        // Wohin es nach dem Bauen geht: in den Editor.
+        //
+        // Bisher landete man in der Vorschau - einer Seite, auf der man
+        // die Website ansehen konnte und sonst nichts. Das ist die
+        // falsche erste Begegnung mit etwas, das gerade fuer einen
+        // gebaut wurde: Was man dann tun will, ist etwas aendern, und
+        // dafuer musste man erst wieder zurueck.
+        //
+        // Die Vorschau bleibt, sie steht einen Knopf weiter. Aber der
+        // Weg, den niemand waehlt, ist jetzt der, den man nicht braucht.
+        $editorUrl = '/' . trim((string) Config::get('create_path', 'create'), '/')
+            . '/editor/' . $projectId;
+
+        $ziel = \WebAtze\Core\Assets::exists('editor.js') ? $editorUrl : $previewUrl;
+
+        Db::update('jobs', ['state' => array_merge($state, ['redirect' => $ziel])],
             'id = :id', ['id' => (int) $job['id']]);
 
         Audit::log('project.built', (string) $project['name'], ['id' => $projectId]);

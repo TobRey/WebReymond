@@ -2043,6 +2043,104 @@ test('Der Verbindungstest stuerzt nie ab', function (): void {
 });
 
 // ==================================================================
+test('Eine erzeugte Website ist ab dem ersten Moment bearbeitbar', function (): void {
+    // Das ist die Zusage, um die es geht: "von Anfang an kann man jede
+    // Section bearbeiten". Bisher war das eine Hoffnung - der
+    // Auftragstext bat darum, die Vorlagen taten es, geprueft hat es
+    // niemand. Und eine Seite, die der Editor nicht anfassen kann,
+    // sieht bis zum ersten Klick genauso aus wie eine, die er anfassen
+    // kann.
+    $projektId = (int) \WebAtze\Core\Db::insert('projects', [
+        'name' => 'Abnahme', 'slug' => 'abnahme-' . bin2hex(random_bytes(4)),
+        'status' => 'done', 'locale' => 'de',
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    $seiteId = (int) \WebAtze\Core\Db::insert('project_pages', [
+        'project_id' => $projektId, 'path' => '/', 'title' => 'Start',
+        'sort_order' => 0, 'in_navigation' => 1,
+        'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+    ]);
+
+    // Eine Seite, wie der Generator sie baut: Kopf, Inhalt, Fuss.
+    $aufbau = [
+        ['header', ['brand' => 'Abnahme AG']],
+        ['hero', ['title' => 'Willkommen bei der Abnahme', 'lead' => 'Ein kurzer Satz dazu.']],
+        ['services', ['title' => 'Was wir tun']],
+        ['contact', ['title' => 'Schreiben Sie uns']],
+        ['footer', ['brand' => 'Abnahme AG']],
+    ];
+
+    foreach ($aufbau as $platz => [$typ, $inhalt]) {
+        \WebAtze\Core\Db::insert('project_sections', [
+            'project_id' => $projektId, 'page_id' => $seiteId, 'type' => $typ,
+            'template_key' => Catalog::defaultKey($typ),
+            'content' => $inhalt, 'overrides' => [], 'effects' => [],
+            'hidden' => 0, 'sort_order' => $platz,
+            'created_at' => \WebAtze\Core\Db::now(), 'updated_at' => \WebAtze\Core\Db::now(),
+        ]);
+    }
+
+    $seiten = \WebAtze\Build\SiteBuilder::loadPages($projektId);
+    $site = ['pages' => $seiten, 'locale' => 'de', 'brand' => 'Abnahme AG'];
+
+    $abnahme = \WebAtze\Build\EditorCheck::run($site, $seiten);
+
+    ok($abnahme['ok'], 'Die erzeugte Seite besteht die Abnahme: '
+        . implode(' | ', $abnahme['fehler']));
+    is(5, $abnahme['geprueft'], 'Alle fuenf Abschnitte wurden angesehen');
+
+    // --- Und jetzt jeden der vier Faelle einzeln kaputt machen ------
+
+    // (1) Ohne Kennung findet der Editor den Abschnitt nicht.
+    $ohneId = $seiten;
+    $ohneId[0]['sections'][1]['id'] = 0;
+
+    $kaputt = \WebAtze\Build\EditorCheck::run($site, $ohneId);
+
+    is(false, $kaputt['ok'], 'Ein Abschnitt ohne Kennung faellt auf');
+    ok(str_contains(implode(' ', $kaputt['fehler']), 'Kennung'),
+        'Und die Meldung sagt, woran es liegt');
+
+    // (2) Eine Vorlage, die es nicht gibt: "Vorlage wechseln" wuerde
+    // eine Datenbankspalte aendern und sonst nichts tun.
+    $falscheVorlage = $seiten;
+    $falscheVorlage[0]['sections'][1]['template_key'] = 'gibtsnicht';
+
+    $kaputt = \WebAtze\Build\EditorCheck::run($site, $falscheVorlage);
+
+    is(false, $kaputt['ok'], 'Eine Vorlage ausserhalb des Katalogs faellt auf');
+    ok(str_contains(implode(' ', $kaputt['fehler']), 'Katalog'),
+        'Und auch hier steht der Grund dabei');
+
+    // (3) Kopf und Fuss an der falschen Stelle.
+    $verdreht = $seiten;
+    $verdreht[0]['sections'] = array_reverse($verdreht[0]['sections']);
+
+    $kaputt = \WebAtze\Build\EditorCheck::run($site, $verdreht);
+
+    is(false, $kaputt['ok'], 'Kopf hinten und Fuss vorne faellt auf');
+
+    // (4) Eine feste Farbe im HTML: Ein Themenwechsel ginge daran
+    // vorbei, und die halbe Seite bliebe stehen.
+    $farben = new ReflectionMethod(\WebAtze\Build\EditorCheck::class, 'festeFarben');
+    $farben->setAccessible(true);
+
+    ok($farben->invoke(null, '<section style="background:#1a2b3c">x</section>') !== [],
+        'Eine feste Farbe im style-Attribut wird gefunden');
+    ok($farben->invoke(null, '<section style="background:rgb(1,2,3)">x</section>') !== [],
+        'Auch als rgb()');
+    is([], $farben->invoke(null, '<section style="background:var(--c-surface)">x</section>'),
+        'Eine Variable ist in Ordnung');
+    is([], $farben->invoke(null, '<section class="s-hero">#nichtfarbe</section>'),
+        'Und ausserhalb eines style-Attributs wird nichts gesucht');
+
+    \WebAtze\Core\Db::delete('project_sections', 'project_id = :p', ['p' => $projektId]);
+    \WebAtze\Core\Db::delete('project_pages', 'project_id = :p', ['p' => $projektId]);
+    \WebAtze\Core\Db::delete('projects', 'id = :p', ['p' => $projektId]);
+});
+
+// ==================================================================
 test('Der Live-Stand hat Grenzen und meldet, wenn er sie erreicht', function (): void {
     // fetchDirectory() daneben war fuer die taegliche Sicherung
     // gemacht: ueber FTP nicht rekursiv, ein leeres Ordnerargument

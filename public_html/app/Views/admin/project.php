@@ -390,6 +390,7 @@ $latestBuild = $builds[0] ?? null;
         'verweise' => 'Verweise',
         'recht' => 'Rechtliches',
         'text' => 'Rechtschreibung',
+        'editor' => 'Im Editor bearbeitbar',
     ];
     $stufe = [
         'ok' => ['Passt', 'wa-badge--done'],

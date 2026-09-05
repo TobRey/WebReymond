@@ -80,6 +80,7 @@ final class SiteChecker
         $results['tempo'] = self::speed($project, $dist);
         $results['verweise'] = self::links($project, $dist, max(3.0, $budget - (microtime(true) - $started)));
         $results['recht'] = self::legal($project, $dist);
+        $results['editor'] = self::editierbar($project);
 
         // Die Textprüfung kostet Geld und Zeit. Sie kommt zuletzt und
         // fällt weg, wenn die Zeit knapp ist.
@@ -662,6 +663,63 @@ final class SiteChecker
             'findings' => json_encode($result['findings'], JSON_UNESCAPED_UNICODE),
             'created_at' => Db::now(),
         ]);
+    }
+
+    // ------------------------------------------------------------ Editor
+
+    /**
+     * Lässt sich die fertige Website im Editor auch wirklich bearbeiten?
+     *
+     * Das ist die Zusage, um die es geht – jede Section von Anfang an
+     * anfassbar. Bisher war sie unbelegt: Der Auftragstext bat darum,
+     * die Vorlagen taten es, und niemand sah nach. Eine Seite, die der
+     * Editor nicht anfassen kann, sieht bis zum ersten Klick genauso
+     * aus wie eine, die er anfassen kann – deshalb steht das Ergebnis
+     * hier, neben Tempo und Verweisen.
+     */
+    public static function editierbar(array $project): array
+    {
+        try {
+            $seiten = SiteBuilder::loadPages((int) $project['id']);
+
+            $site = [
+                'pages' => $seiten,
+                'locale' => (string) ($project['locale'] ?? 'de'),
+                'brand' => (string) ($project['name'] ?? ''),
+            ];
+
+            $abnahme = EditorCheck::run($site, $seiten);
+        } catch (\Throwable $e) {
+            return self::result(100, [
+                self::note('info', 'Die Abnahme liess sich nicht durchführen: ' . $e->getMessage()),
+            ]);
+        }
+
+        $findings = [];
+
+        foreach ($abnahme['fehler'] as $text) {
+            $findings[] = self::note('error', $text);
+        }
+
+        foreach (array_slice($abnahme['warnungen'], 0, 20) as $text) {
+            $findings[] = self::note('warn', $text);
+        }
+
+        if ($findings === []) {
+            $findings[] = self::note('ok', sprintf(
+                'Alle %d Abschnitte lassen sich anklicken, verschieben und umgestalten.',
+                $abnahme['geprueft']
+            ));
+        }
+
+        // Fehler wiegen schwer, Warnungen leicht: Ein Abschnitt, den der
+        // Editor nicht findet, ist kaputt. Ein Feld, das in dieser
+        // Vorlage nichts anzeigt, ist nur eine Auskunft.
+        $score = 100
+            - 25 * count($abnahme['fehler'])
+            - 2 * count($abnahme['warnungen']);
+
+        return self::result($score, $findings);
     }
 
     // --------------------------------------------------------------- Kleinkram
