@@ -1,0 +1,6 @@
+DejaVu Fonts - Bitstream Vera Fonts Copyright (c) 2003 by Bitstream, Inc.
+DejaVu changes are in public domain. Free redistribution permitted.
+Voll­staendige Lizenz: https://dejavu-fonts.github.io/License.html
+
+Diese Schriftdateien werden ausschliesslich serverseitig von PHP-GD verwendet
+(Vermisstenplakate, Aktenkarten). Die Weboberflaeche nutzt System-Schriften.

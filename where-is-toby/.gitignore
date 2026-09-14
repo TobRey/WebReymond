@@ -1,0 +1,7 @@
+# Das fertige Installationspaket gehoert zum Lieferumfang und wird mitversioniert.
+!dist/
+!dist/where-is-toby-*.zip
+
+# Lokale Testinstallationen und Screenshots
+/tmp-test/
+/screenshots/
