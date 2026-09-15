@@ -1,0 +1,14 @@
+{
+  "name": "@webheaven/vision-hud",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vision HUD – mobile Kamera-Oberfläche mit Objekt- und Gesichtserkennung im Browser",
+  "type": "module",
+  "scripts": {
+    "vendor": "node tools/vendor.mjs",
+    "dev": "node tools/serve.mjs",
+    "build": "node tools/build-zip.mjs",
+    "typecheck": "echo \"(reines Browser-JavaScript – keine Typprüfung)\"",
+    "test": "node tools/check.mjs"
+  }
+}

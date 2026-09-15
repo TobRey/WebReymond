@@ -1,0 +1,102 @@
+================================================================================
+  VISION HUD  –  Hochladen auf GoDaddy (cPanel)
+================================================================================
+
+Diese Seite erkennt Objekte und Gesichter live über die Handykamera.
+Alles rechnet im Browser des Besuchers. Es gibt keine Datenbank, kein PHP und
+keinen Server-Prozess – nur Dateien.
+
+
+--------------------------------------------------------------------------------
+  IN 5 SCHRITTEN ONLINE
+--------------------------------------------------------------------------------
+
+  1. Bei GoDaddy anmelden  →  "Mein Hosting"  →  cPanel öffnen.
+
+  2. Im cPanel auf "Dateimanager" (File Manager) klicken
+     und links in den Ordner  public_html  wechseln.
+
+  3. Oben auf "Hochladen" (Upload) klicken und die Datei
+        vision-hud-kamera-hud.zip
+     auswählen. Das Hochladen dauert je nach Leitung 1–5 Minuten (ca. 22 MB).
+
+  4. Zurück zum Dateimanager, einmal auf "Neu laden" (Reload) klicken.
+     Dann mit der rechten Maustaste auf die ZIP-Datei klicken
+     →  "Extrahieren" (Extract)  →  bestätigen.
+
+     Dabei entsteht automatisch der Unterordner  public_html/kamera-hud/
+     Die bestehende Website wird NICHT verändert oder überschrieben.
+
+  5. Die ZIP-Datei darf jetzt gelöscht werden. Fertig.
+
+     Die Seite läuft unter:      https://DEINE-DOMAIN.tld/kamera-hud/
+
+
+--------------------------------------------------------------------------------
+  WICHTIG: OHNE https:// BLEIBT DAS BILD SCHWARZ
+--------------------------------------------------------------------------------
+
+  Browser geben die Kamera aus Sicherheitsgründen ausschliesslich über eine
+  verschlüsselte Verbindung frei. Das ist keine Einstellung dieser Seite,
+  sondern eine Regel von Chrome, Safari und Firefox.
+
+  Prüfen:   cPanel  →  "SSL/TLS Status"  →  die Domain muss ein gültiges
+            Zertifikat haben. Falls nicht: "AutoSSL ausführen" anklicken und
+            einige Minuten warten.
+
+  Die mitgelieferte Datei .htaccess leitet http:// automatisch auf https:// um.
+  Sollte es beim Aufruf eine Zertifikatswarnung geben, ist das Zertifikat noch
+  nicht fertig – dann in .htaccess den Abschnitt 1 vorübergehend mit # am
+  Zeilenanfang auskommentieren.
+
+
+--------------------------------------------------------------------------------
+  ANDEREN ORDNERNAMEN VERWENDEN
+--------------------------------------------------------------------------------
+
+  Der Ordner darf beliebig heissen. Nach dem Entpacken einfach im Dateimanager
+  umbenennen (Rechtsklick → Umbenennen), zum Beispiel in "hud" oder "kamera".
+  Innerhalb der Seite sind alle Pfade relativ – es muss nichts angepasst werden.
+
+  Die Seite funktioniert auch in einem Unterordner eines Unterordners,
+  etwa  public_html/projekte/kamera-hud/
+
+
+--------------------------------------------------------------------------------
+  WENN ETWAS NICHT GEHT
+--------------------------------------------------------------------------------
+
+  "Kamerazugriff verweigert"
+       In der Adresszeile auf das Schloss-Symbol tippen und die Kamera
+       erlauben. Danach die Seite neu laden.
+       iPhone:  Einstellungen → Safari → Kamera → "Fragen" oder "Erlauben"
+
+  Seite bleibt beim Ladebalken stehen
+       Vermutlich wurde der Ordner assets/models nicht vollständig entpackt.
+       Im Dateimanager prüfen: assets/models/ muss 11 Dateien enthalten,
+       darunter face_recognition_model.bin mit rund 6 MB, und den Unterordner
+       coco-ssd mit 6 Dateien.
+
+  "Diese Seite ist nicht sicher" / weisse Seite
+       Kein gültiges SSL-Zertifikat – siehe Abschnitt oben.
+
+  Alles läuft, aber sehr langsam
+       Auf älteren Geräten im HUD unter "System" die Objekterkennung
+       ausschalten. Die Gesichtserkennung allein ist deutlich genügsamer.
+
+
+--------------------------------------------------------------------------------
+  DATENSCHUTZ
+--------------------------------------------------------------------------------
+
+  Kein Bild und kein Gesichtsmerkmal verlässt das Gerät des Besuchers.
+  Erfasste Personen liegen ausschliesslich im Browserspeicher (IndexedDB)
+  desjenigen Geräts, auf dem sie erfasst wurden. Es gibt keinen Server,
+  der etwas empfängt, und keine Verbindung zu fremden Diensten.
+
+  Hinweis zur Rechtslage: Gesichtsmerkmale sind biometrische Daten. Wer sie
+  von anderen Personen erfasst, braucht deren Einverständnis (DSGVO Art. 9
+  bzw. revDSG Art. 5). Für den privaten Gebrauch am eigenen Gerät gilt die
+  Haushaltsausnahme.
+
+================================================================================

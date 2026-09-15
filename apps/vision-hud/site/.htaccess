@@ -1,0 +1,90 @@
+# ============================================================================
+#  Vision HUD – Servereinstellungen für Apache (GoDaddy, cPanel, Plesk …)
+#
+#  Diese Datei gehört in denselben Ordner wie index.html und wirkt nur dort
+#  und in den Unterordnern. Der Rest der Website bleibt unberührt.
+#
+#  WICHTIG – Punkt 1 unten leitet auf https:// um.
+#  Browser geben die Kamera ausschliesslich über https:// frei; ohne
+#  Verschlüsselung bleibt die Seite schwarz. Sollte für die Domain noch kein
+#  SSL-Zertifikat aktiv sein (cPanel → „SSL/TLS Status“ → AutoSSL ausführen),
+#  dann die vier Zeilen von Punkt 1 vorübergehend mit # auskommentieren.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# 1 Immer verschlüsselt ausliefern
+# ---------------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} off
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# ---------------------------------------------------------------------------
+# 2 Dateitypen
+#    Ohne diese Angaben liefern manche Server Modelldateien als reinen Text
+#    aus; der Browser lehnt sie dann ab.
+# ---------------------------------------------------------------------------
+<IfModule mod_mime.c>
+  AddType application/javascript            .js .mjs
+  AddType application/json                  .json
+  AddType application/manifest+json         .webmanifest
+  AddType application/octet-stream          .bin
+  AddType image/svg+xml                     .svg
+  AddType text/css                          .css
+  AddDefaultCharset UTF-8
+</IfModule>
+
+# ---------------------------------------------------------------------------
+# 3 Kompression
+#    Die Modellgewichte (.bin) sind bereits dicht gepackt und werden bewusst
+#    nicht noch einmal komprimiert – das kostet nur Rechenzeit.
+# ---------------------------------------------------------------------------
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/plain
+  AddOutputFilterByType DEFLATE application/javascript application/json
+  AddOutputFilterByType DEFLATE application/manifest+json image/svg+xml
+</IfModule>
+
+# ---------------------------------------------------------------------------
+# 4 Zwischenspeicher im Browser
+#    Die rund 26 MB Modelldaten werden genau einmal geladen. index.html bleibt
+#    ungespeichert, damit Änderungen sofort sichtbar sind.
+# ---------------------------------------------------------------------------
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault                              "access plus 1 hour"
+  ExpiresByType application/octet-stream      "access plus 1 year"
+  ExpiresByType application/javascript        "access plus 1 week"
+  ExpiresByType text/css                      "access plus 1 week"
+  ExpiresByType image/svg+xml                 "access plus 1 month"
+  ExpiresByType image/png                     "access plus 1 month"
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+
+  # Modellgewichte ändern sich nie – die Namen sind fest.
+  <FilesMatch "^(group1-shard\d+of\d+|.*\.bin)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # Die Seite braucht die Kamera und sonst nichts.
+  Header always set Permissions-Policy "camera=(self), microphone=(), geolocation=(), interest-cohort=()"
+  Header always set Referrer-Policy "no-referrer"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+</IfModule>
+
+# ---------------------------------------------------------------------------
+# 5 Kein Verzeichnislisting
+#    Sonst kann jeder den Inhalt von assets/models/ durchblättern.
+# ---------------------------------------------------------------------------
+Options -Indexes
+
+<IfModule mod_autoindex.c>
+  IndexIgnore *
+</IfModule>

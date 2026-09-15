@@ -1,0 +1,15 @@
+{
+  "name": "Vision HUD",
+  "short_name": "VisionHUD",
+  "description": "Live-Erkennung von Objekten und Gesichtern direkt im Browser.",
+  "start_url": "../index.html",
+  "scope": "../",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#04080c",
+  "theme_color": "#04080c",
+  "icons": [
+    { "src": "icons/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ]
+}

@@ -5,3 +5,6 @@ coverage/
 
 # Dokumentation wird von Hand formatiert (Tabellen, Diagramme, Einrückungen).
 *.md
+
+# Die Anleitung im ZIP ist bewusst von Hand als Fliesstext formatiert.
+apps/vision-hud/site/LIESMICH.txt

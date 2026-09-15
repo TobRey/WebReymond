@@ -61,3 +61,10 @@ desktop.ini
 
 # --- Von Prisma erzeugter Client (wird beim Installieren neu gebaut) ---
 apps/api/src/generated/
+
+# --- Vision HUD: geladener Fremdcode und Modellgewichte (~28 MB) ---
+# Wiederherstellbar mit: pnpm --filter @webheaven/vision-hud vendor
+# Herkunft und Prüfsummen stehen in apps/vision-hud/vendor-inventory.json
+apps/vision-hud/site/assets/vendor/
+apps/vision-hud/site/assets/models/
+apps/vision-hud/.vendor-tmp/

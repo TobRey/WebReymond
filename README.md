@@ -68,6 +68,7 @@ Beenden mit **Strg + C**, danach `pnpm db:down`.
 apps/
   portal/     Next.js – öffentliche Website, Kundenportal, Adminbereich (Port 3000)
   api/        Fastify – Geschäftslogik und Autorisierung (Port 3001)
+  vision-hud/ statische Kamera-Seite: Objekt- und Gesichtserkennung im Browser
 packages/
   ui/         Design-Tokens und Basiskomponenten
   shared/     gemeinsame Typen und Validierungsschemas

@@ -1,0 +1,122 @@
+{
+  "erzeugt": "2026-09-15",
+  "quellen": {
+    "face-api.js": "@vladmandic/face-api@1.7.15 (MIT)",
+    "coco-ssd": "@tensorflow-models/coco-ssd@2.2.3 (Apache-2.0)",
+    "tfjs-wasm": "@tensorflow/tfjs-backend-wasm@4.22.0 (Apache-2.0)",
+    "coco-ssd-gewichte": "https://storage.googleapis.com/tfjs-models/savedmodel/ssdlite_mobilenet_v2"
+  },
+  "summeBytes": 28877572,
+  "dateien": [
+    {
+      "file": "vendor/face-api.js",
+      "bytes": 1333943,
+      "sha256": "0160f7af3a8c78ce"
+    },
+    {
+      "file": "vendor/face-api.LICENSE.txt",
+      "bytes": 1067,
+      "sha256": "9a3442b79acaf4fb"
+    },
+    {
+      "file": "vendor/coco-ssd.min.js",
+      "bytes": 9299,
+      "sha256": "8875b8c1bb577239"
+    },
+    {
+      "file": "vendor/tfjs-backend-wasm.wasm",
+      "bytes": 311123,
+      "sha256": "70a5d516060464e5"
+    },
+    {
+      "file": "vendor/tfjs-backend-wasm-simd.wasm",
+      "bytes": 424594,
+      "sha256": "77ebb28a6d34f371"
+    },
+    {
+      "file": "vendor/tfjs-backend-wasm-threaded-simd.wasm",
+      "bytes": 435643,
+      "sha256": "c052228d4bef185c"
+    },
+    {
+      "file": "models/tiny_face_detector_model-weights_manifest.json",
+      "bytes": 3219,
+      "sha256": "5d1af4849ac48d5b"
+    },
+    {
+      "file": "models/tiny_face_detector_model.bin",
+      "bytes": 193321,
+      "sha256": "b7503ce7df31039b"
+    },
+    {
+      "file": "models/face_landmark_68_model-weights_manifest.json",
+      "bytes": 8485,
+      "sha256": "ca4886639f86e99b"
+    },
+    {
+      "file": "models/face_landmark_68_model.bin",
+      "bytes": 356840,
+      "sha256": "4611ef65c87d836d"
+    },
+    {
+      "file": "models/face_recognition_model-weights_manifest.json",
+      "bytes": 19615,
+      "sha256": "cbaffa501b0b9275"
+    },
+    {
+      "file": "models/face_recognition_model.bin",
+      "bytes": 6444032,
+      "sha256": "b413e420d6840b27"
+    },
+    {
+      "file": "models/age_gender_model-weights_manifest.json",
+      "bytes": 8392,
+      "sha256": "74b60bf3ebf981bf"
+    },
+    {
+      "file": "models/age_gender_model.bin",
+      "bytes": 429708,
+      "sha256": "49f92bbc0afef234"
+    },
+    {
+      "file": "models/face_expression_model-weights_manifest.json",
+      "bytes": 6980,
+      "sha256": "5b349c17c7836da5"
+    },
+    {
+      "file": "models/face_expression_model.bin",
+      "bytes": 329468,
+      "sha256": "9a9840f2cf1f4c7e"
+    },
+    {
+      "file": "models/coco-ssd/model.json",
+      "bytes": 527315,
+      "sha256": "3770b2528339b1e3"
+    },
+    {
+      "file": "models/coco-ssd/group1-shard1of5",
+      "bytes": 4194304,
+      "sha256": "0e7af0f713e98521"
+    },
+    {
+      "file": "models/coco-ssd/group1-shard2of5",
+      "bytes": 4194304,
+      "sha256": "74cc6cfc2c4510c9"
+    },
+    {
+      "file": "models/coco-ssd/group1-shard3of5",
+      "bytes": 4194304,
+      "sha256": "50383033f893eae1"
+    },
+    {
+      "file": "models/coco-ssd/group1-shard4of5",
+      "bytes": 4194304,
+      "sha256": "d856dc534c780068"
+    },
+    {
+      "file": "models/coco-ssd/group1-shard5of5",
+      "bytes": 1257312,
+      "sha256": "3d356f1fb6dfca6a"
+    }
+  ]
+}

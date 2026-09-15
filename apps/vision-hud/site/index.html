@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>VISION HUD — Live-Objekt- und Gesichtserkennung</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+    />
+    <meta
+      name="description"
+      content="Mobile Kamera-Oberfläche mit Live-Erkennung von Objekten und Gesichtern. Die Auswertung läuft vollständig im Browser."
+    />
+    <meta name="theme-color" content="#04080c" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="robots" content="noindex" />
+
+    <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="assets/icons/touch-icon.png" />
+    <link rel="manifest" href="assets/manifest.webmanifest" />
+    <link rel="stylesheet" href="assets/css/hud.css" />
+  </head>
+
+  <body>
+    <!-- ================= Bühne: Videobild + HUD-Ebenen ================= -->
+    <main class="stage" id="stage">
+      <video
+        id="video"
+        class="stage__video"
+        playsinline
+        autoplay
+        muted
+        disablepictureinpicture
+      ></video>
+
+      <!-- Alles Gezeichnete: Rahmen, Beschriftungen, Fadenkreuze. -->
+      <canvas id="overlay" class="stage__overlay"></canvas>
+
+      <!-- Rein dekorative Ebenen; nehmen keine Eingaben entgegen. -->
+      <div class="fx" aria-hidden="true">
+        <div class="fx__grid"></div>
+        <div class="fx__scan"></div>
+        <div class="fx__grain"></div>
+        <div class="fx__vignette"></div>
+        <div class="fx__corner fx__corner--tl"></div>
+        <div class="fx__corner fx__corner--tr"></div>
+        <div class="fx__corner fx__corner--bl"></div>
+        <div class="fx__corner fx__corner--br"></div>
+      </div>
+
+      <!-- ================= Kopfzeile ================= -->
+      <header class="topbar" id="topbar">
+        <div class="topbar__brand">
+          <span class="topbar__dot" id="liveDot"></span>
+          <span class="topbar__title">VISION<b>HUD</b></span>
+          <span class="topbar__mode" id="modeTag">STANDBY</span>
+        </div>
+        <dl class="topbar__stats">
+          <div class="stat">
+            <dt>FPS</dt>
+            <dd id="statFps">–</dd>
+          </div>
+          <div class="stat">
+            <dt>OBJ</dt>
+            <dd id="statObjects">0</dd>
+          </div>
+          <div class="stat">
+            <dt>FACE</dt>
+            <dd id="statFaces">0</dd>
+          </div>
+          <div class="stat">
+            <dt>DB</dt>
+            <dd id="statKnown">0</dd>
+          </div>
+        </dl>
+      </header>
+
+      <!-- ================= Seitliche Anzeigen ================= -->
+      <aside class="rail rail--left" aria-hidden="true">
+        <div class="rail__label">SENSOR</div>
+        <div class="rail__bars" id="railBars"></div>
+        <div class="rail__value" id="railRes">—</div>
+      </aside>
+
+      <aside class="rail rail--right">
+        <div class="rail__label">KONTAKTE</div>
+        <ul class="contacts" id="contacts"></ul>
+      </aside>
+
+      <!-- Radar unten links: reine Zierde mit echten Trefferpunkten. -->
+      <div class="radar" aria-hidden="true">
+        <canvas id="radar" width="150" height="150"></canvas>
+        <div class="radar__sweep"></div>
+      </div>
+
+      <!-- ================= Meldungen ================= -->
+      <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+      <!-- ================= Bedienleiste ================= -->
+      <nav class="dock" id="dock">
+        <button class="dock__btn" id="btnObjects" type="button" aria-pressed="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 7l9-4 9 4v10l-9 4-9-4V7z" />
+            <path d="M3 7l9 4 9-4M12 11v10" />
+          </svg>
+          <span>Objekte</span>
+        </button>
+        <button class="dock__btn" id="btnFaces" type="button" aria-pressed="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M9 10h.01M15 10h.01M8.5 14.5a4.5 4.5 0 007 0" />
+          </svg>
+          <span>Gesichter</span>
+        </button>
+        <button class="dock__btn dock__btn--primary" id="btnRegister" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18" /></svg>
+          <span>Erfassen</span>
+        </button>
+        <button class="dock__btn" id="btnRoster" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
+          <span>Kartei</span>
+        </button>
+        <button class="dock__btn" id="btnFlip" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 9V7a2 2 0 00-2-2H6a2 2 0 00-2 2v2" />
+            <path d="M4 15v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+            <path d="M8 12l-4 3 4 3M16 6l4 3-4 3" />
+          </svg>
+          <span>Kamera</span>
+        </button>
+        <button class="dock__btn" id="btnSettings" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"
+            />
+          </svg>
+          <span>System</span>
+        </button>
+      </nav>
+    </main>
+
+    <!-- ================= Startbildschirm ================= -->
+    <section class="boot" id="boot">
+      <div class="boot__frame">
+        <div class="boot__logo">
+          <span class="boot__ring"></span>
+          <span class="boot__logoText">VISION<b>HUD</b></span>
+        </div>
+        <p class="boot__claim">Objekt- und Personenerkennung in Echtzeit</p>
+
+        <ol class="boot__log" id="bootLog"></ol>
+
+        <div class="boot__progress">
+          <div class="boot__progressBar" id="bootBar"></div>
+        </div>
+        <p class="boot__hint" id="bootHint">Die Auswertung läuft vollständig auf diesem Gerät.</p>
+
+        <button class="btn btn--big" id="btnStart" type="button">Kamera freigeben</button>
+
+        <p class="boot__legal">
+          Kein Bild verlässt dein Gerät. Gesichtsdaten liegen nur im Speicher dieses Browsers.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================= Fehlerbildschirm ================= -->
+    <section class="fault" id="fault" hidden>
+      <div class="fault__frame">
+        <div class="fault__icon">!</div>
+        <h2 class="fault__title" id="faultTitle">Kamera nicht verfügbar</h2>
+        <p class="fault__text" id="faultText"></p>
+        <ul class="fault__list" id="faultList"></ul>
+        <button class="btn" id="btnRetry" type="button">Erneut versuchen</button>
+      </div>
+    </section>
+
+    <!-- ================= Gesicht erfassen ================= -->
+    <section class="sheet" id="sheetRegister" hidden aria-labelledby="registerTitle">
+      <div class="sheet__panel">
+        <header class="sheet__head">
+          <h2 id="registerTitle">Gesicht erfassen</h2>
+          <button
+            class="sheet__close"
+            data-close="sheetRegister"
+            type="button"
+            aria-label="Schliessen"
+          >
+            ×
+          </button>
+        </header>
+
+        <div class="capture">
+          <div class="capture__preview">
+            <canvas id="capturePreview" width="200" height="200"></canvas>
+            <div class="capture__reticle"></div>
+          </div>
+          <div class="capture__meta">
+            <div class="capture__row"><span>Aufnahmen</span><b id="captureCount">0 / 5</b></div>
+            <div class="capture__row"><span>Schätzung</span><b id="captureAge">–</b></div>
+            <div class="capture__row"><span>Qualität</span><b id="captureQuality">–</b></div>
+            <div class="capture__bar"><i id="captureBar"></i></div>
+          </div>
+        </div>
+
+        <p class="sheet__hint" id="captureHint">
+          Halte ein Gesicht mittig ins Bild. Die Aufnahmen werden automatisch ausgelöst.
+        </p>
+
+        <form class="form" id="registerForm">
+          <label class="field">
+            <span class="field__label">Name</span>
+            <input
+              class="field__input"
+              id="fieldName"
+              type="text"
+              maxlength="32"
+              autocomplete="off"
+              required
+              placeholder="z. B. Tobias"
+            />
+          </label>
+          <label class="field">
+            <span class="field__label">Alter</span>
+            <input
+              class="field__input"
+              id="fieldAge"
+              type="number"
+              min="1"
+              max="120"
+              inputmode="numeric"
+              required
+              placeholder="Jahre"
+            />
+            <button class="field__ghost" id="btnUseEstimate" type="button">
+              Schätzung übernehmen
+            </button>
+          </label>
+
+          <p class="form__error" id="registerError" role="alert" hidden></p>
+
+          <div class="form__actions">
+            <button class="btn btn--ghost" type="button" data-close="sheetRegister">
+              Abbrechen
+            </button>
+            <button class="btn" id="btnSaveFace" type="submit" disabled>Speichern</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- ================= Kartei ================= -->
+    <section class="sheet" id="sheetRoster" hidden aria-labelledby="rosterTitle">
+      <div class="sheet__panel">
+        <header class="sheet__head">
+          <h2 id="rosterTitle">Kartei</h2>
+          <button
+            class="sheet__close"
+            data-close="sheetRoster"
+            type="button"
+            aria-label="Schliessen"
+          >
+            ×
+          </button>
+        </header>
+
+        <ul class="roster" id="rosterList"></ul>
+        <p class="sheet__empty" id="rosterEmpty">Noch niemand erfasst.</p>
+
+        <div class="sheet__footer">
+          <button class="btn btn--ghost" id="btnExport" type="button">Sichern</button>
+          <button class="btn btn--ghost" id="btnImport" type="button">Einlesen</button>
+          <button class="btn btn--danger" id="btnWipe" type="button">Alle löschen</button>
+          <input id="fileImport" type="file" accept="application/json" hidden />
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Systemeinstellungen ================= -->
+    <section class="sheet" id="sheetSettings" hidden aria-labelledby="settingsTitle">
+      <div class="sheet__panel">
+        <header class="sheet__head">
+          <h2 id="settingsTitle">System</h2>
+          <button
+            class="sheet__close"
+            data-close="sheetSettings"
+            type="button"
+            aria-label="Schliessen"
+          >
+            ×
+          </button>
+        </header>
+
+        <div class="settings" id="settingsBody"></div>
+
+        <div class="sheet__footer sheet__footer--info">
+          <div class="sheet__diag" id="diagnostics"></div>
+        </div>
+      </div>
+    </section>
+
+    <script type="module" src="assets/js/app.js"></script>
+    <noscript>
+      <p style="color: #cfe">Diese Seite braucht JavaScript und eine Kamera.</p>
+    </noscript>
+  </body>
+</html>

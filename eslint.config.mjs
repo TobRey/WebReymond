@@ -15,6 +15,9 @@ export default tseslint.config(
       '**/src/generated/**',
       '**/*.config.js',
       '**/*.config.mjs',
+      // Fremdcode und Modellgewichte des Kamera-HUDs (siehe apps/vision-hud).
+      'apps/vision-hud/site/assets/vendor/**',
+      'apps/vision-hud/site/assets/models/**',
     ],
   },
   js.configs.recommended,
@@ -38,6 +41,41 @@ export default tseslint.config(
     files: ['**/test/**/*.ts', '**/test/**/*.tsx', '**/*.test.ts', '**/*.test.tsx'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
+  {
+    // Das Kamera-HUD ist reines Browser-JavaScript ohne Bundler: keine
+    // TypeScript-Regeln, dafür die Browser-Globalen bekannt machen.
+    files: ['apps/vision-hud/site/assets/js/**/*.js'],
+    languageOptions: {
+      sourceType: 'module',
+      globals: {
+        confirm: 'readonly',
+        console: 'readonly',
+        document: 'readonly',
+        indexedDB: 'readonly',
+        localStorage: 'readonly',
+        navigator: 'readonly',
+        performance: 'readonly',
+        requestAnimationFrame: 'readonly',
+        setTimeout: 'readonly',
+        Blob: 'readonly',
+        URL: 'readonly',
+      },
+    },
+  },
+  {
+    // Hilfsskripte des Kamera-HUDs laufen in Node.
+    files: ['apps/vision-hud/tools/**/*.mjs'],
+    languageOptions: {
+      sourceType: 'module',
+      globals: {
+        Buffer: 'readonly',
+        URL: 'readonly',
+        console: 'readonly',
+        fetch: 'readonly',
+        process: 'readonly',
+      },
     },
   },
 );
