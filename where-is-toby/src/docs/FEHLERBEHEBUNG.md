@@ -40,6 +40,9 @@ speichern. Konten, Spielstaende und Faelle sind davon nicht betroffen.
 
 Die Seite stammt vom Spiel selbst, PHP laeuft also. Gepruefte Reihenfolge:
 
+0. **Schnellster Weg:** die Datei `pfad-test.php` (liegt dem Projekt unter `tools/` bei)
+   neben die `index.php` legen und im Browser oeffnen. Sie zeigt die Pfade des Servers,
+   den gespeicherten und den tatsaechlich verwendeten Basispfad. Danach wieder loeschen.
 1. **Adminbereich → Diagnose → Umgebung → "Basispfad".** Steht dort ein Unterordner, obwohl
    das Spiel im Hauptverzeichnis liegt (oder umgekehrt), war `base_path` in
    `app/config.local.php` falsch. Ab Version 1.0.0 verwendet die Anwendung in dem Fall den

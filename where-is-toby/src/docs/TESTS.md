@@ -7,6 +7,7 @@ Alle Tests laufen automatisiert gegen eine echte Installation. Stand: Version 1.
 | Ende-zu-Ende (PHP/cURL), Paket mit Assistent | 189 Pruefungen | **189 bestanden, 0 fehlgeschlagen** |
 | Automatische Einrichtung, Paket ohne Assistent | 165 Pruefungen | **165 bestanden, 0 fehlgeschlagen** |
 | Installation in einem Unterordner | 17 Pruefungen | **17 bestanden, 0 fehlgeschlagen** |
+| Basispfad-Erkennung (ohne Webserver) | 9 Serverkonstellationen | **9 bestanden, 0 fehlgeschlagen** |
 | Oberflaeche (Chromium/Playwright), beide Pakete | je 24 Pruefungen inkl. Screenshots | **24 bestanden, 0 fehlgeschlagen** |
 | Konsistenzpruefung Fall "Toby" | Raetsel, Beweise, Medien, Zeitachse | **0 Fehler, 0 Hinweise** |
 | Paketpruefung | Pflichtdateien, keine Geheimnisse im ZIP | **bestanden** |
@@ -130,6 +131,9 @@ php tools/test_autosetup.php http://127.0.0.1:8791 /pfad/zur/installation
 
 # Installation in einem Unterordner (Server auf dem uebergeordneten Ordner starten)
 php tools/test_subfolder.php http://127.0.0.1:8792/spiel /pfad/zum/webordner/spiel
+
+# Basispfad-Erkennung fuer verschiedene Hoster-Konstellationen (braucht keinen Server)
+php tools/test_basepath.php
 
 # Oberflaechentest inkl. Screenshots
 node tools/ui/ui_test.mjs http://127.0.0.1:8787 /pfad/fuer/screenshots

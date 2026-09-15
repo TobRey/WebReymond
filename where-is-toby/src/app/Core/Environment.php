@@ -50,7 +50,7 @@ final class Environment
     {
         $path = (string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/');
 
-        foreach ([is_string($stored) ? $stored : '', self::detectBasePath()] as $candidate) {
+        foreach ([is_string($stored) ? $stored : '', self::detectBasePath(), self::basePathFromUri()] as $candidate) {
             $candidate = rtrim(str_replace('\\', '/', $candidate), '/');
             if ($candidate === '') {
                 continue;
@@ -61,6 +61,42 @@ final class Environment
         }
 
         return '';
+    }
+
+    /**
+     * Ermittelt den Basispfad allein aus der aufgerufenen Adresse und dem eigenen
+     * Ordnernamen - ohne DOCUMENT_ROOT und ohne SCRIPT_NAME.
+     *
+     * Liegt die Anwendung z. B. in ".../htdocs/spiel" und wird "/spiel/faelle"
+     * aufgerufen, ist "/spiel" der gesuchte Pfad: die ersten Adressteile entsprechen
+     * den letzten Ordnernamen. Gebraucht wird das bei Hostern, deren DOCUMENT_ROOT
+     * nicht auf den tatsaechlich ausgelieferten Ordner zeigt.
+     */
+    private static function basePathFromUri(): string
+    {
+        $root = defined('WIT_ROOT') ? WIT_ROOT : dirname(__DIR__, 2);
+        $uri = (string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/');
+
+        $fromUri = self::segments(rawurldecode($uri));
+        $fromDirectory = self::segments(str_replace('\\', '/', $root));
+        if ($fromUri === [] || $fromDirectory === []) {
+            return '';
+        }
+
+        /* Laengste Uebereinstimmung gewinnt: so wird auch ".../apps/spiel" erkannt. */
+        for ($length = min(count($fromUri), count($fromDirectory)); $length >= 1; $length--) {
+            if (array_slice($fromUri, 0, $length) === array_slice($fromDirectory, -$length)) {
+                return '/' . implode('/', array_slice($fromUri, 0, $length));
+            }
+        }
+
+        return '';
+    }
+
+    /** @return string[] */
+    private static function segments(string $path): array
+    {
+        return array_values(array_filter(explode('/', trim($path, '/')), static fn (string $s): bool => $s !== ''));
     }
 
     private static function normalizePath(string $path): string
