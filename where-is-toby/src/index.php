@@ -86,6 +86,8 @@ $media = new MediaController($container);
 
 /* Oeffentlich */
 $router->get('/', [$home, 'index']);
+/* Direkter Aufruf des Front-Controllers (z. B. ohne mod_rewrite eingetippt) */
+$router->get('/index.php', static fn (): Response => Response::redirect('/'));
 $router->get('/impressum', [$home, 'imprint']);
 $router->get('/datenschutz', [$home, 'privacy']);
 $router->get('/hilfe', [$home, 'help']);

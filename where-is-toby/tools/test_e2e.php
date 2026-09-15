@@ -187,6 +187,32 @@ check('POST ohne CSRF-Token wird abgelehnt', $noCsrf['status'] === 403, 'Status 
 $traversal = http('GET', '/medien/..%2F..%2Fapp%2Fconfig.local.php');
 check('Path-Traversal blockiert', in_array($traversal['status'], [400, 403, 404], true), 'Status ' . $traversal['status']);
 
+/* Der Front-Controller darf auch direkt aufrufbar sein (z. B. ohne mod_rewrite eingetippt) */
+$front = http('GET', '/index.php');
+check('Direkter Aufruf von /index.php landet auf der Startseite',
+    in_array($front['status'], [200, 302], true), 'Status ' . $front['status']);
+check('Kein Treffer auf einen aehnlichen Pfad', http('GET', '/indexXphp')['status'] === 404);
+
+/* Ein falscher Basispfad in der Konfiguration darf nicht die ganze Seite lahmlegen:
+   frueher lieferte dann jede Adresse 404. */
+if ($DIR !== '' && is_file($DIR . '/app/config.local.php')) {
+    $configFile = $DIR . '/app/config.local.php';
+    $original = (string)file_get_contents($configFile);
+    $broken = preg_replace("~'base_path' => '[^']*'~", "'base_path' => '/falscher-ordner'", $original, 1);
+    if (is_string($broken) && $broken !== $original && file_put_contents($configFile, $broken) !== false) {
+        clearstatcache();
+        $rescue = http('GET', '/');
+        check('Falscher Basispfad wird selbst korrigiert',
+            in_array($rescue['status'], [200, 302], true) && !str_contains($rescue['headers'], '/falscher-ordner'),
+            'Status ' . $rescue['status']);
+        $rescuePage = http('GET', '/faelle');
+        check('Unterseiten bleiben erreichbar', $rescuePage['status'] === 200, 'Status ' . $rescuePage['status']);
+        file_put_contents($configFile, $original);
+        clearstatcache();
+        check('Konfiguration wiederhergestellt', (string)file_get_contents($configFile) === $original);
+    }
+}
+
 $headers = http('GET', '/login')['headers'];
 check('Content-Security-Policy gesetzt', str_contains($headers, 'Content-Security-Policy'));
 check('X-Content-Type-Options gesetzt', str_contains($headers, 'nosniff'));

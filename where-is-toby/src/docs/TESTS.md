@@ -4,9 +4,9 @@ Alle Tests laufen automatisiert gegen eine echte Installation. Stand: Version 1.
 
 | Testlauf | Umfang | Ergebnis |
 |---|---|---|
-| Ende-zu-Ende (PHP/cURL), Paket mit Assistent | 184 Pruefungen | **184 bestanden, 0 fehlgeschlagen** |
+| Ende-zu-Ende (PHP/cURL), Paket mit Assistent | 189 Pruefungen | **189 bestanden, 0 fehlgeschlagen** |
 | Automatische Einrichtung, Paket ohne Assistent | 165 Pruefungen | **165 bestanden, 0 fehlgeschlagen** |
-| Installation in einem Unterordner | 16 Pruefungen | **16 bestanden, 0 fehlgeschlagen** |
+| Installation in einem Unterordner | 17 Pruefungen | **17 bestanden, 0 fehlgeschlagen** |
 | Oberflaeche (Chromium/Playwright), beide Pakete | je 24 Pruefungen inkl. Screenshots | **24 bestanden, 0 fehlgeschlagen** |
 | Konsistenzpruefung Fall "Toby" | Raetsel, Beweise, Medien, Zeitachse | **0 Fehler, 0 Hinweise** |
 | Paketpruefung | Pflichtdateien, keine Geheimnisse im ZIP | **bestanden** |
@@ -40,6 +40,9 @@ Alle Laeufe erfolgten gegen frisch entpackte ZIP-Pakete, nicht gegen den Arbeits
 * Sicherheitsheader (CSP, `nosniff`) vorhanden
 * Sperrregel der `.htaccess` ist am Ordneranfang verankert und kein festes `RewriteBase`
   gesetzt; eine Adresse wie `/api/case/toby/device/.../app/messages` erreicht die Anwendung
+* `/index.php` fuehrt zur Startseite, ein aehnlicher Pfad (`/indexXphp`) dagegen auf 404
+* ein falscher `base_path` in der Konfiguration legt die Seite nicht lahm: Start- und
+  Unterseiten bleiben erreichbar, der erkannte Pfad wird verwendet
 * Kein API-Schluessel im HTML, keine Loesungen und internen Felder im Quelltext
 * Uploads: PHP-Datei abgelehnt, getarnte PHP-Datei mit `.png` abgelehnt, SVG wird bereinigt
   ausgeliefert, Upload ohne Rechtebestaetigung abgelehnt, Medien nur fuer angemeldete Konten

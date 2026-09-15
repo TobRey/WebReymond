@@ -62,6 +62,10 @@ if (preg_match('~(?:href|src)="([^"]*assets/css/base\.css[^"]*)"~', $home['body'
     check('Gestaltung wird ausgeliefert', false, 'base.css nicht in der Seite gefunden');
 }
 
+$front = http('GET', '/index.php');
+check('Direkter Aufruf von /index.php funktioniert auch im Unterordner',
+    in_array($front['status'], [200, 302], true), 'Status ' . $front['status']);
+
 $login = http('GET', '/login');
 $csrf = csrfFrom($login['body']);
 $result = http('POST', '/login', ['_csrf' => $csrf, 'username' => 'tobi', 'password' => 'Marihuana420!!']);

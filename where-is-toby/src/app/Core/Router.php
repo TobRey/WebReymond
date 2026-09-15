@@ -29,10 +29,15 @@ final class Router
 
     private function add(string $method, string $path, callable $handler): void
     {
+        /* Platzhalter werden zu Gruppen, alles andere wird woertlich genommen -
+           sonst wuerde ein Punkt im Pfad (z. B. "/index.php") jedes Zeichen treffen. */
         $params = [];
-        $pattern = preg_replace_callback('~\{([a-zA-Z_]+)\}~', static function (array $m) use (&$params): string {
-            $params[] = $m[1];
-            return '([A-Za-z0-9_.\-]+)';
+        $pattern = preg_replace_callback('~\{([a-zA-Z_]+)\}|[^{]+~', static function (array $m) use (&$params): string {
+            if (($m[1] ?? '') !== '') {
+                $params[] = $m[1];
+                return '([A-Za-z0-9_.\-]+)';
+            }
+            return preg_quote($m[0], '~');
         }, $path);
         $this->routes[$method][] = [
             'pattern' => '~^' . $pattern . '$~',

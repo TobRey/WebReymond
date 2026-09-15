@@ -36,6 +36,20 @@ speichern. Konten, Spielstaende und Faelle sind davon nicht betroffen.
 * Falls der Hoster `mod_rewrite` nicht bereitstellt, funktioniert nur `index.php` direkt.
   In dem Fall beim Support nachfragen (auf GoDaddy-cPanel ist `mod_rewrite` Standard).
 
+## Jede Adresse zeigt die 404-Seite des Spiels ("Zugriff gestoert")
+
+Die Seite stammt vom Spiel selbst, PHP laeuft also. Gepruefte Reihenfolge:
+
+1. **Adminbereich → Diagnose → Umgebung → "Basispfad".** Steht dort ein Unterordner, obwohl
+   das Spiel im Hauptverzeichnis liegt (oder umgekehrt), war `base_path` in
+   `app/config.local.php` falsch. Ab Version 1.0.0 verwendet die Anwendung in dem Fall den
+   selbst erkannten Pfad; der Eintrag kann dort korrigiert oder auf `''` gesetzt werden.
+2. **Diagnose → "mod_rewrite".** Fehlt das Modul, erreicht nur `index.php` selbst die
+   Anwendung. Beim Hoster aktivieren lassen.
+3. Wurde die `.htaccess` mit hochgeladen? Im File Manager **Settings → Show Hidden Files**.
+4. Ist der Adminbereich selbst nicht erreichbar, `app/config.local.php` im File Manager
+   oeffnen und `'base_path' => ''` eintragen (bzw. `'/unterordner'`), dann neu laden.
+
 ## Alle Links fuehren auf die Startseite / 404 im Unterordner
 
 Der Basispfad steht in `app/config.local.php` (`base_path`). Beim Umzug in einen Unterordner

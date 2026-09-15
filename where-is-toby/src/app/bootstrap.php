@@ -56,7 +56,7 @@ define('WIT_INSTALLED', (bool)($local['installed'] ?? false));
 define('WIT_STORAGE', rtrim((string)($local['storage_path'] ?? (WIT_ROOT . '/storage')), '/'));
 define('WIT_UPLOADS', rtrim((string)($local['uploads_path'] ?? (WIT_ROOT . '/uploads')), '/'));
 define('WIT_APP_KEY', (string)($local['app_key'] ?? ''));
-define('WIT_BASE_PATH', rtrim((string)($local['base_path'] ?? \App\Core\Environment::detectBasePath()), '/'));
+define('WIT_BASE_PATH', \App\Core\Environment::resolveBasePath($local['base_path'] ?? null));
 define('WIT_DEBUG', (bool)($local['debug'] ?? false));
 
 \App\Core\Logger::configure(WIT_STORAGE . '/logs');

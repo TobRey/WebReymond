@@ -80,7 +80,44 @@ final class DiagnosticsService
         $checks[] = $this->check('Maximale Laufzeit', (int)ini_get('max_execution_time') >= 30 || (int)ini_get('max_execution_time') === 0 ? 'ok' : 'warn', 'max_execution_time = ' . ini_get('max_execution_time') . 's', 'Fuer KI-Anfragen sind mindestens 30 Sekunden sinnvoll.');
         $checks[] = $this->check('Upload-Groesse', $this->bytes((string)ini_get('upload_max_filesize')) >= 8388608 ? 'ok' : 'warn', 'upload_max_filesize = ' . ini_get('upload_max_filesize'));
 
+        $stored = rtrim((string)(self::storedConfig()['base_path'] ?? ''), '/');
+        $active = WIT_BASE_PATH;
+        $checks[] = $this->check(
+            'Basispfad',
+            $stored === $active ? 'ok' : 'warn',
+            ($active === '' ? 'Hauptverzeichnis der Domain' : 'Unterordner "' . $active . '"')
+                . ($stored === $active ? '' : ' - in der Konfiguration steht "' . ($stored === '' ? '(leer)' : $stored) . '"'),
+            $stored === $active
+                ? ''
+                : 'Die Anwendung verwendet den erkannten Pfad, damit die Seite erreichbar bleibt. '
+                  . 'In "app/config.local.php" kann "base_path" auf "' . $active . '" gesetzt werden.'
+        );
+
+        $rewrite = function_exists('apache_get_modules') ? in_array('mod_rewrite', apache_get_modules(), true) : null;
+        if ($rewrite !== null) {
+            $checks[] = $this->check(
+                'mod_rewrite',
+                $rewrite ? 'ok' : 'fail',
+                $rewrite ? 'aktiv' : 'nicht geladen - ohne das Modul fuehren alle Links ins Leere',
+                $rewrite ? '' : 'Beim Hoster mod_rewrite aktivieren lassen (auf cPanel Standard).'
+            );
+        }
+
         return ['title' => 'Umgebung', 'checks' => $checks];
+    }
+
+    /** Liest die abgelegte Konfiguration (fuer den Vergleich mit den aktiven Werten). */
+    private static function storedConfig(): array
+    {
+        foreach ([WIT_APP . '/config.local.php', WIT_ROOT . '/storage/settings/config.local.php'] as $candidate) {
+            if (is_file($candidate)) {
+                $loaded = @require $candidate;
+                if (is_array($loaded) && ($loaded['installed'] ?? false)) {
+                    return $loaded;
+                }
+            }
+        }
+        return [];
     }
 
     private function filesystemChecks(): array
