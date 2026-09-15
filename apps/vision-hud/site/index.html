@@ -2,14 +2,14 @@
 <html lang="de">
   <head>
     <meta charset="utf-8" />
-    <title>VISION HUD — Live-Objekt- und Gesichtserkennung</title>
+    <title>VISION HUD — ReyRey, Objekt- und Gesichtserkennung</title>
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
     />
     <meta
       name="description"
-      content="Mobile Kamera-Oberfläche mit Live-Erkennung von Objekten und Gesichtern. Die Auswertung läuft vollständig im Browser."
+      content="Mobile Kamera-Oberfläche mit dem Assistenten ReyRey: Objekte, Personen, Text und Bewegung in Echtzeit."
     />
     <meta name="theme-color" content="#04080c" />
     <meta name="color-scheme" content="dark" />
@@ -97,6 +97,28 @@
         <div class="radar__sweep"></div>
       </div>
 
+      <!-- ================= Gefahrenband ================= -->
+      <div class="alarm" id="alarm" hidden role="alert">
+        <span class="alarm__icon">!</span>
+        <span class="alarm__text" id="alarmText"></span>
+        <span class="alarm__note">unverbindlicher Hinweis</span>
+      </div>
+
+      <!-- ================= ReyRey ================= -->
+      <div class="rey" id="rey" data-state="aus">
+        <button class="rey__orb" id="reyOrb" type="button" aria-label="ReyRey fragen">
+          <span class="rey__core"></span>
+          <span class="rey__ring"></span>
+          <span class="rey__ring rey__ring--slow"></span>
+          <span class="rey__wave"></span>
+        </button>
+        <div class="rey__bubble" id="reyBubble" hidden>
+          <div class="rey__name" id="reyName">REYREY</div>
+          <p class="rey__text" id="reyText"></p>
+          <div class="rey__heard" id="reyHeard"></div>
+        </div>
+      </div>
+
       <!-- ================= Meldungen ================= -->
       <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 
@@ -120,9 +142,20 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18" /></svg>
           <span>Erfassen</span>
         </button>
-        <button class="dock__btn" id="btnRoster" type="button">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
-          <span>Kartei</span>
+        <button class="dock__btn" id="btnScan" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3"
+            />
+            <path d="M4 12h16" />
+          </svg>
+          <span>Scan</span>
+        </button>
+        <button class="dock__btn" id="btnText" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 7V5h16v2M9 19h6M12 5v14" />
+          </svg>
+          <span>Text</span>
         </button>
         <button class="dock__btn" id="btnFlip" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -241,6 +274,18 @@
             </button>
           </label>
 
+          <label class="field">
+            <span class="field__label">Notiz (freiwillig)</span>
+            <input
+              class="field__input"
+              id="fieldNote"
+              type="text"
+              maxlength="120"
+              autocomplete="off"
+              placeholder="z. B. Bruder, wohnt in Zürich"
+            />
+          </label>
+
           <p class="form__error" id="registerError" role="alert" hidden></p>
 
           <div class="form__actions">
@@ -295,11 +340,196 @@
           </button>
         </header>
 
+        <div class="quick">
+          <button class="btn btn--ghost" id="btnRoster" type="button">Kartei</button>
+          <button class="btn btn--ghost" id="btnThings" type="button">Gegenstände</button>
+          <button class="btn btn--ghost" id="btnRememberObject" type="button">Merken</button>
+          <a class="btn btn--ghost" href="pruefung.html">Selbsttest</a>
+        </div>
+
         <div class="settings" id="settingsBody"></div>
 
         <div class="sheet__footer sheet__footer--info">
-          <div class="sheet__diag" id="diagnostics"></div>
+          <details class="diag">
+            <summary>Technische Angaben</summary>
+            <div class="sheet__diag" id="diagnostics"></div>
+          </details>
         </div>
+      </div>
+    </section>
+
+    <!-- ================= Gegenstand merken ================= -->
+    <section class="sheet" id="sheetObject" hidden aria-labelledby="objectTitle">
+      <div class="sheet__panel">
+        <header class="sheet__head">
+          <h2 id="objectTitle">Gegenstand merken</h2>
+          <button
+            class="sheet__close"
+            data-close="sheetObject"
+            type="button"
+            aria-label="Schliessen"
+          >
+            ×
+          </button>
+        </header>
+
+        <div class="capture">
+          <div class="capture__preview">
+            <canvas id="objectPreview" width="200" height="200"></canvas>
+            <div class="capture__reticle"></div>
+          </div>
+          <div class="capture__meta">
+            <div class="capture__row"><span>Erkannt als</span><b id="objectClass">–</b></div>
+            <div class="capture__row"><span>Sicherheit</span><b id="objectScore">–</b></div>
+          </div>
+        </div>
+
+        <p class="sheet__hint">
+          Halte den Gegenstand gross und mittig ins Bild. Ich erkenne ihn später an Form und Farbe
+          wieder – zwei baugleiche Dinge kann ich nicht auseinanderhalten.
+        </p>
+
+        <form class="form" id="objectForm">
+          <label class="field">
+            <span class="field__label">Name</span>
+            <input
+              class="field__input"
+              id="objectName"
+              type="text"
+              maxlength="48"
+              required
+              autocomplete="off"
+              placeholder="z. B. Mein Rucksack"
+            />
+          </label>
+          <label class="field">
+            <span class="field__label">Notiz (freiwillig)</span>
+            <input
+              class="field__input"
+              id="objectNote"
+              type="text"
+              maxlength="200"
+              autocomplete="off"
+              placeholder="z. B. Schlüssel in der Vordertasche"
+            />
+          </label>
+          <p class="form__error" id="objectError" role="alert" hidden></p>
+          <div class="form__actions">
+            <button class="btn btn--ghost" type="button" data-close="sheetObject">Abbrechen</button>
+            <button class="btn" id="btnSaveObject" type="submit">Merken</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- ================= Gegenstände ================= -->
+    <section class="sheet" id="sheetThings" hidden aria-labelledby="thingsTitle">
+      <div class="sheet__panel">
+        <header class="sheet__head">
+          <h2 id="thingsTitle">Meine Gegenstände</h2>
+          <button
+            class="sheet__close"
+            data-close="sheetThings"
+            type="button"
+            aria-label="Schliessen"
+          >
+            ×
+          </button>
+        </header>
+        <ul class="roster" id="thingsList"></ul>
+        <p class="sheet__empty" id="thingsEmpty">Noch nichts gemerkt.</p>
+        <div class="sheet__footer">
+          <button class="btn" id="btnRememberObject2" type="button">Gegenstand merken</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Zustimmung ================= -->
+    <section class="sheet" id="sheetConsent" hidden aria-labelledby="consentTitle">
+      <div class="sheet__panel">
+        <header class="sheet__head">
+          <h2 id="consentTitle">Einverständnis</h2>
+          <button
+            class="sheet__close"
+            data-close="sheetConsent"
+            type="button"
+            aria-label="Schliessen"
+          >
+            ×
+          </button>
+        </header>
+        <div class="consent" id="consentBody"></div>
+        <div class="form__actions">
+          <button class="btn btn--ghost" type="button" data-close="sheetConsent">Nein</button>
+          <button class="btn" id="btnConsentYes" type="button">Ja, einverstanden</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Kennwort ================= -->
+    <section class="sheet" id="sheetVault" hidden aria-labelledby="vaultTitle">
+      <div class="sheet__panel">
+        <header class="sheet__head">
+          <h2 id="vaultTitle">Verschlüsselung</h2>
+          <button
+            class="sheet__close"
+            data-close="sheetVault"
+            type="button"
+            aria-label="Schliessen"
+          >
+            ×
+          </button>
+        </header>
+        <p class="sheet__hint" id="vaultHint"></p>
+        <form class="form" id="vaultForm">
+          <label class="field">
+            <span class="field__label">Kennwort</span>
+            <input
+              class="field__input"
+              id="vaultPass"
+              type="password"
+              minlength="8"
+              autocomplete="current-password"
+              required
+              placeholder="mindestens 8 Zeichen"
+            />
+          </label>
+          <p class="form__error" id="vaultError" role="alert" hidden></p>
+          <div class="form__actions">
+            <button class="btn btn--ghost" type="button" data-close="sheetVault">Abbrechen</button>
+            <button class="btn" id="btnVaultGo" type="submit">Bestätigen</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- ================= ReyRey fragen (getippt) ================= -->
+    <section class="sheet" id="sheetAsk" hidden aria-labelledby="askTitle">
+      <div class="sheet__panel">
+        <header class="sheet__head">
+          <h2 id="askTitle">ReyRey fragen</h2>
+          <button class="sheet__close" data-close="sheetAsk" type="button" aria-label="Schliessen">
+            ×
+          </button>
+        </header>
+        <ul class="chat" id="chatLog"></ul>
+        <form class="form" id="askForm">
+          <label class="field">
+            <span class="field__label">Frage</span>
+            <input
+              class="field__input"
+              id="askInput"
+              type="text"
+              maxlength="300"
+              autocomplete="off"
+              placeholder="Was siehst du?"
+            />
+          </label>
+          <div class="form__actions">
+            <button class="btn btn--ghost" id="btnAskMic" type="button">Mikrofon</button>
+            <button class="btn" type="submit">Fragen</button>
+          </div>
+        </form>
       </div>
     </section>
 

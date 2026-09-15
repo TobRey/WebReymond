@@ -28,6 +28,12 @@ const { colors } = CONFIG.hud;
 const SAFE_TOP = 56;
 const SAFE_BOTTOM = 96;
 
+/** Farben, die nicht aus der Grundpalette kommen. */
+const HAZARD_HIGH = '#ff4d6d';
+const HAZARD_MID = '#ffb648';
+const MEMORY = '#c9a0ff';
+const TEXT_BOX = '#4fe3ff';
+
 export class Hud {
   /**
    * @param {HTMLCanvasElement} canvas
@@ -95,36 +101,192 @@ export class Hud {
    * @param {object} state.settings
    * @param {number} state.time    Zeitstempel für Animationen
    */
-  render({ objects, faces, settings, time }) {
+  render({ objects, faces, settings, time, hazards = [], words = [], scanning = 0 }) {
     this.resize();
     this.clear();
     const layout = this.#layout();
 
+    // Die Anzeige lässt sich per Sprache oder Geste ganz abschalten.
+    if (settings.hudVisible === false) return;
+
+    // Erkannter Text liegt unter den Rahmen, damit er sie nicht verdeckt.
+    if (words.length > 0) this.#drawWords(words, layout);
+
+    const risky = new Map(hazards.map((hazard) => [hazard.trackId, hazard]));
+
     if (settings.objects) {
-      for (const track of objects) this.#drawObject(track, layout, time, settings);
+      for (const track of objects) {
+        this.#drawObject(track, layout, time, settings, risky.get(track.id));
+      }
     }
     if (settings.faces) {
       for (const track of faces) this.#drawFace(track, layout, time, settings);
     }
+
+    if (scanning > 0) this.#drawScanSweep(scanning, time);
   }
 
   /* ---------------- Objekte und Personen ---------------- */
 
-  #drawObject(track, layout, time, settings) {
+  #drawObject(track, layout, time, settings, hazard) {
     const rect = this.#project(track.display, layout);
     const isPerson = track.kind === 'person';
-    const color = isPerson ? colors.person : colors.object;
+
+    // Ein eigener, wiedererkannter Gegenstand bekommt seine eigene Farbe,
+    // eine Gefahrenmeldung übersteuert alles andere.
+    const remembered = track.memory?.item ?? null;
+    let color = isPerson ? colors.person : colors.object;
+    if (remembered) color = MEMORY;
+    if (hazard) color = hazard.level === 'hoch' ? HAZARD_HIGH : HAZARD_MID;
+
     const alpha = Math.min(1, track.lock) * (track.missed > 0 ? 0.55 : 1);
 
     this.#frame(rect, color, alpha, track.lock);
-    if (isPerson) this.#boxScan(rect, color, alpha, time);
+    if (isPerson || hazard) this.#boxScan(rect, color, alpha, time);
+    if (hazard) this.#hazardRing(rect, color, time);
+    if (settings.motionArrows) this.#motionArrow(rect, track, color, alpha);
 
     const percent = Math.round(track.score * 100);
-    const title = labelFor(track.label);
-    const text = settings.showScores ? `${title} ${percent}%` : title;
-    const meta = settings.showTrackIds ? `ID ${String(track.id).padStart(3, '0')}` : '';
+    const title = remembered ? remembered.name.toUpperCase() : labelFor(track.label);
+    const text = settings.showScores && !remembered ? `${title} ${percent}%` : title;
 
-    this.#label(rect, text, meta, color, alpha);
+    const meta = [];
+    if (hazard) meta.push(hazard.text.toUpperCase());
+    else if (remembered?.note) meta.push(remembered.note.slice(0, 28).toUpperCase());
+    else if (track.motion?.moving) meta.push(track.motion.direction.toUpperCase());
+    if (settings.showTrackIds) meta.push(`ID ${String(track.id).padStart(3, '0')}`);
+
+    this.#label(rect, text, meta.join(' · '), color, alpha);
+  }
+
+  /** Pfeil in Bewegungsrichtung, Länge nach Geschwindigkeit. */
+  #motionArrow(rect, track, color, alpha) {
+    const motion = track.motion;
+    if (!motion?.moving) return;
+
+    const ctx = this.ctx;
+    const cx = rect.x + rect.w / 2;
+    const cy = rect.y + rect.h / 2;
+    const length = Math.min(58, 18 + motion.speed * 130);
+
+    // Kommt etwas frontal näher, gibt es keine sinnvolle Richtung in der
+    // Bildebene – dann wächst stattdessen ein Ring nach aussen.
+    if (motion.direction === 'auf dich zu' || motion.direction === 'von dir weg') {
+      const growing = motion.direction === 'auf dich zu';
+      ctx.globalAlpha = alpha * 0.75;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      for (const step of [0, 1]) {
+        const radius =
+          Math.min(rect.w, rect.h) * (growing ? 0.24 + step * 0.13 : 0.5 - step * 0.13);
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      return;
+    }
+
+    const dx = Math.cos(motion.angle) * length;
+    const dy = Math.sin(motion.angle) * length;
+    const tipX = cx + dx;
+    const tipY = cy + dy;
+    const head = 8;
+
+    ctx.globalAlpha = alpha * 0.85;
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(tipX, tipY);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(
+      tipX - Math.cos(motion.angle - 0.42) * head,
+      tipY - Math.sin(motion.angle - 0.42) * head,
+    );
+    ctx.lineTo(
+      tipX - Math.cos(motion.angle + 0.42) * head,
+      tipY - Math.sin(motion.angle + 0.42) * head,
+    );
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  /** Pulsierender Ring um ein Ziel, das als Gefahr gilt. */
+  #hazardRing(rect, color, time) {
+    const ctx = this.ctx;
+    const cx = rect.x + rect.w / 2;
+    const cy = rect.y + rect.h / 2;
+    const base = Math.max(rect.w, rect.h) * 0.6;
+    const pulse = (time % 1100) / 1100;
+
+    ctx.globalAlpha = (1 - pulse) * 0.55;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cx, cy, base * (0.6 + pulse * 0.5), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  /** Kästchen um erkannte Wörter. */
+  #drawWords(words, layout) {
+    const ctx = this.ctx;
+    ctx.strokeStyle = TEXT_BOX;
+    ctx.lineWidth = 1;
+
+    for (const word of words) {
+      const rect = this.#project(word.box, layout);
+      if (rect.w < 4 || rect.h < 4) continue;
+      ctx.globalAlpha = 0.25 + word.confidence * 0.45;
+      ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+
+      // Übersetzte Wörter werden direkt über das Original gelegt.
+      if (word.replacement) {
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = 'rgba(4,12,16,0.9)';
+        ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+        ctx.fillStyle = TEXT_BOX;
+        const size = Math.max(9, Math.min(18, rect.h * 0.78));
+        ctx.font = `600 ${size}px ui-monospace, Menlo, monospace`;
+        ctx.textBaseline = 'middle';
+        ctx.fillText(word.replacement, rect.x + 2, rect.y + rect.h / 2, rect.w - 4);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** Waagrechter Balken, der beim Scannen einmal durchs Bild läuft. */
+  #drawScanSweep(progress, time) {
+    const ctx = this.ctx;
+    const y = this.cssHeight * progress;
+
+    const gradient = ctx.createLinearGradient(0, y - 26, 0, y + 26);
+    gradient.addColorStop(0, 'rgba(43,245,221,0)');
+    gradient.addColorStop(0.5, 'rgba(43,245,221,0.55)');
+    gradient.addColorStop(1, 'rgba(43,245,221,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, y - 26, this.cssWidth, 52);
+
+    ctx.strokeStyle = 'rgba(43,245,221,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(this.cssWidth, y);
+    ctx.stroke();
+
+    ctx.fillStyle = '#2bf5dd';
+    ctx.font = '600 11px ui-monospace, Menlo, monospace';
+    ctx.textBaseline = 'bottom';
+    const blink = Math.floor(time / 260) % 4;
+    ctx.fillText(`SCAN ${Math.round(progress * 100)}%${'.'.repeat(blink)}`, 14, y - 8);
   }
 
   /* ---------------- Gesichter ---------------- */
@@ -139,21 +301,32 @@ export class Hud {
     this.#frame(rect, color, alpha, track.lock);
     this.#crosshair(rect, color, alpha * 0.8);
     this.#boxScan(rect, color, alpha, time);
+    if (settings.motionArrows) this.#motionArrow(rect, track, color, alpha);
 
     let text;
     let meta;
 
-    if (known) {
+    if (known && settings.privacy) {
+      // Im Privatmodus wird niemand beim Namen genannt.
+      text = 'BEKANNT';
+      meta = 'PRIVATMODUS';
+    } else if (known) {
       const percent = Math.round(identity.confidence * 100);
       text = settings.showScores
         ? `${identity.person.name.toUpperCase()} ${percent}%`
         : identity.person.name.toUpperCase();
       meta = `${identity.person.age} JAHRE`;
-      if (identity.expression) meta += ` · ${moodFor(identity.expression).toUpperCase()}`;
+      // Ausdrücke sind grob und unsicher – das Fragezeichen sagt das.
+      if (identity.expression && identity.expression !== 'neutral') {
+        meta += ` · ${moodFor(identity.expression).toUpperCase()}?`;
+      }
+      if (identity.person.note) meta += ` · ${identity.person.note.slice(0, 24).toUpperCase()}`;
     } else if (identity) {
       text = 'UNBEKANNT';
       meta = `SCHÄTZUNG ${Math.round(identity.age)} J`;
-      if (identity.expression) meta += ` · ${moodFor(identity.expression).toUpperCase()}`;
+      if (identity.expression && identity.expression !== 'neutral') {
+        meta += ` · ${moodFor(identity.expression).toUpperCase()}?`;
+      }
     } else {
       // Noch keine Antwort aus der teuren Stufe – Laufschrift statt leerem Rahmen.
       const dots = '.'.repeat(1 + (Math.floor(time / 320) % 3));

@@ -25,10 +25,25 @@ function toPromise(request) {
 }
 
 export class PeopleStore {
-  constructor() {
+  /**
+   * @param {import('./privacy.js').Vault} [vault] Wenn ein Kennwort gesetzt
+   *        ist, werden Name, Alter, Notiz, Bild und Merkmalsvektoren
+   *        verschlüsselt abgelegt (siehe privacy.js).
+   */
+  constructor(vault = null) {
     this.db = null;
     /** Wird auf true gesetzt, sobald IndexedDB nicht nutzbar ist. */
     this.usesFallback = false;
+    this.vault = vault;
+    this.#locked = 0;
+  }
+
+  /** Anzahl Datensätze, die hinter dem Kennwort liegen. */
+  #locked = 0;
+
+  /** Datensätze, die verschlüsselt sind, ohne dass der Tresor offen ist. */
+  get hasLockedRows() {
+    return this.#locked > 0;
   }
 
   async open() {
@@ -60,24 +75,47 @@ export class PeopleStore {
 
   async all() {
     await this.open();
-    if (this.usesFallback) return readFallback();
+    const rows = this.usesFallback
+      ? readFallbackRaw()
+      : await toPromise(this.db.transaction(STORE, 'readonly').objectStore(STORE).getAll());
 
-    const tx = this.db.transaction(STORE, 'readonly');
-    const rows = await toPromise(tx.objectStore(STORE).getAll());
-    return rows.map(reviveRecord).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    const people = [];
+    this.#locked = 0;
+
+    for (const row of rows) {
+      if (row.sealed) {
+        // Verschlüsselter Datensatz: nur lesbar, wenn der Tresor offen ist.
+        if (!this.vault?.key) {
+          this.#locked += 1;
+          continue;
+        }
+        try {
+          people.push(await this.vault.openPerson(row));
+        } catch {
+          this.#locked += 1;
+        }
+      } else {
+        people.push(reviveRecord(row));
+      }
+    }
+
+    return people.sort((a, b) => a.name.localeCompare(b.name, 'de'));
   }
 
   async put(person) {
     await this.open();
+    // Steht ein Kennwort und ist der Tresor offen, wird verschlüsselt abgelegt.
+    const record = this.vault?.key ? await this.vault.sealPerson(person) : serialiseRecord(person);
+
     if (this.usesFallback) {
-      const rows = readFallback().filter((row) => row.id !== person.id);
-      rows.push(person);
-      writeFallback(rows);
+      const rows = readFallbackRaw().filter((row) => row.id !== person.id);
+      rows.push(record);
+      writeFallbackRaw(rows);
       return person;
     }
 
     const tx = this.db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).put(serialiseRecord(person));
+    tx.objectStore(STORE).put(record);
     await new Promise((resolve, reject) => {
       tx.oncomplete = resolve;
       tx.onerror = () => reject(tx.error ?? new Error('Speichern fehlgeschlagen'));
@@ -88,7 +126,7 @@ export class PeopleStore {
   async remove(id) {
     await this.open();
     if (this.usesFallback) {
-      writeFallback(readFallback().filter((row) => row.id !== id));
+      writeFallbackRaw(readFallbackRaw().filter((row) => row.id !== id));
       return;
     }
     const tx = this.db.transaction(STORE, 'readwrite');
@@ -101,7 +139,7 @@ export class PeopleStore {
   async clear() {
     await this.open();
     if (this.usesFallback) {
-      writeFallback([]);
+      writeFallbackRaw([]);
       return;
     }
     const tx = this.db.transaction(STORE, 'readwrite');
@@ -123,23 +161,27 @@ function serialiseRecord(person) {
   return { ...person, descriptors: person.descriptors.map((d) => Array.from(d)) };
 }
 
+/**
+ * Wandelt alles um, was zwischen zwei Sitzungen erhalten bleiben muss.
+ * Verschlüsselte Datensätze werden dabei nicht angefasst.
+ */
+
 function reviveRecord(row) {
   return { ...row, descriptors: (row.descriptors ?? []).map((d) => Float32Array.from(d)) };
 }
 
-function readFallback() {
+function readFallbackRaw() {
   try {
     const raw = localStorage.getItem(FALLBACK_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw).map(reviveRecord);
+    return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
   }
 }
 
-function writeFallback(rows) {
+function writeFallbackRaw(rows) {
   try {
-    localStorage.setItem(FALLBACK_KEY, JSON.stringify(rows.map(serialiseRecord)));
+    localStorage.setItem(FALLBACK_KEY, JSON.stringify(rows));
   } catch {
     /* Voller oder gesperrter Speicher: Die Sitzung läuft ohne Ablage weiter. */
   }

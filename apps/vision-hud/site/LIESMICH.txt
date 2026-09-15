@@ -1,10 +1,10 @@
 ================================================================================
-  VISION HUD  –  Hochladen auf GoDaddy (cPanel)
+  VISION HUD mit ReyRey  –  Hochladen auf GoDaddy (cPanel)
 ================================================================================
 
-Diese Seite erkennt Objekte und Gesichter live über die Handykamera.
-Alles rechnet im Browser des Besuchers. Es gibt keine Datenbank, kein PHP und
-keinen Server-Prozess – nur Dateien.
+Kamera-Seite mit Live-Erkennung von Objekten, Personen, Text und Bewegung,
+dazu der Assistent ReyRey. Alles rechnet im Browser des Besuchers.
+Kein PHP nötig, keine Datenbank, kein Server-Prozess – nur Dateien.
 
 
 --------------------------------------------------------------------------------
@@ -16,16 +16,14 @@ keinen Server-Prozess – nur Dateien.
   2. Im cPanel auf "Dateimanager" (File Manager) klicken
      und links in den Ordner  public_html  wechseln.
 
-  3. Oben auf "Hochladen" (Upload) klicken und die Datei
-        vision-hud-kamera-hud.zip
-     auswählen. Das Hochladen dauert je nach Leitung 1–5 Minuten (ca. 22 MB).
+  3. Oben auf "Hochladen" (Upload) klicken und die ZIP-Datei auswählen.
+     Das dauert je nach Leitung 2–8 Minuten (ca. 26 MB).
 
   4. Zurück zum Dateimanager, einmal auf "Neu laden" (Reload) klicken.
-     Dann mit der rechten Maustaste auf die ZIP-Datei klicken
-     →  "Extrahieren" (Extract)  →  bestätigen.
+     Dann Rechtsklick auf die ZIP-Datei → "Extrahieren" (Extract) → bestätigen.
 
-     Dabei entsteht automatisch der Unterordner  public_html/kamera-hud/
-     Die bestehende Website wird NICHT verändert oder überschrieben.
+     Dabei entsteht der Unterordner  public_html/kamera-hud/
+     Die bestehende Website wird NICHT verändert.
 
   5. Die ZIP-Datei darf jetzt gelöscht werden. Fertig.
 
@@ -33,70 +31,157 @@ keinen Server-Prozess – nur Dateien.
 
 
 --------------------------------------------------------------------------------
+  WENN ETWAS NICHT GEHT: DEN SELBSTTEST ÖFFNEN
+--------------------------------------------------------------------------------
+
+     https://DEINE-DOMAIN.tld/kamera-hud/pruefung.html
+
+  Diese Seite prüft jede einzelne Datei und sagt genau, welche fehlt oder vom
+  Server blockiert wird – statt nur "geht nicht". Bitte immer zuerst dort
+  nachsehen. Der Bericht lässt sich mit einem Knopf kopieren.
+
+
+--------------------------------------------------------------------------------
   WICHTIG: OHNE https:// BLEIBT DAS BILD SCHWARZ
 --------------------------------------------------------------------------------
 
-  Browser geben die Kamera aus Sicherheitsgründen ausschliesslich über eine
-  verschlüsselte Verbindung frei. Das ist keine Einstellung dieser Seite,
-  sondern eine Regel von Chrome, Safari und Firefox.
+  Browser geben die Kamera nur über eine verschlüsselte Verbindung frei.
+  Das ist eine Regel von Chrome, Safari und Firefox, keine Einstellung
+  dieser Seite.
 
   Prüfen:   cPanel  →  "SSL/TLS Status"  →  die Domain muss ein gültiges
-            Zertifikat haben. Falls nicht: "AutoSSL ausführen" anklicken und
-            einige Minuten warten.
+            Zertifikat haben. Falls nicht: "AutoSSL ausführen" anklicken.
 
-  Die mitgelieferte Datei .htaccess leitet http:// automatisch auf https:// um.
-  Sollte es beim Aufruf eine Zertifikatswarnung geben, ist das Zertifikat noch
-  nicht fertig – dann in .htaccess den Abschnitt 1 vorübergehend mit # am
-  Zeilenanfang auskommentieren.
+  Die mitgelieferte .htaccess leitet http:// automatisch auf https:// um.
+
+
+--------------------------------------------------------------------------------
+  WAS REYREY KANN – UND WAS NICHT
+--------------------------------------------------------------------------------
+
+  OHNE INTERNET, ALLES AUF DEM GERÄT:
+
+    "Was siehst du?"              beschreibt das Bild
+    "Wer ist das?"                nennt erkannte Personen
+    "Wie viele Personen?"         zählt
+    "Scanne die Umgebung"         vollständige Analyse
+    "Lies das vor"                erkennt Text im Bild
+    "Merk dir das als Rucksack"   Gegenstand speichern
+    "Wo ist mein Rucksack?"       zuletzt gesehen
+    "Gesicht erfassen"            Person registrieren
+    "Kamera wechseln", "HUD aus", "Privatmodus an", "Sei still"
+    "Hilfe"                       zeigt alle Befehle
+
+  BRAUCHT EINE VERBINDUNG NACH DRAUSSEN (standardmässig AUS):
+
+    Allgemeine Fragen ("Was ist das für eine Marke?") und Übersetzungen.
+    Dafür unter "System → KI-Dienst" einen Zugang einrichten.
+    Es gibt kein Sprachmodell, das sich in eine Webseite packen liesse.
+
+  SPRACHEINGABE – BITTE LESEN:
+
+    Das Zuhören ist standardmässig AUS. Wird es eingeschaltet, überträgt der
+    Browser den Ton an Google (Chrome) bzw. Apple (Safari). Das ist eine
+    Eigenschaft des Browsers und lässt sich aus einer Webseite heraus nicht
+    umgehen. Firefox kann gar keine Spracherkennung – dort tippt man die Frage.
+
+    Das Kamerabild ist davon nicht betroffen und bleibt immer auf dem Gerät.
+
+  GEFAHRENHINWEISE:
+
+    Eine einzelne Kamera kann keine Entfernung messen. Die Hinweise beruhen
+    darauf, wie gross und wie schnell wachsend etwas im Bild ist.
+    Das ist eine Hilfe, kein Sicherheitssystem. Nicht darauf verlassen.
+
+
+--------------------------------------------------------------------------------
+  ALS APP INSTALLIEREN
+--------------------------------------------------------------------------------
+
+  Android/Chrome:  Menü (drei Punkte) → "App installieren"
+  iPhone/Safari:   Teilen-Symbol → "Zum Home-Bildschirm"
+
+  Danach startet die Seite im Vollbild und läuft auch ohne Internet.
+
+
+--------------------------------------------------------------------------------
+  FREIWILLIG: KI-DIENST EINRICHTEN
+--------------------------------------------------------------------------------
+
+  Nur nötig für allgemeine Fragen und Übersetzungen.
+
+  1. Schlüssel holen auf console.anthropic.com → "API Keys".
+  2. Im Dateimanager die Datei  kamera-hud/reyrey-proxy.php  bearbeiten
+     und den Schlüssel bei API_KEY eintragen. Speichern.
+     Rechte auf 600 setzen (Rechtsklick → Berechtigungen).
+  3. Im HUD: "System" → "KI-Dienst" → einschalten, Betriebsart "Proxy",
+     Adresse:  reyrey-proxy.php
+
+  Warum der Umweg über PHP: So bleibt der Schlüssel auf dem Server. Trägt man
+  ihn direkt im Browser ein, kann ihn jeder auslesen, der das Gerät in die
+  Hand bekommt.
+
+  Es entstehen Kosten pro Anfrage. Ohne Schlüssel läuft alles andere normal
+  weiter – nur eben ohne allgemeine Fragen.
 
 
 --------------------------------------------------------------------------------
   ANDEREN ORDNERNAMEN VERWENDEN
 --------------------------------------------------------------------------------
 
-  Der Ordner darf beliebig heissen. Nach dem Entpacken einfach im Dateimanager
-  umbenennen (Rechtsklick → Umbenennen), zum Beispiel in "hud" oder "kamera".
-  Innerhalb der Seite sind alle Pfade relativ – es muss nichts angepasst werden.
-
-  Die Seite funktioniert auch in einem Unterordner eines Unterordners,
-  etwa  public_html/projekte/kamera-hud/
+  Der Ordner darf beliebig heissen. Nach dem Entpacken im Dateimanager
+  umbenennen (Rechtsklick → Umbenennen). Innerhalb der Seite sind alle Pfade
+  relativ – es muss nichts angepasst werden. Auch ein Unterordner in einem
+  Unterordner funktioniert.
 
 
 --------------------------------------------------------------------------------
-  WENN ETWAS NICHT GEHT
+  HÄUFIGE PROBLEME
 --------------------------------------------------------------------------------
+
+  "Objektmodell nicht ladbar"
+       pruefung.html öffnen. Meist wurde das Archiv nicht vollständig
+       entpackt oder der Upload brach ab. Im Dateimanager prüfen:
+       assets/models/coco-ssd/ muss 6 Dateien enthalten, davon 4 mit je 4 MB.
 
   "Kamerazugriff verweigert"
-       In der Adresszeile auf das Schloss-Symbol tippen und die Kamera
-       erlauben. Danach die Seite neu laden.
-       iPhone:  Einstellungen → Safari → Kamera → "Fragen" oder "Erlauben"
+       In der Adresszeile auf das Schloss-Symbol tippen und Kamera erlauben.
+       iPhone: Einstellungen → Safari → Kamera → "Fragen" oder "Erlauben"
 
   Seite bleibt beim Ladebalken stehen
-       Vermutlich wurde der Ordner assets/models nicht vollständig entpackt.
-       Im Dateimanager prüfen: assets/models/ muss 11 Dateien enthalten,
-       darunter face_recognition_model.bin mit rund 6 MB, und den Unterordner
-       coco-ssd mit 6 Dateien.
+       pruefung.html öffnen – dort steht, welche Datei fehlt.
 
-  "Diese Seite ist nicht sicher" / weisse Seite
-       Kein gültiges SSL-Zertifikat – siehe Abschnitt oben.
+  Alles läuft, aber langsam
+       Unter "System" die Objekterkennung ausschalten. Die Gesichtserkennung
+       allein ist deutlich genügsamer. Ältere Geräte ohne Grafikbeschleunigung
+       rechnen um ein Vielfaches langsamer.
 
-  Alles läuft, aber sehr langsam
-       Auf älteren Geräten im HUD unter "System" die Objekterkennung
-       ausschalten. Die Gesichtserkennung allein ist deutlich genügsamer.
+  ReyRey reagiert nicht auf seinen Namen
+       Unter "System → ReyRey" prüfen, ob "Dauerhaft zuhören" an ist.
+       In Firefox gibt es keine Spracherkennung – dort auf die Kugel tippen
+       und die Frage eintippen.
 
 
 --------------------------------------------------------------------------------
   DATENSCHUTZ
 --------------------------------------------------------------------------------
 
-  Kein Bild und kein Gesichtsmerkmal verlässt das Gerät des Besuchers.
-  Erfasste Personen liegen ausschliesslich im Browserspeicher (IndexedDB)
-  desjenigen Geräts, auf dem sie erfasst wurden. Es gibt keinen Server,
-  der etwas empfängt, und keine Verbindung zu fremden Diensten.
+  Kamerabild, Gesichtsabdrücke und gemerkte Gegenstände verlassen das Gerät
+  nicht. Sie liegen im Browserspeicher genau des Geräts, auf dem sie erfasst
+  wurden.
 
-  Hinweis zur Rechtslage: Gesichtsmerkmale sind biometrische Daten. Wer sie
-  von anderen Personen erfasst, braucht deren Einverständnis (DSGVO Art. 9
-  bzw. revDSG Art. 5). Für den privaten Gebrauch am eigenen Gerät gilt die
-  Haushaltsausnahme.
+  Nach draussen geht nur, was ausdrücklich freigegeben wurde:
+    - Sprachaufnahmen, wenn das Zuhören eingeschaltet ist (an den Browser-Hersteller)
+    - Fragetext und eine kurze Szenenbeschreibung, wenn der KI-Dienst an ist
+
+  Unter "System → Privatsphäre":
+    - Privatmodus: keine Namen im Bild, nichts wird gespeichert
+    - Verschlüsselung: schützt die Kartei mit einem Kennwort
+    - Alles löschen: entfernt restlos jede gespeicherte Spur
+
+  Gesichtsmerkmale sind biometrische Daten. Wer sie von anderen Personen
+  erfasst, braucht deren Einverständnis (DSGVO Art. 9, revDSG Art. 5).
+  Die App fragt das vor jedem Speichern ab. Für den privaten Gebrauch am
+  eigenen Gerät gilt die Haushaltsausnahme.
 
 ================================================================================

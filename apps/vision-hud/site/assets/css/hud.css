@@ -768,9 +768,17 @@ input {
 }
 
 /* Schubladen (Erfassen, Kartei, System) */
+/*
+ * `dvh` statt `vh`: Öffnet sich auf dem Handy die Bildschirmtastatur,
+ * schrumpft der sichtbare Bereich. Mit `vh` bliebe die Schublade in voller
+ * Höhe stehen und ihre Knöpfe lägen hinter der Tastatur. `dvh` folgt dem
+ * tatsächlich sichtbaren Bereich. Ältere Browser nehmen die Zeile davor.
+ */
 .sheet {
   position: fixed;
   inset: 0;
+  height: 100vh;
+  height: 100dvh;
   z-index: var(--z-sheet);
   display: flex;
   align-items: flex-end;
@@ -793,6 +801,7 @@ input {
 .sheet__panel {
   width: min(520px, 100%);
   max-height: 88vh;
+  max-height: 88dvh;
   display: flex;
   flex-direction: column;
   padding: 0 18px calc(18px + var(--safe-b));
@@ -1373,4 +1382,475 @@ input {
   .radar {
     display: none;
   }
+}
+
+/* =========================================================================
+   12 ReyRey – Kugel, Sprechblase, Gefahrenband
+   ========================================================================= */
+
+.rey {
+  position: absolute;
+  right: calc(var(--safe-r) + 14px);
+  bottom: calc(var(--safe-b) + var(--dock-h) + 14px);
+  z-index: var(--z-chrome);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 9px;
+  pointer-events: none;
+}
+
+/* Die Kugel ist der einzige Teil, der Eingaben annimmt. */
+.rey__orb {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.rey__core {
+  position: absolute;
+  inset: 13px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #8dfff0, var(--c-turquoise) 55%, #0c8a7f);
+  box-shadow: 0 0 16px rgba(43, 245, 221, 0.55);
+  transition:
+    transform 0.25s ease,
+    background 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.rey__ring {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--c-line);
+  border-top-color: var(--c-turquoise);
+  border-radius: 50%;
+  opacity: 0.8;
+}
+
+.rey__ring--slow {
+  inset: 6px;
+  border-top-color: transparent;
+  border-bottom-color: var(--c-cyan);
+}
+
+/* Schallwelle beim Sprechen. */
+.rey__wave {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--c-turquoise);
+  border-radius: 50%;
+  opacity: 0;
+}
+
+/* --- Zustände --- */
+/*
+ * Auch im Ruhezustand muss die Kugel als Bedienelement erkennbar bleiben:
+ * Sie ist der einzige Weg zu ReyRey, wenn das Zuhören aus ist. Deshalb
+ * gedämpft, aber nicht ausgeschaltet.
+ */
+.rey[data-state='aus'] .rey__core {
+  background: radial-gradient(circle at 35% 30%, #6fbfb6, #1d7d74 60%, #0d4a45);
+  box-shadow: 0 0 10px rgba(43, 245, 221, 0.25);
+}
+.rey[data-state='aus'] .rey__ring {
+  opacity: 0.55;
+}
+
+.rey[data-state='hört'] .rey__ring {
+  animation: radarSpin 3s linear infinite;
+}
+.rey[data-state='hört'] .rey__core {
+  animation: reyBreathe 2.6s ease-in-out infinite;
+}
+
+.rey[data-state='wach'] .rey__core {
+  transform: scale(1.16);
+  background: radial-gradient(circle at 35% 30%, #ffffff, #8dfff0 55%, var(--c-turquoise));
+  box-shadow: 0 0 26px rgba(43, 245, 221, 0.9);
+}
+.rey[data-state='wach'] .rey__ring {
+  animation: radarSpin 1.1s linear infinite;
+}
+
+.rey[data-state='denkt'] .rey__ring,
+.rey[data-state='denkt'] .rey__ring--slow {
+  animation: radarSpin 0.85s linear infinite;
+}
+.rey[data-state='denkt'] .rey__core {
+  animation: reyBreathe 0.9s ease-in-out infinite;
+}
+
+.rey[data-state='spricht'] .rey__wave {
+  animation: reyPing 1.05s ease-out infinite;
+}
+.rey[data-state='spricht'] .rey__core {
+  animation: reyBreathe 0.7s ease-in-out infinite;
+}
+
+@keyframes reyBreathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+@keyframes reyPing {
+  0% {
+    opacity: 0.85;
+    transform: scale(0.75);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
+/* --- Sprechblase --- */
+.rey__bubble {
+  max-width: min(330px, calc(100vw - 40px));
+  padding: 11px 13px;
+  border: 1px solid var(--c-line);
+  border-right-width: 2px;
+  border-radius: 10px 10px 4px 10px;
+  background: rgba(6, 22, 28, 0.93);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+  animation: contactIn 0.26s ease;
+  pointer-events: auto;
+}
+
+.rey__bubble[hidden] {
+  display: none;
+}
+
+.rey__name {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.24em;
+  color: var(--c-turquoise);
+  margin-bottom: 4px;
+}
+
+.rey__text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--c-text);
+}
+
+.rey__heard {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--c-line-soft);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--c-text-dim);
+  font-style: italic;
+}
+
+.rey__heard:empty {
+  display: none;
+}
+
+/* --- Gefahrenband --- */
+.alarm {
+  position: absolute;
+  top: calc(var(--safe-t) + 62px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-chrome);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: calc(100vw - 32px);
+  padding: 9px 14px;
+  border: 1px solid var(--c-red);
+  border-radius: 7px;
+  background: rgba(40, 6, 14, 0.92);
+  backdrop-filter: blur(10px);
+  animation: alarmPulse 1.1s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.alarm[hidden] {
+  display: none;
+}
+
+.alarm__icon {
+  flex: 0 0 auto;
+  width: 19px;
+  height: 19px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--c-red);
+  border-radius: 50%;
+  color: var(--c-red);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.alarm__text {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #ffd6de;
+}
+
+/* Der Zusatz ist bewusst klein, aber immer da: Das ist kein Sicherheitssystem. */
+.alarm__note {
+  flex: 0 0 auto;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 214, 222, 0.62);
+  text-transform: uppercase;
+}
+
+@keyframes alarmPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 77, 109, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 18px 2px rgba(255, 77, 109, 0.3);
+  }
+}
+
+/* =========================================================================
+   13 Zustimmung, Gespräch, Gestentabelle
+   ========================================================================= */
+
+.consent {
+  padding: 14px 0;
+  font-size: 13.5px;
+  line-height: 1.62;
+  color: var(--c-text-dim);
+  overflow-y: auto;
+}
+
+.consent h3 {
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: var(--c-text);
+}
+
+.consent ul {
+  margin: 10px 0;
+  padding-left: 18px;
+}
+
+.consent li {
+  margin-bottom: 6px;
+}
+
+.consent strong {
+  color: var(--c-amber);
+  font-weight: 600;
+}
+
+.chat {
+  list-style: none;
+  margin: 0;
+  padding: 12px 0;
+  max-height: 44vh;
+  max-height: 38dvh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat li {
+  max-width: 86%;
+  padding: 8px 11px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.chat li[data-role='user'] {
+  align-self: flex-end;
+  background: rgba(43, 245, 221, 0.14);
+  border: 1px solid var(--c-line-soft);
+  color: var(--c-text);
+}
+
+.chat li[data-role='assistant'] {
+  align-self: flex-start;
+  background: rgba(4, 16, 20, 0.8);
+  border: 1px solid var(--c-line-soft);
+  border-left: 2px solid var(--c-turquoise);
+  color: var(--c-text);
+}
+
+.chat li[data-role='system'] {
+  align-self: center;
+  background: none;
+  color: var(--c-text-dim);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+}
+
+/* Gestenzuordnung in den Einstellungen */
+.gesture {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--c-line-soft);
+}
+
+.gesture__name {
+  font-size: 13px;
+  color: var(--c-text);
+}
+
+.gesture select,
+.setting select {
+  padding: 8px 9px;
+  border: 1px solid var(--c-line-soft);
+  border-radius: 6px;
+  background: rgba(4, 16, 20, 0.9);
+  color: var(--c-text);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  max-width: 172px;
+}
+
+.setting__field {
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--c-line-soft);
+  border-radius: 6px;
+  background: rgba(4, 16, 20, 0.8);
+  color: var(--c-text);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.setting--stack {
+  display: block;
+}
+
+.setting__badge {
+  display: inline-block;
+  margin-left: 7px;
+  padding: 2px 6px;
+  border: 1px solid var(--c-line);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  color: var(--c-turquoise);
+  text-transform: uppercase;
+}
+
+.setting__badge[data-tone='warn'] {
+  border-color: rgba(255, 182, 72, 0.5);
+  color: var(--c-amber);
+}
+
+.settings__group {
+  margin: 18px 0 2px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--c-line);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--c-turquoise);
+}
+
+/* Auf schmalen Geräten verdeckt die Kugel sonst die Meldungen. */
+@media (max-width: 420px) {
+  .toasts {
+    bottom: calc(var(--safe-b) + var(--dock-h) + 78px);
+    width: min(330px, calc(100vw - 28px));
+  }
+}
+
+@media (min-width: 720px) {
+  .rey {
+    bottom: calc(var(--safe-b) + var(--dock-h) + 34px);
+  }
+}
+
+/* Schnellzugriffe am Kopf der Systemschublade. */
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 14px 0 4px;
+}
+
+.quick .btn {
+  flex: 1 1 auto;
+  min-width: 82px;
+  padding: 10px 12px;
+  font-size: 11px;
+  text-align: center;
+  text-decoration: none;
+}
+
+/* Sieben Knöpfe brauchen auf schmalen Geräten etwas weniger Platz. */
+@media (max-width: 400px) {
+  .dock__btn svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .dock__btn span {
+    font-size: 8px;
+    letter-spacing: 0.04em;
+  }
+
+  .dock__btn--primary {
+    max-width: 62px;
+  }
+}
+
+/* Technische Angaben eingeklappt – sie nehmen sonst die halbe Schublade ein. */
+.diag {
+  padding: 4px 0;
+}
+
+.diag summary {
+  padding: 8px 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--c-text-dim);
+  cursor: pointer;
+  list-style: none;
+}
+
+.diag summary::before {
+  content: '▸ ';
+  color: var(--c-turquoise);
+}
+
+.diag[open] summary::before {
+  content: '▾ ';
+}
+
+.diag summary::-webkit-details-marker {
+  display: none;
 }

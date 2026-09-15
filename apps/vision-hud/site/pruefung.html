@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>Vision HUD – Selbsttest</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#04080c" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
+    <style>
+      :root {
+        --turquoise: #2bf5dd;
+        --amber: #ffb648;
+        --red: #ff4d6d;
+        --mint: #66ffc2;
+        --dim: #7ea8ab;
+        --mono: ui-monospace, 'SF Mono', 'Roboto Mono', Menlo, Consolas, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 20px 16px 48px;
+        background: #04080c;
+        color: #dff6f4;
+        font:
+          14px/1.6 system-ui,
+          -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+      }
+      .wrap {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-family: var(--mono);
+        font-size: 15px;
+        letter-spacing: 0.22em;
+        color: var(--turquoise);
+        margin: 0 0 4px;
+      }
+      .sub {
+        color: var(--dim);
+        font-size: 12.5px;
+        margin: 0 0 22px;
+      }
+      h2 {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--dim);
+        margin: 26px 0 8px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid rgba(43, 245, 221, 0.18);
+      }
+      .row {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 7px 0;
+        border-bottom: 1px solid rgba(43, 245, 221, 0.08);
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+      .row b {
+        flex: 1;
+        font-weight: 400;
+        word-break: break-all;
+      }
+      .tag {
+        flex: 0 0 auto;
+        font-weight: 700;
+      }
+      .ok {
+        color: var(--mint);
+      }
+      .bad {
+        color: var(--red);
+      }
+      .warn {
+        color: var(--amber);
+      }
+      .note {
+        color: var(--dim);
+        font-size: 11px;
+        display: block;
+        font-weight: 400;
+      }
+      .verdict {
+        margin: 22px 0;
+        padding: 14px 16px;
+        border-left: 3px solid var(--turquoise);
+        background: rgba(43, 245, 221, 0.07);
+        font-size: 13.5px;
+      }
+      .verdict.bad {
+        border-left-color: var(--red);
+        background: rgba(255, 77, 109, 0.09);
+      }
+      .verdict h3 {
+        margin: 0 0 6px;
+        font-size: 14px;
+      }
+      .verdict ol {
+        margin: 8px 0 0;
+        padding-left: 20px;
+      }
+      .verdict li {
+        margin-bottom: 5px;
+      }
+      button {
+        font: 700 12px/1 var(--mono);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        padding: 12px 18px;
+        margin: 4px 6px 4px 0;
+        border: 1px solid var(--turquoise);
+        border-radius: 7px;
+        background: var(--turquoise);
+        color: #04131a;
+        cursor: pointer;
+      }
+      button.ghost {
+        background: transparent;
+        color: var(--turquoise);
+      }
+      a {
+        color: var(--turquoise);
+      }
+      pre {
+        white-space: pre-wrap;
+        word-break: break-all;
+        background: rgba(4, 16, 20, 0.8);
+        border: 1px solid rgba(43, 245, 221, 0.18);
+        border-radius: 6px;
+        padding: 12px;
+        font-size: 11px;
+        color: var(--dim);
+      }
+      .bar {
+        height: 3px;
+        background: rgba(43, 245, 221, 0.15);
+        margin: 14px 0;
+      }
+      .bar i {
+        display: block;
+        height: 100%;
+        width: 0;
+        background: var(--turquoise);
+        transition: width 0.2s;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>SELBSTTEST</h1>
+      <p class="sub">
+        Prüft, ob dieser Server alles ausliefert, was das HUD braucht. Diese Seite lädt keine
+        Modelle – sie fragt nur nach.
+      </p>
+
+      <div class="bar"><i id="bar"></i></div>
+      <div id="verdict"></div>
+
+      <h2>Umgebung</h2>
+      <div id="env"></div>
+
+      <h2>Dateien</h2>
+      <div id="files"></div>
+
+      <p style="margin-top: 22px">
+        <button id="copy">Bericht kopieren</button>
+        <button class="ghost" onclick="location.reload()">Neu prüfen</button>
+        <button class="ghost" onclick="location.href = 'index.html'">Zum HUD</button>
+      </p>
+      <pre id="report" hidden></pre>
+    </div>
+
+    <script>
+      // Genau die Dateien, ohne die das HUD nicht startet.
+      const FILES = [
+        ['index.html', 'Startseite'],
+        ['assets/css/hud.css', 'Gestaltung'],
+        ['assets/js/app.js', 'Programm'],
+        ['assets/vendor/face-api.js', 'Bibliothek Gesichter + TensorFlow'],
+        ['assets/vendor/coco-ssd.min.js', 'Bibliothek Objekte'],
+        ['assets/vendor/tfjs-backend-wasm-simd.wasm', 'WASM-Rechenwerk'],
+        [
+          'assets/models/tiny_face_detector_model-weights_manifest.json',
+          'Gesichter finden (Manifest)',
+        ],
+        ['assets/models/tiny_face_detector_model.bin', 'Gesichter finden (Gewichte)'],
+        ['assets/models/face_recognition_model.bin', 'Wiedererkennung (6,3 MB)'],
+        ['assets/models/face_landmark_68_model.bin', 'Gesichtspunkte'],
+        ['assets/models/age_gender_model.bin', 'Alter'],
+        ['assets/models/face_expression_model.bin', 'Ausdruck'],
+        ['assets/models/coco-ssd/model.json', 'Objektmodell (Manifest)'],
+        ['assets/models/coco-ssd/group1-shard1of5.bin', 'Objektmodell 1/5'],
+        ['assets/models/coco-ssd/group1-shard2of5.bin', 'Objektmodell 2/5'],
+        ['assets/models/coco-ssd/group1-shard3of5.bin', 'Objektmodell 3/5'],
+        ['assets/models/coco-ssd/group1-shard4of5.bin', 'Objektmodell 4/5'],
+        ['assets/models/coco-ssd/group1-shard5of5.bin', 'Objektmodell 5/5'],
+      ];
+
+      // Diese Dateien werden erst bei Bedarf geladen. Fehlen sie, läuft die
+      // Seite trotzdem – nur eben ohne Texterkennung bzw. ohne Offline-Betrieb.
+      const OPTIONAL = [
+        ['sw.js', 'Offline-Betrieb (PWA)'],
+        ['assets/vendor/tesseract/tesseract.min.js', 'Texterkennung'],
+        ['assets/vendor/tesseract/worker.min.js', 'Texterkennung (Arbeiter)'],
+        ['assets/vendor/tesseract/tesseract-core-simd-lstm.wasm.js', 'Texterkennung (Kern)'],
+        ['assets/vendor/tesseract/deu.traineddata.gz', 'Sprachdaten Deutsch'],
+        ['assets/vendor/tesseract/eng.traineddata.gz', 'Sprachdaten Englisch'],
+        ['reyrey-proxy.php', 'KI-Vermittler (nur mit KI-Dienst nötig)'],
+      ];
+
+      const lines = [];
+      const kb = (n) =>
+        n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.round(n / 1024)} kB`;
+
+      function add(host, label, tag, cls, note) {
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML = `<b></b><span class="tag"></span>`;
+        row.querySelector('b').textContent = label;
+        if (note) {
+          const n = document.createElement('span');
+          n.className = 'note';
+          n.textContent = note;
+          row.querySelector('b').appendChild(n);
+        }
+        const t = row.querySelector('.tag');
+        t.textContent = tag;
+        t.classList.add(cls);
+        document.getElementById(host).appendChild(row);
+        lines.push(
+          `${cls === 'ok' ? '[ok]  ' : cls === 'warn' ? '[warn]' : '[FEHL]'} ${label} – ${tag}${note ? ` (${note})` : ''}`,
+        );
+      }
+
+      /* ---------------- Umgebung ---------------- */
+      const https = location.protocol === 'https:' || location.hostname === 'localhost';
+      add(
+        'env',
+        'Verschlüsselte Verbindung (https)',
+        https ? 'ja' : 'NEIN',
+        https ? 'ok' : 'bad',
+        https ? location.protocol : 'Ohne https gibt der Browser die Kamera nicht frei',
+      );
+
+      const cam = Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+      add('env', 'Kamera-Schnittstelle', cam ? 'vorhanden' : 'FEHLT', cam ? 'ok' : 'bad');
+
+      let gl = false;
+      try {
+        gl = Boolean(
+          document.createElement('canvas').getContext('webgl2') ||
+          document.createElement('canvas').getContext('webgl'),
+        );
+      } catch (e) {
+        gl = false;
+      }
+      add(
+        'env',
+        'WebGL (Grafikbeschleunigung)',
+        gl ? 'ja' : 'nein',
+        gl ? 'ok' : 'warn',
+        gl ? '' : 'Läuft dann über WASM – langsamer, aber funktionsfähig',
+      );
+
+      add(
+        'env',
+        'Spracherkennung im Browser',
+        window.SpeechRecognition || window.webkitSpeechRecognition ? 'ja' : 'nein',
+        window.SpeechRecognition || window.webkitSpeechRecognition ? 'ok' : 'warn',
+        window.SpeechRecognition || window.webkitSpeechRecognition
+          ? ''
+          : 'Firefox kann das nicht – ReyRey lässt sich dort nur tippen',
+      );
+
+      add(
+        'env',
+        'Sprachausgabe',
+        window.speechSynthesis ? 'ja' : 'nein',
+        window.speechSynthesis ? 'ok' : 'warn',
+      );
+      add(
+        'env',
+        'Speicher (IndexedDB)',
+        window.indexedDB ? 'ja' : 'nein',
+        window.indexedDB ? 'ok' : 'warn',
+      );
+      add('env', 'Adresse', location.href.split('?')[0], 'ok');
+      add('env', 'Browserkennung', navigator.userAgent.slice(0, 60) + '…', 'ok');
+
+      /* ---------------- Dateien ---------------- */
+      (async () => {
+        let failed = 0;
+        let blockedExtensionless = false;
+
+        const ALL = [...FILES, ...OPTIONAL];
+        for (let i = 0; i < ALL.length; i++) {
+          const [path, label] = ALL[i];
+          const optional = i >= FILES.length;
+          try {
+            // Range-Anfrage: prüft die Erreichbarkeit, ohne 6 MB zu laden.
+            const res = await fetch(path, { headers: { Range: 'bytes=0-64' }, cache: 'no-store' });
+            if (res.ok || res.status === 206) {
+              const total = res.headers.get('content-range');
+              const size = total
+                ? Number(total.split('/')[1])
+                : Number(res.headers.get('content-length') || 0);
+              add('files', label, 'OK', 'ok', `${path}${size ? ` · ${kb(size)}` : ''}`);
+            } else if (optional) {
+              add(
+                'files',
+                label,
+                `fehlt (${res.status})`,
+                'warn',
+                `${path} – nur diese Funktion entfällt`,
+              );
+            } else {
+              failed++;
+              if (path.includes('coco-ssd')) blockedExtensionless = true;
+              add('files', label, `HTTP ${res.status}`, 'bad', path);
+            }
+          } catch (e) {
+            if (optional) {
+              add('files', label, 'fehlt', 'warn', `${path} – nur diese Funktion entfällt`);
+            } else {
+              failed++;
+              if (path.includes('coco-ssd')) blockedExtensionless = true;
+              add('files', label, 'nicht erreichbar', 'bad', `${path} – ${e.message}`);
+            }
+          }
+          document.getElementById('bar').style.width = `${((i + 1) / ALL.length) * 100}%`;
+        }
+
+        /* ---------------- Ergebnis ---------------- */
+        const box = document.getElementById('verdict');
+        box.className = 'verdict' + (failed || !https ? ' bad' : '');
+
+        if (!https) {
+          box.innerHTML = `<h3>Die Seite läuft ohne https</h3>
+            <p>Der Browser gibt die Kamera nur über eine verschlüsselte Verbindung frei. Alles andere kann korrekt sein – die Kamera bleibt trotzdem schwarz.</p>
+            <ol><li>cPanel öffnen → „SSL/TLS Status“</li>
+            <li>Domain auswählen → „AutoSSL ausführen“</li>
+            <li>Ein paar Minuten warten, dann diese Seite neu laden</li></ol>`;
+        } else if (failed === 0) {
+          box.innerHTML = `<h3>Alles in Ordnung</h3>
+            <p>Der Server liefert alle ${FILES.length} Pflichtdateien aus. Das HUD sollte vollständig laufen – inklusive Objekterkennung.</p>`;
+        } else if (blockedExtensionless) {
+          box.innerHTML = `<h3>${failed} Datei(en) fehlen – das Objektmodell kommt nicht durch</h3>
+            <p>Die Gewichtsdateien des Objektmodells werden nicht ausgeliefert. Häufigste Ursachen:</p>
+            <ol>
+              <li><b>Nicht vollständig entpackt.</b> Im Dateimanager prüfen, ob <code>assets/models/coco-ssd/</code> sechs Dateien enthält (5 × .bin plus model.json).</li>
+              <li><b>Upload abgebrochen.</b> Die .bin-Dateien sind je 4 MB – bei einem Abbruch liegen sie zwar da, sind aber zu klein.</li>
+              <li><b>mod_security blockiert.</b> Dann bei GoDaddy im Support die Blockierung für diesen Ordner aufheben lassen.</li>
+            </ol>`;
+        } else {
+          box.innerHTML = `<h3>${failed} Datei(en) fehlen</h3>
+            <p>Die oben rot markierten Dateien liefert der Server nicht aus. Meist wurde das Archiv nicht vollständig entpackt – am einfachsten den Ordner löschen und das ZIP erneut hochladen und entpacken.</p>`;
+        }
+
+        document.getElementById('copy').addEventListener('click', async () => {
+          const text = `Vision HUD Selbsttest\n${new Date().toISOString()}\n${location.href}\n\n${lines.join('\n')}`;
+          const pre = document.getElementById('report');
+          try {
+            await navigator.clipboard.writeText(text);
+            document.getElementById('copy').textContent = 'Kopiert';
+          } catch (e) {
+            pre.hidden = false;
+            pre.textContent = text;
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

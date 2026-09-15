@@ -4,9 +4,11 @@
     "face-api.js": "@vladmandic/face-api@1.7.15 (MIT)",
     "coco-ssd": "@tensorflow-models/coco-ssd@2.2.3 (Apache-2.0)",
     "tfjs-wasm": "@tensorflow/tfjs-backend-wasm@4.22.0 (Apache-2.0)",
+    "tesseract": "tesseract.js@7.0.0 (Apache-2.0)",
+    "tesseract-sprachdaten": "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main",
     "coco-ssd-gewichte": "https://storage.googleapis.com/tfjs-models/savedmodel/ssdlite_mobilenet_v2"
   },
-  "summeBytes": 28877572,
+  "summeBytes": 35479229,
   "dateien": [
     {
       "file": "vendor/face-api.js",
@@ -37,6 +39,31 @@
       "file": "vendor/tfjs-backend-wasm-threaded-simd.wasm",
       "bytes": 435643,
       "sha256": "c052228d4bef185c"
+    },
+    {
+      "file": "vendor/tesseract/tesseract.min.js",
+      "bytes": 62961,
+      "sha256": "000c27d9cd0def65"
+    },
+    {
+      "file": "vendor/tesseract/worker.min.js",
+      "bytes": 111307,
+      "sha256": "576b7df7e3393e13"
+    },
+    {
+      "file": "vendor/tesseract/tesseract-core-simd-lstm.wasm.js",
+      "bytes": 3899472,
+      "sha256": "c58b46a4c796c0b8"
+    },
+    {
+      "file": "vendor/tesseract/deu.traineddata.gz",
+      "bytes": 850091,
+      "sha256": "32394d894594dad5"
+    },
+    {
+      "file": "vendor/tesseract/eng.traineddata.gz",
+      "bytes": 1962155,
+      "sha256": "37d0ab3e791c1762"
     },
     {
       "file": "models/tiny_face_detector_model-weights_manifest.json",
@@ -90,31 +117,31 @@
     },
     {
       "file": "models/coco-ssd/model.json",
-      "bytes": 527315,
-      "sha256": "3770b2528339b1e3"
+      "bytes": 242986,
+      "sha256": "0c92086e597c6473"
     },
     {
-      "file": "models/coco-ssd/group1-shard1of5",
+      "file": "models/coco-ssd/group1-shard1of5.bin",
       "bytes": 4194304,
       "sha256": "0e7af0f713e98521"
     },
     {
-      "file": "models/coco-ssd/group1-shard2of5",
+      "file": "models/coco-ssd/group1-shard2of5.bin",
       "bytes": 4194304,
       "sha256": "74cc6cfc2c4510c9"
     },
     {
-      "file": "models/coco-ssd/group1-shard3of5",
+      "file": "models/coco-ssd/group1-shard3of5.bin",
       "bytes": 4194304,
       "sha256": "50383033f893eae1"
     },
     {
-      "file": "models/coco-ssd/group1-shard4of5",
+      "file": "models/coco-ssd/group1-shard4of5.bin",
       "bytes": 4194304,
       "sha256": "d856dc534c780068"
     },
     {
-      "file": "models/coco-ssd/group1-shard5of5",
+      "file": "models/coco-ssd/group1-shard5of5.bin",
       "bytes": 1257312,
       "sha256": "3d356f1fb6dfca6a"
     }

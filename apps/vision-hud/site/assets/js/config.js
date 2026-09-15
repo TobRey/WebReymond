@@ -10,6 +10,7 @@ export const PATHS = {
   vendor: 'assets/vendor/',
   faceModels: 'assets/models',
   cocoModel: 'assets/models/coco-ssd/model.json',
+  tesseract: 'assets/vendor/tesseract/',
 };
 
 export const CONFIG = {
@@ -110,6 +111,28 @@ export const CONFIG = {
     /** Schlüssel für die gespeicherten Einstellungen. */
     storageKey: 'visionhud.settings.v1',
   },
+
+  assistant: {
+    /** Vorgabe für Name und Aktivierungswort – beides umbenennbar. */
+    name: 'ReyRey',
+    wakeWord: 'ReyRey',
+    /** So lange bleibt eine Antwort im Bild stehen. */
+    answerMs: 9000,
+    /** Mindestabstand zwischen zwei gesprochenen Gefahrenhinweisen. */
+    hazardQuietMs: 9000,
+  },
+
+  memory: {
+    /** Ähnlichkeit, ab der ein gespeicherter Gegenstand als wiedererkannt gilt. */
+    threshold: 0.72,
+    /** Takt, in dem laufende Objektziele gegen das Gedächtnis geprüft werden. */
+    matchIntervalMs: 1400,
+  },
+
+  gestures: {
+    /** Takt der Bildvergleiche. Häufiger bringt nichts, kostet aber Akku. */
+    intervalMs: 90,
+  },
 };
 
 /** Vom Nutzer umschaltbare Einstellungen und ihre Ausgangswerte. */
@@ -123,4 +146,39 @@ export const DEFAULT_SETTINGS = {
   keepAwake: true,
   minScore: CONFIG.objects.minScore,
   matchThreshold: CONFIG.recognition.threshold,
+
+  /* --- ReyRey --- */
+  /** Zuhören ist aus, bis der Nutzer zustimmt: Die Spracherkennung des
+   *  Browsers schickt den Ton an Google bzw. Apple (siehe voice.js). */
+  assistantListening: false,
+  assistantVoiceConsent: false,
+  assistantSpeak: true,
+  assistantOverlay: true,
+  assistantName: CONFIG.assistant.name,
+  assistantWakeWord: CONFIG.assistant.wakeWord,
+
+  /* --- Wahrnehmung --- */
+  motionArrows: true,
+  hazardWarnings: true,
+  hazardSpeak: true,
+  gesturesEnabled: false,
+  gestureBindings: null,
+
+  /* --- Anzeige --- */
+  hudVisible: true,
+
+  /* --- Privatsphäre --- */
+  privacy: false,
+  rememberPlaces: false,
+
+  /* --- Auswärtige Dienste, alle aus --- */
+  cloudEnabled: false,
+  cloudConsent: false,
+  cloudMode: 'proxy',
+  cloudProxyUrl: 'reyrey-proxy.php',
+  cloudApiKey: '',
+  translateMode: 'cloud',
+  translateUrl: '',
+  translateKey: '',
+  translateTarget: 'de',
 };

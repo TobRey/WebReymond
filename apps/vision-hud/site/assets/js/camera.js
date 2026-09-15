@@ -61,6 +61,8 @@ export class Camera {
     this.stream = null;
     this.facingMode = CONFIG.camera.facingMode;
     this.wakeLock = null;
+    /** Aufräumfunktion der Überwachung, siehe startWatchdog(). */
+    this.watchdog = null;
   }
 
   /** Läuft die Seite in einem Kontext, in dem der Browser die Kamera freigibt? */
@@ -91,7 +93,9 @@ export class Camera {
    */
   async start(facingMode = this.facingMode) {
     Camera.checkSupport();
-    this.stop();
+    // Nur den Strom lösen – die Überwachung soll den Neustart überleben.
+    this.stream?.getTracks().forEach((track) => track.stop());
+    this.stream = null;
 
     const constraints = {
       audio: false,
@@ -176,8 +180,116 @@ export class Camera {
   }
 
   stop() {
+    this.watchdog?.();
+    this.watchdog = null;
     this.stream?.getTracks().forEach((track) => track.stop());
     this.stream = null;
     this.video.srcObject = null;
+  }
+
+  /* ------------------------------------------------------------------
+   * Wiederanlauf
+   *
+   * Der Kamerastrom endet nicht nur, wenn man ihn beendet: Ein Anruf, der
+   * Sperrbildschirm, eine andere App oder ein Browser, der einen Hintergrundtab
+   * einfriert, beenden die Spur ebenfalls. Das Bild steht dann still, ohne dass
+   * ein Fehler auftritt – die Seite sieht aus, als wäre sie abgestürzt.
+   *
+   * Deshalb wird der Zustand überwacht und der Strom neu angefordert, sobald
+   * die Seite wieder sichtbar ist. Neu anfordern geht nur mit gültiger
+   * Berechtigung; hat der Nutzer sie entzogen, meldet die Schleife das und gibt
+   * auf, statt endlos zu fragen.
+   * ------------------------------------------------------------------ */
+
+  /**
+   * @param {(state: 'verloren'|'zurück'|'aufgegeben', detail?: string) => void} report
+   */
+  startWatchdog(report) {
+    if (this.watchdog) return;
+
+    let attempts = 0;
+    let busy = false;
+
+    const revive = async (why) => {
+      if (busy || !this.facingMode) return;
+      busy = true;
+      report('verloren', why);
+
+      while (attempts < 6) {
+        attempts += 1;
+        // Wartezeit wächst: 0,4 s, 0,8 s, 1,6 s … höchstens 8 s.
+        const wait = Math.min(8000, 400 * 2 ** (attempts - 1));
+        await new Promise((resolve) => setTimeout(resolve, wait));
+        if (document.hidden) continue;
+
+        try {
+          await this.start(this.facingMode);
+          attempts = 0;
+          busy = false;
+          report('zurück');
+          return;
+        } catch (error) {
+          if (error?.name === 'CameraError' && /verweigert/i.test(error.title ?? '')) {
+            busy = false;
+            report('aufgegeben', 'Der Kamerazugriff wurde entzogen.');
+            return;
+          }
+        }
+      }
+      busy = false;
+      report('aufgegeben', 'Die Kamera antwortet nicht mehr.');
+    };
+
+    const onTrackEnded = () => revive('Die Kamera wurde von aussen beendet.');
+
+    const attach = () => {
+      this.stream?.getVideoTracks().forEach((track) => {
+        track.removeEventListener('ended', onTrackEnded);
+        track.addEventListener('ended', onTrackEnded);
+      });
+    };
+    attach();
+
+    // Zweiter Wächter: Manche Systeme beenden die Spur nicht, liefern aber
+    // auch keine Bilder mehr. Ein stehender Zeitstempel verrät das.
+    let lastTime = -1;
+    let stalled = 0;
+    const timer = setInterval(() => {
+      if (document.hidden || busy) {
+        stalled = 0;
+        return;
+      }
+      const track = this.stream?.getVideoTracks()[0];
+      if (!this.stream || !track || track.readyState === 'ended') {
+        revive('Die Kamera liefert kein Bild mehr.');
+        return;
+      }
+      if (this.video.currentTime === lastTime) {
+        stalled += 1;
+        if (stalled >= 4) {
+          stalled = 0;
+          revive('Das Bild steht still.');
+        }
+      } else {
+        stalled = 0;
+        lastTime = this.video.currentTime;
+      }
+      attach();
+    }, 1200);
+
+    const onVisible = () => {
+      if (document.hidden) return;
+      // Nach dem Zurückkehren muss das Video oft angestossen werden.
+      this.video.play?.().catch(() => {});
+      this.requestWakeLock();
+      const track = this.stream?.getVideoTracks()[0];
+      if (!track || track.readyState === 'ended') revive('Zurück aus dem Hintergrund.');
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    this.watchdog = () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }
 }
