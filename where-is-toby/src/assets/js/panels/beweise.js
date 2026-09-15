@@ -2,6 +2,7 @@
 
 import { el, sectionTitle, openOverlay, clear, toast, assetUrl } from '../core.js';
 import { openMedia } from '../viewer.js';
+import { renderPuzzle } from '../puzzle.js';
 
 const CATEGORIES = {
     alle: 'Alle',
@@ -66,6 +67,30 @@ export async function render(game) {
 
     wrap.append(filters, list);
     draw();
+    /* Auswertungen: Raetsel, die zum Beweisarchiv gehoeren, brauchen hier einen Platz -
+       sonst sind sie im Spiel ueberhaupt nicht erreichbar. */
+    const analyses = (game.state.puzzles || []).filter(
+        (puzzle) => puzzle.panel === 'beweise' && puzzle.available && !puzzle.solved,
+    );
+    if (analyses.length) {
+        wrap.append(sectionTitle('Offene Auswertungen', 'Anhand der gesicherten Beweise zu bearbeiten.'));
+        const board = el('div', { class: 'panel-grid cols-2' });
+        analyses.forEach((puzzle) => {
+            board.append(el('button', {
+                class: 'evidence-card',
+                'data-importance': 'kern',
+                onclick: () => openOverlay(puzzle.title, renderPuzzle(game, puzzle, {
+                    onSuccess: async () => { await game.refresh(); game.showPanel('beweise'); },
+                })),
+            }, [
+                el('span', { class: 'evidence-card__code', text: 'AUSWERTUNG' }),
+                el('strong', { text: puzzle.title }),
+                el('small', { text: puzzle.prompt }),
+            ]));
+        });
+        wrap.append(board);
+    }
+
     return wrap;
 }
 

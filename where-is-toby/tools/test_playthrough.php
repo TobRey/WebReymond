@@ -32,7 +32,12 @@ check('Fall gestartet', ($start['ok'] ?? false) === true, (string)($start['error
 $state = api('/api/case/toby/state', [], $csrf, 'GET')['state'] ?? [];
 check('Zustand geladen', isset($state['case']['title']), json_encode(array_keys($state)));
 check('25 Beweise im Fall', (int)($state['evidence_total'] ?? 0) === 25, 'gefunden: ' . (int)($state['evidence_total'] ?? 0));
-check('8 Personen im Fall', count($state['npcs'] ?? []) >= 7, 'gefunden: ' . count($state['npcs'] ?? []));
+/* Schritt fuer Schritt: am Anfang sind nur Familie und beste Freundin erreichbar,
+   alles Weitere schaltet sich ueber den Fortschritt frei. */
+$reachable = static fn(array $st): int => count(array_filter($st['npcs'] ?? [], static fn(array $n): bool => (bool)($n['available'] ?? false)));
+check('Zu Beginn nur wenige Personen erreichbar', $reachable($state) === 3, 'erreichbar: ' . $reachable($state));
+check('Spaetere Personen noch verborgen', !in_array('npc_doss', array_column($state['npcs'] ?? [], 'id'), true));
+check('Zu Beginn wenige Aktenstuecke', count($state['case']['file_entries'] ?? []) <= 5, 'gefunden: ' . count($state['case']['file_entries'] ?? []));
 check('Startbeweis vorhanden', in_array('E01', $state['progress']['evidence'] ?? [], true));
 check('Hinweisbudget 4', (int)($state['progress']['hints_left'] ?? -1) === 4, 'Budget: ' . (int)($state['progress']['hints_left'] ?? -1));
 check('Auftragsleiste vorhanden', isset($state['objectives']['open']), 'keine Auftraege im Zustand');
@@ -115,8 +120,8 @@ section('5.3 Fotos, Audio, geloeschte Daten');
 collect('E07', $csrf);
 collect('E08', $csrf);
 
-solve('pz_recover_chat', 'opt_frank', $csrf, false);
-solve('pz_recover_chat', 'opt_nora', $csrf);
+solve('pz_recover_chat', ['st_frank', 'ms_2226'], $csrf, false);
+solve('pz_recover_chat', ['st_nora', 'ms_2226'], $csrf);
 $trash = api('/api/case/toby/device/dev_toby_phone/app/trash', [], $csrf, 'GET');
 check('Papierkorb nach Rekonstruktion lesbar', isset($trash['content']['items']), (string)($trash['error'] ?? ''));
 
@@ -144,6 +149,9 @@ foreach (['E11', 'E12', 'E13', 'E14'] as $evidence) {
 }
 check('Zustand kennzeichen_bekannt gesetzt', hasFlag($state, 'kennzeichen_bekannt'));
 check('Zustand wasserwerke_im_blick gesetzt', hasFlag($state, 'wasserwerke_im_blick'));
+check('Walter Doss wird jetzt freigeschaltet', in_array('npc_doss', array_column($state['npcs'] ?? [], 'id'), true));
+check('Mehr Personen als am Anfang', $reachable($state) > 3, 'erreichbar: ' . $reachable($state));
+check('Mehr Aktenstuecke als am Anfang', count($state['case']['file_entries'] ?? []) > 5, 'gefunden: ' . count($state['case']['file_entries'] ?? []));
 check('Nachricht "Hoer auf, mich zu suchen" ausgeloest', hasFlag($state, 'nachricht_erschienen'), 'Horror-Ereignis hr_message nicht ausgeloest');
 
 /* --------- Verhoere und Konfrontationen --------- */
@@ -200,8 +208,9 @@ section('5.6 Wasserwerke und Ordner');
 
 solve('pz_ww_login', 'falschespasswort', $csrf, false);
 solve('pz_ww_login', 'Halloway98', $csrf);
-solve('pz_find_flush', '4', $csrf);
-solve('pz_keycard', 'WW-0114', $csrf);
+solve('pz_find_flush', 'r1', $csrf, false);
+solve('pz_find_flush', 'r5', $csrf);
+solve('pz_keycard', 'k5', $csrf);
 solve('pz_cam_pump', 453, $csrf);
 solve('pz_doss_folder', '1998', $csrf);
 
@@ -217,9 +226,9 @@ check('Geschuetztes Dokument nach Loesung lesbar', isset($folder['media']['body'
 /* --------- Schlussfolgerungen --------- */
 section('5.7 Schlussfolgerungen');
 
-solve('pz_style_message', 'opt_late', $csrf, false);
-solve('pz_style_message', 'opt_stil', $csrf);
-solve('pz_bus_contradiction', ['opt_card', 'opt_cell'], $csrf);
+solve('pz_style_message', ['tk_gross'], $csrf, false);
+solve('pz_style_message', ['tk_gross', 'tk_komma', 'tk_punkt'], $csrf);
+solve('pz_bus_contradiction', ['cl_paid', 'ev_card'], $csrf);
 solve('pz_locate_final', ['x' => 0.78, 'y' => 0.35], $csrf);
 solve('pz_timeline', ['tl_streit', 'tl_rad', 'tl_turm', 'tl_tanken', 'tl_zaun', 'tl_van', 'tl_frank', 'tl_audio', 'tl_last', 'tl_msg', 'tl_card'], $csrf);
 

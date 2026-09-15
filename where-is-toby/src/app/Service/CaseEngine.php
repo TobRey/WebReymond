@@ -324,6 +324,14 @@ final class CaseEngine
                 'placeholder' => (string)($puzzle['placeholder'] ?? ''),
                 'context'   => (string)($puzzle['context'] ?? ''),
                 'options'   => $this->publicOptions($puzzle),
+                'tokens'    => $this->publicTokens($puzzle),
+                'records'   => $this->publicRecords($puzzle),
+                'columns'   => array_values((array)($puzzle['columns'] ?? [])),
+                'filters'   => array_values((array)($puzzle['filters'] ?? [])),
+                'left'      => $this->publicSide($puzzle, 'left'),
+                'right'     => $this->publicSide($puzzle, 'right'),
+                'left_title'  => (string)($puzzle['left_title'] ?? ''),
+                'right_title' => (string)($puzzle['right_title'] ?? ''),
                 'length'    => (int)($puzzle['length'] ?? 0),
                 'media'     => (string)($puzzle['media'] ?? ''),
                 'panel'     => (string)($puzzle['panel'] ?? ''),
@@ -424,6 +432,57 @@ final class CaseEngine
             return false;
         }
         return $this->puzzles->requirementsMet(['requires' => $done], $progress)['ok'];
+    }
+
+    /**
+     * Textbausteine fuer den Typ "mark": Der Spieler klickt verdaechtige Stellen
+     * direkt im Text an. Ausgeliefert werden nur Kennung und Text - welche Stelle
+     * richtig ist, bleibt auf dem Server.
+     */
+    private function publicTokens(array $puzzle): array
+    {
+        $out = [];
+        foreach ((array)($puzzle['tokens'] ?? []) as $token) {
+            if (is_string($token)) {
+                $out[] = ['id' => '', 'text' => $token, 'markable' => false];
+                continue;
+            }
+            $out[] = [
+                'id'       => (string)($token['id'] ?? ''),
+                'text'     => (string)($token['text'] ?? ''),
+                'markable' => (string)($token['id'] ?? '') !== '',
+                'break'    => (bool)($token['break'] ?? false),
+            ];
+        }
+        return $out;
+    }
+
+    /** Protokollzeilen fuer den Typ "record" (filterbare Tabelle). */
+    private function publicRecords(array $puzzle): array
+    {
+        $out = [];
+        foreach ((array)($puzzle['records'] ?? []) as $record) {
+            $out[] = [
+                'id'     => (string)($record['id'] ?? ''),
+                'cells'  => array_map('strval', (array)($record['cells'] ?? [])),
+                'tags'   => array_map('strval', (array)($record['tags'] ?? [])),
+            ];
+        }
+        return $out;
+    }
+
+    /** Eine Seite des Typs "link" (zwei Listen, die verbunden werden). */
+    private function publicSide(array $puzzle, string $side): array
+    {
+        $out = [];
+        foreach ((array)($puzzle[$side] ?? []) as $item) {
+            $out[] = [
+                'id'    => (string)($item['id'] ?? ''),
+                'label' => (string)($item['label'] ?? ''),
+                'note'  => (string)($item['note'] ?? ''),
+            ];
+        }
+        return $out;
     }
 
     private function publicOptions(array $puzzle): array

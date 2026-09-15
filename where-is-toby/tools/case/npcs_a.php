@@ -450,6 +450,8 @@ return [
      ===================================================================== */
     [
         'id' => 'npc_elias', 'name' => 'Elias Marsh', 'age' => 18, 'role' => 'Freund, Nachtschicht im Depot',
+        'requires_flags' => ['phone_offen'],
+        'locked_hint' => 'Erst nach Durchsicht von Tobys Kontakten erreichbar.',
         'relationship' => 'Schulfreund, Mitglied der Recherchegruppe "Nachtlinie"',
         'avatar' => 'assets/img/avatars/elias.svg', 'phone' => '+1 802 555 0166',
         'status' => 'erreichbar', 'short' => 'Hat in der Tatnacht Schicht getauscht. Wirkt nervoes - hat aber eine Zeiterfassung.',

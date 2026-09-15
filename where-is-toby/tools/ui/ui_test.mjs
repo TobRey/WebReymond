@@ -238,6 +238,117 @@ await step('Adminbereich pruefen', async () => {
     await adminContext.close();
 });
 
+/* --------------------------------------------------------------
+ |  Neue Interaktionen: markieren, verbinden, Protokollzeile waehlen
+ |  Diese Raetsel muessen im Spiel erreichbar UND bedienbar sein -
+ |  ein reiner API-Test wuerde nicht auffallen lassen, dass sie in
+ |  keinem Bereich auftauchen.
+ -------------------------------------------------------------- */
+await step('Interaktionen: markieren und verbinden', async () => {
+    const ctx = await browser.newContext({ viewport: { width: 1400, height: 950 }, locale: 'de-DE' });
+    const p2 = await ctx.newPage();
+    p2.on('pageerror', (error) => errors.push('pageerror: ' + error.message));
+
+    await p2.goto(BASE + '/registrieren', { waitUntil: 'networkidle' });
+    await p2.fill('input[name="username"]', 'ux' + Math.floor(Math.random() * 99999));
+    await p2.fill('input[name="password"]', 'Ermittlung#2024');
+    await p2.fill('input[name="password_repeat"]', 'Ermittlung#2024');
+    await p2.check('input[name="age_confirm"]');
+    await p2.click('button[type="submit"]');
+
+    await p2.goto(BASE + '/spielen/toby', { waitUntil: 'networkidle' });
+    await p2.waitForSelector('#term');
+    const csrf = await p2.evaluate(() => JSON.parse(document.getElementById('wit-bootstrap').textContent).csrf);
+    const call = (path, body) => p2.evaluate(async ([u, d, t]) => (await fetch(u, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': t }, body: JSON.stringify(d),
+    })).json(), [BASE + path, body, csrf]);
+
+    await call('/api/case/toby/start', {});
+    for (const [puzzle, answer] of [
+        ['pz_phone_pin', '0409'], ['pz_laptop_pw', 'nachtlinie2003'],
+        ['pz_cam_ridge', 497], ['pz_plate', '7KD418'], ['pz_ww_login', 'Halloway98'],
+    ]) await call('/api/case/toby/puzzle', { puzzle, answer });
+
+    await p2.reload({ waitUntil: 'networkidle' });
+    await p2.waitForSelector('#term');
+    for (const sel of ['#age-gate button', '#intro-start']) {
+        const node = await p2.$(sel);
+        if (node) { await node.click(); await p2.waitForTimeout(300); }
+    }
+    await p2.waitForTimeout(800);
+
+    /* Auftragsleiste */
+    check('Auftragsleiste ist sichtbar', await p2.isVisible('#brief'));
+    check('Auftragsleiste nennt ein Kapitel', /Kapitel \d+ von \d+/.test(await p2.innerText('#brief-chapter')));
+
+    /* Verbinden (link) im Papierkorb des Telefons */
+    await p2.click('[data-panel="geraete"]');
+    await p2.waitForTimeout(600);
+    await p2.evaluate(() => [...document.querySelectorAll('.device-tile')].find((n) => /Smartphone/.test(n.textContent))?.click());
+    await p2.waitForTimeout(700);
+    await p2.evaluate(() => [...document.querySelectorAll('.app-icon')].find((n) => /Geloescht/i.test(n.textContent || ''))?.click());
+    await p2.waitForTimeout(900);
+    check('Verbinden-Raetsel wird angezeigt', await p2.isVisible('.linkcols'));
+    await p2.screenshot({ path: `${OUT}/26-verbinden.png` });
+    await p2.evaluate(() => {
+        const pick = (text) => [...document.querySelectorAll('.linkcols__item')].find((n) => n.textContent.includes(text));
+        pick('Nora Vance')?.click();
+        pick('bin da')?.click();
+    });
+    await p2.waitForTimeout(1300);
+    check('Verbinden loest das Raetsel', (await p2.innerText('#toasts')).includes('Wasserturm'));
+
+    /* Dialog schliessen, sonst faengt er die naechsten Klicks ab */
+    const closeOverlay = async () => {
+        await p2.keyboard.press('Escape');
+        await p2.waitForTimeout(400);
+        if (await p2.evaluate(() => { const o = document.getElementById('overlay'); return o && !o.hidden; })) {
+            await p2.evaluate(() => document.getElementById('overlay-close')?.click());
+            await p2.waitForTimeout(400);
+        }
+    };
+    await closeOverlay();
+
+    /* Markieren (mark) im Beweisarchiv */
+    await p2.click('[data-panel="beweise"]');
+    await p2.waitForTimeout(700);
+    const hasAnalysis = await p2.evaluate(() => {
+        const card = [...document.querySelectorAll('.evidence-card')].find((n) => /AUSWERTUNG/.test(n.textContent || ''));
+        if (!card) return false; card.click(); return true;
+    });
+    check('Auswertungen sind im Beweisarchiv erreichbar', hasAnalysis);
+    await p2.waitForTimeout(900);
+    if (await p2.$('.markdoc')) {
+        check('Markieren-Raetsel wird angezeigt', true);
+        await p2.screenshot({ path: `${OUT}/27-markieren.png` });
+        await p2.evaluate(() => [...document.querySelectorAll('.markdoc__tok')].forEach((n) => n.click()));
+        check('Markierte Stellen werden hervorgehoben', (await p2.locator('.markdoc__tok.is-marked').count()) === 3);
+    } else {
+        check('Markieren-Raetsel wird angezeigt', false, 'kein .markdoc im Beweisarchiv');
+    }
+
+    /* Protokollzeile waehlen (record) im Dienstrechner */
+    await closeOverlay();
+    await p2.click('[data-panel="geraete"]');
+    await p2.waitForTimeout(600);
+    await p2.evaluate(() => [...document.querySelectorAll('.device-tile')].find((n) => /Kontrollraum/.test(n.textContent))?.click());
+    await p2.waitForTimeout(700);
+    await p2.evaluate(() => [...document.querySelectorAll('.app-icon')].find((n) => /Betriebsbuch/i.test(n.textContent || ''))?.click());
+    await p2.waitForTimeout(900);
+    check('Protokoll-Raetsel wird angezeigt', await p2.isVisible('.reclist'));
+    const before = await p2.locator('.reclist__row').count();
+    await p2.evaluate(() => [...document.querySelectorAll('.toolbar .btn')].find((b) => /11\.\/12/.test(b.textContent))?.click());
+    await p2.waitForTimeout(400);
+    const after = await p2.locator('.reclist__row').count();
+    check('Filter grenzt das Protokoll ein', before > after && after > 0, `${before} -> ${after}`);
+    await p2.screenshot({ path: `${OUT}/28-protokoll.png` });
+    await p2.evaluate(() => [...document.querySelectorAll('.reclist__row')].find((r) => /23:50/.test(r.innerText))?.click());
+    await p2.waitForTimeout(1300);
+    check('Richtige Zeile loest das Raetsel', (await p2.innerText('#toasts')).includes('Abschnitt 4'));
+
+    await ctx.close();
+});
+
 check('Keine JavaScript-Fehler', errors.length === 0, errors.slice(0, 6).join(' | '));
 
 await browser.close();

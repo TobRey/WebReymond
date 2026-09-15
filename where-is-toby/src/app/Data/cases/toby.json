@@ -385,12 +385,18 @@
             "code": "A-3",
             "title": "Altfaelle Millbrook 2003 / 2009 / 2015",
             "summary": "Zusammenstellung der ungeloesten Vermisstenfaelle.",
+            "requires_flags": [
+                "laptop_offen"
+            ],
             "body": "ALTFAELLE (AUSZUG AUS DER LANDESDATENBANK)\n\n2003 - Karen Pielmeier, 16, verschwindet nach dem Herbstfest.\n        Letzte Sichtung State Route 12. Nie gefunden.\n2009 - Danny Oro, 17, verschwindet in der Nacht zum Sonntag.\n        Fahrrad an der Ridge Road gefunden. Nie gefunden.\n2015 - Marisol Vance, 18, verschwindet nach der Spaetschicht.\n        Zeuge nennt weissen Transporter, zieht Aussage zurueck. Nie gefunden.\n\nGEMEINSAMKEITEN (Vorbewertung)\n- alle im Oktober\n- alle 16 bis 18 Jahre alt\n- alle in der Naehe der Ridge Road oder Route 12\n- keine Leiche, keine Forderung, keine Spur\n\nANMERKUNG: Marisol Vance ist die Tante von Nora Vance."
         },
         {
             "code": "A-4",
             "title": "Technische Auswertung Funkzelle",
             "summary": "Standortdaten des Telefons, 11.-12.10.2024.",
+            "requires_flags": [
+                "phone_offen"
+            ],
             "body": "FUNKZELLENAUSWERTUNG (Provider: Greenline Mobile)\n\n21:58  Zelle MAPLE-02      (Wohngebiet)\n22:19  Zelle MAPLE-02\n22:26  Zelle TOWER-01      (Wasserturm)\n22:44  Zelle RIDGE-03\n22:53  Zelle RESERVOIR-01\n23:12  Zelle RESERVOIR-01  (Datenverkehr: Sprachnachricht, 27 s)\n23:14  Zelle RESERVOIR-01  (letzter Kontakt)\n---\n12.10. 03:14  Zelle RESERVOIR-01 (ausgehende Nachricht, 31 Zeichen)\n\nBEWERTUNG: Das Geraet hat das Gebiet RESERVOIR-01 nach 22:53 nicht mehr verlassen.\nEin Aufenthalt in Burlington oder Montreal ist technisch ausgeschlossen."
         },
         {
@@ -409,7 +415,10 @@
             "code": "A-7",
             "title": "Streiflichtaufnahme Asservat 03",
             "summary": "Displayspuren des alten Telefons.",
-            "media": "ph_smudge"
+            "media": "ph_smudge",
+            "requires_flags": [
+                "phone_offen"
+            ]
         },
         {
             "code": "A-8",
@@ -433,7 +442,10 @@
             "code": "A-10",
             "title": "Zeitungsarchiv der Schule",
             "summary": "Archivraum, Ausleihzettel.",
-            "media": "ph_school"
+            "media": "ph_school",
+            "requires_flags": [
+                "lantern_bekannt"
+            ]
         },
         {
             "code": "A-11",
@@ -484,7 +496,10 @@
             "code": "A-16",
             "title": "Zeitungsausschnitte 1998 - 2015",
             "summary": "Vier Archivkopien aus dem Millbrook Sentinel.",
-            "media": "doc_clippings"
+            "media": "doc_clippings",
+            "requires_flags": [
+                "laptop_offen"
+            ]
         }
     ],
     "reference": [
@@ -2317,6 +2332,9 @@
             "id": "dev_toby_old_phone",
             "name": "Altgeraet aus der Schublade",
             "type": "phone",
+            "requires_flags": [
+                "phone_offen"
+            ],
             "owner": "Tobias Brennan",
             "evidence_tag": "Asservat 03",
             "note": "Aelteres Zweitgeraet ohne SIM. Toby hat es fuer das Forum benutzt.",
@@ -3920,6 +3938,10 @@
             "name": "Elias Marsh",
             "age": 18,
             "role": "Freund, Nachtschicht im Depot",
+            "requires_flags": [
+                "phone_offen"
+            ],
+            "locked_hint": "Erst nach Durchsicht von Tobys Kontakten erreichbar.",
             "relationship": "Schulfreund, Mitglied der Recherchegruppe \"Nachtlinie\"",
             "avatar": "assets/img/avatars/elias.svg",
             "phone": "+1 802 555 0166",
@@ -4133,6 +4155,10 @@
             "name": "Gregory Hale",
             "age": 52,
             "role": "Lehrer, Archivbetreuer",
+            "requires_flags": [
+                "lantern_bekannt"
+            ],
+            "locked_hint": "Wird erst relevant, wenn Tobys Recherche bekannt ist.",
             "relationship": "Geschichtslehrer und Betreuer der Schuelerzeitung, hat Toby das Archiv geoeffnet",
             "avatar": "assets/img/avatars/hale.svg",
             "phone": "+1 802 555 0122",
@@ -4436,6 +4462,10 @@
             "name": "Ruth Calloway",
             "age": 71,
             "role": "Nachbarin",
+            "requires_flags": [
+                "frank_widerspruch"
+            ],
+            "locked_hint": "Die Nachbarin wird erst befragt, wenn es um die Einfahrt geht.",
             "relationship": "Nachbarin der Familie Brennan, sitzt abends am Fenster zur Einfahrt",
             "avatar": "assets/img/avatars/ruth.svg",
             "phone": "+1 802 555 0188",
@@ -4657,6 +4687,10 @@
             "name": "Walter Doss",
             "age": 61,
             "role": "Betriebsleiter der Wasserwerke",
+            "requires_flags": [
+                "wasserwerke_im_blick"
+            ],
+            "locked_hint": "Noch kein Anlass, die Wasserwerke zu befragen.",
             "relationship": "Kein persoenlicher Bezug zu Toby - offiziell",
             "avatar": "assets/img/avatars/doss.svg",
             "phone": "+1 802 555 0140",
@@ -5490,32 +5524,57 @@
         },
         {
             "id": "pz_recover_chat",
-            "type": "choice",
-            "title": "Geloeschten Chat wiederherstellen",
+            "type": "link",
+            "title": "Geloeschter Chat",
             "panel": "geraete",
             "hint_order": 30,
-            "prompt": "Der Verlauf ist wiederhergestellt. Wessen Aussage ist damit widerlegt?",
-            "context": "Wiederhergestellter Verlauf, Freitag 11.10.:\n22:05  Toby: kannst du zum wasserturm kommen. 20 min\n22:07  N.:    es ist halb elf ey\n22:08  Toby: ich hab den typ von der wasserwerkssache. er will mir die protokolle zeigen\n22:09  N.:    das ist so eine dumme idee\n22:26  N.:    bin da\n22:31  N.:    ich muss heim. fahr NICHT alleine dahin",
-            "options": [
+            "prompt": "Verbinde die Aussage mit der Zeile, die sie widerlegt.",
+            "left_title": "Aussagen",
+            "right_title": "Wiederhergestellter Verlauf, 11.10.",
+            "left": [
                 {
-                    "id": "opt_nora",
-                    "label": "Nora Vance - sie sagt, sie habe Toby am Freitagabend nicht gesehen"
+                    "id": "st_nora",
+                    "label": "Nora Vance",
+                    "note": "\"Ich habe Toby am Freitagabend nicht gesehen.\""
                 },
                 {
-                    "id": "opt_frank",
-                    "label": "Frank Brennan - er sagt, er habe ab 21 Uhr geschlafen"
+                    "id": "st_frank",
+                    "label": "Frank Brennan",
+                    "note": "\"Ich habe ab 21 Uhr geschlafen.\""
                 },
                 {
-                    "id": "opt_diane",
-                    "label": "Diane Brennan - sie sagt, sie habe Toby um 22:10 Uhr gesehen"
+                    "id": "st_diane",
+                    "label": "Diane Brennan",
+                    "note": "\"Ich habe Toby um 22:10 Uhr gesehen.\""
+                }
+            ],
+            "right": [
+                {
+                    "id": "ms_2205",
+                    "label": "22:05  Toby",
+                    "note": "kannst du zum wasserturm kommen. 20 min"
                 },
                 {
-                    "id": "opt_none",
-                    "label": "Keine der Aussagen - der Chat passt zu allen"
+                    "id": "ms_2208",
+                    "label": "22:08  Toby",
+                    "note": "ich hab den typ von der wasserwerkssache"
+                },
+                {
+                    "id": "ms_2226",
+                    "label": "22:26  N.",
+                    "note": "bin da"
+                },
+                {
+                    "id": "ms_2231",
+                    "label": "22:31  N.",
+                    "note": "ich muss heim. fahr NICHT alleine dahin"
                 }
             ],
             "solutions": [
-                "opt_nora"
+                [
+                    "st_nora",
+                    "ms_2226"
+                ]
             ],
             "requires": {
                 "devices": [
@@ -5523,7 +5582,7 @@
                 ]
             },
             "on_success": {
-                "message": "Nora war in der Tatnacht um 22:26 Uhr am Wasserturm - ihre Aussage ist widerlegt. Und Toby nennt zum ersten Mal die Wasserwerke.",
+                "message": "Um 22:26 Uhr war Nora am Wasserturm. Und Toby nennt zum ersten Mal die Wasserwerke.",
                 "evidence": [
                     "E06"
                 ],
@@ -5533,13 +5592,14 @@
                 "score": 20
             },
             "on_fail": {
-                "message": "Lies die Uhrzeiten noch einmal - wer ist um 22:26 Uhr am Wasserturm?"
+                "message": "Diese Zeile sagt nichts ueber diese Person.",
+                "close_message": "Eine Seite stimmt."
             },
-            "solution_explanation": "Um 22:26 Uhr schreibt Nora \"bin da\", um 22:31 Uhr verabschiedet sie sich. Sie war dort. Ihre Aussage, sie habe Toby an dem Abend nicht gesehen, ist damit widerlegt.",
+            "solution_explanation": "\"bin da\" um 22:26 Uhr stammt von Nora. Sie war am Wasserturm - ihre Aussage, Toby an dem Abend nicht gesehen zu haben, ist damit widerlegt.",
             "hints": [
-                "Lies, wer um 22:26 Uhr schreibt - und was diese Person kurz darauf ankuendigt.",
-                "Eine der drei Personen hat ausgesagt, Toby an diesem Abend gar nicht gesehen zu haben.",
-                "Es ist Nora Vance. Sie war um 22:26 Uhr am Wasserturm."
+                "Nur eine der drei Personen taucht im Verlauf ueberhaupt auf.",
+                "Wer schreibt um 22:26 Uhr \"bin da\" - und wo ist \"da\"?",
+                "Verbinde Nora Vance mit der Zeile von 22:26 Uhr."
             ],
             "related_evidence": [
                 "E05"
@@ -5919,19 +5979,178 @@
         },
         {
             "id": "pz_find_flush",
-            "type": "text",
-            "title": "Betriebsbuch: Spuelung der Tatnacht",
+            "type": "record",
+            "title": "Betriebsbuch der Tatnacht",
             "panel": "geraete",
             "hint_order": 95,
-            "placeholder": "Nummer des Abschnitts",
-            "prompt": "Welcher Leitungsabschnitt wurde in der Nacht vom 11. auf den 12.10.2024 gespuelt? Trage die Nummer ein.",
-            "context": "Das Betriebsbuch laesst sich filtern. Achte auch auf die Spalte \"Erfasst um\".",
-            "solutions": [
-                "4"
+            "prompt": "Finde den Eintrag aus der Tatnacht und klicke ihn an.",
+            "columns": [
+                "Datum",
+                "Zeit",
+                "Abschnitt",
+                "Vorgang",
+                "Freigabe",
+                "Erfasst um"
             ],
-            "alternatives": [
-                "abschnitt 4",
-                "vier"
+            "filters": [
+                {
+                    "tag": "nacht",
+                    "label": "Nur Nachtarbeiten"
+                },
+                {
+                    "tag": "tatnacht",
+                    "label": "11./12.10.2024"
+                },
+                {
+                    "tag": "spuelung",
+                    "label": "Nur Spuelungen"
+                }
+            ],
+            "records": [
+                {
+                    "id": "r1",
+                    "tags": [
+                        "spuelung"
+                    ],
+                    "cells": [
+                        "08.10.2024",
+                        "09:14",
+                        "1",
+                        "Spuelung",
+                        "M. Ortiz",
+                        "09:20"
+                    ]
+                },
+                {
+                    "id": "r2",
+                    "tags": [],
+                    "cells": [
+                        "09.10.2024",
+                        "11:02",
+                        "2",
+                        "Druckpruefung",
+                        "M. Ortiz",
+                        "11:10"
+                    ]
+                },
+                {
+                    "id": "r3",
+                    "tags": [
+                        "nacht"
+                    ],
+                    "cells": [
+                        "10.10.2024",
+                        "23:40",
+                        "1",
+                        "Kontrollgang",
+                        "W. Doss",
+                        "23:45"
+                    ]
+                },
+                {
+                    "id": "r4",
+                    "tags": [
+                        "spuelung"
+                    ],
+                    "cells": [
+                        "11.10.2024",
+                        "14:20",
+                        "3",
+                        "Spuelung",
+                        "M. Ortiz",
+                        "14:31"
+                    ]
+                },
+                {
+                    "id": "r5",
+                    "tags": [
+                        "nacht",
+                        "tatnacht",
+                        "spuelung"
+                    ],
+                    "cells": [
+                        "11./12.10.2024",
+                        "23:50",
+                        "4",
+                        "Spuelung",
+                        "W. Doss",
+                        "05:58"
+                    ]
+                },
+                {
+                    "id": "r6",
+                    "tags": [
+                        "nacht",
+                        "tatnacht"
+                    ],
+                    "cells": [
+                        "12.10.2024",
+                        "01:10",
+                        "4",
+                        "Ventilkontrolle",
+                        "W. Doss",
+                        "05:58"
+                    ]
+                },
+                {
+                    "id": "r7",
+                    "tags": [
+                        "nacht",
+                        "tatnacht"
+                    ],
+                    "cells": [
+                        "12.10.2024",
+                        "03:35",
+                        "4",
+                        "Nachlauf",
+                        "W. Doss",
+                        "05:58"
+                    ]
+                },
+                {
+                    "id": "r8",
+                    "tags": [
+                        "nacht",
+                        "tatnacht"
+                    ],
+                    "cells": [
+                        "12.10.2024",
+                        "04:40",
+                        "4",
+                        "Abschluss",
+                        "W. Doss",
+                        "05:58"
+                    ]
+                },
+                {
+                    "id": "r9",
+                    "tags": [],
+                    "cells": [
+                        "12.10.2024",
+                        "10:05",
+                        "2",
+                        "Druckpruefung",
+                        "M. Ortiz",
+                        "10:12"
+                    ]
+                },
+                {
+                    "id": "r10",
+                    "tags": [
+                        "spuelung"
+                    ],
+                    "cells": [
+                        "13.10.2024",
+                        "08:30",
+                        "1",
+                        "Spuelung",
+                        "M. Ortiz",
+                        "08:36"
+                    ]
+                }
+            ],
+            "solutions": [
+                "r5"
             ],
             "requires": {
                 "devices": [
@@ -5939,7 +6158,7 @@
                 ]
             },
             "on_success": {
-                "message": "Abschnitt 4 - Nordufer und Pumpstation 4. Freigegeben von W. Doss, nachgetragen um 05:58 Uhr.",
+                "message": "Abschnitt 4 - Nordufer, Pumpstation 4. Freigabe W. Doss. Alle vier Eintraege der Nacht: erfasst um 05:58 Uhr.",
                 "evidence": [
                     "E15"
                 ],
@@ -5949,34 +6168,143 @@
                 "score": 20
             },
             "on_fail": {
-                "message": "In dieser Nacht ist dieser Abschnitt nicht eingetragen.",
-                "close_message": "Knapp daneben."
+                "message": "Dieser Eintrag stammt nicht aus der Tatnacht."
             },
-            "solution_explanation": "In der Tatnacht wurde Abschnitt 4 gespuelt - derselbe Abschnitt, in dem Pumpstation 4 liegt. Dasselbe Muster wie 2003 (2), 2009 (3) und 2015 (5).",
+            "solution_explanation": "In der Tatnacht wurde Abschnitt 4 gespuelt - dort liegt Pumpstation 4. Dasselbe Muster wie 2003 (2), 2009 (3) und 2015 (5). Und alle vier Eintraege wurden erst um 05:58 Uhr erfasst.",
             "hints": [
-                "Filtere das Betriebsbuch nach dem Datum der Tatnacht.",
-                "Die Eintraege der Tatnacht betreffen alle denselben Abschnitt - und wurden alle in einer Minute erfasst.",
-                "Es ist Abschnitt 4."
+                "Schalte den Filter \"11./12.10.2024\" ein.",
+                "Vier Eintraege derselben Nacht - und in der letzten Spalte steht bei allen dieselbe Uhrzeit.",
+                "Der gesuchte Eintrag ist die Spuelung um 23:50 Uhr, Abschnitt 4."
             ]
         },
         {
             "id": "pz_keycard",
-            "type": "text",
-            "title": "Zutrittsprotokoll: Karte bestimmen",
+            "type": "record",
+            "title": "Zutrittsprotokoll Pumpstation 4",
             "panel": "geraete",
             "hint_order": 100,
-            "placeholder": "Kartennummer oder Name",
-            "prompt": "Welche Schluesselkarte hat in der Tatnacht die Pumpstation 4 geoeffnet?",
-            "context": "Das Zutrittsprotokoll laesst sich nach Tuer und Zeitraum filtern.",
-            "solutions": [
-                "WW-0114"
+            "prompt": "Wer hat die Tuer in der Tatnacht geoeffnet? Klicke den Eintrag an.",
+            "columns": [
+                "Datum",
+                "Zeit",
+                "Tuer",
+                "Karte",
+                "Inhaber"
             ],
-            "alternatives": [
-                "WW0114",
-                "0114",
-                "doss",
-                "w. doss",
-                "walter doss"
+            "filters": [
+                {
+                    "tag": "pump4",
+                    "label": "Nur Pumpstation 4"
+                },
+                {
+                    "tag": "nacht",
+                    "label": "Nur 00:00 - 06:00"
+                }
+            ],
+            "records": [
+                {
+                    "id": "k1",
+                    "tags": [],
+                    "cells": [
+                        "11.10.2024",
+                        "07:12",
+                        "Betriebshof",
+                        "WW-0207",
+                        "M. Ortiz"
+                    ]
+                },
+                {
+                    "id": "k2",
+                    "tags": [],
+                    "cells": [
+                        "11.10.2024",
+                        "07:31",
+                        "Kontrollraum",
+                        "WW-0114",
+                        "W. Doss"
+                    ]
+                },
+                {
+                    "id": "k3",
+                    "tags": [
+                        "pump4"
+                    ],
+                    "cells": [
+                        "02.07.2024",
+                        "13:05",
+                        "Pumpstation 4",
+                        "WW-0114",
+                        "W. Doss"
+                    ]
+                },
+                {
+                    "id": "k4",
+                    "tags": [
+                        "nacht"
+                    ],
+                    "cells": [
+                        "12.10.2024",
+                        "00:58",
+                        "Kontrollraum",
+                        "WW-0114",
+                        "W. Doss"
+                    ]
+                },
+                {
+                    "id": "k5",
+                    "tags": [
+                        "pump4",
+                        "nacht"
+                    ],
+                    "cells": [
+                        "12.10.2024",
+                        "04:02",
+                        "Pumpstation 4",
+                        "WW-0114",
+                        "W. Doss"
+                    ]
+                },
+                {
+                    "id": "k6",
+                    "tags": [
+                        "nacht"
+                    ],
+                    "cells": [
+                        "12.10.2024",
+                        "05:56",
+                        "Kontrollraum",
+                        "WW-0114",
+                        "W. Doss"
+                    ]
+                },
+                {
+                    "id": "k7",
+                    "tags": [],
+                    "cells": [
+                        "12.10.2024",
+                        "08:03",
+                        "Betriebshof",
+                        "WW-0207",
+                        "M. Ortiz"
+                    ]
+                },
+                {
+                    "id": "k8",
+                    "tags": [
+                        "pump4",
+                        "nacht"
+                    ],
+                    "cells": [
+                        "13.10.2024",
+                        "02:06",
+                        "Pumpstation 4",
+                        "WW-0114",
+                        "W. Doss"
+                    ]
+                }
+            ],
+            "solutions": [
+                "k5"
             ],
             "requires": {
                 "devices": [
@@ -5984,7 +6312,7 @@
                 ]
             },
             "on_success": {
-                "message": "Karte WW-0114 (W. Doss), 12.10. um 04:02 Uhr. Und erneut in der Folgenacht um 02:06 Uhr.",
+                "message": "Karte WW-0114, W. Doss, 12.10. um 04:02 Uhr. Dieselbe Karte oeffnet die Tuer in der Folgenacht erneut - um 02:06 Uhr.",
                 "evidence": [
                     "E19"
                 ],
@@ -5994,14 +6322,13 @@
                 "score": 25
             },
             "on_fail": {
-                "message": "Diese Karte erscheint dort nicht.",
-                "close_message": "Fast - pruefe die Schreibweise der Kartennummer."
+                "message": "Das ist nicht die Tuer oder nicht die Nacht."
             },
-            "solution_explanation": "Die personalisierte Karte WW-0114 gehoert Walter Doss. Sie oeffnet die stillgelegte Station in der Tatnacht und in der Folgenacht.",
+            "solution_explanation": "Die personalisierte Karte WW-0114 gehoert Walter Doss. Sie oeffnet die stillgelegte Station in der Tatnacht um 04:02 Uhr - und in der Folgenacht noch einmal.",
             "hints": [
-                "Filtere das Zutrittsprotokoll nach \"Pumpstation 4\".",
-                "Es gibt nur eine Karte, die diese Tuer oeffnet - und sie ist personalisiert.",
-                "Es ist Karte WW-0114, ausgegeben an W. Doss."
+                "Schalte den Filter \"Nur Pumpstation 4\" ein.",
+                "Eine einzige Karte oeffnet diese Tuer - und sie ist auf einen Namen ausgestellt.",
+                "Gesucht ist der Zutritt am 12.10. um 04:02 Uhr."
             ]
         },
         {
@@ -6054,36 +6381,67 @@
         },
         {
             "id": "pz_style_message",
-            "type": "choice",
-            "title": "Wer hat die Nachricht getippt?",
+            "type": "mark",
+            "title": "Die Nachricht von 03:14 Uhr",
             "panel": "beweise",
-            "hint_order": 130,
-            "prompt": "Die Nachricht \"Hoer auf, mich zu suchen.\" soll von Toby stammen. Welches Merkmal spricht am deutlichsten dagegen?",
-            "context": "Das Sprachstilprofil in der Fallakte wertet 812 seiner Nachrichten aus.",
-            "options": [
+            "hint_order": 120,
+            "prompt": "Markiere im Text die Stellen, die nicht zu Tobys Schreibweise passen.",
+            "context": "Vergleich: Toby schreibt klein, ohne Punkt am Satzende, mit Tippfehlern. Drei Stellen weichen ab.",
+            "tokens": [
                 {
-                    "id": "opt_stil",
-                    "label": "Grossschreibung, Punkt am Satzende, kein einziger Tippfehler",
-                    "note": "widerspricht seinem Profil in allen drei Punkten"
+                    "text": "Empfangen 12.10., 03:14 Uhr - von Tobys Geraet",
+                    "id": ""
                 },
                 {
-                    "id": "opt_late",
-                    "label": "Die Nachricht kam mitten in der Nacht",
-                    "note": "Toby war oft nachts wach"
+                    "break": true
                 },
                 {
-                    "id": "opt_short",
-                    "label": "Die Nachricht ist sehr kurz",
-                    "note": "seine Nachrichten sind fast immer kurz"
+                    "break": true
                 },
                 {
-                    "id": "opt_group",
-                    "label": "Sie ging an eine Gruppe",
-                    "note": "die Gruppe existierte schon vorher"
+                    "text": "H",
+                    "id": "tk_gross"
+                },
+                {
+                    "text": "oer auf",
+                    "id": ""
+                },
+                {
+                    "text": ",",
+                    "id": "tk_komma"
+                },
+                {
+                    "text": " mich zu suchen",
+                    "id": ""
+                },
+                {
+                    "text": ".",
+                    "id": "tk_punkt"
+                },
+                {
+                    "break": true
+                },
+                {
+                    "break": true
+                },
+                {
+                    "text": "Zum Vergleich, 11.10., 21:52 Uhr:",
+                    "id": ""
+                },
+                {
+                    "break": true
+                },
+                {
+                    "text": "ey ich bin gleich weg, meld mich spaeter ne",
+                    "id": ""
                 }
             ],
             "solutions": [
-                "opt_stil"
+                [
+                    "tk_gross",
+                    "tk_komma",
+                    "tk_punkt"
+                ]
             ],
             "requires": {
                 "flags": [
@@ -6091,7 +6449,7 @@
                 ]
             },
             "on_success": {
-                "message": "Der Stilbruch ist eindeutig. Die Nachricht wurde von seinem Geraet, aber nicht von seiner Hand gesendet.",
+                "message": "Grossbuchstabe, Komma, Schlusspunkt - und kein einziger Tippfehler. Das Geraet ist seins, die Hand nicht.",
                 "evidence": [
                     "E17"
                 ],
@@ -6101,53 +6459,65 @@
                 "score": 20
             },
             "on_fail": {
-                "message": "Das ist kein belastbares Merkmal."
+                "message": "Diese Stellen sind unauffaellig. Vergleiche Anfang, Mitte und Ende mit der Zeile darunter."
             },
-            "solution_explanation": "Toby schreibt Satzanfaenge klein (97 %), setzt fast nie Punkte (4 %) und macht in 6 % der Woerter Tippfehler. Die Nachricht ist in allen drei Punkten auffaellig sauber.",
+            "solution_explanation": "Tobys 412 ausgewertete Nachrichten enthalten keinen einzigen Satzanfang in Grossschreibung, keinen Schlusspunkt und im Schnitt 1,4 Tippfehler je Nachricht. Die Nachricht von 03:14 Uhr hat alle drei Merkmale umgekehrt.",
             "hints": [
-                "Vergleiche die Nachricht mit seinen echten Chats. Etwas fehlt darin.",
-                "Die Fallakte enthaelt ein Sprachstilprofil mit Prozentwerten.",
-                "Entscheidend sind Grossschreibung, Punkt am Satzende und die fehlenden Tippfehler."
+                "Sieh dir den ersten Buchstaben an - und das letzte Zeichen.",
+                "Toby setzt nie einen Punkt ans Satzende. Und Kommas benutzt er auch nicht.",
+                "Markiere das \"H\" am Anfang, das Komma und den Punkt am Ende."
+            ],
+            "related_evidence": [
+                "E05"
             ]
         },
         {
             "id": "pz_bus_contradiction",
-            "type": "contradiction",
-            "title": "Weglauf-These widerlegen",
+            "type": "link",
+            "title": "Weglauf-These pruefen",
             "panel": "beweise",
-            "hint_order": 135,
-            "prompt": "Die Buchung nach Montreal soll belegen, dass Toby weggelaufen ist. Waehle die zwei Fakten, die das widerlegen.",
-            "options": [
+            "hint_order": 130,
+            "prompt": "Verbinde die Behauptung mit dem Beleg, der sie unmoeglich macht.",
+            "left_title": "Behauptung der Buchung",
+            "right_title": "Gesicherte Belege",
+            "left": [
                 {
-                    "id": "opt_card",
-                    "label": "Die verwendete Debitkarte lag zur Buchungszeit im Kinderzimmer",
-                    "note": "Tatortaufnahme 004"
+                    "id": "cl_paid",
+                    "label": "Bezahlt mit Tobys Bankkarte",
+                    "note": "12.10., 00:58 Uhr"
                 },
                 {
-                    "id": "opt_cell",
-                    "label": "Das Telefon war um 03:14 Uhr in der Funkzelle am Stausee",
-                    "note": "Funkzellenauswertung"
+                    "id": "cl_self",
+                    "label": "Gebucht von Tobys Telefon",
+                    "note": "IP der Wasserwerke"
                 },
                 {
-                    "id": "opt_ip",
-                    "label": "Die Buchung wurde spaet in der Nacht ausgefuehrt",
-                    "note": "sagt nichts ueber den Buchenden"
+                    "id": "cl_plan",
+                    "label": "Toby hat die Reise geplant",
+                    "note": "Ziel Montreal"
+                }
+            ],
+            "right": [
+                {
+                    "id": "ev_cell",
+                    "label": "Funkzelle Reservoir",
+                    "note": "Telefon um 00:58 Uhr am Stausee"
                 },
                 {
-                    "id": "opt_name",
-                    "label": "Die Buchung lief auf seinen Namen",
-                    "note": "gerade das soll sie glaubhaft machen"
+                    "id": "ev_card",
+                    "label": "Bankkarte im Kinderzimmer",
+                    "note": "Tatortaufnahme, Schreibtisch"
                 },
                 {
-                    "id": "opt_price",
-                    "label": "Der Fahrpreis war niedrig",
-                    "note": "ohne Bedeutung"
+                    "id": "ev_pack",
+                    "label": "Rucksack und Pass zu Hause",
+                    "note": "Asservatenliste"
                 }
             ],
             "solutions": [
                 [
-                    "opt_card",
-                    "opt_cell"
+                    "cl_paid",
+                    "ev_card"
                 ]
             ],
             "requires": {
@@ -6156,7 +6526,7 @@
                 ]
             },
             "on_success": {
-                "message": "Die Weglauf-These ist widerlegt. Buchung und Nachricht waren ein Koeder.",
+                "message": "Die Karte lag um 00:58 Uhr auf seinem Schreibtisch. Bezahlt hat jemand anderes - Buchung und Nachricht waren ein Koeder.",
                 "evidence": [
                     "E18"
                 ],
@@ -6166,14 +6536,14 @@
                 "score": 20
             },
             "on_fail": {
-                "message": "Diese Auswahl haelt einer Nachfrage nicht stand.",
-                "close_message": "Ein Punkt ist richtig, der andere nicht."
+                "message": "Das schliesst sich nicht zwingend aus.",
+                "close_message": "Eine Seite stimmt."
             },
-            "solution_explanation": "Die Karte lag im Zimmer, und das Telefon war zur selben Zeit am Stausee - jemand anderes hat gebucht und geschrieben.",
+            "solution_explanation": "Die Buchung wurde mit Tobys Karte bezahlt - die zu diesem Zeitpunkt fotografiert auf seinem Schreibtisch lag. Er kann sie nicht benutzt haben.",
             "hints": [
-                "Suche nach Dingen, die zur selben Zeit an zwei Orten waren.",
-                "Die Bankkarte liegt auf der Tatortaufnahme. Und die Funkzelle sagt, wo das Telefon war.",
-                "Richtig sind die Karte im Kinderzimmer und die Funkzelle am Stausee."
+                "Suche das Paar, bei dem eine Sache zur selben Zeit an zwei Orten sein muesste.",
+                "Womit wurde bezahlt - und wo lag dieser Gegenstand laut Tatortaufnahme?",
+                "Verbinde \"Bezahlt mit Tobys Bankkarte\" mit \"Bankkarte im Kinderzimmer\"."
             ]
         },
         {
@@ -7384,6 +7754,6 @@
             "npc_doss"
         ]
     },
-    "updated_at": "2026-09-15T16:10:15+00:00",
+    "updated_at": "2026-09-15T18:21:53+00:00",
     "created_at": "2024-10-13T08:00:00+00:00"
 }

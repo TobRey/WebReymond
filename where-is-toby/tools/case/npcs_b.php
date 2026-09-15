@@ -10,6 +10,8 @@ return [
      ===================================================================== */
     [
         'id' => 'npc_hale', 'name' => 'Gregory Hale', 'age' => 52, 'role' => 'Lehrer, Archivbetreuer',
+        'requires_flags' => ['lantern_bekannt'],
+        'locked_hint' => 'Wird erst relevant, wenn Tobys Recherche bekannt ist.',
         'relationship' => 'Geschichtslehrer und Betreuer der Schuelerzeitung, hat Toby das Archiv geoeffnet',
         'avatar' => 'assets/img/avatars/hale.svg', 'phone' => '+1 802 555 0122',
         'status' => 'erreichbar', 'short' => 'Hat Toby beim Recherchieren geholfen. Weicht aus, sobald es um 2015 geht.',
@@ -140,6 +142,8 @@ return [
      ===================================================================== */
     [
         'id' => 'npc_ruth', 'name' => 'Ruth Calloway', 'age' => 71, 'role' => 'Nachbarin',
+        'requires_flags' => ['frank_widerspruch'],
+        'locked_hint' => 'Die Nachbarin wird erst befragt, wenn es um die Einfahrt geht.',
         'relationship' => 'Nachbarin der Familie Brennan, sitzt abends am Fenster zur Einfahrt',
         'avatar' => 'assets/img/avatars/ruth.svg', 'phone' => '+1 802 555 0188',
         'status' => 'erreichbar', 'short' => 'Sieht und hoert viel, verwechselt aber Wochentage. Ihr Hund reagiert auf Fahrzeuge.',
@@ -241,6 +245,8 @@ return [
      ===================================================================== */
     [
         'id' => 'npc_doss', 'name' => 'Walter Doss', 'age' => 61, 'role' => 'Betriebsleiter der Wasserwerke',
+        'requires_flags' => ['wasserwerke_im_blick'],
+        'locked_hint' => 'Noch kein Anlass, die Wasserwerke zu befragen.',
         'relationship' => 'Kein persoenlicher Bezug zu Toby - offiziell',
         'avatar' => 'assets/img/avatars/doss.svg', 'phone' => '+1 802 555 0140',
         'status' => 'erreichbar', 'short' => 'Kooperativ, geduldig, unangenehm gelassen. Seit 1996 im Amt.',

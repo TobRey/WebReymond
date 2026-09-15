@@ -244,6 +244,7 @@ return [
      ===================================================== */
     [
         'id' => 'dev_toby_old_phone', 'name' => 'Altgeraet aus der Schublade', 'type' => 'phone',
+        'requires_flags' => ['phone_offen'],
         'owner' => 'Tobias Brennan', 'evidence_tag' => 'Asservat 03',
         'note' => 'Aelteres Zweitgeraet ohne SIM. Toby hat es fuer das Forum benutzt.',
         'carrier' => 'KEIN NETZ', 'clock' => '19:48',

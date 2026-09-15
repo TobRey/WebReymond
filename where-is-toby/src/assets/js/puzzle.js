@@ -84,6 +84,15 @@ export function renderPuzzle(game, puzzle, options = {}) {
         case 'timeline':
             wrap.append(sortableList(game, puzzle, finish));
             break;
+        case 'mark':
+            wrap.append(markableText(game, puzzle, finish));
+            break;
+        case 'record':
+            wrap.append(recordTable(game, puzzle, finish));
+            break;
+        case 'link':
+            wrap.append(linkColumns(game, puzzle, finish));
+            break;
         default:
             wrap.append(textInput(game, puzzle, finish));
     }
@@ -115,6 +124,143 @@ function textInput(game, puzzle, finish) {
     return el('div', { class: 'toolbar' }, [
         el('div', { style: { flex: '1 1 220px' } }, [input]),
         el('button', { class: 'btn btn--primary', text: 'Pruefen', onclick: submit }),
+    ]);
+}
+
+/**
+ * Typ "mark": Stellen direkt im Text anklicken.
+ * Ersetzt Aufgaben, bei denen man sonst aus vier Saetzen den richtigen waehlt -
+ * hier zeigt der Spieler im Dokument selbst, was ihm auffaellt.
+ */
+function markableText(game, puzzle, finish) {
+    const picked = new Set();
+    const sheet = el('div', { class: 'markdoc' });
+
+    (puzzle.tokens || []).forEach((token) => {
+        if (token.break) { sheet.append(el('br')); return; }
+        if (!token.markable) { sheet.append(el('span', { text: token.text })); return; }
+        const chip = el('button', { type: 'button', class: 'markdoc__tok', text: token.text });
+        chip.addEventListener('click', () => {
+            if (picked.has(token.id)) { picked.delete(token.id); } else { picked.add(token.id); }
+            chip.classList.toggle('is-marked', picked.has(token.id));
+            sound.play('ui_click', { gain: 0.2 });
+            count.textContent = `${picked.size} markiert`;
+        });
+        sheet.append(chip);
+    });
+
+    const count = el('span', { class: 'hint', text: '0 markiert' });
+    const submit = async () => {
+        if (!picked.size) return;
+        const data = await solve(game, puzzle.id, [...picked]);
+        if (data.ok) { finish(data); return; }
+        sheet.querySelectorAll('.is-marked').forEach((node) => {
+            node.classList.remove('is-marked');
+            node.classList.add('is-wrong');
+            setTimeout(() => node.classList.remove('is-wrong'), 700);
+        });
+        picked.clear();
+        count.textContent = '0 markiert';
+    };
+
+    return el('div', { class: 'stack' }, [
+        sheet,
+        el('div', { class: 'toolbar' }, [
+            count,
+            el('button', { class: 'btn btn--primary', text: 'Markierung pruefen', onclick: submit }),
+        ]),
+    ]);
+}
+
+/**
+ * Typ "record": ein filterbares Protokoll, aus dem die richtige Zeile angeklickt wird.
+ * Die Arbeit besteht im Eingrenzen, nicht im Abtippen.
+ */
+function recordTable(game, puzzle, finish) {
+    const columns = puzzle.columns || [];
+    const rows = puzzle.records || [];
+    const body = el('div', { class: 'reclist__body' });
+    const status = el('span', { class: 'hint' });
+
+    let active = '';
+    const draw = () => {
+        clear(body);
+        const visible = rows.filter((row) => !active || (row.tags || []).includes(active));
+        visible.forEach((row) => {
+            const line = el('button', { type: 'button', class: 'reclist__row' },
+                (row.cells || []).map((cell) => el('span', { text: cell })));
+            line.style.gridTemplateColumns = `repeat(${columns.length || row.cells.length}, minmax(0, 1fr))`;
+            line.addEventListener('click', async () => {
+                const data = await solve(game, puzzle.id, row.id);
+                if (data.ok) { finish(data); return; }
+                line.classList.add('is-wrong');
+                setTimeout(() => line.classList.remove('is-wrong'), 700);
+            });
+            body.append(line);
+        });
+        status.textContent = `${visible.length} von ${rows.length} Eintraegen`;
+    };
+
+    const bar = el('div', { class: 'toolbar' });
+    (puzzle.filters || []).forEach((filter) => {
+        const button = el('button', { type: 'button', class: 'btn btn--small', text: filter.label || filter.tag });
+        button.addEventListener('click', () => {
+            active = active === filter.tag ? '' : filter.tag;
+            bar.querySelectorAll('.btn').forEach((b) => b.classList.remove('is-active'));
+            if (active) button.classList.add('is-active');
+            draw();
+        });
+        bar.append(button);
+    });
+    bar.append(status);
+
+    const head = el('div', { class: 'reclist__head' }, columns.map((c) => el('span', { text: c })));
+    head.style.gridTemplateColumns = `repeat(${columns.length}, minmax(0, 1fr))`;
+
+    draw();
+    return el('div', { class: 'stack' }, [bar, el('div', { class: 'reclist' }, [head, body])]);
+}
+
+/**
+ * Typ "link": zwei Spalten verbinden - links eine Behauptung, rechts ein Fakt.
+ * Erst wenn beide Seiten gewaehlt sind, wird geprueft.
+ */
+function linkColumns(game, puzzle, finish) {
+    const choice = { left: '', right: '' };
+    const columns = el('div', { class: 'linkcols' });
+
+    const column = (side, items, title) => {
+        const list = el('div', { class: 'linkcols__col' }, [el('p', { class: 'eyebrow', text: title })]);
+        items.forEach((item) => {
+            const card = el('button', { type: 'button', class: 'linkcols__item' }, [
+                el('strong', { text: item.label }),
+                item.note ? el('small', { text: item.note }) : null,
+            ].filter(Boolean));
+            card.addEventListener('click', async () => {
+                choice[side] = choice[side] === item.id ? '' : item.id;
+                list.querySelectorAll('.linkcols__item').forEach((n) => n.classList.remove('is-picked'));
+                if (choice[side]) card.classList.add('is-picked');
+                sound.play('ui_click', { gain: 0.2 });
+                if (!choice.left || !choice.right) return;
+
+                const data = await solve(game, puzzle.id, [choice.left, choice.right]);
+                if (data.ok) { finish(data); return; }
+                columns.classList.add('is-wrong');
+                setTimeout(() => columns.classList.remove('is-wrong'), 700);
+                choice.left = '';
+                choice.right = '';
+                columns.querySelectorAll('.linkcols__item').forEach((n) => n.classList.remove('is-picked'));
+            });
+            list.append(card);
+        });
+        return list;
+    };
+
+    columns.append(column('left', puzzle.left || [], puzzle.left_title || 'Behauptung'));
+    columns.append(column('right', puzzle.right || [], puzzle.right_title || 'Fakten'));
+    return el('div', { class: 'stack' }, [
+        columns,
+        el('p', { class: 'hint', text: 'Waehle links und rechts je einen Eintrag, der zusammengehoert.' }),
     ]);
 }
 

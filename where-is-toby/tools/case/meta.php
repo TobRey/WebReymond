@@ -188,11 +188,13 @@ TEXT,
         [
             'code' => 'A-3', 'title' => 'Altfaelle Millbrook 2003 / 2009 / 2015',
             'summary' => 'Zusammenstellung der ungeloesten Vermisstenfaelle.',
+            'requires_flags' => ['laptop_offen'],
             'body' => "ALTFAELLE (AUSZUG AUS DER LANDESDATENBANK)\n\n2003 - Karen Pielmeier, 16, verschwindet nach dem Herbstfest.\n        Letzte Sichtung State Route 12. Nie gefunden.\n2009 - Danny Oro, 17, verschwindet in der Nacht zum Sonntag.\n        Fahrrad an der Ridge Road gefunden. Nie gefunden.\n2015 - Marisol Vance, 18, verschwindet nach der Spaetschicht.\n        Zeuge nennt weissen Transporter, zieht Aussage zurueck. Nie gefunden.\n\nGEMEINSAMKEITEN (Vorbewertung)\n- alle im Oktober\n- alle 16 bis 18 Jahre alt\n- alle in der Naehe der Ridge Road oder Route 12\n- keine Leiche, keine Forderung, keine Spur\n\nANMERKUNG: Marisol Vance ist die Tante von Nora Vance.",
         ],
         [
             'code' => 'A-4', 'title' => 'Technische Auswertung Funkzelle',
             'summary' => 'Standortdaten des Telefons, 11.-12.10.2024.',
+            'requires_flags' => ['phone_offen'],
             'body' => "FUNKZELLENAUSWERTUNG (Provider: Greenline Mobile)\n\n21:58  Zelle MAPLE-02      (Wohngebiet)\n22:19  Zelle MAPLE-02\n22:26  Zelle TOWER-01      (Wasserturm)\n22:44  Zelle RIDGE-03\n22:53  Zelle RESERVOIR-01\n23:12  Zelle RESERVOIR-01  (Datenverkehr: Sprachnachricht, 27 s)\n23:14  Zelle RESERVOIR-01  (letzter Kontakt)\n---\n12.10. 03:14  Zelle RESERVOIR-01 (ausgehende Nachricht, 31 Zeichen)\n\nBEWERTUNG: Das Geraet hat das Gebiet RESERVOIR-01 nach 22:53 nicht mehr verlassen.\nEin Aufenthalt in Burlington oder Montreal ist technisch ausgeschlossen.",
         ],
     ],

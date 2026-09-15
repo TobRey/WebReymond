@@ -11,7 +11,9 @@ use App\Core\Logger;
  * Unterstuetzte Typen:
  *  text, password, pin, number, pattern, choice, multi, sequence, pairs,
  *  locate (Kartenklick), hotspot (Bildpunkt), timecode (Videozeitpunkt),
- *  contradiction (zwei Beweise), timeline (Reihenfolge), search (Datei/Ordner)
+ *  contradiction (zwei Beweise), timeline (Reihenfolge), search (Datei/Ordner),
+ *  mark (Stellen im Text markieren), link (zwei Listen verbinden),
+ *  record (Zeile aus einem filterbaren Protokoll)
  */
 final class PuzzleEngine
 {
@@ -64,7 +66,7 @@ final class PuzzleEngine
         return match ($type) {
             'locate'       => $this->checkLocate($puzzle, $answer),
             'timecode'     => $this->checkTimecode($puzzle, $answer),
-            'multi', 'contradiction', 'pairs' => $this->checkSet($puzzle, $answer),
+            'multi', 'contradiction', 'pairs', 'mark', 'link' => $this->checkSet($puzzle, $answer),
             'sequence', 'timeline' => $this->checkSequence($puzzle, $answer),
             default        => $this->checkScalar($puzzle, $answer, $caseSensitive, $type),
         };

@@ -27,16 +27,16 @@ foreach ($report as $key => $value) {
 $case['file_entries'] = array_merge($case['file_entries'], [
     ['code' => 'A-5', 'title' => 'Tatortaufnahme 001 - Tobys Zimmer', 'summary' => 'Fotografische Dokumentation, zoombar. Details anklickbar.', 'media' => 'ph_bedroom'],
     ['code' => 'A-6', 'title' => 'Tatortaufnahme 004 - Schreibtisch', 'summary' => 'Nahaufnahme von Kalender und Notizzettel.', 'media' => 'ph_desk'],
-    ['code' => 'A-7', 'title' => 'Streiflichtaufnahme Asservat 03', 'summary' => 'Displayspuren des alten Telefons.', 'media' => 'ph_smudge'],
+    ['code' => 'A-7', 'title' => 'Streiflichtaufnahme Asservat 03', 'summary' => 'Displayspuren des alten Telefons.', 'media' => 'ph_smudge', 'requires_flags' => ['phone_offen']],
     ['code' => 'A-8', 'title' => 'Asservat 07 - Fahrrad', 'summary' => 'Erst nach Angabe des Fundorts verfuegbar.', 'media' => 'ph_bike', 'requires_flags' => ['frank_gestanden']],
     ['code' => 'A-9', 'title' => 'Nachschau Kontrollraum Wasserwerke', 'summary' => 'Aufnahme des Arbeitsplatzes der Betriebsleitung.', 'media' => 'ph_office', 'requires_flags' => ['wasserwerke_im_blick']],
-    ['code' => 'A-10', 'title' => 'Zeitungsarchiv der Schule', 'summary' => 'Archivraum, Ausleihzettel.', 'media' => 'ph_school'],
+    ['code' => 'A-10', 'title' => 'Zeitungsarchiv der Schule', 'summary' => 'Archivraum, Ausleihzettel.', 'media' => 'ph_school', 'requires_flags' => ['lantern_bekannt']],
     ['code' => 'A-11', 'title' => 'Objektaufnahme Pumpstation 4', 'summary' => 'Aussenaufnahme der stillgelegten Anlage.', 'media' => 'ph_pump_ext', 'requires_flags' => ['ort_pumpstation_bekannt']],
     ['code' => 'A-12', 'title' => 'Auswertung der Nachricht vom 12.10., 03:14 Uhr', 'summary' => 'Stilvergleich und Funkzelle.', 'media' => 'doc_message', 'requires_flags' => ['nachricht_erschienen']],
     ['code' => 'A-13', 'title' => 'Fernbusbuchung Millbrook - Montreal', 'summary' => 'Buchung auf Tobys Namen, bezahlt mit seiner Karte.', 'media' => 'doc_bus', 'requires_flags' => ['nachricht_erschienen']],
     ['code' => 'A-14', 'title' => 'Halterabfrage VT 7KD-418', 'summary' => 'Ergebnis der Kennzeichenabfrage.', 'media' => 'doc_registry', 'requires_flags' => ['kennzeichen_bekannt']],
     ['code' => 'A-15', 'title' => 'Ordner WARTUNG_ALT', 'summary' => 'Inhalt des geschuetzten Ordners aus dem Kontrollraum.', 'media' => 'doc_folder', 'requires_flags' => ['doss_ordner_offen']],
-    ['code' => 'A-16', 'title' => 'Zeitungsausschnitte 1998 - 2015', 'summary' => 'Vier Archivkopien aus dem Millbrook Sentinel.', 'media' => 'doc_clippings'],
+    ['code' => 'A-16', 'title' => 'Zeitungsausschnitte 1998 - 2015', 'summary' => 'Vier Archivkopien aus dem Millbrook Sentinel.', 'media' => 'doc_clippings', 'requires_flags' => ['laptop_offen']],
 ]);
 
 $case['updated_at'] = gmdate('c');

@@ -236,3 +236,65 @@ das erste Kapitel, in dem noch etwas offen ist, und daraus hoechstens drei Punkt
 
 Formuliere `detail` als Wegweiser, nicht als Loesung: *wo* zu suchen ist, nicht *was*
 herauskommt. Die eigentliche Hilfe leisten die drei Hinweisstufen des Raetsels.
+
+
+---
+
+## Raetseltypen mit Handgriff
+
+Neben Eingabefeldern und Auswahllisten gibt es drei Typen, bei denen der Spieler direkt
+am Material arbeitet. Alle drei pruefen serverseitig wie die uebrigen Typen.
+
+### `mark` - Stellen im Text markieren
+
+```json
+{
+  "type": "mark",
+  "tokens": [
+    { "text": "Hoer auf" },
+    { "text": ",", "id": "tk_komma" },
+    { "break": true }
+  ],
+  "solutions": [["tk_komma"]]
+}
+```
+
+Bausteine mit `id` sind anklickbar, alle anderen bleiben normaler Text. `break` erzeugt
+einen Zeilenumbruch. Gewertet wird die Menge der markierten Kennungen, die Reihenfolge ist
+egal. Eignet sich fuer Stilvergleiche, Widersprueche im Wortlaut, gefaelschte Dokumente.
+
+### `link` - zwei Listen verbinden
+
+```json
+{
+  "type": "link",
+  "left_title": "Aussagen", "right_title": "Belege",
+  "left":  [{ "id": "st_nora", "label": "Nora Vance", "note": "\"Nicht gesehen.\"" }],
+  "right": [{ "id": "ms_2226", "label": "22:26  N.", "note": "bin da" }],
+  "solutions": [["st_nora", "ms_2226"]]
+}
+```
+
+Der Spieler waehlt je einen Eintrag links und rechts; geprueft wird, sobald beide Seiten
+gesetzt sind. Eignet sich fuer Gegenueberstellungen: Behauptung gegen Beleg.
+
+### `record` - Protokollzeile waehlen
+
+```json
+{
+  "type": "record",
+  "columns": ["Datum", "Zeit", "Abschnitt"],
+  "filters": [{ "tag": "tatnacht", "label": "11./12.10.2024" }],
+  "records": [
+    { "id": "r5", "tags": ["tatnacht"], "cells": ["11./12.10.2024", "23:50", "4"] }
+  ],
+  "solutions": ["r5"]
+}
+```
+
+Die Filterknoepfe blenden Zeilen nach `tags` ein und aus; gewertet wird die `id` der
+angeklickten Zeile. Eignet sich fuer Betriebsbuecher, Zutrittsprotokolle, Anruflisten -
+ueberall dort, wo Eingrenzen die eigentliche Arbeit ist.
+
+> Raetsel mit `"panel": "beweise"` erscheinen im Beweisarchiv unter "Offene Auswertungen".
+> Ohne passendes `panel` waere ein Raetsel im Spiel nicht erreichbar.
