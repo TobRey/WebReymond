@@ -60,9 +60,10 @@ if (!WIT_INSTALLED) {
         if (is_file(WIT_ROOT . '/install.php')) {
             Response::redirect('/install.php')->send();
         } else {
+            // Paket ohne Installationsassistent: die Ersteinrichtung ist fehlgeschlagen
             Response::html(\App\Core\ErrorHandler::errorPage(
                 503,
-                'Die Anwendung ist noch nicht installiert und install.php fehlt. Bitte die Datei install.php erneut hochladen.',
+                \App\Service\AutoSetup::failureMessage(WIT_ROOT),
                 null
             ), 503)->send();
         }

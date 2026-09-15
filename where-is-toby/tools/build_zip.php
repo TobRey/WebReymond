@@ -9,7 +9,16 @@ $root = dirname(__DIR__);
 $source = $root . '/src';
 $distDir = $root . '/dist';
 $version = '1.0.0';
-$zipName = 'where-is-toby-' . $version . '.zip';
+
+/*
+ * Zwei Varianten:
+ *   Standard        - mit Installationsassistent (install.php)
+ *   ohne-installer  - richtet sich beim ersten Seitenaufruf selbst ein
+ */
+$withoutInstaller = in_array('--no-installer', $argv, true);
+$zipName = $withoutInstaller
+    ? 'where-is-toby-' . $version . '-ohne-installer.zip'
+    : 'where-is-toby-' . $version . '.zip';
 $zipPath = $distDir . '/' . $zipName;
 
 @mkdir($distDir, 0755, true);
@@ -19,6 +28,10 @@ if (is_file($zipPath)) {
 
 /* Dateien, die niemals ins Paket gehoeren */
 $blockedFiles = ['config.local.php', 'install.lock', '.DS_Store', 'Thumbs.db', 'router.php'];
+if ($withoutInstaller) {
+    $blockedFiles[] = 'install.php';
+    $blockedFiles[] = 'install.css';
+}
 $blockedExtensions = ['log', 'lock', 'tmp', 'bak', 'old'];
 
 /* Verzeichnisse, die leer (nur mit Schutzdateien) ausgeliefert werden */
@@ -82,7 +95,13 @@ foreach ($emptyDirs as $dir) {
     $zip->addEmptyDir($dir);
 }
 
-$zip->setArchiveComment("WHERE IS TOBY? " . $version . " - FBI-Ermittlungsspiel\nIn public_html hochladen, entpacken, Domain im Browser oeffnen.");
+$zip->setArchiveComment(
+    "WHERE IS TOBY? " . $version . " - FBI-Ermittlungsspiel\n"
+    . "In public_html hochladen, entpacken, Domain im Browser oeffnen.\n"
+    . ($withoutInstaller
+        ? "Variante ohne Installationsassistent: Die Einrichtung laeuft beim ersten Aufruf automatisch.\nAdmin: tobi / Marihuana420!! (bitte sofort aendern)"
+        : "Der Installationsassistent startet automatisch.")
+);
 $zip->close();
 
 /* ---------------------------------------------------------------
@@ -97,20 +116,27 @@ for ($i = 0; $i < $check->numFiles; $i++) {
 $check->close();
 
 $required = [
-    'index.php', 'install.php', '.htaccess', 'README.md',
+    'index.php', '.htaccess', 'README.md',
     'app/bootstrap.php', 'app/.htaccess', 'app/Core/Router.php',
     'app/Data/cases/toby.json', 'app/View/layout_game.php',
-    'assets/css/base.css', 'assets/css/game.css', 'assets/css/admin.css', 'assets/css/install.css',
+    'assets/css/base.css', 'assets/css/game.css', 'assets/css/admin.css',
     'assets/js/game.js', 'assets/js/admin.js', 'assets/js/core.js',
     'assets/img/scenes/map-millbrook.svg', 'assets/img/avatars/toby.svg',
     'assets/fonts/DejaVuSans.ttf', 'storage/.htaccess', 'uploads/.htaccess',
     'docs/INSTALLATION-GODADDY.md', 'docs/KI-ANBIETER.md',
 ];
+if (!$withoutInstaller) {
+    $required[] = 'install.php';
+    $required[] = 'assets/css/install.css';
+}
 $missing = array_values(array_diff($required, $names));
+if ($withoutInstaller && in_array('install.php', $names, true)) {
+    $missing[] = 'FEHLER: install.php darf in dieser Variante nicht enthalten sein';
+}
 $forbidden = array_values(array_filter($names, static fn(string $n): bool =>
     str_contains($n, 'config.local.php') || str_ends_with($n, '.log') || str_contains($n, 'install.lock')));
 
-printf("Paket: %s\n", str_replace($root . '/', '', $zipPath));
+printf("Paket: %s%s\n", str_replace($root . '/', '', $zipPath), $withoutInstaller ? ' (ohne Installationsassistent)' : '');
 printf("Groesse: %.2f MB (%d Dateien)\n", filesize($zipPath) / 1048576, $added);
 printf("Uebersprungen: %d Datei(en)\n", count($skipped));
 

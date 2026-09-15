@@ -185,7 +185,20 @@ final class DiagnosticsService
         $provider = $ai->providerName();
         $checks[] = $this->check('KI-Anbieter', 'ok', $provider === 'offline' ? 'Offline-Modus: regelbasierte Dialoge (immer spielbar).' : 'Anbieter: ' . $provider . ', Modell: ' . ($ai->model() ?: 'nicht gesetzt'));
         if ($provider !== 'offline') {
-            $checks[] = $this->check('API-Schluessel', $settings->hasApiKey() ? 'ok' : 'warn', $settings->hasApiKey() ? 'hinterlegt und verschluesselt gespeichert' : 'kein Schluessel hinterlegt - es wird offline gespielt');
+            if (!$settings->hasApiKey()) {
+                $checks[] = $this->check('API-Schluessel', 'warn', 'kein Schluessel hinterlegt - es wird offline gespielt');
+            } elseif ($settings->apiKey() === '') {
+                $checks[] = $this->check(
+                    'API-Schluessel',
+                    'fail',
+                    'hinterlegt, aber nicht entschluesselbar',
+                    'Der App-Schluessel in "config.local.php" passt nicht mehr zum gespeicherten API-Schluessel. '
+                    . 'Das passiert, wenn die Konfigurationsdatei geloescht oder ersetzt wurde. '
+                    . 'Den API-Schluessel unter "KI" neu eintragen.'
+                );
+            } else {
+                $checks[] = $this->check('API-Schluessel', 'ok', 'hinterlegt und verschluesselt gespeichert');
+            }
             $checks[] = $this->check('Modellname', $ai->model() !== '' ? 'ok' : 'warn', $ai->model() !== '' ? $ai->model() : 'kein Modell eingetragen');
             $lastTest = $settings->get('ai.last_test');
             if (is_array($lastTest)) {

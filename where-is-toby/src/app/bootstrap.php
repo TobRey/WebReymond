@@ -24,13 +24,33 @@ require_once WIT_APP . '/Core/Autoloader.php';
 \App\Core\Autoloader::register(WIT_APP);
 
 /* ---------------------------------------------------------------
- |  Lokale Konfiguration (wird vom Installer erzeugt)
+ |  Lokale Konfiguration
+ |  Quelle 1: app/config.local.php (Installer oder Ersteinrichtung)
+ |  Quelle 2: storage/settings/config.local.php (falls app/ nicht beschreibbar war)
  --------------------------------------------------------------- */
-$localConfigFile = WIT_APP . '/config.local.php';
-$local = is_file($localConfigFile) ? (require $localConfigFile) : [];
-if (!is_array($local)) {
-    $local = [];
+$local = [];
+foreach ([WIT_APP . '/config.local.php', WIT_ROOT . '/storage/settings/config.local.php'] as $candidate) {
+    if (is_file($candidate)) {
+        $loaded = require $candidate;
+        if (is_array($loaded) && ($loaded['installed'] ?? false)) {
+            $local = $loaded;
+            break;
+        }
+    }
 }
+
+/* Paket ohne Installationsassistent: beim ersten Aufruf selbst einrichten */
+define('WIT_AUTO_SETUP_FAILED', (static function () use (&$local): bool {
+    if (($local['installed'] ?? false) || is_file(WIT_ROOT . '/install.php')) {
+        return false;
+    }
+    $config = \App\Service\AutoSetup::run(WIT_ROOT);
+    if ($config === null) {
+        return true;
+    }
+    $local = $config;
+    return false;
+})());
 
 define('WIT_INSTALLED', (bool)($local['installed'] ?? false));
 define('WIT_STORAGE', rtrim((string)($local['storage_path'] ?? (WIT_ROOT . '/storage')), '/'));

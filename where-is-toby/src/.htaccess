@@ -15,18 +15,21 @@ AddDefaultCharset UTF-8
 # --- Front-Controller ---------------------------------------
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteBase /
+    # Bewusst ohne RewriteBase: so funktioniert die Anwendung sowohl direkt im
+    # Webverzeichnis als auch in einem Unterordner (z. B. public_html/spiel).
 
     # Installer bleibt direkt erreichbar
-    RewriteCond %{REQUEST_URI} ^/install\.php$
+    RewriteCond %{REQUEST_URI} (^|/)install\.php$
     RewriteRule ^ - [L]
 
-    # Programm- und Datenverzeichnisse sind niemals direkt erreichbar
-    RewriteRule (^|/)(app|storage)/ - [F,L]
+    # Programm- und Datenverzeichnisse sind niemals direkt erreichbar.
+    # Das Muster wird gegen den Pfad ab dem Ordner dieser .htaccess geprueft
+    # (Apache entfernt den Ordneranteil selbst), gilt also auch in Unterordnern.
+    # Medien laufen ueber /medien/... durch PHP, nie direkt ueber /uploads/.
+    RewriteRule ^(app|storage|uploads)/ - [F,L]
 
     # Existierende Dateien (Assets) direkt ausliefern
     RewriteCond %{REQUEST_FILENAME} -f
-    RewriteCond %{REQUEST_URI} !(^|/)(app|storage|uploads)/
     RewriteRule ^ - [L]
 
     # Alles andere an den Front-Controller
@@ -93,6 +96,6 @@ AddDefaultCharset UTF-8
     php_value post_max_size 14M
 </IfModule>
 
-# --- Fehlerseiten -------------------------------------------
-ErrorDocument 403 /error/403
-ErrorDocument 404 /error/404
+# Hinweis: Es sind bewusst keine ErrorDocument-Zeilen gesetzt. Unbekannte Adressen
+# beantwortet der Front-Controller selbst, und ein fester Pfad wie /error/404 wuerde
+# bei einer Installation in einem Unterordner ins Leere zeigen.

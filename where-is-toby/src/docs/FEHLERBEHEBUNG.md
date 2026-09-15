@@ -10,8 +10,24 @@
 
 ## "Die Anwendung ist noch nicht installiert und install.php fehlt."
 
-`install.php` wurde geloescht, bevor die Installation abgeschlossen war. Die Datei aus der
-ZIP erneut hochladen und den Assistenten durchlaufen.
+Nur beim Paket **mit** Assistent: `install.php` wurde geloescht, bevor die Installation
+abgeschlossen war. Die Datei aus der ZIP erneut hochladen und den Assistenten durchlaufen.
+
+## "Die automatische Einrichtung konnte keine Dateien anlegen."
+
+Nur beim Paket **ohne** Assistent. Die Anwendung darf im Zielverzeichnis nichts schreiben.
+
+1. Im File Manager die Ordner `storage/`, `uploads/` und `app/` markieren.
+2. **Permissions** → **755** (Haken "Recurse into subdirectories" setzen), Dateien **644**.
+3. Die Seite neu laden.
+
+Bleibt die Meldung, ist meist der Kontospeicher voll (cPanel → **Disk Usage**).
+
+## KI-Schluessel wird nicht mehr angenommen, Diagnose meldet "nicht entschluesselbar"
+
+Die Datei `app/config.local.php` wurde geloescht oder ersetzt, dadurch gibt es einen neuen
+App-Schluessel. Den API-Schluessel unter **Adminbereich → KI** einfach neu eintragen und
+speichern. Konten, Spielstaende und Faelle sind davon nicht betroffen.
 
 ## Fehler 500 nach dem Hochladen
 
@@ -24,6 +40,10 @@ ZIP erneut hochladen und den Assistenten durchlaufen.
 
 Der Basispfad steht in `app/config.local.php` (`base_path`). Beim Umzug in einen Unterordner
 dort z. B. `'base_path' => '/spiel'` eintragen.
+
+Bei einer Neuinstallation erkennt die Anwendung den Unterordner selbst. Die mitgelieferte
+`.htaccess` enthaelt bewusst kein festes `RewriteBase`; wurde die Zeile von Hand ergaenzt,
+muss sie zum Unterordner passen (`RewriteBase /spiel/`) oder wieder entfernt werden.
 
 ## Anmeldung nicht moeglich: "Konto voruebergehend gesperrt"
 

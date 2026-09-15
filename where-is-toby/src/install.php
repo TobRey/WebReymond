@@ -221,10 +221,24 @@ if ($request->isPost() && $step === 3) {
                     'debug'        => false,
                 ], true) . ";\n";
 
-            if (@file_put_contents(WIT_APP . '/config.local.php', $config) === false) {
-                $errors[] = 'Die Konfigurationsdatei app/config.local.php konnte nicht geschrieben werden. Bitte Schreibrechte fuer app/ pruefen.';
+            $configFile = WIT_APP . '/config.local.php';
+            if (@file_put_contents($configFile, $config) === false) {
+                // Rueckfall: Konfiguration im Datenverzeichnis ablegen (wird ebenfalls gelesen)
+                $fallbackDir = WIT_ROOT . '/storage/settings';
+                if (!is_dir($fallbackDir)) {
+                    @mkdir($fallbackDir, 0750, true);
+                }
+                $configFile = $fallbackDir . '/config.local.php';
+                if (@file_put_contents($configFile, $config) === false) {
+                    $configFile = '';
+                } else {
+                    $notices[] = 'Das Verzeichnis app/ ist nicht beschreibbar - die Konfiguration liegt jetzt unter storage/settings/.';
+                }
+            }
+            if ($configFile === '') {
+                $errors[] = 'Die Konfigurationsdatei konnte nicht geschrieben werden. Bitte Schreibrechte fuer app/ oder storage/ pruefen (755).';
             } else {
-                @chmod(WIT_APP . '/config.local.php', 0640);
+                @chmod($configFile, 0640);
 
                 /* Ab hier mit den echten Pfaden weiterarbeiten */
                 $store = new \App\Repository\JsonStore($storagePath, $storagePath . '/backups');

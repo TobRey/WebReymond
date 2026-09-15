@@ -37,16 +37,50 @@ Spielzeit ca. 15-25 Minuten beim ersten Durchgang.
 
 ## 2. Installation in drei Minuten
 
+Es gibt zwei Pakete mit identischem Spielinhalt. Der Unterschied liegt nur in der Einrichtung.
+
+| Paket | Einrichtung |
+|---|---|
+| `where-is-toby-1.0.0.zip` | mit Installationsassistent (`install.php`), eigene Zugangsdaten und KI-Verbindung werden beim Einrichten abgefragt |
+| `where-is-toby-1.0.0-ohne-installer.zip` | ohne Assistenten, richtet sich beim ersten Seitenaufruf selbst ein |
+
+### Variante A - mit Assistent
+
 1. Die ZIP-Datei im cPanel-Dateimanager nach `public_html` hochladen.
 2. Rechtsklick → **Extract**.
 3. Die Domain im Browser oeffnen - der Installationsassistent startet automatisch.
 4. Systempruefung bestaetigen, Administratorkonto und (optional) KI-Verbindung eintragen.
 5. Fertig. `install.php` sperrt sich selbst; die Datei kann geloescht werden.
 
-Ausfuehrliche Anleitung mit Screenshots der cPanel-Schritte:
+### Variante B - ohne Assistent
+
+1. Die ZIP-Datei nach `public_html` hochladen und entpacken.
+2. Die Domain im Browser oeffnen.
+
+Mehr ist nicht noetig. Beim ersten Aufruf legt die Anwendung selbst an: Datenverzeichnisse,
+Zugriffssperren, den Verschluesselungsschluessel (`app_key`), die Grundeinstellungen, das
+Administratorkonto und den Fall "Where is Toby?". Danach wird die Einrichtung gesperrt
+(`storage/settings/install.lock`), ein zweiter Aufruf richtet nichts erneut ein.
+
+Das Datenverzeichnis wird dabei moeglichst **ausserhalb** des Webordners angelegt
+(`wit_data` neben `public_html`). Liegt das Spiel in einem Unterordner von `public_html`,
+waere ein Nachbarordner ueber die URL erreichbar - dann bleibt es beim mitgelieferten Ordner
+`storage`, der ueber `.htaccess` und eine `index.php` gesperrt ist.
+
+Die KI-Verbindung wird in dieser Variante nicht abgefragt. Das Spiel startet im
+**Offline-Modus** (regelbasierte Dialoge) und ist so vollstaendig spielbar. Ein KI-Anbieter
+laesst sich jederzeit unter **Adminbereich → KI** nachtragen, siehe
+[`docs/KI-ANBIETER.md`](docs/KI-ANBIETER.md).
+
+> **Wichtig bei Variante B:** Das Startpasswort steht unten in dieser Datei und ist damit
+> allgemein bekannt. Direkt nach dem ersten Login aendern - der Adminbereich weist so lange
+> darauf hin.
+
+Ausfuehrliche Anleitung mit den cPanel-Schritten fuer beide Varianten:
 [`docs/INSTALLATION-GODADDY.md`](docs/INSTALLATION-GODADDY.md)
 
-**Initiale Administrator-Zugangsdaten** (im Installer voreingetragen):
+**Initiale Administrator-Zugangsdaten** (im Installer voreingetragen, in Variante B
+automatisch angelegt):
 
 ```
 Benutzername: tobi
@@ -80,7 +114,9 @@ zeigt, welche Funktion dadurch eingeschraenkt ist.
 ```
 public_html/
 ├── index.php                 Front-Controller (einziger oeffentlicher Einstiegspunkt)
-├── install.php               Installationsassistent (sperrt sich selbst)
+├── install.php               Installationsassistent (sperrt sich selbst; im Paket
+│                             "ohne-installer" nicht enthalten - dort richtet sich die
+│                             Anwendung beim ersten Aufruf selbst ein)
 ├── .htaccess                 Rewrite, Sicherheitsheader, Zugriffsschutz
 ├── app/                      Programmcode (per .htaccess gesperrt)
 │   ├── Core/                 Router, Request, Response, Session, CSRF, Crypto, Logger ...

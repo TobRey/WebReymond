@@ -50,13 +50,18 @@ Stile (Inline-Positionen von Karten und Bilddetails), nicht fuer Skripte.
 
 ## 4. Pruefliste nach der Installation
 
-1. `install.php` geloescht oder Sperrdatei vorhanden (Diagnose prueft das).
-2. Startpasswort geaendert.
+1. `install.php` geloescht oder Sperrdatei vorhanden (Diagnose prueft das). Beim Paket ohne
+   Assistent gibt es keine `install.php`; die Sperrdatei legt die Anwendung selbst an.
+2. **Startpasswort geaendert.** Besonders wichtig beim Paket ohne Assistent: dort wird das
+   dokumentierte Startpasswort automatisch gesetzt und ist damit oeffentlich bekannt.
+   Der Adminbereich warnt, bis es geaendert wurde.
 3. HTTPS aktiv (cPanel AutoSSL).
 4. Diagnose ohne rote Punkte.
 5. Stichprobe: `https://<domain>/storage/settings/settings.json` muss **403 oder 404** liefern.
 6. Stichprobe: `https://<domain>/app/config.local.php` muss **403 oder 404** liefern.
-7. Impressum und Datenschutzhinweis ausgefuellt.
+7. Liegt das Spiel in einem Unterordner, zusaetzlich `https://<domain>/<ordner>/storage/...`
+   pruefen.
+8. Impressum und Datenschutzhinweis ausgefuellt.
 
 ---
 

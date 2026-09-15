@@ -4,13 +4,14 @@ Alle Tests laufen automatisiert gegen eine echte Installation. Stand: Version 1.
 
 | Testlauf | Umfang | Ergebnis |
 |---|---|---|
-| Ende-zu-Ende (PHP/cURL) | 180 Pruefungen | **180 bestanden, 0 fehlgeschlagen** |
-| Oberflaeche (Chromium/Playwright) | 24 Pruefungen inkl. Screenshots | **24 bestanden, 0 fehlgeschlagen** |
+| Ende-zu-Ende (PHP/cURL), Paket mit Assistent | 184 Pruefungen | **184 bestanden, 0 fehlgeschlagen** |
+| Automatische Einrichtung, Paket ohne Assistent | 165 Pruefungen | **165 bestanden, 0 fehlgeschlagen** |
+| Installation in einem Unterordner | 16 Pruefungen | **16 bestanden, 0 fehlgeschlagen** |
+| Oberflaeche (Chromium/Playwright), beide Pakete | je 24 Pruefungen inkl. Screenshots | **24 bestanden, 0 fehlgeschlagen** |
 | Konsistenzpruefung Fall "Toby" | Raetsel, Beweise, Medien, Zeitachse | **0 Fehler, 0 Hinweise** |
 | Paketpruefung | Pflichtdateien, keine Geheimnisse im ZIP | **bestanden** |
 
-Der Ende-zu-Ende-Test wurde zusaetzlich gegen ein frisch entpacktes ZIP-Paket ausgefuehrt -
-mit identischem Ergebnis.
+Alle Laeufe erfolgten gegen frisch entpackte ZIP-Pakete, nicht gegen den Arbeitsstand.
 
 ---
 
@@ -37,6 +38,8 @@ mit identischem Ergebnis.
 * POST ohne CSRF-Token wird abgelehnt (403)
 * Path-Traversal ueber den Medien-Endpunkt blockiert
 * Sicherheitsheader (CSP, `nosniff`) vorhanden
+* Sperrregel der `.htaccess` ist am Ordneranfang verankert und kein festes `RewriteBase`
+  gesetzt; eine Adresse wie `/api/case/toby/device/.../app/messages` erreicht die Anwendung
 * Kein API-Schluessel im HTML, keine Loesungen und internen Felder im Quelltext
 * Uploads: PHP-Datei abgelehnt, getarnte PHP-Datei mit `.png` abgelehnt, SVG wird bereinigt
   ausgeliefert, Upload ohne Rechtebestaetigung abgelehnt, Medien nur fuer angemeldete Konten
@@ -67,6 +70,28 @@ mit identischem Ergebnis.
 
 ---
 
+## 1b. Was der Test der automatischen Einrichtung abdeckt
+
+Gilt fuer `where-is-toby-1.0.0-ohne-installer.zip`:
+
+* `install.php` ist nicht im Paket und nicht erreichbar
+* vor dem ersten Aufruf existiert keine Konfiguration
+* der erste Seitenaufruf liefert die Startseite und legt dabei selbst an: Konfiguration mit
+  App-Schluessel (64 Hex-Zeichen), Administratorkonto, Fall "toby", Sperrdatei
+* der zweite Aufruf richtet nichts erneut ein
+* Login mit den Startzugangsdaten, Hinweis auf den Passwortwechsel, Wechsel funktioniert
+* Diagnose im Adminbereich meldet keine Fehler
+* anschliessend der komplette Durchlauf des Falls wie unter Abschnitt 1
+
+Zusaetzlich fuer eine Installation in einem Unterordner (`public_html/spiel`):
+
+* der Basispfad wird erkannt, Verweise, Gestaltung, Anmeldung und API arbeiten mit Praefix
+* **das Datenverzeichnis wird nicht als Nachbarordner im Webverzeichnis angelegt**, sondern
+  bleibt im gesperrten Ordner `storage/`
+* `storage/` ist per URL nicht erreichbar
+
+---
+
 ## 2. Was der Oberflaechentest abdeckt
 
 Chromium, Viewport 1600x950 und 390x844 (Smartphone):
@@ -94,8 +119,14 @@ Die Testskripte liegen im Projektarchiv unter `tools/` (nicht Teil des Installat
 cp tools/router.php /pfad/zur/installation/
 tools/serve.sh start /pfad/zur/installation 8787
 
-# Ende-zu-Ende-Test (installiert die Anwendung selbst)
+# Ende-zu-Ende-Test (installiert die Anwendung ueber den Assistenten)
 php tools/test_e2e.php http://127.0.0.1:8787 /pfad/zur/installation
+
+# Paket ohne Assistent: automatische Einrichtung plus kompletter Durchlauf
+php tools/test_autosetup.php http://127.0.0.1:8791 /pfad/zur/installation
+
+# Installation in einem Unterordner (Server auf dem uebergeordneten Ordner starten)
+php tools/test_subfolder.php http://127.0.0.1:8792/spiel /pfad/zum/webordner/spiel
 
 # Oberflaechentest inkl. Screenshots
 node tools/ui/ui_test.mjs http://127.0.0.1:8787 /pfad/fuer/screenshots
@@ -103,8 +134,9 @@ node tools/ui/ui_test.mjs http://127.0.0.1:8787 /pfad/fuer/screenshots
 # Fall neu bauen und pruefen
 php tools/build_case_toby.php
 
-# Installationspaket bauen und pruefen
+# Installationspakete bauen und pruefen
 php tools/build_zip.php
+php tools/build_zip.php --no-installer
 ```
 
 Fuer den Betrieb genuegt die **Diagnose im Adminbereich**: Sie prueft Umgebung, Schreibrechte,
@@ -115,7 +147,9 @@ Belastungstest fuer paralleles Schreiben.
 
 ## 4. Manuell geprueft
 
-* Installation in einem Unterordner (Basispfad wird automatisch erkannt)
+* Erneute Einrichtung ohne Assistent nach dem Loeschen von `app/config.local.php`: Seite und
+  Konten bleiben erhalten, es wird jedoch ein neuer App-Schluessel erzeugt - ein gespeicherter
+  API-Schluessel muss danach neu eingetragen werden (die Diagnose meldet das)
 * Verhalten ohne die Erweiterungen `zip`, `gd` und `curl` (Rueckfallpfade greifen, Diagnose
   meldet die Einschraenkung)
 * Wiederholtes Ausfuehren des Installers nach der Installation (bleibt gesperrt)
