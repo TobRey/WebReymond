@@ -70,30 +70,34 @@ return [
         'related_evidence' => ['E25'],
     ],
     [
-        'id' => 'pz_recover_chat', 'type' => 'sequence', 'title' => 'Geloeschten Chat rekonstruieren', 'panel' => 'geraete',
+        'id' => 'pz_recover_chat', 'type' => 'choice', 'title' => 'Geloeschten Chat wiederherstellen', 'panel' => 'geraete',
         'hint_order' => 30,
-        'prompt' => 'Sechs Nachrichtenfragmente liegen unsortiert im nicht zugewiesenen Speicher. Bringe sie in die richtige zeitliche Reihenfolge.',
-        'context' => 'Die Dateinamen tragen fortlaufende Nummern, die Inhalte tragen Uhrzeiten. Beides muss zusammenpassen.',
+        'prompt' => 'Der Verlauf ist wiederhergestellt. Wessen Aussage ist damit widerlegt?',
+        'context' => "Wiederhergestellter Verlauf, Freitag 11.10.:\n"
+            . "22:05  Toby: kannst du zum wasserturm kommen. 20 min\n"
+            . "22:07  N.:    es ist halb elf ey\n"
+            . "22:08  Toby: ich hab den typ von der wasserwerkssache. er will mir die protokolle zeigen\n"
+            . "22:09  N.:    das ist so eine dumme idee\n"
+            . "22:26  N.:    bin da\n"
+            . "22:31  N.:    ich muss heim. fahr NICHT alleine dahin",
         'options' => [
-            ['id' => 'f4477', 'label' => '"bin da"', 'note' => 'msg_4477.frag · 22:26'],
-            ['id' => 'f4473', 'label' => '"kannst du zum wasserturm kommen. 20 min"', 'note' => 'msg_4473.frag · 22:05'],
-            ['id' => 'f4478', 'label' => '"ich muss heim. fahr NICHT alleine dahin"', 'note' => 'msg_4478.frag · 22:31'],
-            ['id' => 'f4475', 'label' => '"ich hab den typ von der wasserwerkssache. er will mir die protokolle zeigen"', 'note' => 'msg_4475.frag · 22:08'],
-            ['id' => 'f4474', 'label' => '"es ist halb elf ey"', 'note' => 'msg_4474.frag · 22:07'],
-            ['id' => 'f4476', 'label' => '"das ist so eine dumme idee"', 'note' => 'msg_4476.frag · 22:09'],
+            ['id' => 'opt_nora',  'label' => 'Nora Vance - sie sagt, sie habe Toby am Freitagabend nicht gesehen'],
+            ['id' => 'opt_frank', 'label' => 'Frank Brennan - er sagt, er habe ab 21 Uhr geschlafen'],
+            ['id' => 'opt_diane', 'label' => 'Diane Brennan - sie sagt, sie habe Toby um 22:10 Uhr gesehen'],
+            ['id' => 'opt_none',  'label' => 'Keine der Aussagen - der Chat passt zu allen'],
         ],
-        'solutions' => [['f4473', 'f4474', 'f4475', 'f4476', 'f4477', 'f4478']],
+        'solutions' => ['opt_nora'],
         'requires' => ['devices' => ['dev_toby_phone']],
         'on_success' => [
-            'message' => 'Chat rekonstruiert. Nora war in der Tatnacht am Wasserturm - ihre Aussage ist widerlegt.',
+            'message' => 'Nora war in der Tatnacht um 22:26 Uhr am Wasserturm - ihre Aussage ist widerlegt. Und Toby nennt zum ersten Mal die Wasserwerke.',
             'evidence' => ['E06'], 'flags' => ['chat_wiederhergestellt'], 'score' => 20,
         ],
-        'on_fail' => ['message' => 'Die Reihenfolge passt nicht zu den Zeitstempeln.', 'close_message' => 'Fast richtig - zwei Fragmente stehen noch falsch.'],
-        'solution_explanation' => 'Nach Nummern und Uhrzeiten: 22:05 Treffen vorschlagen, 22:07 Einwand, 22:08 Grund, 22:09 Warnung, 22:26 Ankunft, 22:31 Abschied.',
+        'on_fail' => ['message' => 'Lies die Uhrzeiten noch einmal - wer ist um 22:26 Uhr am Wasserturm?'],
+        'solution_explanation' => 'Um 22:26 Uhr schreibt Nora "bin da", um 22:31 Uhr verabschiedet sie sich. Sie war dort. Ihre Aussage, sie habe Toby an dem Abend nicht gesehen, ist damit widerlegt.',
         'hints' => [
-            'Die Fragmente sind durchnummeriert. Und jede Nachricht traegt eine Uhrzeit.',
-            'Beginne mit der Nachricht, in der das Treffen vorgeschlagen wird (22:05), und ende mit der Warnung um 22:31.',
-            'Richtige Reihenfolge: 4473, 4474, 4475, 4476, 4477, 4478 - also 22:05, 22:07, 22:08, 22:09, 22:26, 22:31.',
+            'Lies, wer um 22:26 Uhr schreibt - und was diese Person kurz darauf ankuendigt.',
+            'Eine der drei Personen hat ausgesagt, Toby an diesem Abend gar nicht gesehen zu haben.',
+            'Es ist Nora Vance. Sie war um 22:26 Uhr am Wasserturm.',
         ],
         'related_evidence' => ['E05'],
     ],

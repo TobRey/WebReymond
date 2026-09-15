@@ -12,7 +12,7 @@
 
 .term {
     display: grid;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto auto 1fr;
     height: 100dvh;
     background: var(--bg);
 }
@@ -538,6 +538,60 @@
 .intro__box h2 { font-size: clamp(1.3rem, 1rem + 1.4vw, 1.9rem); }
 .intro__box .typed { margin-bottom: 1.2rem; }
 
+/* ----------------------- Auftragsleiste ----------------------- */
+.brief {
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #0f141a, #0b0e13);
+}
+.brief__toggle {
+    display: flex; align-items: center; gap: .75rem; width: 100%;
+    padding: .5rem clamp(.7rem, 1.6vw, 1.3rem);
+    background: none; border: 0; color: inherit; cursor: pointer; text-align: left;
+    font: inherit;
+}
+.brief__toggle:hover .brief__chapter { color: var(--text); }
+.brief__eyebrow {
+    font-size: .62rem; letter-spacing: .26em; text-transform: uppercase;
+    color: var(--accent); flex: 0 0 auto;
+}
+.brief__chapter {
+    font-size: .8rem; color: var(--muted); flex: 1 1 auto;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    transition: color .15s ease;
+}
+.brief__count {
+    font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums; flex: 0 0 auto;
+}
+.brief__chevron {
+    width: .5rem; height: .5rem; flex: 0 0 auto;
+    border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+    transform: rotate(45deg); margin-bottom: .2rem;
+    transition: transform .2s ease;
+}
+.brief.is-collapsed .brief__chevron { transform: rotate(-135deg); margin-bottom: -.2rem; }
+.brief.is-collapsed .brief__list { display: none; }
+
+.brief__list {
+    list-style: none; margin: 0;
+    padding: 0 clamp(.7rem, 1.6vw, 1.3rem) .6rem;
+    display: grid; gap: .4rem;
+}
+.brief__item {
+    display: flex; align-items: center; gap: .9rem;
+    padding: .5rem .75rem;
+    border: 1px solid var(--line); border-left: 2px solid var(--accent);
+    border-radius: 3px; background: rgba(255,255,255,.015);
+}
+.brief__item--done { border-left-color: var(--ok, #5f9e6a); }
+.brief__text { display: grid; gap: .15rem; min-width: 0; flex: 1 1 auto; }
+.brief__title { font-size: .86rem; color: var(--text); }
+.brief__detail { font-size: .74rem; color: var(--muted); line-height: 1.45; }
+.brief__jump { flex: 0 0 auto; }
+
+@media (prefers-reduced-motion: reduce) {
+    .brief__chevron, .brief__chapter { transition: none; }
+}
+
 /* ----------------------- Mobil ----------------------- */
 @media (max-width: 900px) {
     .term__body { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
@@ -546,6 +600,12 @@
         overflow-x: auto; padding: .35rem;
     }
     .rail__item { flex: 0 0 auto; min-width: 74px; }
+    /* Auf dem Handy nur der aktuelle Punkt mit Erklaerung - sonst fuellt die
+       Leiste den halben Bildschirm. Die uebrigen bleiben als Titel sichtbar. */
+    .brief__item { gap: .6rem; padding: .45rem .6rem; }
+    .brief__item:not(:first-child) .brief__detail { display: none; }
+    .brief__detail { font-size: .76rem; }
+    .brief__jump { padding-inline: .7rem; }
     .rail__item.is-active::before { left: 20%; right: 20%; top: -.35rem; bottom: auto; width: auto; height: 2px; }
     .term__status { display: none; }
     .dossier { grid-template-columns: 1fr; }

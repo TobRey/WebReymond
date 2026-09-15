@@ -104,6 +104,53 @@ class Game {
             hintNode.textContent = left === -1 ? '∞' : String(left ?? 0);
             document.getElementById('btn-hint')?.classList.toggle('is-empty', left === 0);
         }
+
+        this.renderObjectives();
+    }
+
+    /**
+     * Auftragsleiste: zeigt nur das aktuelle Kapitel und die offenen Punkte daraus.
+     * Ohne diesen Wegweiser weiss beim ersten Durchgang niemand, wo er anfangen soll.
+     */
+    renderObjectives() {
+        const box = document.getElementById('brief');
+        const list = document.getElementById('brief-list');
+        if (!box || !list) return;
+
+        const data = this.state.objectives;
+        if (!data) { box.hidden = true; return; }
+        box.hidden = false;
+
+        const chapter = document.getElementById('brief-chapter');
+        if (chapter) {
+            chapter.textContent = data.open.length
+                ? `Kapitel ${data.chapter} von ${data.chapters} · ${data.title}`
+                : 'Alle Aufgaben erledigt';
+        }
+        const count = document.getElementById('brief-count');
+        if (count) count.textContent = `${data.done}/${data.total}`;
+
+        clear(list);
+        if (!data.open.length) {
+            list.append(el('li', { class: 'brief__item brief__item--done' }, [
+                el('span', { class: 'brief__title' }, ['Der Fall ist bereit zum Abschluss.']),
+            ]));
+            return;
+        }
+
+        data.open.forEach((objective) => {
+            const children = [el('span', { class: 'brief__title' }, [objective.title])];
+            if (objective.detail) {
+                children.push(el('span', { class: 'brief__detail' }, [objective.detail]));
+            }
+            const item = el('li', { class: 'brief__item' }, [el('div', { class: 'brief__text' }, children)]);
+            if (objective.panel && PANELS[objective.panel]) {
+                const jump = el('button', { class: 'btn btn--small brief__jump' }, ['Oeffnen']);
+                jump.addEventListener('click', () => this.showPanel(objective.panel));
+                item.append(jump);
+            }
+            list.append(item);
+        });
     }
 
     markPanelDot(panelId, on = true) {
@@ -326,6 +373,18 @@ class Game {
             button.addEventListener('click', () => this.showPanel(button.dataset.panel));
         });
         document.getElementById('btn-hint')?.addEventListener('click', () => this.requestHint());
+
+        const briefToggle = document.getElementById('brief-toggle');
+        briefToggle?.addEventListener('click', () => {
+            const box = document.getElementById('brief');
+            const collapsed = box?.classList.toggle('is-collapsed') ?? false;
+            briefToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+            store.set('brief-collapsed', collapsed);
+        });
+        if (store.get('brief-collapsed', false) === true) {
+            document.getElementById('brief')?.classList.add('is-collapsed');
+            briefToggle?.setAttribute('aria-expanded', 'false');
+        }
         document.getElementById('btn-settings')?.addEventListener('click', () => this.openSettings());
         document.getElementById('btn-audio')?.addEventListener('click', () => {
             this.audioOn = !this.audioOn;

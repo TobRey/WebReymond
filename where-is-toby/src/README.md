@@ -16,6 +16,9 @@ Apache/cPanel).
 Der Spieler uebernimmt die Rolle eines FBI-Agenten und bearbeitet Vermisstenfaelle an einer
 simulierten Ermittlungsstation:
 
+* **Auftragsleiste**: zeigt immer das aktuelle Kapitel und hoechstens drei offene Punkte -
+  jeder mit einem Knopf, der direkt in den passenden Bereich springt. Der Fall bleibt frei
+  begehbar, aber niemand steht ratlos vor 19 Aufgaben gleichzeitig.
 * **Fallakte** mit Vermisstenanzeige, Funkzellenauswertung, Aktenstuecken und Referenzmaterial
 * **Freie Verhoere** mit KI-NPCs (Text und optional Spracheingabe) - die Figuren luegen,
   weichen aus, brechen ab und geben Informationen erst auf die richtige Frage oder nach einer

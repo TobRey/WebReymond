@@ -47,7 +47,7 @@ final class SettingsRepository
                 'last_test'       => null,
             ],
             'gameplay' => [
-                'hints_per_case'    => 2,
+                'hints_per_case'    => 4,
                 'guest_hints'       => 2,
                 'horror_intensity'  => 'normal',  // mild | normal | intense
                 'jumpscares'        => true,

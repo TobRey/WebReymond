@@ -357,6 +357,7 @@ final class ApiController extends Controller
         $progress = $this->container->progress()->update((string)$user['id'], $caseId, static function (array $p) use ($evaluation): array {
             $p['result'] = $evaluation;
             $p['completed_at'] = gmdate('c');
+            $p['flags']['bericht_abgegeben'] = true;
             return $p;
         });
 

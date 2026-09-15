@@ -76,7 +76,7 @@ final class GameController extends Controller
             'chatMode'   => $this->container->npcChat()->mode(),
             'ageConfirmed' => (bool)Session::get('age_confirmed', false) || (bool)($user['age_confirmed'] ?? false),
             'gameplay'   => [
-                'hints'      => (int)$this->container->settings()->get('gameplay.hints_per_case', 2),
+                'hints'      => (int)$this->container->settings()->get('gameplay.hints_per_case', 4),
                 'autosave'   => (int)$this->container->settings()->get('gameplay.autosave_seconds', 20),
                 'showTimer'  => (bool)$this->container->settings()->get('gameplay.show_timer', true),
                 'horror'     => (string)$this->container->settings()->get('gameplay.horror_intensity', 'normal'),

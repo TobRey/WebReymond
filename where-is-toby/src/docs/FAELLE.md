@@ -203,3 +203,36 @@ Spieleinstellungen abschalten.
 | Spielzeit 30-45 Minuten | 25-30 Raetsel, 35 Beweise, 10 NPCs |
 
 Wichtiger als die Menge ist die Kette: Jeder Fund soll genau eine neue Frage aufwerfen.
+
+
+---
+
+## Auftraege (Wegweiser im Fall)
+
+Unter `objectives` steht, woran der Spieler gerade arbeiten soll. Angezeigt wird immer nur
+das erste Kapitel, in dem noch etwas offen ist, und daraus hoechstens drei Punkte.
+
+```json
+{
+  "id": "ob_phone",
+  "chapter": 1,
+  "chapter_title": "Tobys Zimmer",
+  "title": "Tobys Smartphone entsperren",
+  "detail": "Wo man suchen sollte - ohne die Loesung zu nennen.",
+  "panel": "geraete",
+  "requires": { "puzzles": ["pz_..."], "evidence": [], "flags": [], "devices": [] },
+  "done":     { "puzzles": ["pz_phone_pin"] }
+}
+```
+
+* `requires` bestimmt, ab wann der Punkt ueberhaupt auftaucht. Auftraege, deren
+  Voraussetzungen fehlen, bleiben verborgen - sonst steht dort eine Aufgabe, die noch gar
+  nicht loesbar ist.
+* `done` bestimmt, wann er als erledigt gilt (dieselben Felder wie `requires`).
+* `panel` ist der Bereich, in den der Knopf "Oeffnen" springt: `akte`, `personen`,
+  `beweise`, `geraete`, `wand`, `karte`, `zeit`, `notizen`, `bericht`.
+* Fehlt `objectives` ganz, blendet das Spiel die Leiste einfach aus. Bestehende Faelle
+  funktionieren also unveraendert weiter.
+
+Formuliere `detail` als Wegweiser, nicht als Loesung: *wo* zu suchen ist, nicht *was*
+herauskommt. Die eigentliche Hilfe leisten die drei Hinweisstufen des Raetsels.

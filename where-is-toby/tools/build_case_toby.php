@@ -16,6 +16,7 @@ $case['devices']       = require $base . '/devices.php';
 $case['npcs']          = array_merge(require $base . '/npcs_a.php', require $base . '/npcs_b.php');
 $case['puzzles']       = require $base . '/puzzles.php';
 $case['horror_events'] = require $base . '/horror.php';
+$case['objectives']    = require $base . '/objectives.php';
 
 $report = require $base . '/report.php';
 foreach ($report as $key => $value) {

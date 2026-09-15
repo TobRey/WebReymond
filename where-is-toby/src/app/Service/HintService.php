@@ -26,7 +26,7 @@ final class HintService
 
     public function limit(bool $isAdmin): int
     {
-        return $isAdmin ? PHP_INT_MAX : max(0, (int)$this->settings->get('gameplay.hints_per_case', 2));
+        return $isAdmin ? PHP_INT_MAX : max(0, (int)$this->settings->get('gameplay.hints_per_case', 4));
     }
 
     public function remaining(array $progress, bool $isAdmin): int

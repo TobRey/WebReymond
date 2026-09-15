@@ -4,8 +4,8 @@ Alle Tests laufen automatisiert gegen eine echte Installation. Stand: Version 1.
 
 | Testlauf | Umfang | Ergebnis |
 |---|---|---|
-| Ende-zu-Ende (PHP/cURL), Paket mit Assistent | 189 Pruefungen | **189 bestanden, 0 fehlgeschlagen** |
-| Automatische Einrichtung, Paket ohne Assistent | 165 Pruefungen | **165 bestanden, 0 fehlgeschlagen** |
+| Ende-zu-Ende (PHP/cURL), Paket mit Assistent | 199 Pruefungen | **199 bestanden, 0 fehlgeschlagen** |
+| Automatische Einrichtung, Paket ohne Assistent | 175 Pruefungen | **175 bestanden, 0 fehlgeschlagen** |
 | Installation in einem Unterordner | 23 Pruefungen | **23 bestanden, 0 fehlgeschlagen** |
 | Basispfad-Erkennung (ohne Webserver) | 11 Serverkonstellationen | **11 bestanden, 0 fehlgeschlagen** |
 | Oberflaeche (Chromium/Playwright), beide Pakete | je 24 Pruefungen inkl. Screenshots | **24 bestanden, 0 fehlgeschlagen** |
@@ -58,7 +58,8 @@ Alle Laeufe erfolgten gegen frisch entpackte ZIP-Pakete, nicht gegen den Arbeits
 * Verhoere mit allen Figuren: Luegen, Konfrontationen, Gestaendnisse, Zustandswechsel
 * Horror-Ereignis "Hoer auf, mich zu suchen." wird ausgeloest und schaltet Folgeinhalte frei
 * Ermittlungswand: Verbindung loest Fortschritt aus, Notizen anlegen und loeschen
-* Hinweissystem: Stufen, Budget von zwei Hinweisen, Sperre danach
+* Auftragsleiste: nur das aktuelle Kapitel, hoechstens drei offene Punkte, jeder mit Bereich
+* Hinweissystem: Stufen, Budget von vier Hinweisen, Sperre danach
 * Abschlussbericht: Rang S/A, bestes Ende, alle Luegen gezaehlt
 * Gegenprobe mit falschem Bericht: schlechter Rang, schlechtes Ende, Falschanschuldigung gezaehlt
 

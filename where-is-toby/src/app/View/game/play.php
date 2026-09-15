@@ -55,6 +55,16 @@ $panels = [
         </div>
     </header>
 
+    <section class="brief" id="brief" hidden aria-label="Aktueller Auftrag">
+        <button class="brief__toggle" id="brief-toggle" aria-expanded="true" aria-controls="brief-list">
+            <span class="brief__eyebrow">Auftrag</span>
+            <span class="brief__chapter" id="brief-chapter"></span>
+            <span class="brief__count" id="brief-count"></span>
+            <span class="brief__chevron" aria-hidden="true"></span>
+        </button>
+        <ul class="brief__list" id="brief-list"></ul>
+    </section>
+
     <div class="term__body">
         <nav class="rail" aria-label="Bereiche">
             <?php foreach ($panels as $panel): ?>

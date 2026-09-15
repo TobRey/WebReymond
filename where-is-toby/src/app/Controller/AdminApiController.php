@@ -301,7 +301,7 @@ final class AdminApiController extends Controller
                 'privacy'        => Validator::text($request->str('privacy', '', 6000), 6000),
             ],
             'gameplay' => [
-                'hints_per_case'   => max(0, min(10, $request->int('hints_per_case', 2))),
+                'hints_per_case'   => max(0, min(10, $request->int('hints_per_case', 4))),
                 'horror_intensity' => $request->str('horror_intensity', 'normal', 20),
                 'jumpscares'       => $request->bool('jumpscares', true),
                 'autosave_seconds' => max(5, min(120, $request->int('autosave_seconds', 20))),
@@ -316,7 +316,10 @@ final class AdminApiController extends Controller
                 'registration_per_hour' => max(1, min(100, $request->int('registration_per_hour', 8))),
             ],
         ]);
-        return $this->ok(['message' => 'Einstellungen gespeichert.']);
+        return $this->ok([
+            'message'  => 'Einstellungen gespeichert.',
+            'settings' => $this->container->settings()->publicSettings(),
+        ]);
     }
 
     /* =========================================================

@@ -5490,53 +5490,32 @@
         },
         {
             "id": "pz_recover_chat",
-            "type": "sequence",
-            "title": "Geloeschten Chat rekonstruieren",
+            "type": "choice",
+            "title": "Geloeschten Chat wiederherstellen",
             "panel": "geraete",
             "hint_order": 30,
-            "prompt": "Sechs Nachrichtenfragmente liegen unsortiert im nicht zugewiesenen Speicher. Bringe sie in die richtige zeitliche Reihenfolge.",
-            "context": "Die Dateinamen tragen fortlaufende Nummern, die Inhalte tragen Uhrzeiten. Beides muss zusammenpassen.",
+            "prompt": "Der Verlauf ist wiederhergestellt. Wessen Aussage ist damit widerlegt?",
+            "context": "Wiederhergestellter Verlauf, Freitag 11.10.:\n22:05  Toby: kannst du zum wasserturm kommen. 20 min\n22:07  N.:    es ist halb elf ey\n22:08  Toby: ich hab den typ von der wasserwerkssache. er will mir die protokolle zeigen\n22:09  N.:    das ist so eine dumme idee\n22:26  N.:    bin da\n22:31  N.:    ich muss heim. fahr NICHT alleine dahin",
             "options": [
                 {
-                    "id": "f4477",
-                    "label": "\"bin da\"",
-                    "note": "msg_4477.frag · 22:26"
+                    "id": "opt_nora",
+                    "label": "Nora Vance - sie sagt, sie habe Toby am Freitagabend nicht gesehen"
                 },
                 {
-                    "id": "f4473",
-                    "label": "\"kannst du zum wasserturm kommen. 20 min\"",
-                    "note": "msg_4473.frag · 22:05"
+                    "id": "opt_frank",
+                    "label": "Frank Brennan - er sagt, er habe ab 21 Uhr geschlafen"
                 },
                 {
-                    "id": "f4478",
-                    "label": "\"ich muss heim. fahr NICHT alleine dahin\"",
-                    "note": "msg_4478.frag · 22:31"
+                    "id": "opt_diane",
+                    "label": "Diane Brennan - sie sagt, sie habe Toby um 22:10 Uhr gesehen"
                 },
                 {
-                    "id": "f4475",
-                    "label": "\"ich hab den typ von der wasserwerkssache. er will mir die protokolle zeigen\"",
-                    "note": "msg_4475.frag · 22:08"
-                },
-                {
-                    "id": "f4474",
-                    "label": "\"es ist halb elf ey\"",
-                    "note": "msg_4474.frag · 22:07"
-                },
-                {
-                    "id": "f4476",
-                    "label": "\"das ist so eine dumme idee\"",
-                    "note": "msg_4476.frag · 22:09"
+                    "id": "opt_none",
+                    "label": "Keine der Aussagen - der Chat passt zu allen"
                 }
             ],
             "solutions": [
-                [
-                    "f4473",
-                    "f4474",
-                    "f4475",
-                    "f4476",
-                    "f4477",
-                    "f4478"
-                ]
+                "opt_nora"
             ],
             "requires": {
                 "devices": [
@@ -5544,7 +5523,7 @@
                 ]
             },
             "on_success": {
-                "message": "Chat rekonstruiert. Nora war in der Tatnacht am Wasserturm - ihre Aussage ist widerlegt.",
+                "message": "Nora war in der Tatnacht um 22:26 Uhr am Wasserturm - ihre Aussage ist widerlegt. Und Toby nennt zum ersten Mal die Wasserwerke.",
                 "evidence": [
                     "E06"
                 ],
@@ -5554,14 +5533,13 @@
                 "score": 20
             },
             "on_fail": {
-                "message": "Die Reihenfolge passt nicht zu den Zeitstempeln.",
-                "close_message": "Fast richtig - zwei Fragmente stehen noch falsch."
+                "message": "Lies die Uhrzeiten noch einmal - wer ist um 22:26 Uhr am Wasserturm?"
             },
-            "solution_explanation": "Nach Nummern und Uhrzeiten: 22:05 Treffen vorschlagen, 22:07 Einwand, 22:08 Grund, 22:09 Warnung, 22:26 Ankunft, 22:31 Abschied.",
+            "solution_explanation": "Um 22:26 Uhr schreibt Nora \"bin da\", um 22:31 Uhr verabschiedet sie sich. Sie war dort. Ihre Aussage, sie habe Toby an dem Abend nicht gesehen, ist damit widerlegt.",
             "hints": [
-                "Die Fragmente sind durchnummeriert. Und jede Nachricht traegt eine Uhrzeit.",
-                "Beginne mit der Nachricht, in der das Treffen vorgeschlagen wird (22:05), und ende mit der Warnung um 22:31.",
-                "Richtige Reihenfolge: 4473, 4474, 4475, 4476, 4477, 4478 - also 22:05, 22:07, 22:08, 22:09, 22:26, 22:31."
+                "Lies, wer um 22:26 Uhr schreibt - und was diese Person kurz darauf ankuendigt.",
+                "Eine der drei Personen hat ausgesagt, Toby an diesem Abend gar nicht gesehen zu haben.",
+                "Es ist Nora Vance. Sie war um 22:26 Uhr am Wasserturm."
             ],
             "related_evidence": [
                 "E05"
@@ -6655,6 +6633,345 @@
             }
         }
     ],
+    "objectives": [
+        {
+            "id": "ob_room",
+            "chapter": 1,
+            "chapter_title": "Tobys Zimmer",
+            "title": "Den Tatort ansehen",
+            "detail": "Oeffne in der Fallakte die Tatortaufnahmen A-5 und A-6. Details lassen sich anklicken und vergroessern.",
+            "panel": "akte",
+            "done": {
+                "evidence": [
+                    "E02",
+                    "E03",
+                    "E04"
+                ]
+            }
+        },
+        {
+            "id": "ob_phone",
+            "chapter": 1,
+            "chapter_title": "Tobys Zimmer",
+            "title": "Tobys Smartphone entsperren",
+            "detail": "Die vierstellige PIN steht nicht irgendwo - aber auf dem Schreibtisch wird ein Datum besonders hervorgehoben.",
+            "panel": "geraete",
+            "done": {
+                "puzzles": [
+                    "pz_phone_pin"
+                ]
+            }
+        },
+        {
+            "id": "ob_laptop",
+            "chapter": 1,
+            "chapter_title": "Tobys Zimmer",
+            "title": "Tobys Laptop anmelden",
+            "detail": "Der Notizzettel auf dem Schreibtisch nennt die Regel fuer das Passwort, nicht das Passwort selbst. Die Jahreszahl steht auf der Pinnwand.",
+            "panel": "geraete",
+            "done": {
+                "puzzles": [
+                    "pz_laptop_pw"
+                ]
+            }
+        },
+        {
+            "id": "ob_oldphone",
+            "chapter": 2,
+            "chapter_title": "Der Abend",
+            "title": "Das alte Zweitgeraet entsperren",
+            "detail": "Asservat 03 ist mit einem Wischmuster gesperrt. Die Streiflichtaufnahme A-7 in der Fallakte zeigt die Fettspur auf dem Glas.",
+            "panel": "geraete",
+            "requires": {
+                "puzzles": [
+                    "pz_phone_pin"
+                ]
+            },
+            "done": {
+                "puzzles": [
+                    "pz_oldphone_pattern"
+                ]
+            }
+        },
+        {
+            "id": "ob_chat",
+            "chapter": 2,
+            "chapter_title": "Der Abend",
+            "title": "Den geloeschten Chat wiederherstellen",
+            "detail": "Im Papierkorb von Tobys Telefon liegen Reste eines geloeschten Verlaufs. Stelle ihn wieder her und pruefe, wessen Aussage er widerlegt.",
+            "panel": "geraete",
+            "requires": {
+                "devices": [
+                    "dev_toby_phone"
+                ]
+            },
+            "done": {
+                "puzzles": [
+                    "pz_recover_chat"
+                ]
+            }
+        },
+        {
+            "id": "ob_home_cams",
+            "chapter": 2,
+            "chapter_title": "Der Abend",
+            "title": "Die Aussagen der Eltern pruefen",
+            "detail": "Beide sagen, sie seien zu Hause gewesen. In der Fallakte liegen die Aufzeichnungen der Einfahrtskamera und der Tankstelle.",
+            "panel": "akte",
+            "requires": {
+                "puzzles": [
+                    "pz_phone_pin"
+                ]
+            },
+            "done": {
+                "puzzles": [
+                    "pz_cam_garage",
+                    "pz_cam_gas"
+                ]
+            }
+        },
+        {
+            "id": "ob_ridge",
+            "chapter": 3,
+            "chapter_title": "Die Spur nach Norden",
+            "title": "Die Kamera an der Ridge Road auswerten",
+            "detail": "Toby faehrt nach Norden. Suche in der Aufzeichnung ein Fahrzeug, das kurz nach ihm in dieselbe Richtung faehrt.",
+            "panel": "akte",
+            "requires": {
+                "evidence": [
+                    "E06"
+                ]
+            },
+            "done": {
+                "puzzles": [
+                    "pz_cam_ridge"
+                ]
+            }
+        },
+        {
+            "id": "ob_plate",
+            "chapter": 3,
+            "chapter_title": "Die Spur nach Norden",
+            "title": "Das Kennzeichen bestimmen",
+            "detail": "Das eingefrorene Bild zeigt es fast vollstaendig. Toby hat sich auf dem Altgeraet schon einmal eines notiert - vergleiche beide.",
+            "panel": "akte",
+            "requires": {
+                "puzzles": [
+                    "pz_cam_ridge"
+                ]
+            },
+            "done": {
+                "puzzles": [
+                    "pz_plate"
+                ]
+            }
+        },
+        {
+            "id": "ob_audio",
+            "chapter": 3,
+            "chapter_title": "Die Spur nach Norden",
+            "title": "Tobys letzte Sprachnachricht auswerten",
+            "detail": "Im Hintergrund sind zwei Geraeusche zu hoeren. Der Player kann langsamer abspielen - das trennt sie.",
+            "panel": "beweise",
+            "requires": {
+                "devices": [
+                    "dev_toby_phone"
+                ]
+            },
+            "done": {
+                "puzzles": [
+                    "pz_audio_background"
+                ]
+            }
+        },
+        {
+            "id": "ob_message",
+            "chapter": 4,
+            "chapter_title": "Die Nachricht",
+            "title": "Die Nachricht von 03:14 Uhr pruefen",
+            "detail": "Sie soll von Toby stammen. Vergleiche sie mit seinen echten Chats - die Auswertung A-12 liegt in der Fallakte.",
+            "panel": "akte",
+            "requires": {
+                "flags": [
+                    "nachricht_erschienen"
+                ]
+            },
+            "done": {
+                "puzzles": [
+                    "pz_style_message"
+                ]
+            }
+        },
+        {
+            "id": "ob_bus",
+            "chapter": 4,
+            "chapter_title": "Die Nachricht",
+            "title": "Die Weglauf-These pruefen",
+            "detail": "Eine Busbuchung nach Montreal soll belegen, dass Toby weggelaufen ist. Suche zwei Dinge, die zur selben Zeit an zwei Orten waren.",
+            "panel": "akte",
+            "requires": {
+                "flags": [
+                    "nachricht_erschienen"
+                ]
+            },
+            "done": {
+                "puzzles": [
+                    "pz_bus_contradiction"
+                ]
+            }
+        },
+        {
+            "id": "ob_reverse",
+            "chapter": 4,
+            "chapter_title": "Die Nachricht",
+            "title": "Den Anhang der Nachricht untersuchen",
+            "detail": "Die Tonspur klingt vorwaerts nach nichts. Der Player kann die Richtung umkehren; die Morse-Referenz liegt in der Fallakte.",
+            "panel": "beweise",
+            "requires": {
+                "puzzles": [
+                    "pz_recover_chat"
+                ]
+            },
+            "done": {
+                "puzzles": [
+                    "pz_audio_reverse"
+                ]
+            }
+        },
+        {
+            "id": "ob_locate",
+            "chapter": 4,
+            "chapter_title": "Die Nachricht",
+            "title": "Den Ort auf der Karte eingrenzen",
+            "detail": "Drei Quellen zeigen auf denselben Bereich: das Hintergrundgeraeusch, das GPS des Zaunfotos und die Funkzelle.",
+            "panel": "karte",
+            "requires": {
+                "flags": [
+                    "ort_stausee"
+                ]
+            },
+            "done": {
+                "puzzles": [
+                    "pz_locate_final"
+                ]
+            }
+        },
+        {
+            "id": "ob_ww_login",
+            "chapter": 5,
+            "chapter_title": "Die Wasserwerke",
+            "title": "Den Dienstrechner im Kontrollraum oeffnen",
+            "detail": "Die Nachschau A-9 zeigt den Arbeitsplatz. Wer sich ein Passwort nicht merken kann, schreibt es auf.",
+            "panel": "geraete",
+            "requires": {
+                "flags": [
+                    "wasserwerke_im_blick"
+                ]
+            },
+            "done": {
+                "puzzles": [
+                    "pz_ww_login"
+                ]
+            }
+        },
+        {
+            "id": "ob_ww_logs",
+            "chapter": 5,
+            "chapter_title": "Die Wasserwerke",
+            "title": "Betriebsbuch und Zutrittsprotokoll durchsuchen",
+            "detail": "Beide lassen sich filtern: das Betriebsbuch nach dem Datum der Tatnacht, das Zutrittsprotokoll nach \"Pumpstation 4\".",
+            "panel": "geraete",
+            "requires": {
+                "devices": [
+                    "dev_ww_terminal"
+                ]
+            },
+            "done": {
+                "puzzles": [
+                    "pz_find_flush",
+                    "pz_keycard"
+                ]
+            }
+        },
+        {
+            "id": "ob_ww_cam",
+            "chapter": 5,
+            "chapter_title": "Die Wasserwerke",
+            "title": "Kamera 4 zum Zeitpunkt des Zutritts pruefen",
+            "detail": "Das Zutrittsprotokoll nennt die Uhrzeit. Achte im Bild auf das Licht am Kartenleser.",
+            "panel": "akte",
+            "requires": {
+                "puzzles": [
+                    "pz_keycard"
+                ]
+            },
+            "done": {
+                "puzzles": [
+                    "pz_cam_pump"
+                ]
+            }
+        },
+        {
+            "id": "ob_folder",
+            "chapter": 5,
+            "chapter_title": "Die Wasserwerke",
+            "title": "Den geschuetzten Ordner oeffnen",
+            "detail": "Der Dateikopf von \"WARTUNG_ALT\" nennt ein Stichwort. Die Zeitungsausschnitte A-16 nennen das passende Jahr.",
+            "panel": "geraete",
+            "requires": {
+                "evidence": [
+                    "E16"
+                ],
+                "devices": [
+                    "dev_ww_terminal"
+                ]
+            },
+            "done": {
+                "puzzles": [
+                    "pz_doss_folder"
+                ]
+            }
+        },
+        {
+            "id": "ob_timeline",
+            "chapter": 6,
+            "chapter_title": "Abschluss",
+            "title": "Die Zeitleiste der Tatnacht schliessen",
+            "detail": "Bringe die gesicherten Ereignisse in die richtige Reihenfolge. Alle Uhrzeiten stehen in den Beweisen.",
+            "panel": "zeit",
+            "requires": {
+                "evidence": [
+                    "E06",
+                    "E11",
+                    "E12",
+                    "E13"
+                ]
+            },
+            "done": {
+                "puzzles": [
+                    "pz_timeline"
+                ]
+            }
+        },
+        {
+            "id": "ob_report",
+            "chapter": 6,
+            "chapter_title": "Abschluss",
+            "title": "Den Abschlussbericht schreiben",
+            "detail": "Taeter, Ort, Motiv, Luegner und Zeitleiste. Der Bericht laesst sich vor dem Absenden speichern.",
+            "panel": "bericht",
+            "requires": {
+                "flags": [
+                    "ort_pumpstation_bekannt"
+                ]
+            },
+            "done": {
+                "flags": [
+                    "bericht_abgegeben"
+                ]
+            }
+        }
+    ],
     "start": {
         "evidence": [
             "E01"
@@ -7067,6 +7384,6 @@
             "npc_doss"
         ]
     },
-    "updated_at": "2026-09-14T22:58:04+00:00",
+    "updated_at": "2026-09-15T16:10:15+00:00",
     "created_at": "2024-10-13T08:00:00+00:00"
 }

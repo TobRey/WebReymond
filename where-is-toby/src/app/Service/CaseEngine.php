@@ -45,7 +45,7 @@ final class CaseEngine
     public function buildState(array $case, array $progress, bool $isAdmin = false): array
     {
         $foundEvidence = (array)($progress['evidence'] ?? []);
-        $hintLimit = (int)$this->settings->get('gameplay.hints_per_case', 2);
+        $hintLimit = (int)$this->settings->get('gameplay.hints_per_case', 4);
 
         return [
             'case' => [
@@ -72,6 +72,7 @@ final class CaseEngine
             'evidence'  => $this->publicEvidence($case, $progress),
             'evidence_total' => count($case['evidence'] ?? []),
             'puzzles'   => $this->publicPuzzles($case, $progress),
+            'objectives' => $this->publicObjectives($case, $progress),
             'board'     => $progress['board'] ?? ['nodes' => [], 'links' => [], 'view' => ['x' => 0, 'y' => 0, 'zoom' => 1]],
             'notes'     => array_values((array)($progress['notes'] ?? [])),
             'report'    => [
@@ -336,6 +337,93 @@ final class CaseEngine
             unset($requirements);
         }
         return $out;
+    }
+
+    /**
+     * Aktuelle Arbeitsauftraege.
+     *
+     * Der Fall ist bewusst frei begehbar, aber ohne jeden Wegweiser weiss niemand,
+     * wo er anfangen soll. Darum wird immer nur das aktuelle Kapitel gezeigt: die
+     * offenen Punkte daraus, jeder mit dem Bereich, in dem er zu erledigen ist.
+     *
+     * @return array{chapter:int,chapters:int,title:string,open:array,done:int,total:int}|null
+     */
+    private function publicObjectives(array $case, array $progress): array|null
+    {
+        $objectives = (array)($case['objectives'] ?? []);
+        if ($objectives === []) {
+            return null;
+        }
+
+        $chapters = [];
+        foreach ($objectives as $objective) {
+            $chapter = (int)($objective['chapter'] ?? 1);
+            $chapters[$chapter] ??= ['title' => (string)($objective['chapter_title'] ?? ''), 'items' => []];
+            if ($chapters[$chapter]['title'] === '') {
+                $chapters[$chapter]['title'] = (string)($objective['chapter_title'] ?? '');
+            }
+            $chapters[$chapter]['items'][] = $objective;
+        }
+        ksort($chapters);
+
+        $doneTotal = 0;
+        $current = null;
+        $currentNumber = 0;
+        foreach ($chapters as $number => $chapter) {
+            $open = [];
+            foreach ($chapter['items'] as $objective) {
+                if ($this->objectiveDone($objective, $progress)) {
+                    $doneTotal++;
+                    continue;
+                }
+                /* Punkte, deren Voraussetzungen noch fehlen, bleiben verborgen -
+                   sonst steht dort eine Aufgabe, die noch gar nicht loesbar ist. */
+                if (!$this->puzzles->requirementsMet($objective, $progress)['ok']) {
+                    continue;
+                }
+                $open[] = [
+                    'id'     => (string)($objective['id'] ?? ''),
+                    'title'  => (string)($objective['title'] ?? ''),
+                    'detail' => (string)($objective['detail'] ?? ''),
+                    'panel'  => (string)($objective['panel'] ?? ''),
+                ];
+            }
+            if ($current === null && $open !== []) {
+                $current = ['title' => $chapter['title'], 'open' => $open];
+                $currentNumber = (int)$number;
+            }
+        }
+
+        $total = count($objectives);
+        if ($current === null) {
+            return [
+                'chapter'  => count($chapters),
+                'chapters' => count($chapters),
+                'title'    => 'Abschluss',
+                'open'     => [],
+                'done'     => $doneTotal,
+                'total'    => $total,
+            ];
+        }
+
+        return [
+            'chapter'  => $currentNumber,
+            'chapters' => count($chapters),
+            'title'    => $current['title'],
+            'open'     => array_slice($current['open'], 0, 3),
+            'done'     => $doneTotal,
+            'total'    => $total,
+        ];
+    }
+
+    /** Ein Auftrag gilt als erledigt, wenn alle genannten Bedingungen erfuellt sind. */
+    private function objectiveDone(array $objective, array $progress): bool
+    {
+        $done = (array)($objective['done'] ?? []);
+        if ($done === []) {
+            return false;
+        }
+        return $this->puzzles->requirementsMet(['requires' => $done], $progress)['ok'];
     }
 
     private function publicOptions(array $puzzle): array

@@ -34,7 +34,12 @@ check('Zustand geladen', isset($state['case']['title']), json_encode(array_keys(
 check('25 Beweise im Fall', (int)($state['evidence_total'] ?? 0) === 25, 'gefunden: ' . (int)($state['evidence_total'] ?? 0));
 check('8 Personen im Fall', count($state['npcs'] ?? []) >= 7, 'gefunden: ' . count($state['npcs'] ?? []));
 check('Startbeweis vorhanden', in_array('E01', $state['progress']['evidence'] ?? [], true));
-check('Hinweisbudget 2', (int)($state['progress']['hints_left'] ?? -1) === 2, 'Budget: ' . (int)($state['progress']['hints_left'] ?? -1));
+check('Hinweisbudget 4', (int)($state['progress']['hints_left'] ?? -1) === 4, 'Budget: ' . (int)($state['progress']['hints_left'] ?? -1));
+check('Auftragsleiste vorhanden', isset($state['objectives']['open']), 'keine Auftraege im Zustand');
+check('Erstes Kapitel ist aktiv', (int)($state['objectives']['chapter'] ?? 0) === 1, 'Kapitel: ' . (int)($state['objectives']['chapter'] ?? 0));
+check('Auftrag nennt einen Bereich', ($state['objectives']['open'][0]['panel'] ?? '') !== '');
+check('Hoechstens drei Auftraege gleichzeitig', count($state['objectives']['open'] ?? []) <= 3, 'offen: ' . count($state['objectives']['open'] ?? []));
+check('Noch kein spaeterer Auftrag sichtbar', !in_array('ob_ww_login', array_column($state['objectives']['open'] ?? [], 'id'), true));
 
 /* --------- Hilfsfunktionen fuer den Durchlauf --------- */
 
@@ -110,7 +115,8 @@ section('5.3 Fotos, Audio, geloeschte Daten');
 collect('E07', $csrf);
 collect('E08', $csrf);
 
-solve('pz_recover_chat', ['f4473', 'f4474', 'f4475', 'f4476', 'f4477', 'f4478'], $csrf);
+solve('pz_recover_chat', 'opt_frank', $csrf, false);
+solve('pz_recover_chat', 'opt_nora', $csrf);
 $trash = api('/api/case/toby/device/dev_toby_phone/app/trash', [], $csrf, 'GET');
 check('Papierkorb nach Rekonstruktion lesbar', isset($trash['content']['items']), (string)($trash['error'] ?? ''));
 
@@ -254,10 +260,12 @@ section('5.9 Hinweissystem');
 $hint1 = api('/api/case/toby/hint', [], $csrf);
 check('Erster Hinweis wird geliefert', ($hint1['ok'] ?? false) === true, (string)($hint1['message'] ?? ''));
 check('Hinweis ist Stufe 1', (int)($hint1['level'] ?? 0) === 1);
-$hint2 = api('/api/case/toby/hint', [], $csrf);
-check('Zweiter Hinweis wird geliefert', ($hint2['ok'] ?? false) === true);
-$hint3 = api('/api/case/toby/hint', [], $csrf);
-check('Dritter Hinweis wird verweigert (Budget 2)', ($hint3['ok'] ?? true) === false && str_contains((string)($hint3['message'] ?? ''), 'Keine Hinweise'), json_encode($hint3));
+for ($i = 2; $i <= 4; $i++) {
+    $more = api('/api/case/toby/hint', [], $csrf);
+    check('Hinweis ' . $i . ' wird geliefert', ($more['ok'] ?? false) === true, (string)($more['message'] ?? ''));
+}
+$hint5 = api('/api/case/toby/hint', [], $csrf);
+check('Fuenfter Hinweis wird verweigert (Budget 4)', ($hint5['ok'] ?? true) === false && str_contains((string)($hint5['message'] ?? ''), 'Keine Hinweise'), json_encode($hint5));
 
 /* --------- Abschlussbericht --------- */
 section('5.10 Abschlussbericht');
@@ -384,6 +392,20 @@ $settingsSave = api('/api/admin/settings/save', [
     'chat_per_minute' => 30, 'api_per_minute' => 300, 'registration_per_hour' => 20,
 ], $adminCsrf);
 check('Systemeinstellungen gespeichert', ($settingsSave['ok'] ?? false) === true, (string)($settingsSave['error'] ?? ''));
+check('Geaendertes Hinweisbudget wirkt', (int)($settingsSave['settings']['gameplay']['hints_per_case'] ?? 0) === 2,
+    'gespeichert: ' . (int)($settingsSave['settings']['gameplay']['hints_per_case'] ?? 0));
+
+/* Standardwert wiederherstellen, damit die Installation nach dem Test dem
+   ausgelieferten Zustand entspricht. */
+$settingsReset = api('/api/admin/settings/save', [
+    'site_name' => 'WHERE IS TOBY?', 'tagline' => 'FBI Field Investigation Terminal',
+    'allow_register' => true, 'allow_guests' => true, 'imprint' => 'Testimpressum', 'privacy' => 'Testdatenschutz',
+    'hints_per_case' => 4, 'horror_intensity' => 'normal', 'jumpscares' => true, 'autosave_seconds' => 20,
+    'default_case' => 'toby', 'show_timer' => true, 'max_login_attempts' => 6, 'lockout_minutes' => 15,
+    'chat_per_minute' => 30, 'api_per_minute' => 300, 'registration_per_hour' => 20,
+], $adminCsrf);
+check('Hinweisbudget wieder auf Standard', (int)($settingsReset['settings']['gameplay']['hints_per_case'] ?? 0) === 4,
+    'gespeichert: ' . (int)($settingsReset['settings']['gameplay']['hints_per_case'] ?? 0));
 
 $upload = api('/api/admin/media/delete', ['id' => 'nichtvorhanden'], $adminCsrf);
 check('Loeschen eines unbekannten Mediums bleibt fehlerfrei', ($upload['ok'] ?? false) === true);
