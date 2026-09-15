@@ -1,0 +1,101 @@
+# ============================================================
+#  WHERE IS TOBY? - Apache Konfiguration
+#  Getestet mit Apache 2.4 (GoDaddy cPanel, PHP 8.x)
+# ============================================================
+
+# --- Verzeichnislisten abschalten --------------------------
+Options -Indexes +FollowSymLinks
+
+# --- Standard-Dokument --------------------------------------
+DirectoryIndex index.php index.html
+
+# --- Zeichensatz --------------------------------------------
+AddDefaultCharset UTF-8
+
+# --- Front-Controller ---------------------------------------
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Bewusst ohne RewriteBase: so funktioniert die Anwendung sowohl direkt im
+    # Webverzeichnis als auch in einem Unterordner (z. B. public_html/spiel).
+
+    # Installer bleibt direkt erreichbar
+    RewriteCond %{REQUEST_URI} (^|/)install\.php$
+    RewriteRule ^ - [L]
+
+    # Programm- und Datenverzeichnisse sind niemals direkt erreichbar.
+    # Das Muster wird gegen den Pfad ab dem Ordner dieser .htaccess geprueft
+    # (Apache entfernt den Ordneranteil selbst), gilt also auch in Unterordnern.
+    # Medien laufen ueber /medien/... durch PHP, nie direkt ueber /uploads/.
+    RewriteRule ^(app|storage|uploads)/ - [F,L]
+
+    # Existierende Dateien (Assets) direkt ausliefern
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    # Alles andere an den Front-Controller
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+<IfModule mod_authz_core.c>
+    <FilesMatch "\.(json|log|lock|bak|ini|sql|md|dist|sh)$">
+        Require all denied
+    </FilesMatch>
+    <FilesMatch "^(config\.local\.php|composer\.(json|lock)|\.env.*)$">
+        Require all denied
+    </FilesMatch>
+    <FilesMatch "^\.">
+        Require all denied
+    </FilesMatch>
+</IfModule>
+<IfModule !mod_authz_core.c>
+    <FilesMatch "\.(json|log|lock|bak|ini|sql|md|dist|sh)$">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+</IfModule>
+
+# --- Ausnahme: Web-App-Manifest darf gelesen werden ---------
+<Files "manifest.webmanifest">
+    <IfModule mod_authz_core.c>
+        Require all granted
+    </IfModule>
+</Files>
+
+# --- Sicherheitsheader --------------------------------------
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), camera=(), payment=(), usb=(), microphone=(self)"
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+    Header unset X-Powered-By
+    Header always unset X-Powered-By
+</IfModule>
+
+# --- Caching fuer statische Assets --------------------------
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 7 days"
+    ExpiresByType application/javascript "access plus 7 days"
+    ExpiresByType image/svg+xml "access plus 30 days"
+    ExpiresByType image/png "access plus 30 days"
+    ExpiresByType image/jpeg "access plus 30 days"
+    ExpiresByType audio/wav "access plus 30 days"
+    ExpiresByType font/woff2 "access plus 180 days"
+</IfModule>
+
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>
+
+# --- PHP-Grundeinstellungen (werden ignoriert falls nicht erlaubt) ---
+<IfModule mod_php.c>
+    php_flag display_errors off
+    php_flag session.cookie_httponly on
+    php_value upload_max_filesize 12M
+    php_value post_max_size 14M
+</IfModule>
+
+# Hinweis: Es sind bewusst keine ErrorDocument-Zeilen gesetzt. Unbekannte Adressen
+# beantwortet der Front-Controller selbst, und ein fester Pfad wie /error/404 wuerde
+# bei einer Installation in einem Unterordner ins Leere zeigen.

@@ -49,7 +49,12 @@ Die Seite stammt vom Spiel selbst, PHP laeuft also. Gepruefte Reihenfolge:
    selbst erkannten Pfad; der Eintrag kann dort korrigiert oder auf `''` gesetzt werden.
 2. **Diagnose → "mod_rewrite".** Fehlt das Modul, erreicht nur `index.php` selbst die
    Anwendung. Beim Hoster aktivieren lassen.
-3. Wurde die `.htaccess` mit hochgeladen? Im File Manager **Settings → Show Hidden Files**.
+3. **Diagnose → "Apache-Konfiguration (.htaccess)".** Viele Dateimanager und
+   Upload-Werkzeuge uebertragen Dateien mit einem Punkt am Anfang nicht. Die Anwendung
+   legt die Datei in dem Fall beim naechsten Aufruf selbst aus `app/Data/htaccess.dist`
+   an; klappt das nicht, den Ordner auf 755 setzen oder `htaccess.dist` von Hand nach
+   `.htaccess` kopieren. Versteckte Dateien sieht man im File Manager unter
+   **Settings → Show Hidden Files**.
 4. Ist der Adminbereich selbst nicht erreichbar, `app/config.local.php` im File Manager
    oeffnen und `'base_path' => ''` eintragen (bzw. `'/unterordner'`), dann neu laden.
 
@@ -58,7 +63,9 @@ Die Seite stammt vom Spiel selbst, PHP laeuft also. Gepruefte Reihenfolge:
 Der Basispfad steht in `app/config.local.php` (`base_path`). Beim Umzug in einen Unterordner
 dort z. B. `'base_path' => '/spiel'` eintragen.
 
-Bei einer Neuinstallation erkennt die Anwendung den Unterordner selbst. Die mitgelieferte
+Bei einer Neuinstallation erkennt die Anwendung den Unterordner selbst - auch dann, wenn
+die oeffentliche Adresse anders heisst als der Ordner auf der Platte (z. B. Ordner
+`public_html/games/spiel`, erreichbar unter `/spiel`). Die mitgelieferte
 `.htaccess` enthaelt bewusst kein festes `RewriteBase`; wurde die Zeile von Hand ergaenzt,
 muss sie zum Unterordner passen (`RewriteBase /spiel/`) oder wieder entfernt werden.
 

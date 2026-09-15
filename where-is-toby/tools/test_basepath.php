@@ -108,6 +108,29 @@ check('Hauptverzeichnis mit gleichnamiger Route', basePath(
     ''
 ) === '');
 
+/* 10. Adresse und Ordner heissen unterschiedlich (uebergeordnete Seite bildet den
+       Namen auf einen Ordner ab): Ordner ".../public_html/games/whereistoby",
+       oeffentlich erreichbar unter "/whereistoby". */
+check('Adresse weicht vom Ordnerpfad ab', basePath(
+    '/home/rl0v84po3umh/public_html/games/whereistoby',
+    [
+        'DOCUMENT_ROOT' => '/home/rl0v84po3umh/public_html',
+        'SCRIPT_NAME'   => '/games/whereistoby/index.php',
+        'REQUEST_URI'   => '/whereistoby/faelle',
+    ],
+    '/games/whereistoby'
+) === '/whereistoby');
+
+check('Startseite bei abweichender Adresse', basePath(
+    '/home/rl0v84po3umh/public_html/games/whereistoby',
+    [
+        'DOCUMENT_ROOT' => '/home/rl0v84po3umh/public_html',
+        'SCRIPT_NAME'   => '/games/whereistoby/index.php',
+        'REQUEST_URI'   => '/whereistoby/',
+    ],
+    '/games/whereistoby'
+) === '/whereistoby');
+
 section('Ergebnis');
 printf("%d Pruefungen bestanden, %d fehlgeschlagen\n", $GLOBALS['tests']['ok'], $GLOBALS['tests']['fail']);
 foreach ($GLOBALS['tests']['messages'] as $message) {

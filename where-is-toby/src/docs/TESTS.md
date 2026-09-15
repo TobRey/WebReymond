@@ -6,8 +6,8 @@ Alle Tests laufen automatisiert gegen eine echte Installation. Stand: Version 1.
 |---|---|---|
 | Ende-zu-Ende (PHP/cURL), Paket mit Assistent | 189 Pruefungen | **189 bestanden, 0 fehlgeschlagen** |
 | Automatische Einrichtung, Paket ohne Assistent | 165 Pruefungen | **165 bestanden, 0 fehlgeschlagen** |
-| Installation in einem Unterordner | 17 Pruefungen | **17 bestanden, 0 fehlgeschlagen** |
-| Basispfad-Erkennung (ohne Webserver) | 9 Serverkonstellationen | **9 bestanden, 0 fehlgeschlagen** |
+| Installation in einem Unterordner | 23 Pruefungen | **23 bestanden, 0 fehlgeschlagen** |
+| Basispfad-Erkennung (ohne Webserver) | 11 Serverkonstellationen | **11 bestanden, 0 fehlgeschlagen** |
 | Oberflaeche (Chromium/Playwright), beide Pakete | je 24 Pruefungen inkl. Screenshots | **24 bestanden, 0 fehlgeschlagen** |
 | Konsistenzpruefung Fall "Toby" | Raetsel, Beweise, Medien, Zeitachse | **0 Fehler, 0 Hinweise** |
 | Paketpruefung | Pflichtdateien, keine Geheimnisse im ZIP | **bestanden** |
@@ -93,6 +93,8 @@ Zusaetzlich fuer eine Installation in einem Unterordner (`public_html/spiel`):
 * **das Datenverzeichnis wird nicht als Nachbarordner im Webverzeichnis angelegt**, sondern
   bleibt im gesperrten Ordner `storage/`
 * `storage/` ist per URL nicht erreichbar
+* eine geloeschte `.htaccess` wird beim naechsten Aufruf aus `app/Data/htaccess.dist`
+  wiederhergestellt, Inhalt identisch zum Original
 
 ---
 

@@ -93,6 +93,15 @@ final class DiagnosticsService
                   . 'In "app/config.local.php" kann "base_path" auf "' . $active . '" gesetzt werden.'
         );
 
+        $htaccess = is_file(WIT_ROOT . '/.htaccess');
+        $checks[] = $this->check(
+            'Apache-Konfiguration (.htaccess)',
+            $htaccess ? 'ok' : 'fail',
+            $htaccess ? 'vorhanden' : 'fehlt - ohne sie fuehren alle Unterseiten ins Leere',
+            $htaccess ? '' : 'Die Anwendung stellt die Datei beim naechsten Aufruf aus '
+                . '"app/Data/htaccess.dist" wieder her, sofern der Ordner beschreibbar ist.'
+        );
+
         $rewrite = function_exists('apache_get_modules') ? in_array('mod_rewrite', apache_get_modules(), true) : null;
         if ($rewrite !== null) {
             $checks[] = $this->check(

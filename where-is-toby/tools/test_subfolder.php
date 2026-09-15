@@ -46,6 +46,26 @@ check('Zugriffssperre vorhanden', is_file($DIR . '/storage/.htaccess')
 $blocked = http('GET', '/storage/users/_index.json');
 check('Datenverzeichnis nicht per URL erreichbar', in_array($blocked['status'], [403, 404], true), 'Status ' . $blocked['status']);
 
+section('2b. Fehlende .htaccess wird wiederhergestellt');
+
+if ($DIR !== '' && is_file($DIR . '/.htaccess')) {
+    $rules = (string)file_get_contents($DIR . '/.htaccess');
+    check('Vorlage liegt unter gewoehnlichem Namen bei', is_file($DIR . '/app/Data/htaccess.dist'));
+    check('Vorlage stimmt mit der .htaccess ueberein',
+        (string)file_get_contents($DIR . '/app/Data/htaccess.dist') === $rules);
+
+    unlink($DIR . '/.htaccess');
+    clearstatcache();
+    check('.htaccess ist entfernt', !is_file($DIR . '/.htaccess'));
+
+    $page = http('GET', '/');
+    clearstatcache();
+    check('Seite bleibt erreichbar', $page['status'] === 200, 'Status ' . $page['status']);
+    check('.htaccess wurde selbst wiederhergestellt', is_file($DIR . '/.htaccess'));
+    check('Wiederhergestellte Datei ist vollstaendig',
+        (string)file_get_contents($DIR . '/.htaccess') === $rules);
+}
+
 section('3. Bedienung unter dem Unterpfad');
 
 /* Verweise und Medien muessen den Unterordner enthalten */

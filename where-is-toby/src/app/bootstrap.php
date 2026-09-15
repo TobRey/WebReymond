@@ -62,6 +62,14 @@ define('WIT_DEBUG', (bool)($local['debug'] ?? false));
 \App\Core\Logger::configure(WIT_STORAGE . '/logs');
 \App\Core\ErrorHandler::register(WIT_DEBUG);
 
+/* Fehlt die .htaccess (manche Upload-Werkzeuge lassen Punktdateien weg), wird sie aus
+   der mitgelieferten Vorlage wiederhergestellt - sonst greift keine Weiterleitung. */
+if (WIT_INSTALLED && !is_file(WIT_ROOT . '/.htaccess')) {
+    if (\App\Service\AutoSetup::ensureHtaccess(WIT_ROOT)) {
+        \App\Core\Logger::info('.htaccess fehlte und wurde aus der Vorlage wiederhergestellt.');
+    }
+}
+
 /* ---------------------------------------------------------------
  |  Container (bewusst schlank gehalten, keine externe Library)
  --------------------------------------------------------------- */

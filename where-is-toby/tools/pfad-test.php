@@ -80,8 +80,11 @@ $rewrite = function_exists('apache_get_modules')
     ? (in_array('mod_rewrite', apache_get_modules(), true) ? 'aktiv' : 'NICHT geladen')
     : 'nicht feststellbar (kein Apache-Modul-Zugriff)';
 
-$selfUrl = (string)($_SERVER['SCRIPT_NAME'] ?? '');
+/* Der oeffentlich gueltige Pfad steht in REQUEST_URI - SCRIPT_NAME kann davon
+   abweichen, wenn die uebergeordnete Seite Adressen auf Ordner abbildet. */
+$selfUrl = (string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '');
 $appUrl  = $selfUrl !== '' ? rtrim(dirname($selfUrl), '/') : '';
+$appUrl  = $appUrl === '/' ? '' : $appUrl;
 ?>
 <!doctype html>
 <html lang="de"><head><meta charset="utf-8">

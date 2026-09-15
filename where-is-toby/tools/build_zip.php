@@ -123,6 +123,7 @@ $required = [
     'assets/js/game.js', 'assets/js/admin.js', 'assets/js/core.js',
     'assets/img/scenes/map-millbrook.svg', 'assets/img/avatars/toby.svg',
     'assets/fonts/DejaVuSans.ttf', 'storage/.htaccess', 'uploads/.htaccess',
+    'app/Data/htaccess.dist',
     'docs/INSTALLATION-GODADDY.md', 'docs/KI-ANBIETER.md',
 ];
 if (!$withoutInstaller) {
@@ -133,6 +134,14 @@ $missing = array_values(array_diff($required, $names));
 if ($withoutInstaller && in_array('install.php', $names, true)) {
     $missing[] = 'FEHLER: install.php darf in dieser Variante nicht enthalten sein';
 }
+/* Die Vorlage stellt die .htaccess wieder her, wenn ein Upload-Werkzeug Punktdateien
+   weglaesst. Beide Fassungen muessen deshalb identisch sein. */
+$original = (string)@file_get_contents($source . '/.htaccess');
+$template = (string)@file_get_contents($source . '/app/Data/htaccess.dist');
+if ($original === '' || $original !== $template) {
+    $missing[] = 'FEHLER: app/Data/htaccess.dist stimmt nicht mit .htaccess ueberein';
+}
+
 $forbidden = array_values(array_filter($names, static fn(string $n): bool =>
     str_contains($n, 'config.local.php') || str_ends_with($n, '.log') || str_contains($n, 'install.lock')));
 

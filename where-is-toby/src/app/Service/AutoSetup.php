@@ -49,6 +49,7 @@ final class AutoSetup
             return null;
         }
         self::writeGuards($storagePath, $uploadsPath);
+        self::ensureHtaccess($root);
 
         $config = [
             'installed'    => true,
@@ -56,13 +57,10 @@ final class AutoSetup
             'storage_path' => $storagePath,
             'uploads_path' => $uploadsPath,
             'app_key'      => Crypto::generateKey(),
-            'base_path'    => rtrim(str_replace('\\', '/', dirname((string)($_SERVER['SCRIPT_NAME'] ?? '/index.php'))), '/'),
+            'base_path'    => \App\Core\Environment::resolveBasePath(null),
             'debug'        => false,
             'auto_setup'   => true,
         ];
-        if ($config['base_path'] === '/' || $config['base_path'] === '.') {
-            $config['base_path'] = '';
-        }
 
         $store = new JsonStore($storagePath, $storagePath . '/backups');
 
@@ -162,6 +160,34 @@ final class AutoSetup
             }
         }
         return is_writable($storagePath) && is_writable($storagePath . '/settings');
+    }
+
+    /**
+     * Stellt die .htaccess im Programmordner wieder her, falls sie fehlt.
+     *
+     * Manche Dateimanager und Upload-Werkzeuge uebertragen Dateien mit einem Punkt am
+     * Anfang nicht. Ohne diese Datei leitet Apache nichts an den Front-Controller weiter
+     * und jede Unterseite endet im Nichts. Die Vorlage liegt deshalb zusaetzlich unter
+     * einem gewoehnlichen Namen im Paket.
+     *
+     * @return bool true, wenn die Datei neu angelegt wurde
+     */
+    public static function ensureHtaccess(string $root): bool
+    {
+        $target = $root . '/.htaccess';
+        if (is_file($target)) {
+            return false;
+        }
+        $template = $root . '/app/Data/htaccess.dist';
+        if (!is_file($template) || !is_writable($root)) {
+            return false;
+        }
+        $contents = @file_get_contents($template);
+        if ($contents === false || @file_put_contents($target, $contents) === false) {
+            return false;
+        }
+        @chmod($target, 0644);
+        return true;
     }
 
     /** Schreibt die Zugriffssperren fuer Daten- und Uploadverzeichnis. */
