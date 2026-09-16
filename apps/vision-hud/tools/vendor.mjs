@@ -136,11 +136,13 @@ async function main() {
    * sie, meldet jeder Seitenaufruf einen 404 und Geräte ohne WebGL fallen auf
    * reines JavaScript zurück – um ein Vielfaches langsamer als WASM.
    */
-  for (const file of [
-    'tfjs-backend-wasm.wasm',
-    'tfjs-backend-wasm-simd.wasm',
-    'tfjs-backend-wasm-threaded-simd.wasm',
-  ]) {
+  /*
+   * Nur der SIMD-Build. Der Build mit Threads braucht Cross-Origin-Isolation
+   * (COOP/COEP-Kopfzeilen), die ein gewöhnliches Hosting nicht setzt – TF.js
+   * fragt ihn deshalb nie an. Der Build ohne SIMD wäre für Browser, die auch
+   * MediaPipe (SIMD-Pflicht) nicht ausführen können. Beide wären toter Ballast.
+   */
+  for (const file of ['tfjs-backend-wasm-simd.wasm']) {
     const buf = await readFile(join(wasmPkg, 'dist', file));
     await writeFile(join(VENDOR, file), buf);
     await record(`vendor/${file}`, buf);
@@ -160,7 +162,11 @@ async function main() {
   for (const [from, to] of [
     [join(tessPkg, 'dist', 'tesseract.min.js'), 'tesseract.min.js'],
     [join(tessPkg, 'dist', 'worker.min.js'), 'worker.min.js'],
-    [join(tessCorePkg, 'tesseract-core-simd-lstm.wasm.js'), 'tesseract-core-simd-lstm.wasm.js'],
+    // Zwei Dateien (Lader + rohes WASM) statt der Einzeldatei mit eingebettetem
+    // Base64: ein Drittel kleiner und besser komprimierbar. Das WASM wird vom
+    // Lader relativ zum Arbeiter gesucht – beide liegen im selben Ordner.
+    [join(tessCorePkg, 'tesseract-core-simd-lstm.js'), 'tesseract-core-simd-lstm.js'],
+    [join(tessCorePkg, 'tesseract-core-simd-lstm.wasm'), 'tesseract-core-simd-lstm.wasm'],
   ]) {
     const buf = await readFile(from);
     await writeFile(join(tessDir, to), buf);

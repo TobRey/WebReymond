@@ -23,7 +23,7 @@ an, weil die Seite sonst nicht „einfach zuhört“ (siehe
 ## Schnellstart
 
 ```bash
-pnpm --filter @webheaven/vision-hud vendor   # Bibliotheken und Modelle holen (~48 MB, einmalig)
+pnpm --filter @webheaven/vision-hud vendor   # Bibliotheken und Modelle holen (~47 MB, einmalig)
 pnpm --filter @webheaven/vision-hud dev      # http://localhost:4173/kamera-hud/
 pnpm --filter @webheaven/vision-hud build    # dist/vision-hud-kamera-hud.zip zum Hochladen
 pnpm --filter @webheaven/vision-hud test     # Prüfung ohne Browser
@@ -377,7 +377,7 @@ entfernten COCO-Modells.
   Abbrüchen; die Freigabe muss auf „Erlauben“ stehen, sonst bleibt der
   Startknopf. Getestet wurde hier nur in Chromium – das iPhone-Verhalten
   muss am Gerät geprüft werden.
-- Erster Aufruf lädt rund 50 MB (gepackt weniger). Danach liegen die Modelle im Browser-Cache
+- Erster Aufruf lädt rund 47 MB (gepackt weniger). Danach liegen die Modelle im Browser-Cache
   und im Service Worker.
 
 ## Wenn das Objektmodell nicht lädt

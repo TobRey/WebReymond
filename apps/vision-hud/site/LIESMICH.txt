@@ -18,7 +18,7 @@ Kein PHP nötig, keine Datenbank, kein Server-Prozess – nur Dateien.
      und links in den Ordner  public_html  wechseln.
 
   3. Oben auf "Hochladen" (Upload) klicken und die ZIP-Datei auswählen.
-     Das dauert je nach Leitung 2–8 Minuten (ZIP ca. 30 MB, entpackt 49 MB).
+     Das dauert je nach Leitung 2–8 Minuten (ZIP ca. 30 MB, entpackt 47 MB).
 
   4. Zurück zum Dateimanager, einmal auf "Neu laden" (Reload) klicken.
      Dann Rechtsklick auf die ZIP-Datei → "Extrahieren" (Extract) → bestätigen.

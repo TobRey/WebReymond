@@ -112,7 +112,7 @@ export class Ocr {
         workerPath: `${PATHS.tesseract}worker.min.js`,
         // Direkt auf die Datei zeigen: Dann überspringt tesseract.js die
         // Merkmalserkennung und lädt genau diesen Build.
-        corePath: `${PATHS.tesseract}tesseract-core-simd-lstm.wasm.js`,
+        corePath: `${PATHS.tesseract}tesseract-core-simd-lstm.js`,
         langPath: PATHS.tesseract.replace(/\/$/, ''),
         gzip: true,
         /*

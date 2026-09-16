@@ -10,7 +10,7 @@
     "tesseract": "tesseract.js@7.0.0 (Apache-2.0)",
     "tesseract-sprachdaten": "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main"
   },
-  "summeBytes": 50624800,
+  "summeBytes": 48925434,
   "dateien": [
     {
       "file": "vendor/face-api.js",
@@ -23,19 +23,9 @@
       "sha256": "9a3442b79acaf4fb"
     },
     {
-      "file": "vendor/tfjs-backend-wasm.wasm",
-      "bytes": 311123,
-      "sha256": "70a5d516060464e5"
-    },
-    {
       "file": "vendor/tfjs-backend-wasm-simd.wasm",
       "bytes": 424594,
       "sha256": "77ebb28a6d34f371"
-    },
-    {
-      "file": "vendor/tfjs-backend-wasm-threaded-simd.wasm",
-      "bytes": 435643,
-      "sha256": "c052228d4bef185c"
     },
     {
       "file": "vendor/tesseract/tesseract.min.js",
@@ -48,9 +38,14 @@
       "sha256": "576b7df7e3393e13"
     },
     {
-      "file": "vendor/tesseract/tesseract-core-simd-lstm.wasm.js",
-      "bytes": 3899472,
-      "sha256": "c58b46a4c796c0b8"
+      "file": "vendor/tesseract/tesseract-core-simd-lstm.js",
+      "bytes": 89271,
+      "sha256": "e48e2f02ddae3716"
+    },
+    {
+      "file": "vendor/tesseract/tesseract-core-simd-lstm.wasm",
+      "bytes": 2857601,
+      "sha256": "34e8d50cac216427"
     },
     {
       "file": "vendor/tesseract/deu.traineddata.gz",
