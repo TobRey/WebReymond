@@ -39,8 +39,8 @@ const PIPS = [3, 6, 10, 14, 18];
 const MATCH_THRESHOLD = 0.92;
 /** So lange muss ein Zeichen ruhig gehalten werden (ms). */
 const HOLD_MS = 800;
-/** Sperre nach dem Auslösen (ms). */
-const COOLDOWN_MS = 1500;
+/** Sperre nach dem Auslösen (ms) – gegen Doppelauslösung beim Zeichenwechsel. */
+const COOLDOWN_MS = 1200;
 
 let bundle = null;
 
@@ -287,17 +287,20 @@ export class Hands {
     }
 
     // --- Halten und Auslösen ---
+    // Ein Zeichen löst je Halten genau einmal aus. Wer die Hand oben lässt,
+    // schaltet nicht alle zwei Sekunden erneut – erst loslassen oder das
+    // Zeichen wechseln, dann wieder halten.
     let fired = null;
     let hold = 0;
     if (gesture && !this.recording) {
       if (this.current?.id !== gesture.id) {
-        this.current = gesture;
+        this.current = { ...gesture, fired: false };
         this.heldSince = now;
       }
       hold = Math.min(1, (now - this.heldSince) / HOLD_MS);
-      if (hold >= 1 && now - this.lastFired > COOLDOWN_MS) {
+      if (hold >= 1 && !this.current.fired && now - this.lastFired > COOLDOWN_MS) {
         this.lastFired = now;
-        this.heldSince = now;
+        this.current.fired = true;
         fired = gesture;
       }
     } else {

@@ -1027,9 +1027,46 @@ if (IMAGENET.length !== 1000) {
 const NOT_AN_OBJECT = new Set(['nature', 'building', 'person']);
 
 /**
+ * Gruppen, die einander verfeinern dürfen. Ein „Karton“ (container) darf
+ * zum „Paket“ (container) werden, ein „Schuh“ (footwear) nie zur
+ * „Bärenfellmütze“ (clothing) – auch wenn die Zweitstufe sich sicher ist:
+ * Sie sieht nur den Ausschnitt und rät bei fremden Dingen gern daneben.
+ */
+const FAMILIES = [
+  ['container', 'kitchen', 'drink', 'food', 'bag', 'office'],
+  [
+    'appliance',
+    'electronics',
+    'kitchen',
+    'screen',
+    'computer',
+    'phone',
+    'audio',
+    'light',
+    'office',
+  ],
+  ['furniture', 'office', 'bathroom', 'light', 'baby'],
+  ['toy', 'sports', 'instrument', 'baby'],
+  ['vehicle', 'traffic'],
+  ['clothing', 'accessory', 'cosmetics', 'bag'],
+  ['footwear'],
+  ['tool', 'weapon', 'office', 'sports'],
+  ['plant', 'food'],
+  ['animal', 'dog', 'cat', 'bird'],
+  ['medical', 'bathroom', 'cosmetics'],
+  ['misc'],
+];
+
+/** Dürfen zwei Gruppen einander verfeinern? */
+export function groupsCompatible(a, b) {
+  if (a === b) return true;
+  return FAMILIES.some((family) => family.includes(a) && family.includes(b));
+}
+
+/**
  * Darf dieses Ergebnis der Zweitstufe den Detektornamen ersetzen?
- * @param {number} index  Klassenindex
- * @param {string} detectorGroup  Gruppe des Detektortreffers
+ * @param {number} index  ImageNet-Index
+ * @param {string} detectorGroup  Gruppe der Detektorklasse
  */
 export function refinementAllowed(index, detectorGroup) {
   const entry = IMAGENET[index];
@@ -1038,5 +1075,5 @@ export function refinementAllowed(index, detectorGroup) {
   const animalGroups = new Set(['animal', 'dog', 'cat', 'bird']);
   if (animalGroups.has(detectorGroup)) return animalGroups.has(entry.group);
   if (animalGroups.has(entry.group)) return false;
-  return true;
+  return groupsCompatible(entry.group, detectorGroup);
 }
