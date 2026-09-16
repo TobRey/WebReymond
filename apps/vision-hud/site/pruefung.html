@@ -172,6 +172,14 @@
       <h2>Dateien</h2>
       <div id="files"></div>
 
+      <h2>Messlauf (freiwillig)</h2>
+      <p class="sub">
+        Lädt das Rechenwerk und den Detektor (7 MB) und misst, wie lange ein Durchlauf auf diesem
+        Gerät dauert. Sagt, ob die Objekterkennung hier flüssig läuft.
+      </p>
+      <p><button id="bench" class="ghost">Modelle laden und messen</button></p>
+      <div id="benchOut"></div>
+
       <p style="margin-top: 22px">
         <button id="copy">Bericht kopieren</button>
         <button class="ghost" onclick="location.reload()">Neu prüfen</button>
@@ -187,7 +195,6 @@
         ['assets/css/hud.css', 'Gestaltung'],
         ['assets/js/app.js', 'Programm'],
         ['assets/vendor/face-api.js', 'Bibliothek Gesichter + TensorFlow'],
-        ['assets/vendor/coco-ssd.min.js', 'Bibliothek Objekte'],
         ['assets/vendor/tfjs-backend-wasm-simd.wasm', 'WASM-Rechenwerk'],
         [
           'assets/models/tiny_face_detector_model-weights_manifest.json',
@@ -198,18 +205,22 @@
         ['assets/models/face_landmark_68_model.bin', 'Gesichtspunkte'],
         ['assets/models/age_gender_model.bin', 'Alter'],
         ['assets/models/face_expression_model.bin', 'Ausdruck'],
-        ['assets/models/coco-ssd/model.json', 'Objektmodell (Manifest)'],
-        ['assets/models/coco-ssd/group1-shard1of5.bin', 'Objektmodell 1/5'],
-        ['assets/models/coco-ssd/group1-shard2of5.bin', 'Objektmodell 2/5'],
-        ['assets/models/coco-ssd/group1-shard3of5.bin', 'Objektmodell 3/5'],
-        ['assets/models/coco-ssd/group1-shard4of5.bin', 'Objektmodell 4/5'],
-        ['assets/models/coco-ssd/group1-shard5of5.bin', 'Objektmodell 5/5'],
+        ['assets/models/detector/model.json', 'Objektmodell 601 Klassen (Manifest)'],
+        ['assets/models/detector/group1-shard1of2.bin', 'Objektmodell 1/2 (4 MB)'],
+        ['assets/models/detector/group1-shard2of2.bin', 'Objektmodell 2/2 (2,8 MB)'],
       ];
 
       // Diese Dateien werden erst bei Bedarf geladen. Fehlen sie, läuft die
       // Seite trotzdem – nur eben ohne Texterkennung bzw. ohne Offline-Betrieb.
       const OPTIONAL = [
         ['sw.js', 'Offline-Betrieb (PWA)'],
+        ['assets/models/classifier/model.json', 'Zweitstufe 1000 Klassen (Manifest)'],
+        ['assets/models/classifier/group1-shard1of2.bin', 'Zweitstufe 1/2 (4 MB)'],
+        ['assets/models/classifier/group1-shard2of2.bin', 'Zweitstufe 2/2 (1,2 MB)'],
+        ['assets/vendor/mediapipe/vision_bundle.mjs', 'Handerkennung (Bibliothek)'],
+        ['assets/vendor/mediapipe/vision_wasm_internal.js', 'Handerkennung (WASM-Lader)'],
+        ['assets/vendor/mediapipe/vision_wasm_internal.wasm', 'Handerkennung (WASM, 8 MB)'],
+        ['assets/models/gesture_recognizer.task', 'Handzeichen-Modell (8 MB)'],
         ['assets/vendor/tesseract/tesseract.min.js', 'Texterkennung'],
         ['assets/vendor/tesseract/worker.min.js', 'Texterkennung (Arbeiter)'],
         ['assets/vendor/tesseract/tesseract-core-simd-lstm.wasm.js', 'Texterkennung (Kern)'],
@@ -295,6 +306,68 @@
         window.indexedDB ? 'ok' : 'warn',
       );
       add('env', 'Adresse', location.href.split('?')[0], 'ok');
+
+      // WASM mit SIMD: braucht die Handerkennung (MediaPipe) und der WASM-Rückfall.
+      let simd = false;
+      try {
+        simd = WebAssembly.validate(
+          new Uint8Array([
+            0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0,
+            253, 15, 253, 98, 11,
+          ]),
+        );
+      } catch (e) {
+        simd = false;
+      }
+      add(
+        'env',
+        'WASM mit SIMD (Handerkennung)',
+        simd ? 'ja' : 'nein',
+        simd ? 'ok' : 'warn',
+        simd ? '' : 'Safari ab 16.4, Chrome ab 91 – sonst keine Handzeichen',
+      );
+
+      // Gemerkte Freigaben: Nur mit „granted“ startet die Seite ohne Tipp.
+      (async () => {
+        for (const [name, label] of [
+          ['camera', 'Kamera-Freigabe'],
+          ['microphone', 'Mikrofon-Freigabe'],
+        ]) {
+          try {
+            const status = await navigator.permissions.query({ name });
+            const state = status.state;
+            add(
+              'env',
+              label,
+              state === 'granted' ? 'gemerkt' : state === 'denied' ? 'VERWEIGERT' : 'wird gefragt',
+              state === 'granted' ? 'ok' : state === 'denied' ? 'bad' : 'warn',
+              state === 'granted'
+                ? 'Autostart ohne Tipp möglich'
+                : state === 'denied'
+                  ? 'In den Website-Einstellungen wieder erlauben'
+                  : 'Safari: aA → Website-Einstellungen → Erlauben, dann startet es von selbst',
+            );
+          } catch (e) {
+            add(
+              'env',
+              label,
+              'nicht abfragbar',
+              'warn',
+              'Dieser Browser verrät die Freigabe nicht vorab – die Seite fragt beim Start',
+            );
+          }
+        }
+        const voices = window.speechSynthesis
+          ? speechSynthesis.getVoices().filter((v) => /^de/i.test(v.lang)).length
+          : 0;
+        add(
+          'env',
+          'Deutsche Stimmen',
+          voices > 0 ? `${voices}` : 'noch keine geladen',
+          voices > 0 ? 'ok' : 'warn',
+          voices > 0 ? '' : 'iOS lädt die Stimmen erst nach der ersten Berührung',
+        );
+      })();
       add('env', 'Browserkennung', navigator.userAgent.slice(0, 60) + '…', 'ok');
 
       /* ---------------- Dateien ---------------- */
@@ -325,7 +398,7 @@
               );
             } else {
               failed++;
-              if (path.includes('coco-ssd')) blockedExtensionless = true;
+              if (path.includes('/detector/')) blockedExtensionless = true;
               add('files', label, `HTTP ${res.status}`, 'bad', path);
             }
           } catch (e) {
@@ -333,7 +406,7 @@
               add('files', label, 'fehlt', 'warn', `${path} – nur diese Funktion entfällt`);
             } else {
               failed++;
-              if (path.includes('coco-ssd')) blockedExtensionless = true;
+              if (path.includes('/detector/')) blockedExtensionless = true;
               add('files', label, 'nicht erreichbar', 'bad', `${path} – ${e.message}`);
             }
           }
@@ -357,7 +430,7 @@
           box.innerHTML = `<h3>${failed} Datei(en) fehlen – das Objektmodell kommt nicht durch</h3>
             <p>Die Gewichtsdateien des Objektmodells werden nicht ausgeliefert. Häufigste Ursachen:</p>
             <ol>
-              <li><b>Nicht vollständig entpackt.</b> Im Dateimanager prüfen, ob <code>assets/models/coco-ssd/</code> sechs Dateien enthält (5 × .bin plus model.json).</li>
+              <li><b>Nicht vollständig entpackt.</b> Im Dateimanager prüfen, ob <code>assets/models/detector/</code> drei Dateien enthält (2 × .bin plus model.json).</li>
               <li><b>Upload abgebrochen.</b> Die .bin-Dateien sind je 4 MB – bei einem Abbruch liegen sie zwar da, sind aber zu klein.</li>
               <li><b>mod_security blockiert.</b> Dann bei GoDaddy im Support die Blockierung für diesen Ordner aufheben lassen.</li>
             </ol>`;
@@ -365,6 +438,100 @@
           box.innerHTML = `<h3>${failed} Datei(en) fehlen</h3>
             <p>Die oben rot markierten Dateien liefert der Server nicht aus. Meist wurde das Archiv nicht vollständig entpackt – am einfachsten den Ordner löschen und das ZIP erneut hochladen und entpacken.</p>`;
         }
+
+        /* ---------------- Messlauf ---------------- */
+        document.getElementById('bench').addEventListener('click', async () => {
+          const button = document.getElementById('bench');
+          button.disabled = true;
+          button.textContent = 'Läuft …';
+          document.getElementById('benchOut').innerHTML = '';
+          const t = (ms) => `${Math.round(ms)} ms`;
+          try {
+            let started = performance.now();
+            await new Promise((ok, bad) => {
+              const el = document.createElement('script');
+              el.src = 'assets/vendor/face-api.js';
+              el.onload = ok;
+              el.onerror = () => bad(new Error('face-api.js nicht ladbar'));
+              document.head.appendChild(el);
+            });
+            const tf = window.faceapi && window.faceapi.tf;
+            if (!tf) throw new Error('TensorFlow fehlt in face-api.js');
+            add(
+              'benchOut',
+              'Bibliothek geladen',
+              t(performance.now() - started),
+              'ok',
+              `TensorFlow.js ${tf.version_core || ''}`,
+            );
+
+            started = performance.now();
+            for (const backend of ['webgl', 'wasm', 'cpu']) {
+              try {
+                if (await tf.setBackend(backend)) {
+                  await tf.ready();
+                  break;
+                }
+              } catch (e) {
+                /* nächster */
+              }
+            }
+            const backend = tf.getBackend();
+            add(
+              'benchOut',
+              'Rechenwerk',
+              backend.toUpperCase(),
+              backend === 'webgl' ? 'ok' : 'warn',
+              backend === 'webgl'
+                ? t(performance.now() - started)
+                : 'Ohne WebGL läuft der Detektor deutlich langsamer',
+            );
+
+            started = performance.now();
+            const model = await tf.loadGraphModel('assets/models/detector/model.json');
+            add(
+              'benchOut',
+              'Detektor geladen (7 MB)',
+              t(performance.now() - started),
+              'ok',
+              'assets/models/detector/',
+            );
+
+            const run = async () => {
+              const s0 = performance.now();
+              const out = tf.tidy(() => model.execute(tf.zeros([1, 512, 512, 3])));
+              await (Array.isArray(out) ? out[0] : out).data();
+              (Array.isArray(out) ? out : [out]).forEach((x) => x.dispose());
+              return performance.now() - s0;
+            };
+            const first = await run();
+            const times = [];
+            for (let i = 0; i < 5; i++) times.push(await run());
+            const median = times.sort((a, b) => a - b)[2];
+            const verdict = median < 120 ? 'ok' : median < 300 ? 'warn' : 'bad';
+            add(
+              'benchOut',
+              'Ein Durchlauf des Detektors',
+              t(median),
+              verdict,
+              `erster Lauf ${t(first)} (Aufwärmen) · ${verdict === 'ok' ? 'flüssig' : verdict === 'warn' ? 'brauchbar, Zweitstufe ggf. ausschalten' : 'zu langsam – Objekterkennung ausschalten'}`,
+            );
+
+            const mem = tf.memory();
+            add(
+              'benchOut',
+              'Grafikspeicher',
+              `${(mem.numBytes / 1048576).toFixed(1)} MB`,
+              'ok',
+              `${mem.numTensors} Tensoren`,
+            );
+            model.dispose();
+          } catch (e) {
+            add('benchOut', 'Messlauf abgebrochen', e.message, 'bad');
+          }
+          button.textContent = 'Nochmal messen';
+          button.disabled = false;
+        });
 
         document.getElementById('copy').addEventListener('click', async () => {
           const text = `Vision HUD Selbsttest\n${new Date().toISOString()}\n${location.href}\n\n${lines.join('\n')}`;

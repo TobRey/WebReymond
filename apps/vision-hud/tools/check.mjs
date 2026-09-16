@@ -69,6 +69,9 @@ for (const name of jsFiles) {
     problems.push(`${name}: absoluter Pfad "${match[0]}" gefunden.`);
   }
 
+  // Das alte 80-Klassen-Modell ist raus; ein Verweis darauf wäre ein 404.
+  if (source.includes('coco-ssd')) problems.push(`${name}: Verweis auf das entfernte COCO-Modell.`);
+
   // Syntaxprüfung mit Nodes eigenem Parser: erkennt die Datei dank
   // "type": "module" in der package.json korrekt als ES-Modul und führt
   // dabei keine Zeile aus.
@@ -104,21 +107,44 @@ if (!(await ok(modelsDir))) {
     }
   }
 
-  const cocoPath = join(modelsDir, 'coco-ssd', 'model.json');
-  if (!(await ok(cocoPath))) {
-    notes.push('Objektmodell fehlt – "vendor" ausführen.');
-  } else {
+  // Detektor und Zweitstufe: Manifest vorhanden, jedes Gewicht da, jedes mit Endung.
+  for (const [name, label] of [
+    ['detector', 'Objektmodell'],
+    ['classifier', 'Zweitstufe'],
+  ]) {
+    const manifestPath = join(modelsDir, name, 'model.json');
+    if (!(await ok(manifestPath))) {
+      notes.push(`${label} fehlt (assets/models/${name}) – "vendor" ausführen.`);
+      continue;
+    }
     checks += 1;
-    const coco = JSON.parse(await readFile(cocoPath, 'utf8'));
-    for (const path of coco.weightsManifest.flatMap((group) => group.paths)) {
-      if (!(await ok(join(modelsDir, 'coco-ssd', path)))) {
-        problems.push(`Objektmodell: Gewicht fehlt: ${path}`);
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+    for (const path of manifest.weightsManifest.flatMap((group) => group.paths)) {
+      if (!(await ok(join(modelsDir, name, path)))) {
+        problems.push(`${label}: Gewicht fehlt: ${path}`);
+      }
+      // Dateien ohne Endung blockieren manche Hoster – das war der Grund für
+      // "Objektmodell nicht verfügbar" in der ersten Fassung.
+      if (!/\.[a-z0-9]+$/i.test(path)) {
+        problems.push(`${label}: Gewicht "${path}" ohne Dateiendung.`);
       }
     }
   }
 
+  checks += 1;
+  if (!(await ok(join(modelsDir, 'gesture_recognizer.task')))) {
+    notes.push(
+      'Handzeichen-Modell fehlt (assets/models/gesture_recognizer.task) – "vendor" ausführen.',
+    );
+  }
+
   const vendorDir = join(SITE, 'assets', 'vendor');
-  for (const file of ['face-api.js', 'coco-ssd.min.js']) {
+  for (const file of [
+    'face-api.js',
+    'mediapipe/vision_bundle.mjs',
+    'mediapipe/vision_wasm_internal.js',
+    'mediapipe/vision_wasm_internal.wasm',
+  ]) {
     checks += 1;
     if (!(await ok(join(vendorDir, file))))
       problems.push(`Bibliothek fehlt: assets/vendor/${file}`);

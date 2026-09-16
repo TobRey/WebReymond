@@ -1,19 +1,22 @@
 /**
- * Lädt die Modelle und führt die eigentliche Bildauswertung durch.
+ * Lädt die Modelle und führt die Bildauswertung durch.
  *
- * Aufbau der Auswertung – bewusst in drei unterschiedlich teure Stufen zerlegt,
+ * Aufbau der Auswertung – bewusst in Stufen unterschiedlicher Kosten zerlegt,
  * weil ein Mobiltelefon sonst nach wenigen Sekunden einbricht:
  *
- *   1. Objekte      (COCO-SSD)          ~alle 140 ms auf einem 480 px breiten Bild
- *   2. Gesichter    (Tiny-Detektor)     ~alle 120 ms, liefert nur Positionen
- *   3. Wer ist das? (Merkmalsvektor …)  höchstens ein Gesicht pro Runde
+ *   1. Objekte      (YOLOv8, 601 Klassen)  ~alle 110 ms auf 512×512
+ *   2. Gesichter    (Tiny-Detektor)        ~alle 120 ms, liefert nur Positionen
+ *   3. Zweitstufe   (ImageNet, 1000 Kl.)   ein Ausschnitt alle ~260 ms
+ *   4. Wer ist das? (Merkmalsvektor …)     höchstens ein Gesicht pro Runde
  *
- * Stufe 3 ist mit Abstand die teuerste. Sie läuft deshalb nicht auf dem ganzen
- * Bild, sondern auf einem kleinen Ausschnitt rund um ein einzelnes Gesicht, und
- * nur dann, wenn zu diesem Ziel noch keine oder eine veraltete Antwort vorliegt.
+ * Alle vier laufen auf derselben TensorFlow.js-Instanz: face-api.js bringt
+ * sie mit und veröffentlicht sie als `faceapi.tf`. So gibt es im Browser einen
+ * einzigen WebGL-Kontext.
  */
 
 import { CONFIG, PATHS } from './config.js';
+import { Detector } from './detector.js';
+import { Classifier } from './classifier.js';
 
 /** Lädt ein klassisches <script> und wartet, bis es ausgeführt wurde. */
 function loadScript(src) {
@@ -39,10 +42,10 @@ export class Engine {
   constructor() {
     this.faceapi = null;
     this.tf = null;
-    this.objectModel = null;
-    this.ready = { objects: false, faces: false };
+    this.detector = null;
+    this.classifier = null;
+    this.ready = { objects: false, faces: false, classifier: false };
 
-    this.objectCanvas = createWorkCanvas(CONFIG.objects.workWidth);
     this.faceCanvas = createWorkCanvas(CONFIG.faces.workWidth);
     this.cropCanvas = document.createElement('canvas');
     this.cropCanvas.width = CONFIG.faces.cropSize;
@@ -53,7 +56,7 @@ export class Engine {
   }
 
   /**
-   * Holt die Bibliotheken und schaltet TensorFlow.js auf die Grafikeinheit.
+   * Holt die Bibliothek und schaltet TensorFlow.js auf die Grafikeinheit.
    * @param {(step: string, state: 'run'|'ok'|'fail', detail?: string) => void} report
    */
   async bootstrap(report) {
@@ -64,16 +67,8 @@ export class Engine {
     if (!faceapi?.tf) throw new Error('face-api.js konnte nicht geladen werden.');
     this.faceapi = faceapi;
     this.tf = faceapi.tf;
-
-    /*
-     * face-api.js bringt TensorFlow.js bereits mit. Diese eine Instanz wird an
-     * COCO-SSD weitergereicht (das Paket erwartet ein globales `tf`), damit im
-     * Browser nur ein WebGL-Kontext und ein Satz Rechenkerne existiert.
-     * Die Zuweisung muss vor dem Laden von coco-ssd.min.js geschehen.
-     */
+    // Für Werkzeuge, die ein globales `tf` erwarten.
     globalThis.tf = this.tf;
-    await loadScript(`${PATHS.vendor}coco-ssd.min.js`);
-    if (!globalThis.cocoSsd) throw new Error('coco-ssd konnte nicht geladen werden.');
     report('Bibliothek', 'ok', `TF ${this.tf.version?.tfjs ?? this.tf.version_core ?? ''}`);
 
     report('Rechenwerk', 'run');
@@ -81,7 +76,6 @@ export class Engine {
      * In dieser Reihenfolge, weil der Unterschied gewaltig ist: WebGL rechnet
      * auf der Grafikeinheit (Millisekunden), WASM auf der CPU (zehnmal
      * langsamer), reines JavaScript noch einmal um ein Vielfaches langsamer.
-     * Die WASM-Dateien liegen neben dieser Datei in assets/vendor/.
      */
     for (const backend of ['webgl', 'wasm', 'cpu']) {
       try {
@@ -94,7 +88,19 @@ export class Engine {
       }
     }
     await this.tf.ready();
+
+    // Auf iOS zahlt sich das aus: kleinere Zwischenspeicher, weniger Speicherdruck.
+    try {
+      this.tf.env().set('WEBGL_DELETE_TEXTURE_THRESHOLD', 0);
+      this.tf.env().set('WEBGL_FORCE_F16_TEXTURES', false);
+    } catch {
+      /* Nicht jedes Backend kennt diese Schalter. */
+    }
+
     report('Rechenwerk', 'ok', this.tf.getBackend().toUpperCase());
+
+    this.detector = new Detector(this.tf);
+    this.classifier = new Classifier(this.tf);
   }
 
   /** Lädt die Gesichtsmodelle (rund 7 MB). */
@@ -123,15 +129,16 @@ export class Engine {
     report('Gesichter', 'ok', '5 Modelle');
   }
 
-  /** Lädt das Objektmodell (rund 18 MB) – läuft absichtlich als Letztes. */
+  /** Lädt den Objektdetektor (601 Klassen). */
   async loadObjectModel(report) {
-    report('Objekte', 'run');
-    this.objectModel = await globalThis.cocoSsd.load({
-      base: 'lite_mobilenet_v2',
-      modelUrl: PATHS.cocoModel,
-    });
+    await this.detector.load(report);
     this.ready.objects = true;
-    report('Objekte', 'ok', '80 Klassen');
+  }
+
+  /** Lädt die Zweitstufe (1000 Klassen) – nach dem Detektor, nicht dringend. */
+  async loadClassifier(report) {
+    await this.classifier.load(report);
+    this.ready.classifier = true;
   }
 
   /**
@@ -152,27 +159,23 @@ export class Engine {
 
   /**
    * Sucht Objekte im aktuellen Bild.
-   * @returns {Promise<Array<{box: object, score: number, label: string, kind: string}>>}
-   *          Koordinaten in Videopixeln
+   * @param {HTMLVideoElement} video
+   * @param {number} sure  Schwelle für einen vollen Rahmen
+   * @param {boolean} includeFaint  auch unsichere Treffer liefern
    */
-  async detectObjects(video, minScore) {
+  async detectObjects(video, sure, includeFaint = true) {
     if (!this.ready.objects) return [];
-    const prepared = this.#prepare(this.objectCanvas, video);
-    if (!prepared) return [];
+    return this.detector.detect(video, {
+      sure,
+      faint: includeFaint ? CONFIG.objects.faint : sure,
+      max: CONFIG.objects.maxResults,
+    });
+  }
 
-    const raw = await this.objectModel.detect(prepared.canvas, CONFIG.objects.maxResults, minScore);
-
-    return raw.map((item) => ({
-      box: {
-        x: item.bbox[0] * prepared.scale,
-        y: item.bbox[1] * prepared.scale,
-        w: item.bbox[2] * prepared.scale,
-        h: item.bbox[3] * prepared.scale,
-      },
-      score: item.score,
-      label: item.class,
-      kind: item.class === 'person' ? 'person' : 'object',
-    }));
+  /** Zweitstufe auf einem Ziel. */
+  async classifyBox(video, box) {
+    if (!this.ready.classifier) return [];
+    return this.classifier.classify(video, box);
   }
 
   /**
@@ -205,10 +208,6 @@ export class Engine {
    *
    * Der Ausschnitt ist der Grund, warum dieser Schritt überhaupt bezahlbar ist:
    * statt eines 1280 px breiten Bildes verarbeiten die Netze 224 px.
-   *
-   * @returns {Promise<null|{descriptor: Float32Array, age: number, gender: string,
-   *          genderProbability: number, expression: string, score: number,
-   *          thumb: HTMLCanvasElement}>}
    */
   async identify(video, box) {
     if (!this.ready.faces) return null;

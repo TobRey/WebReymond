@@ -1,14 +1,16 @@
 {
-  "erzeugt": "2026-09-15",
+  "erzeugt": "2026-09-16",
   "quellen": {
     "face-api.js": "@vladmandic/face-api@1.7.15 (MIT)",
-    "coco-ssd": "@tensorflow-models/coco-ssd@2.2.3 (Apache-2.0)",
     "tfjs-wasm": "@tensorflow/tfjs-backend-wasm@4.22.0 (Apache-2.0)",
+    "mediapipe": "@mediapipe/tasks-vision@1.0.1 (Apache-2.0)",
+    "gesten-modell": "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task",
+    "detektor": "yolov8n-oiv7 (Ultralytics, AGPL-3.0) → TF.js, siehe tools/export-models.md",
+    "zweitstufe": "yolov8n-cls (Ultralytics, AGPL-3.0) → TF.js",
     "tesseract": "tesseract.js@7.0.0 (Apache-2.0)",
-    "tesseract-sprachdaten": "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main",
-    "coco-ssd-gewichte": "https://storage.googleapis.com/tfjs-models/savedmodel/ssdlite_mobilenet_v2"
+    "tesseract-sprachdaten": "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main"
   },
-  "summeBytes": 35479229,
+  "summeBytes": 50624800,
   "dateien": [
     {
       "file": "vendor/face-api.js",
@@ -19,11 +21,6 @@
       "file": "vendor/face-api.LICENSE.txt",
       "bytes": 1067,
       "sha256": "9a3442b79acaf4fb"
-    },
-    {
-      "file": "vendor/coco-ssd.min.js",
-      "bytes": 9299,
-      "sha256": "8875b8c1bb577239"
     },
     {
       "file": "vendor/tfjs-backend-wasm.wasm",
@@ -116,34 +113,54 @@
       "sha256": "9a9840f2cf1f4c7e"
     },
     {
-      "file": "models/coco-ssd/model.json",
-      "bytes": 242986,
-      "sha256": "0c92086e597c6473"
+      "file": "vendor/mediapipe/vision_bundle.mjs",
+      "bytes": 155439,
+      "sha256": "d885630c297c0b20"
     },
     {
-      "file": "models/coco-ssd/group1-shard1of5.bin",
+      "file": "vendor/mediapipe/vision_wasm_internal.js",
+      "bytes": 323377,
+      "sha256": "e170ee67dd4e16c1"
+    },
+    {
+      "file": "vendor/mediapipe/vision_wasm_internal.wasm",
+      "bytes": 11756954,
+      "sha256": "8da277a733926eac"
+    },
+    {
+      "file": "models/gesture_recognizer.task",
+      "bytes": 8373440,
+      "sha256": "97952348cf6a6a49"
+    },
+    {
+      "file": "models/detector/group1-shard1of2.bin",
       "bytes": 4194304,
-      "sha256": "0e7af0f713e98521"
+      "sha256": "9cf153ad124b51f6"
     },
     {
-      "file": "models/coco-ssd/group1-shard2of5.bin",
+      "file": "models/detector/group1-shard2of2.bin",
+      "bytes": 2845248,
+      "sha256": "400ef83edc93f4f0"
+    },
+    {
+      "file": "models/detector/model.json",
+      "bytes": 252916,
+      "sha256": "aa082d306f5f136c"
+    },
+    {
+      "file": "models/classifier/group1-shard1of2.bin",
       "bytes": 4194304,
-      "sha256": "74cc6cfc2c4510c9"
+      "sha256": "aa9dd8f85b4e1c53"
     },
     {
-      "file": "models/coco-ssd/group1-shard3of5.bin",
-      "bytes": 4194304,
-      "sha256": "50383033f893eae1"
+      "file": "models/classifier/group1-shard2of2.bin",
+      "bytes": 1237712,
+      "sha256": "b620b2a1a085360e"
     },
     {
-      "file": "models/coco-ssd/group1-shard4of5.bin",
-      "bytes": 4194304,
-      "sha256": "d856dc534c780068"
-    },
-    {
-      "file": "models/coco-ssd/group1-shard5of5.bin",
-      "bytes": 1257312,
-      "sha256": "3d356f1fb6dfca6a"
+      "file": "models/classifier/model.json",
+      "bytes": 98690,
+      "sha256": "8be3025dc2aba65f"
     }
   ]
 }

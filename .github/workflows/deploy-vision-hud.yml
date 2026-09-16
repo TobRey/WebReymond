@@ -1,0 +1,92 @@
+name: Vision HUD – Upload auf den Webspace
+
+# Lädt apps/vision-hud/site per FTP in den Ordner auf dem Webspace, sobald
+# etwas an der Seite geändert wurde und auf main gelandet ist. Zum Testen vor
+# dem Zusammenführen lässt sich der Lauf von Hand für jeden Branch starten.
+#
+# Zugangsdaten liegen NICHT im Repository, sondern in den Einstellungen des
+# Repositorys (Settings → Secrets and variables → Actions):
+#   Variables:  FTP_HOST, FTP_USERNAME, FTP_SERVER_DIR
+#   Secrets:    FTP_PASSWORD
+# Anleitung: apps/vision-hud/README.md → „Automatischer Upload“.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/vision-hud/**'
+      - '.github/workflows/deploy-vision-hud.yml'
+  workflow_dispatch:
+
+# Zwei Uploads gleichzeitig würden sich gegenseitig die Dateien überschreiben.
+concurrency:
+  group: deploy-vision-hud
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Bauen und hochladen
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Zugangsdaten vorhanden?
+        env:
+          FTP_HOST: ${{ vars.FTP_HOST }}
+          FTP_USERNAME: ${{ vars.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          missing=""
+          [ -z "$FTP_HOST" ]     && missing="$missing FTP_HOST(Variable)"
+          [ -z "$FTP_USERNAME" ] && missing="$missing FTP_USERNAME(Variable)"
+          [ -z "$FTP_PASSWORD" ] && missing="$missing FTP_PASSWORD(Secret)"
+          if [ -n "$missing" ]; then
+            echo "::error::Es fehlt:$missing – unter Settings → Secrets and variables → Actions eintragen."
+            exit 1
+          fi
+
+      - name: Code auschecken
+        uses: actions/checkout@v5
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      # Holt Fremdcode und Modellgewichte (liegen nicht im Repository) und
+      # kopiert die konvertierten Modelle aus apps/vision-hud/models.
+      - name: Fremdcode und Modelle holen
+        working-directory: apps/vision-hud
+        run: node tools/vendor.mjs
+
+      - name: Auslieferung prüfen
+        working-directory: apps/vision-hud
+        run: node tools/check.mjs
+
+      # Lädt nur, was sich seit dem letzten Lauf geändert hat. Dafür legt die
+      # Aktion eine kleine Zustandsdatei auf dem Server ab; die .htaccess
+      # verhindert, dass sie von aussen abrufbar ist.
+      - name: Per FTP hochladen
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ vars.FTP_HOST }}
+          username: ${{ vars.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          # cPanel-FTP kann TLS. Schlägt die Verbindung fehl: 'ftp' eintragen.
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+          local-dir: apps/vision-hud/site/
+          server-dir: ${{ vars.FTP_SERVER_DIR || '/' }}
+          state-name: .vision-hud-deploy-state.json
+          timeout: 120000
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/*.map
+
+      - name: Ergebnis
+        run: |
+          echo "Hochgeladen nach ${{ vars.FTP_HOST }} → ${{ vars.FTP_SERVER_DIR || '/' }}"
+          echo "Selbsttest danach: https://<deine-domain>/<ordner>/pruefung.html"

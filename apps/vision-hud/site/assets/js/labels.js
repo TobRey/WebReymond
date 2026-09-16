@@ -1,94 +1,10 @@
 /**
- * Deutsche Bezeichnungen für die 80 Klassen des COCO-Datensatzes.
- * Fehlt ein Eintrag, zeigt das HUD den englischen Originalnamen in Grossbuchstaben.
+ * Deutsche Wörter, die HUD und ReyRey abseits der Klassentabellen brauchen:
+ * Stimmungen des Ausdrucksmodells und der unbestimmte Artikel.
+ *
+ * Die Objektklassen selbst stehen in labels-oiv7.js (Detektor, 601) und
+ * labels-imagenet.js (Zweitstufe, 1000).
  */
-const COCO_DE = {
-  person: 'Mensch',
-  bicycle: 'Fahrrad',
-  car: 'Auto',
-  motorcycle: 'Motorrad',
-  airplane: 'Flugzeug',
-  bus: 'Bus',
-  train: 'Zug',
-  truck: 'Lastwagen',
-  boat: 'Boot',
-  'traffic light': 'Ampel',
-  'fire hydrant': 'Hydrant',
-  'stop sign': 'Stoppschild',
-  'parking meter': 'Parkuhr',
-  bench: 'Bank',
-  bird: 'Vogel',
-  cat: 'Katze',
-  dog: 'Hund',
-  horse: 'Pferd',
-  sheep: 'Schaf',
-  cow: 'Kuh',
-  elephant: 'Elefant',
-  bear: 'Bär',
-  zebra: 'Zebra',
-  giraffe: 'Giraffe',
-  backpack: 'Rucksack',
-  umbrella: 'Schirm',
-  handbag: 'Handtasche',
-  tie: 'Krawatte',
-  suitcase: 'Koffer',
-  frisbee: 'Frisbee',
-  skis: 'Ski',
-  snowboard: 'Snowboard',
-  'sports ball': 'Ball',
-  kite: 'Drachen',
-  'baseball bat': 'Schläger',
-  'baseball glove': 'Fanghandschuh',
-  skateboard: 'Skateboard',
-  surfboard: 'Surfbrett',
-  'tennis racket': 'Tennisschläger',
-  bottle: 'Flasche',
-  'wine glass': 'Weinglas',
-  cup: 'Tasse',
-  fork: 'Gabel',
-  knife: 'Messer',
-  spoon: 'Löffel',
-  bowl: 'Schüssel',
-  banana: 'Banane',
-  apple: 'Apfel',
-  sandwich: 'Sandwich',
-  orange: 'Orange',
-  broccoli: 'Broccoli',
-  carrot: 'Karotte',
-  'hot dog': 'Hotdog',
-  pizza: 'Pizza',
-  donut: 'Donut',
-  cake: 'Kuchen',
-  chair: 'Stuhl',
-  couch: 'Sofa',
-  'potted plant': 'Pflanze',
-  bed: 'Bett',
-  'dining table': 'Tisch',
-  toilet: 'Toilette',
-  tv: 'Bildschirm',
-  laptop: 'Laptop',
-  mouse: 'Maus',
-  remote: 'Fernbedienung',
-  keyboard: 'Tastatur',
-  'cell phone': 'Smartphone',
-  microwave: 'Mikrowelle',
-  oven: 'Ofen',
-  toaster: 'Toaster',
-  sink: 'Waschbecken',
-  refrigerator: 'Kühlschrank',
-  book: 'Buch',
-  clock: 'Uhr',
-  vase: 'Vase',
-  scissors: 'Schere',
-  'teddy bear': 'Teddybär',
-  'hair drier': 'Föhn',
-  toothbrush: 'Zahnbürste',
-};
-
-/** Englischer COCO-Name → deutsche Grossschreibung fürs HUD. */
-export function labelFor(cocoClass) {
-  return (COCO_DE[cocoClass] ?? cocoClass).toUpperCase();
-}
 
 /** Stimmungen des Ausdrucksmodells. */
 const MOOD_DE = {
@@ -103,4 +19,108 @@ const MOOD_DE = {
 
 export function moodFor(expression) {
   return MOOD_DE[expression] ?? expression;
+}
+
+/*
+ * Artikel raten. Die Klassentabellen kennen kein Geschlecht, und 1600 Einträge
+ * von Hand zu pflegen lohnt nicht: Die Endung trifft bei Alltagswörtern
+ * meist. „ein“ deckt männlich und sächlich ab; nur weiblich braucht „eine“.
+ */
+const FEMININE_ENDINGS = /(e|ung|heit|keit|schaft|ion|tät|ur|ik|ei|enz|anz|ie|a)$/i;
+const FEMININE = new Set([
+  'Maus',
+  'Uhr',
+  'Tür',
+  'Bank',
+  'Wand',
+  'Kuh',
+  'Gans',
+  'Nuss',
+  'Frucht',
+  'Brust',
+  'Faust',
+  'Hand',
+  'Nase',
+  'Stadt',
+  'Burg',
+  'Brücke',
+  'Kunst',
+  'Wurst',
+  'Milch',
+  'Butter',
+  'Gabel',
+  'Schaufel',
+  'Trommel',
+  'Orgel',
+  'Geige',
+  'Ampel',
+  'Kartoffel',
+  'Zwiebel',
+  'Insel',
+  'Schüssel',
+  'Kugel',
+  'Nadel',
+  'Regel',
+  'Wolke',
+  'Sonne',
+  'Axt',
+  'Bahn',
+  'Jacht',
+  'Fähre',
+  'Yacht',
+  'Muschel',
+  'Schildkröte',
+  'Eidechse',
+  'Fledermaus',
+  'Möwe',
+  'Eule',
+  'Ente',
+  'Taube',
+  'Ziege',
+  'Giraffe',
+  'Antilope',
+  'Katze',
+  'Ratte',
+  'Spinne',
+  'Biene',
+  'Schnecke',
+]);
+/** Endet auf -e oder -a, ist aber nicht weiblich. */
+const NOT_FEMININE = new Set([
+  'Käse',
+  'Hase',
+  'Löwe',
+  'Affe',
+  'Junge',
+  'Kunde',
+  'Bote',
+  'Auge',
+  'Ende',
+  'Gebäude',
+  'Getränk',
+  'Sofa',
+  'Kamera',
+  'Cola',
+  'Koala',
+  'Puma',
+  'Lama',
+  'Zebra',
+  'Gorilla',
+  'Panda',
+  'Schema',
+  'Thema',
+  'Komma',
+  'Drama',
+  'Pyjama',
+  'Boa',
+  'Zebra',
+]);
+
+/** „Lampe“ → „eine Lampe“, „Tisch“ → „ein Tisch“. */
+export function withArticle(name) {
+  const word = String(name ?? '').trim();
+  if (!word) return 'etwas';
+  const head = word.split(/\s+/)[0];
+  const feminine = FEMININE.has(head) || (FEMININE_ENDINGS.test(head) && !NOT_FEMININE.has(head));
+  return `${feminine ? 'eine' : 'ein'} ${word}`;
 }

@@ -9,8 +9,13 @@
 export const PATHS = {
   vendor: 'assets/vendor/',
   faceModels: 'assets/models',
-  cocoModel: 'assets/models/coco-ssd/model.json',
+  detector: 'assets/models/detector/',
+  classifier: 'assets/models/classifier/',
+  /** Nur nötig, wenn kein TF.js-Modell vorliegt (Rückfall). */
+  ort: 'assets/vendor/ort/',
   tesseract: 'assets/vendor/tesseract/',
+  mediapipe: 'assets/vendor/mediapipe/',
+  gestureModel: 'assets/models/gesture_recognizer.task',
 };
 
 export const CONFIG = {
@@ -25,12 +30,35 @@ export const CONFIG = {
 
   objects: {
     /** Erkennung läuft höchstens so oft – schont Akku und Hitzeentwicklung. */
-    intervalMs: 140,
-    /** Breite des verkleinerten Bildes, auf dem gerechnet wird. */
-    workWidth: 480,
-    /** Treffer darunter werden verworfen. */
+    intervalMs: 110,
+    /** Ab hier ein voller Rahmen mit Name. */
+    sure: 0.35,
+    /** Zwischen faint und sure: blasser „?“-Rahmen. Darunter: nichts. */
+    faint: 0.12,
+    /** Höchstzahl gleichzeitig gezeichneter Ziele. */
+    maxResults: 40,
+  },
+
+  classifier: {
+    /** So oft höchstens ein Ausschnitt an die Zweitstufe (ms). */
+    intervalMs: 260,
+    /** Ergebnis bleibt so lange am Ziel, bevor es erneuert wird. */
+    ttlMs: 6000,
+    /** Ab dieser Sicherheit ersetzt der feinere Name den Detektornamen. */
     minScore: 0.5,
-    maxResults: 12,
+    /** Kleinere Ziele lohnen den Aufwand nicht. */
+    minWidth: 40,
+  },
+
+  hands: {
+    intervalMs: 80,
+  },
+
+  ocr: {
+    /** Hintergrundlesen: Takt und Bedingung „Kamera ruhig“. */
+    backgroundMs: 2500,
+    /** Vergrösserung der Lupe. */
+    magnify: 3,
   },
 
   faces: {
@@ -144,14 +172,14 @@ export const DEFAULT_SETTINGS = {
   showScores: true,
   showTrackIds: false,
   keepAwake: true,
-  minScore: CONFIG.objects.minScore,
+  minScore: CONFIG.objects.sure,
   matchThreshold: CONFIG.recognition.threshold,
 
   /* --- ReyRey --- */
-  /** Zuhören ist aus, bis der Nutzer zustimmt: Die Spracherkennung des
-   *  Browsers schickt den Ton an Google bzw. Apple (siehe voice.js). */
-  assistantListening: false,
-  assistantVoiceConsent: false,
+  /** Zuhören ist an: Der Startbildschirm sagt einmal, dass die
+   *  Spracherkennung des Browsers über Apple bzw. Google läuft (voice.js). */
+  assistantListening: true,
+  assistantVoiceConsent: true,
   assistantSpeak: true,
   assistantOverlay: true,
   assistantName: CONFIG.assistant.name,
@@ -161,8 +189,11 @@ export const DEFAULT_SETTINGS = {
   motionArrows: true,
   hazardWarnings: true,
   hazardSpeak: true,
-  gesturesEnabled: false,
+  showFaint: true,
+  classifierEnabled: true,
+  gesturesEnabled: true,
   gestureBindings: null,
+  ocrBackground: true,
 
   /* --- Anzeige --- */
   hudVisible: true,

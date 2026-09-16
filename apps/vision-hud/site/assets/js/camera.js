@@ -91,14 +91,20 @@ export class Camera {
    * Fordert einen Kamerastream an und verbindet ihn mit dem Videoelement.
    * @param {'environment'|'user'} [facingMode]
    */
-  async start(facingMode = this.facingMode) {
+  /**
+   * @param {'environment'|'user'} [facingMode]
+   * @param {{withAudio?: boolean}} [options]  Mikrofon gleich mit freigeben lassen.
+   *   Der Ton wird nicht verwendet – die Spracherkennung holt sich das Mikrofon
+   *   selbst. Aber so fragt der Browser einmal nach beidem statt zweimal.
+   */
+  async start(facingMode = this.facingMode, { withAudio = false } = {}) {
     Camera.checkSupport();
     // Nur den Strom lösen – die Überwachung soll den Neustart überleben.
     this.stream?.getTracks().forEach((track) => track.stop());
     this.stream = null;
 
     const constraints = {
-      audio: false,
+      audio: withAudio,
       video: {
         facingMode: { ideal: facingMode },
         width: { ideal: CONFIG.camera.width },
@@ -110,6 +116,10 @@ export class Camera {
     try {
       this.stream = await navigator.mediaDevices.getUserMedia(constraints);
     } catch (error) {
+      if (withAudio) {
+        // Mikrofon abgelehnt oder nicht vorhanden – die Kamera allein reicht.
+        return this.start(facingMode, { withAudio: false });
+      }
       // Manche Geräte lehnen die Wunschauflösung ab. Zweiter Versuch ohne Wünsche.
       if (error?.name === 'OverconstrainedError' || error?.name === 'NotFoundError') {
         try {
@@ -120,6 +130,13 @@ export class Camera {
       } else {
         throw describe(error);
       }
+    }
+
+    // Die Tonspur war nur für die Freigabe da – sofort wieder loslassen,
+    // sonst streitet sie sich mit der Spracherkennung um das Mikrofon.
+    for (const track of this.stream.getAudioTracks()) {
+      track.stop();
+      this.stream.removeTrack(track);
     }
 
     this.facingMode = facingMode;

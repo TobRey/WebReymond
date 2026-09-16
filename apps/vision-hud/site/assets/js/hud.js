@@ -14,10 +14,18 @@
  * Leuchten entsteht durch doppeltes Zeichnen (breit und blass, darüber schmal
  * und hell). Das sieht aus wie ein Schein, kostet aber einen Bruchteil von
  * `shadowBlur`, das auf Mobilgeräten jede Bildrate zerlegt.
+ *
+ * Felder an einem Ziel, die das HUD auswertet (gesetzt von app.js):
+ *   track.faint     unsicherer Treffer → gestrichelter Rahmen mit „?“
+ *   track.fine      { label, score } Zweitstufe hat einen feineren Namen
+ *   track.skill     { name, color } Ziel gehört zu einem aktiven Skill
+ *   track.memory    { item } wiedererkannter eigener Gegenstand
+ *   track.motion    Bewegung aus motion.js
+ *   track.identity  Zuordnung eines Gesichts
  */
 
 import { CONFIG } from './config.js';
-import { labelFor, moodFor } from './labels.js';
+import { moodFor } from './labels.js';
 
 const { colors } = CONFIG.hud;
 
@@ -33,6 +41,41 @@ const HAZARD_HIGH = '#ff4d6d';
 const HAZARD_MID = '#ffb648';
 const MEMORY = '#c9a0ff';
 const TEXT_BOX = '#4fe3ff';
+const FAINT = '#7ea8ab';
+const HAND = '#2bf5dd';
+
+/** Verbindungen der 21 Hand-Landmarken (MediaPipe-Reihenfolge). */
+const HAND_BONES = [
+  [0, 1],
+  [1, 2],
+  [2, 3],
+  [3, 4],
+  [0, 5],
+  [5, 6],
+  [6, 7],
+  [7, 8],
+  [5, 9],
+  [9, 10],
+  [10, 11],
+  [11, 12],
+  [9, 13],
+  [13, 14],
+  [14, 15],
+  [15, 16],
+  [13, 17],
+  [17, 18],
+  [18, 19],
+  [19, 20],
+  [0, 17],
+];
+
+/** Mischt zwei Hex-Farben; t = 0 ergibt a, t = 1 ergibt b. */
+function mixColor(a, b, t) {
+  const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16));
+  const pb = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16));
+  const out = pa.map((v, i) => Math.round(v + (pb[i] - v) * t));
+  return `rgb(${out[0]},${out[1]},${out[2]})`;
+}
 
 export class Hud {
   /**
@@ -47,6 +90,8 @@ export class Hud {
     this.dpr = 1;
     this.cssWidth = 0;
     this.cssHeight = 0;
+    /** Letzte Umrechnung – für die Trefferprüfung beim Tippen. */
+    this.layout = null;
   }
 
   /** Passt die Zeichenfläche an Anzeigegrösse und Pixeldichte an. */
@@ -70,13 +115,14 @@ export class Hud {
     const vw = this.video.videoWidth || 16;
     const vh = this.video.videoHeight || 9;
     const scale = Math.max(this.cssWidth / vw, this.cssHeight / vh);
-    return {
+    this.layout = {
       vw,
       vh,
       scale,
       dx: (this.cssWidth - vw * scale) / 2,
       dy: (this.cssHeight - vh * scale) / 2,
     };
+    return this.layout;
   }
 
   #project(box, layout) {
@@ -87,6 +133,36 @@ export class Hud {
       w: box.w * layout.scale,
       h: box.h * layout.scale,
     };
+  }
+
+  /** Öffentlich: Box in Videopixeln → Anzeigepixel (für Trefferprüfung). */
+  projectBox(box) {
+    return this.#project(box, this.layout ?? this.#layout());
+  }
+
+  /** Anzeigepixel → Videopixel, z. B. für einen Tipp ins Bild. */
+  unproject(x, y) {
+    const layout = this.layout ?? this.#layout();
+    let vx = (x - layout.dx) / layout.scale;
+    const vy = (y - layout.dy) / layout.scale;
+    if (this.mirrored) vx = layout.vw - vx;
+    return { x: vx, y: vy };
+  }
+
+  /** Welche der Boxen (Videopixel) liegt unter dem Anzeigepunkt? Kleinste gewinnt. */
+  hitTest(x, y, boxes) {
+    let best = null;
+    let bestArea = Number.POSITIVE_INFINITY;
+    for (const entry of boxes) {
+      const r = this.projectBox(entry.box);
+      if (x < r.x || x > r.x + r.w || y < r.y || y > r.y + r.h) continue;
+      const area = r.w * r.h;
+      if (area < bestArea) {
+        bestArea = area;
+        best = entry;
+      }
+    }
+    return best;
   }
 
   clear() {
@@ -101,7 +177,17 @@ export class Hud {
    * @param {object} state.settings
    * @param {number} state.time    Zeitstempel für Animationen
    */
-  render({ objects, faces, settings, time, hazards = [], words = [], scanning = 0 }) {
+  render({
+    objects,
+    faces,
+    settings,
+    time,
+    hazards = [],
+    words = [],
+    blocks = [],
+    hands = [],
+    scanning = 0,
+  }) {
     this.resize();
     this.clear();
     const layout = this.#layout();
@@ -110,18 +196,25 @@ export class Hud {
     if (settings.hudVisible === false) return;
 
     // Erkannter Text liegt unter den Rahmen, damit er sie nicht verdeckt.
+    if (blocks.length > 0) this.#drawBlocks(blocks, layout, time);
     if (words.length > 0) this.#drawWords(words, layout);
 
     const risky = new Map(hazards.map((hazard) => [hazard.trackId, hazard]));
 
     if (settings.objects) {
-      for (const track of objects) {
+      // Unsichere zuerst, damit sichere Rahmen obenauf liegen.
+      const ordered = [...objects].sort(
+        (a, b) => Number(Boolean(b.faint)) - Number(Boolean(a.faint)),
+      );
+      for (const track of ordered) {
         this.#drawObject(track, layout, time, settings, risky.get(track.id));
       }
     }
     if (settings.faces) {
       for (const track of faces) this.#drawFace(track, layout, time, settings);
     }
+
+    for (const hand of hands) this.#drawHand(hand, layout, time);
 
     if (scanning > 0) this.#drawScanSweep(scanning, time);
   }
@@ -131,35 +224,66 @@ export class Hud {
   #drawObject(track, layout, time, settings, hazard) {
     const rect = this.#project(track.display, layout);
     const isPerson = track.kind === 'person';
+    const alpha = Math.min(1, track.lock) * (track.missed > 0 ? 0.55 : 1);
 
-    // Ein eigener, wiedererkannter Gegenstand bekommt seine eigene Farbe,
-    // eine Gefahrenmeldung übersteuert alles andere.
+    // Unsicherer Treffer: gestrichelt, blass, mit Fragezeichen. Das ist das
+    // „schwach unbekannt“ – man sieht, dass da etwas ist, ohne dass das HUD
+    // so tut, als wüsste es, was.
+    if (track.faint && !track.skill && !track.memory?.item) {
+      this.#faintFrame(rect, alpha * 0.55);
+      const name = track.fine?.label ?? track.labelDe ?? track.label;
+      const percent = Math.round((track.fine?.score ?? track.score) * 100);
+      this.#label(rect, `? ${String(name).toUpperCase()}`, `${percent}%`, FAINT, alpha * 0.7, true);
+      return;
+    }
+
+    // Farbe nach Rang: Gefahr > Skill > eigener Gegenstand > Person > Objekt.
     const remembered = track.memory?.item ?? null;
     let color = isPerson ? colors.person : colors.object;
     if (remembered) color = MEMORY;
+    if (track.skill) color = track.skill.color;
     if (hazard) color = hazard.level === 'hoch' ? HAZARD_HIGH : HAZARD_MID;
-
-    const alpha = Math.min(1, track.lock) * (track.missed > 0 ? 0.55 : 1);
 
     this.#frame(rect, color, alpha, track.lock);
     if (isPerson || hazard) this.#boxScan(rect, color, alpha, time);
     if (hazard) this.#hazardRing(rect, color, time);
     if (settings.motionArrows) this.#motionArrow(rect, track, color, alpha);
 
-    const percent = Math.round(track.score * 100);
-    const title = remembered ? remembered.name.toUpperCase() : labelFor(track.label);
-    const text = settings.showScores && !remembered ? `${title} ${percent}%` : title;
+    // Name: Zweitstufe schlägt Detektor, gemerkter Name schlägt beides.
+    const base = track.fine?.label ?? track.labelDe ?? track.label;
+    const score = track.fine?.score ?? track.score;
+    const title = remembered ? remembered.name.toUpperCase() : String(base).toUpperCase();
+    const text =
+      settings.showScores && !remembered ? `${title} ${Math.round(score * 100)}%` : title;
 
     const meta = [];
     if (hazard) meta.push(hazard.text.toUpperCase());
+    else if (track.skill) meta.push(track.skill.name.toUpperCase());
     else if (remembered?.note) meta.push(remembered.note.slice(0, 28).toUpperCase());
-    else if (track.motion?.moving) meta.push(track.motion.direction.toUpperCase());
+    else if (track.fine && track.labelDe && track.fine.label !== track.labelDe) {
+      meta.push(String(track.labelDe).toUpperCase());
+    }
     if (settings.showTrackIds) meta.push(`ID ${String(track.id).padStart(3, '0')}`);
 
     this.#label(rect, text, meta.join(' · '), color, alpha);
   }
 
-  /** Pfeil in Bewegungsrichtung, Länge nach Geschwindigkeit. */
+  /** Gestrichelter Rahmen für unsichere Treffer. */
+  #faintFrame(rect, alpha) {
+    const ctx = this.ctx;
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = FAINT;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 5]);
+    ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
+
+  /**
+   * Pfeil in Bewegungsrichtung. Länge und Farbe folgen dem Tempo – langsam
+   * türkis, schnell bernstein. Das Richtungswort steht an der Spitze.
+   */
   #motionArrow(rect, track, color, alpha) {
     const motion = track.motion;
     if (!motion?.moving) return;
@@ -167,55 +291,99 @@ export class Hud {
     const ctx = this.ctx;
     const cx = rect.x + rect.w / 2;
     const cy = rect.y + rect.h / 2;
-    const length = Math.min(58, 18 + motion.speed * 130);
+    const speedT = Math.min(1, motion.speed / 1.4);
+    const arrowColor = mixColor('#2bf5dd', '#ffb648', speedT);
 
-    // Kommt etwas frontal näher, gibt es keine sinnvolle Richtung in der
-    // Bildebene – dann wächst stattdessen ein Ring nach aussen.
+    // Frontal: kein sinnvoller Pfeil in der Bildebene – Ringe wandern stattdessen.
     if (motion.direction === 'auf dich zu' || motion.direction === 'von dir weg') {
       const growing = motion.direction === 'auf dich zu';
-      ctx.globalAlpha = alpha * 0.75;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      for (const step of [0, 1]) {
-        const radius =
-          Math.min(rect.w, rect.h) * (growing ? 0.24 + step * 0.13 : 0.5 - step * 0.13);
+      ctx.globalAlpha = alpha * 0.8;
+      ctx.strokeStyle = arrowColor;
+      ctx.lineWidth = 2.5;
+      for (const step of [0, 1, 2]) {
+        const phase = (performance.now() / 700 + step / 3) % 1;
+        const t = growing ? phase : 1 - phase;
+        const radius = Math.min(rect.w, rect.h) * (0.18 + t * 0.36);
+        ctx.globalAlpha = alpha * (1 - t) * 0.8;
         ctx.beginPath();
         ctx.arc(cx, cy, radius, 0, Math.PI * 2);
         ctx.stroke();
       }
       ctx.globalAlpha = 1;
+      this.#tag(
+        cx,
+        cy - Math.min(rect.w, rect.h) * 0.56,
+        motion.direction.toUpperCase(),
+        arrowColor,
+        alpha,
+      );
       return;
     }
 
+    const length = Math.min(140, 44 + motion.speed * 260);
     const dx = Math.cos(motion.angle) * length;
     const dy = Math.sin(motion.angle) * length;
     const tipX = cx + dx;
     const tipY = cy + dy;
-    const head = 8;
+    const head = 14;
 
-    ctx.globalAlpha = alpha * 0.85;
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
-    ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
 
+    // Schein
+    ctx.globalAlpha = alpha * 0.28;
+    ctx.strokeStyle = arrowColor;
+    ctx.lineWidth = 9;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.lineTo(tipX, tipY);
     ctx.stroke();
 
+    // Schaft
+    ctx.globalAlpha = alpha * 0.95;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(tipX, tipY);
+    ctx.stroke();
+
+    // Spitze
+    ctx.fillStyle = arrowColor;
     ctx.beginPath();
     ctx.moveTo(tipX, tipY);
     ctx.lineTo(
-      tipX - Math.cos(motion.angle - 0.42) * head,
-      tipY - Math.sin(motion.angle - 0.42) * head,
+      tipX - Math.cos(motion.angle - 0.45) * head,
+      tipY - Math.sin(motion.angle - 0.45) * head,
     );
     ctx.lineTo(
-      tipX - Math.cos(motion.angle + 0.42) * head,
-      tipY - Math.sin(motion.angle + 0.42) * head,
+      tipX - Math.cos(motion.angle + 0.45) * head,
+      tipY - Math.sin(motion.angle + 0.45) * head,
     );
     ctx.closePath();
     ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Richtungswort neben der Spitze, etwas nach aussen versetzt.
+    const labelX = tipX + Math.cos(motion.angle) * 12;
+    const labelY = tipY + Math.sin(motion.angle) * 12;
+    this.#tag(labelX, labelY, motion.direction.toUpperCase(), arrowColor, alpha);
+  }
+
+  /** Kleines Etikett mit dunklem Hintergrund, mittig auf (x, y). */
+  #tag(x, y, text, color, alpha) {
+    const ctx = this.ctx;
+    ctx.font = CONFIG.hud.metaFont;
+    const width = ctx.measureText(text).width + 10;
+    const height = 14;
+    const bx = Math.max(2, Math.min(this.cssWidth - width - 2, x - width / 2));
+    const by = Math.max(2, Math.min(this.cssHeight - height - 2, y - height / 2));
+
+    ctx.globalAlpha = alpha * 0.9;
+    ctx.fillStyle = colors.shadow;
+    ctx.fillRect(bx, by, width, height);
+    ctx.fillStyle = color;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, bx + 5, by + height / 2 + 0.5);
     ctx.globalAlpha = 1;
   }
 
@@ -236,6 +404,8 @@ export class Hud {
     ctx.globalAlpha = 1;
   }
 
+  /* ---------------- Text ---------------- */
+
   /** Kästchen um erkannte Wörter. */
   #drawWords(words, layout) {
     const ctx = this.ctx;
@@ -245,13 +415,13 @@ export class Hud {
     for (const word of words) {
       const rect = this.#project(word.box, layout);
       if (rect.w < 4 || rect.h < 4) continue;
-      ctx.globalAlpha = 0.25 + word.confidence * 0.45;
+      ctx.globalAlpha = 0.2 + word.confidence * 0.4;
       ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
 
       // Übersetzte Wörter werden direkt über das Original gelegt.
       if (word.replacement) {
-        ctx.globalAlpha = 0.9;
-        ctx.fillStyle = 'rgba(4,12,16,0.9)';
+        ctx.globalAlpha = 0.92;
+        ctx.fillStyle = 'rgba(4,12,16,0.92)';
         ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
         ctx.fillStyle = TEXT_BOX;
         const size = Math.max(9, Math.min(18, rect.h * 0.78));
@@ -263,30 +433,122 @@ export class Hud {
     ctx.globalAlpha = 1;
   }
 
-  /** Waagrechter Balken, der beim Scannen einmal durchs Bild läuft. */
-  #drawScanSweep(progress, time) {
+  /**
+   * Textblöcke: Eckhaken und ein „TEXT“-Etikett mit Lupensymbol.
+   * Ein Tipp auf den Block öffnet die Lupe (Trefferprüfung in app.js).
+   */
+  #drawBlocks(blocks, layout, time) {
     const ctx = this.ctx;
-    const y = this.cssHeight * progress;
+    const blink = 0.55 + 0.25 * Math.sin(time / 420);
 
-    const gradient = ctx.createLinearGradient(0, y - 26, 0, y + 26);
-    gradient.addColorStop(0, 'rgba(43,245,221,0)');
-    gradient.addColorStop(0.5, 'rgba(43,245,221,0.55)');
-    gradient.addColorStop(1, 'rgba(43,245,221,0)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, y - 26, this.cssWidth, 52);
+    for (const block of blocks) {
+      const rect = this.#project(block.box, layout);
+      if (rect.w < 12 || rect.h < 8) continue;
 
-    ctx.strokeStyle = 'rgba(43,245,221,0.9)';
-    ctx.lineWidth = 1.5;
+      const len = Math.max(8, Math.min(18, Math.min(rect.w, rect.h) * 0.3));
+      ctx.globalAlpha = blink;
+      ctx.strokeStyle = TEXT_BOX;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (const [cx, cy, sx, sy] of [
+        [rect.x, rect.y, 1, 1],
+        [rect.x + rect.w, rect.y, -1, 1],
+        [rect.x, rect.y + rect.h, 1, -1],
+        [rect.x + rect.w, rect.y + rect.h, -1, -1],
+      ]) {
+        ctx.moveTo(cx + sx * len, cy);
+        ctx.lineTo(cx, cy);
+        ctx.lineTo(cx, cy + sy * len);
+      }
+      ctx.stroke();
+
+      ctx.globalAlpha = 0.9;
+      const tag = `⌕ TEXT${block.lines > 1 ? ` · ${block.lines} ZEILEN` : ''}`;
+      this.#tag(rect.x + rect.w / 2, Math.max(SAFE_TOP + 8, rect.y - 10), tag, TEXT_BOX, 1);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /* ---------------- Hand ---------------- */
+
+  /**
+   * Skelett aus 21 Punkten, Ring, der sich beim Halten eines Zeichens füllt,
+   * und der Name des erkannten Zeichens am Handgelenk.
+   * @param {{landmarks: Array<{x:number,y:number}>, gesture: string|null,
+   *          hold: number, custom: boolean}} hand  Landmarken in Videopixeln
+   */
+  #drawHand(hand, layout, time) {
+    const ctx = this.ctx;
+    const points = hand.landmarks.map((p) => this.#project({ x: p.x, y: p.y, w: 0, h: 0 }, layout));
+    if (points.length < 21) return;
+
+    // Knochen: breit und blass, darüber schmal und hell.
+    for (const [width, alpha] of [
+      [5, 0.18],
+      [1.5, 0.85],
+    ]) {
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = HAND;
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (const [a, b] of HAND_BONES) {
+        ctx.moveTo(points[a].x, points[a].y);
+        ctx.lineTo(points[b].x, points[b].y);
+      }
+      ctx.stroke();
+    }
+
+    // Gelenke
+    ctx.globalAlpha = 0.95;
+    ctx.fillStyle = HAND;
+    for (let i = 0; i < points.length; i += 1) {
+      const isTip = [4, 8, 12, 16, 20].includes(i);
+      ctx.beginPath();
+      ctx.arc(points[i].x, points[i].y, isTip ? 3.2 : 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Ring um die Handmitte: füllt sich, solange das Zeichen gehalten wird.
+    const centre = points[9];
+    const radius = Math.max(
+      28,
+      Math.hypot(points[0].x - points[9].x, points[0].y - points[9].y) * 1.15,
+    );
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.35;
+    ctx.strokeStyle = HAND;
     ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(this.cssWidth, y);
+    ctx.arc(centre.x, centre.y, radius, 0, Math.PI * 2);
     ctx.stroke();
 
-    ctx.fillStyle = '#2bf5dd';
-    ctx.font = '600 11px ui-monospace, Menlo, monospace';
-    ctx.textBaseline = 'bottom';
-    const blink = Math.floor(time / 260) % 4;
-    ctx.fillText(`SCAN ${Math.round(progress * 100)}%${'.'.repeat(blink)}`, 14, y - 8);
+    if (hand.hold > 0) {
+      ctx.globalAlpha = 0.95;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = hand.hold >= 1 ? '#66ffc2' : HAND;
+      ctx.beginPath();
+      ctx.arc(
+        centre.x,
+        centre.y,
+        radius,
+        -Math.PI / 2,
+        -Math.PI / 2 + Math.PI * 2 * Math.min(1, hand.hold),
+      );
+      ctx.stroke();
+    }
+
+    if (hand.gesture) {
+      const name = hand.gesture.toUpperCase();
+      const wobble = Math.sin(time / 300) * 1.5;
+      this.#tag(
+        centre.x,
+        centre.y + radius + 12 + wobble,
+        hand.custom ? `★ ${name}` : name,
+        HAND,
+        1,
+      );
+    }
+    ctx.globalAlpha = 1;
   }
 
   /* ---------------- Gesichter ---------------- */
@@ -436,7 +698,7 @@ export class Hud {
   }
 
   /** Schwebende Beschriftung mit abgeschrägter Ecke. */
-  #label(rect, text, meta, color, alpha) {
+  #label(rect, text, meta, color, alpha, faint = false) {
     const ctx = this.ctx;
     const padX = 7;
     const height = 19;
@@ -483,7 +745,9 @@ export class Hud {
     ctx.fill();
     ctx.strokeStyle = color;
     ctx.lineWidth = 1;
+    if (faint) ctx.setLineDash([4, 3]);
     ctx.stroke();
+    ctx.setLineDash([]);
 
     // Farbiger Anschlag links – ordnet die Beschriftung ihrem Rahmen zu.
     ctx.fillStyle = color;
@@ -502,6 +766,32 @@ export class Hud {
     }
 
     ctx.globalAlpha = 1;
+  }
+
+  /** Waagrechter Balken, der beim Scannen einmal durchs Bild läuft. */
+  #drawScanSweep(progress, time) {
+    const ctx = this.ctx;
+    const y = this.cssHeight * progress;
+
+    const gradient = ctx.createLinearGradient(0, y - 26, 0, y + 26);
+    gradient.addColorStop(0, 'rgba(43,245,221,0)');
+    gradient.addColorStop(0.5, 'rgba(43,245,221,0.55)');
+    gradient.addColorStop(1, 'rgba(43,245,221,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, y - 26, this.cssWidth, 52);
+
+    ctx.strokeStyle = 'rgba(43,245,221,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(this.cssWidth, y);
+    ctx.stroke();
+
+    ctx.fillStyle = '#2bf5dd';
+    ctx.font = '600 11px ui-monospace, Menlo, monospace';
+    ctx.textBaseline = 'bottom';
+    const blink = Math.floor(time / 260) % 4;
+    ctx.fillText(`SCAN ${Math.round(progress * 100)}%${'.'.repeat(blink)}`, 14, y - 8);
   }
 }
 
@@ -537,6 +827,7 @@ export class Radar {
     ctx.stroke();
 
     for (const track of tracks) {
+      if (track.faint) continue;
       const centreX = track.display.x + track.display.w / 2;
       const offset = (centreX / (videoWidth || 1)) * 2 - 1;
       // Grosse Ziele gelten als nah und rücken zur Mitte.
@@ -544,7 +835,7 @@ export class Radar {
       const radius = mid * 0.92 * (1 - nearness * 0.72);
       const angle = -Math.PI / 2 + offset * 1.05;
 
-      ctx.fillStyle = track.kind === 'face' ? '#ffb648' : '#2bf5dd';
+      ctx.fillStyle = track.kind === 'face' ? '#ffb648' : (track.skill?.color ?? '#2bf5dd');
       ctx.beginPath();
       ctx.arc(mid + Math.cos(angle) * radius, mid + Math.sin(angle) * radius, 2.6, 0, Math.PI * 2);
       ctx.fill();

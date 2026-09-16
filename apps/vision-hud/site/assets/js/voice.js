@@ -1,21 +1,25 @@
 /**
  * Zuhören und Sprechen.
  *
- * WICHTIG UND EHRLICH: Die Spracherkennung des Browsers (Web Speech API)
- * arbeitet NICHT auf dem Gerät. Chrome schickt den Ton an Google, Safari an
- * Apple. Das ist eine Eigenschaft des Browsers, keine Entscheidung dieser
- * Seite – es gibt in einer Webseite keine Möglichkeit, das zu umgehen, ausser
- * ein eigenes Spracherkennungsmodell von mehreren hundert Megabyte
- * mitzuliefern. Deshalb ist das Zuhören standardmässig AUS und wird erst nach
- * einer ausdrücklichen Zustimmung eingeschaltet.
+ * ZUR EINORDNUNG: Die Spracherkennung des Browsers (Web Speech API) arbeitet
+ * nicht auf dem Gerät. Safari schickt den Ton an Apple, Chrome an Google. Das
+ * ist eine Eigenschaft des Browsers, keine Entscheidung dieser Seite – eine
+ * Webseite kann das nicht umgehen, ausser sie liefert ein eigenes
+ * Spracherkennungsmodell von mehreren hundert Megabyte mit. Der Startbildschirm
+ * sagt das einmal; danach hört die Seite dauerhaft zu.
  *
  * Die Sprachausgabe dagegen läuft vollständig lokal.
  *
- * Zwei Eigenheiten der Browser-Schnittstelle, die hier abgefangen werden:
+ * Eigenheiten, die hier abgefangen werden:
  *  - Die Erkennung endet nach einigen Sekunden Stille von selbst. Für
  *    dauerhaftes Zuhören muss sie immer wieder neu gestartet werden.
+ *  - iOS beendet sie zusätzlich alle 20–60 Sekunden hart. Ein Neustart ohne
+ *    Pause führt dort zu einer Endlosschleife aus Start und Abbruch – deshalb
+ *    wächst die Pause, wenn Läufe zu schnell hintereinander enden.
  *  - Während die Sprachausgabe spricht, hört das Mikrofon mit und ReyRey
  *    würde sich selbst zuhören. Deshalb pausiert die Erkennung beim Sprechen.
+ *  - iOS spielt Sprachausgabe erst ab, nachdem die Seite einmal berührt wurde.
+ *    Bis dahin wird die Antwort aufgehoben und beim ersten Tipp nachgesprochen.
  */
 
 /** Normalisiert Gesprochenes für den Vergleich mit dem Aktivierungswort. */
@@ -55,6 +59,15 @@ export function wakeVariants(word) {
   return [...variants].filter(Boolean);
 }
 
+/** Läuft die Seite auf einem iPhone oder iPad? */
+export function isIOS() {
+  const ua = navigator.userAgent ?? '';
+  return (
+    /iP(hone|ad|od)/.test(ua) ||
+    (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints ?? 0) > 1)
+  );
+}
+
 export class Voice {
   constructor() {
     const Impl = globalThis.SpeechRecognition ?? globalThis.webkitSpeechRecognition;
@@ -76,10 +89,20 @@ export class Voice {
     this.onPartial = () => {};
     this.onState = () => {};
     this.onError = () => {};
+    /** Wird gerufen, wenn iOS den Ton noch nicht freigegeben hat. */
+    this.onNeedsUnlock = () => {};
 
     /** Zeitpunkt, bis zu dem ohne erneutes Aktivierungswort zugehört wird. */
     this.openUntil = 0;
     this.followUpMs = 9000;
+
+    /** Neustart-Schutz: schnelle Abbrüche hintereinander → längere Pause. */
+    this.startedAt = 0;
+    this.rapidEnds = 0;
+
+    /** Sprachausgabe: freigeschaltet erst nach der ersten Berührung (iOS). */
+    this.unlocked = !isIOS();
+    this.pendingSpeech = null;
 
     this.voices = [];
     this.#loadVoices();
@@ -97,6 +120,7 @@ export class Voice {
       return false;
     }
     this.wanted = true;
+    this.rapidEnds = 0;
     this.#spinUp();
     return true;
   }
@@ -124,10 +148,15 @@ export class Voice {
 
     recognition.onstart = () => {
       this.listening = true;
+      this.startedAt = Date.now();
       this.onState('hört');
     };
 
-    recognition.onresult = (event) => this.#handleResult(event);
+    recognition.onresult = (event) => {
+      // Ein Ergebnis beweist, dass die Verbindung steht – Schutz zurücksetzen.
+      this.rapidEnds = 0;
+      this.#handleResult(event);
+    };
 
     recognition.onerror = (event) => {
       // 'no-speech' und 'aborted' sind Normalbetrieb, keine Fehler.
@@ -135,15 +164,31 @@ export class Voice {
         this.wanted = false;
         this.onError(new Error('Mikrofonzugriff wurde verweigert.'));
       } else if (event.error === 'network') {
+        this.rapidEnds += 2;
         this.onError(new Error('Spracherkennung ohne Internetverbindung nicht möglich.'));
       }
     };
 
     recognition.onend = () => {
       this.listening = false;
-      this.onState(this.wanted ? 'pause' : 'aus');
-      // Die Erkennung beendet sich nach Stille von selbst – also neu starten.
-      if (this.wanted && !this.speaking) setTimeout(() => this.#spinUp(), 260);
+      if (!this.wanted) {
+        this.onState('aus');
+        return;
+      }
+      this.onState('pause');
+      if (this.speaking) return;
+
+      /*
+       * Endet ein Lauf innerhalb von zwei Sekunden nach dem Start, war es
+       * kein Stille-Timeout, sondern ein Abbruch. Mehrere davon hintereinander
+       * heisst: Der Dienst mag gerade nicht. Dann Pause statt Dauerfeuer –
+       * 0,3 s, 1 s, 2 s, 4 s … höchstens 12 s.
+       */
+      const lived = Date.now() - this.startedAt;
+      if (lived < 2000) this.rapidEnds += 1;
+      else this.rapidEnds = 0;
+      const wait = this.rapidEnds === 0 ? 260 : Math.min(12000, 500 * 2 ** (this.rapidEnds - 1));
+      setTimeout(() => this.#spinUp(), wait);
     };
 
     this.recognition = recognition;
@@ -240,12 +285,37 @@ export class Voice {
     return Boolean(globalThis.speechSynthesis);
   }
 
+  /**
+   * Schaltet die Sprachausgabe frei. Muss aus einer Berührung heraus
+   * aufgerufen werden (iOS-Regel). Spricht eine aufgehobene Antwort nach.
+   */
+  unlock() {
+    if (this.unlocked) return;
+    this.unlocked = true;
+    try {
+      const synth = globalThis.speechSynthesis;
+      const silent = new SpeechSynthesisUtterance(' ');
+      silent.volume = 0;
+      synth?.speak(silent);
+    } catch {
+      /* egal */
+    }
+    if (this.pendingSpeech) {
+      const { text, options } = this.pendingSpeech;
+      this.pendingSpeech = null;
+      this.speak(text, options);
+    }
+  }
+
   /** Bevorzugt eine deutsche Stimme, sonst die Standardstimme. */
   #pickVoice() {
     const wanted = this.language.slice(0, 2);
+    const candidates = this.voices.filter((v) => v.lang?.replace('_', '-').startsWith(wanted));
     return (
-      this.voices.find((v) => v.lang?.startsWith(this.language)) ??
-      this.voices.find((v) => v.lang?.startsWith(wanted)) ??
+      // Hochwertige Stimmen zuerst (Apple „Premium/Enhanced“, Google-Stimmen).
+      candidates.find((v) => /premium|enhanced|natural|neural/i.test(v.name)) ??
+      candidates.find((v) => v.lang?.replace('_', '-').startsWith(this.language)) ??
+      candidates[0] ??
       null
     );
   }
@@ -256,6 +326,13 @@ export class Voice {
    */
   speak(text, { rate = 1.02, pitch = 0.95, volume = 1 } = {}) {
     if (!this.canSpeak || !text) return Promise.resolve();
+
+    // iOS ohne Berührung: aufheben statt lautlos scheitern.
+    if (!this.unlocked) {
+      this.pendingSpeech = { text, options: { rate, pitch, volume } };
+      this.onNeedsUnlock();
+      return Promise.resolve();
+    }
 
     return new Promise((resolve) => {
       const synth = globalThis.speechSynthesis;
@@ -277,7 +354,10 @@ export class Voice {
         /* egal */
       }
 
+      let finished = false;
       const done = () => {
+        if (finished) return;
+        finished = true;
         this.speaking = false;
         this.holdOpen();
         if (this.wanted) setTimeout(() => this.#spinUp(), 220);
@@ -300,6 +380,7 @@ export class Voice {
     } catch {
       /* egal */
     }
+    this.pendingSpeech = null;
     this.speaking = false;
   }
 }

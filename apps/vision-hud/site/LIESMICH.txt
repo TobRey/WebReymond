@@ -2,8 +2,9 @@
   VISION HUD mit ReyRey  –  Hochladen auf GoDaddy (cPanel)
 ================================================================================
 
-Kamera-Seite mit Live-Erkennung von Objekten, Personen, Text und Bewegung,
-dazu der Assistent ReyRey. Alles rechnet im Browser des Besuchers.
+Kamera-Seite mit Live-Erkennung von Objekten (601 Klassen + 1000 in der
+Zweitstufe), Personen, Text, Handzeichen und Bewegung, dazu der Assistent
+ReyRey, der von selbst zuhört. Alles rechnet im Browser des Besuchers.
 Kein PHP nötig, keine Datenbank, kein Server-Prozess – nur Dateien.
 
 
@@ -17,7 +18,7 @@ Kein PHP nötig, keine Datenbank, kein Server-Prozess – nur Dateien.
      und links in den Ordner  public_html  wechseln.
 
   3. Oben auf "Hochladen" (Upload) klicken und die ZIP-Datei auswählen.
-     Das dauert je nach Leitung 2–8 Minuten (ca. 26 MB).
+     Das dauert je nach Leitung 3–10 Minuten (ca. 45 MB).
 
   4. Zurück zum Dateimanager, einmal auf "Neu laden" (Reload) klicken.
      Dann Rechtsklick auf die ZIP-Datei → "Extrahieren" (Extract) → bestätigen.
@@ -28,6 +29,34 @@ Kein PHP nötig, keine Datenbank, kein Server-Prozess – nur Dateien.
   5. Die ZIP-Datei darf jetzt gelöscht werden. Fertig.
 
      Die Seite läuft unter:      https://DEINE-DOMAIN.tld/kamera-hud/
+
+  ODER AUTOMATISCH: Das Repository enthält einen GitHub-Actions-Lauf, der die
+  Seite per FTP hochlädt, sobald eine Änderung auf "main" landet. Einrichten:
+  GitHub → Settings → Secrets and variables → Actions:
+     Variables:  FTP_HOST        (z. B. ftp.deine-domain.tld)
+                 FTP_USERNAME    (das FTP-Konto, z. B. claude@deine-domain.tld)
+                 FTP_SERVER_DIR  ("/" wenn das Konto direkt im Zielordner wurzelt)
+     Secret:     FTP_PASSWORD    (legst du selbst an)
+  Details: apps/vision-hud/README.md → "Automatischer Upload".
+
+
+--------------------------------------------------------------------------------
+  ERSTER AUFRUF AUF DEM IPHONE
+--------------------------------------------------------------------------------
+
+  1. Seite in Safari öffnen, einmal auf "Starten" tippen.
+     Safari fragt nach Kamera und Mikrofon → Erlauben.
+
+  2. Damit es beim nächsten Mal OHNE Tipp startet:
+     aA-Symbol in der Adresszeile → "Website-Einstellungen"
+     → Kamera: Erlauben, Mikrofon: Erlauben.
+     Steht dort "Fragen", bleibt der Startknopf – ein Tipp, dann läuft es.
+
+  3. Die Sprachausgabe darf iOS erst nach der ersten Berührung der Seite
+     abspielen. Bis dahin steht "Tippen für Ton" an der Kugel. Einmal
+     irgendwohin tippen, dann spricht ReyRey.
+
+  4. Als App: Teilen-Symbol → "Zum Home-Bildschirm". Startet im Vollbild.
 
 
 --------------------------------------------------------------------------------
@@ -45,9 +74,8 @@ Kein PHP nötig, keine Datenbank, kein Server-Prozess – nur Dateien.
   WICHTIG: OHNE https:// BLEIBT DAS BILD SCHWARZ
 --------------------------------------------------------------------------------
 
-  Browser geben die Kamera nur über eine verschlüsselte Verbindung frei.
-  Das ist eine Regel von Chrome, Safari und Firefox, keine Einstellung
-  dieser Seite.
+  Browser geben Kamera und Mikrofon nur über eine verschlüsselte Verbindung
+  frei. Das ist eine Regel von Chrome, Safari und Firefox.
 
   Prüfen:   cPanel  →  "SSL/TLS Status"  →  die Domain muss ein gültiges
             Zertifikat haben. Falls nicht: "AutoSSL ausführen" anklicken.
@@ -56,59 +84,72 @@ Kein PHP nötig, keine Datenbank, kein Server-Prozess – nur Dateien.
 
 
 --------------------------------------------------------------------------------
-  WAS REYREY KANN – UND WAS NICHT
+  WAS REYREY KANN
 --------------------------------------------------------------------------------
 
-  OHNE INTERNET, ALLES AUF DEM GERÄT:
+  Einfach "ReyRey" sagen und dann die Frage – es muss nichts gedrückt werden.
 
-    "Was siehst du?"              beschreibt das Bild
-    "Wer ist das?"                nennt erkannte Personen
-    "Wie viele Personen?"         zählt
-    "Scanne die Umgebung"         vollständige Analyse
-    "Lies das vor"                erkennt Text im Bild
-    "Merk dir das als Rucksack"   Gegenstand speichern
-    "Wo ist mein Rucksack?"       zuletzt gesehen
-    "Gesicht erfassen"            Person registrieren
-    "Kamera wechseln", "HUD aus", "Privatmodus an", "Sei still"
-    "Hilfe"                       zeigt alle Befehle
+  SEHEN UND BESCHREIBEN:
+    "Was ist das?"                 benennt, was in der Bildmitte ist
+    "Was siehst du?"               beschreibt das Bild
+    "Wer ist das?"                 nennt erkannte Personen
+    "Wie viele Personen?"          zählt
+    "Scanne die Umgebung"          vollständige Analyse
+    "Wie spät ist es?"             Uhrzeit und Datum (stehen auch oben rechts)
+    "Zeig auch Unsicheres" / "Nur Sicheres"
+
+  TEXT:
+    Text im Bild wird von selbst markiert, wenn die Kamera ruhig gehalten
+    wird. Auf einen markierten Block tippen → Lupe (3× vergrössert, neu
+    gelesen, Vorlesen / Kopieren / Übersetzen).
+    "Lies das vor"                 liest den Text im Bild
+    "Lupe" / "Vergrössere den Text"
+
+  HANDZEICHEN (eigene Hand in die Kamera halten, 1 Sekunde ruhig):
+    Eingebaut: Faust, offene Hand, Peace, Daumen hoch, Daumen runter,
+    Zeigefinger, "I love you" – Belegung unter System → Handzeichen.
+    "Erfasse neues Handzeichen"    → Zeichen zeigen → Funktion nennen → fertig
+    "Welche Handzeichen kennst du?"
+    "Lösche Zeichen 1"
+
+  SKILLS:
+    "Ab jetzt erkennst du Bildschirme und elektrische Geräte"
+    "Skill hinzufügen"             → dann sagen, was erkannt werden soll
+    "Welche Skills hast du?"       "Skill Bildschirme aus" / "… an"
+    Treffer eines Skills bekommen einen eigenen Rahmen und werden angesagt.
+
+  GEDÄCHTNIS:
+    "Merk dir das als Rucksack"    Gegenstand speichern
+    "Wo ist mein Rucksack?"        zuletzt gesehen
+    "Gesicht erfassen"             Person registrieren
+
+  STEUERN:
+    "Kamera wechseln", "HUD aus", "Objekterkennung aus", "Privatmodus an",
+    "Sei still", "Hilfe"
 
   BRAUCHT EINE VERBINDUNG NACH DRAUSSEN (standardmässig AUS):
-
     Allgemeine Fragen ("Was ist das für eine Marke?") und Übersetzungen.
-    Dafür unter "System → KI-Dienst" einen Zugang einrichten.
-    Es gibt kein Sprachmodell, das sich in eine Webseite packen liesse.
+    Dafür unter "System → KI-Dienst" einen Zugang einrichten (siehe unten).
 
   SPRACHEINGABE – BITTE LESEN:
-
-    Das Zuhören ist standardmässig AUS. Wird es eingeschaltet, überträgt der
-    Browser den Ton an Google (Chrome) bzw. Apple (Safari). Das ist eine
-    Eigenschaft des Browsers und lässt sich aus einer Webseite heraus nicht
-    umgehen. Firefox kann gar keine Spracherkennung – dort tippt man die Frage.
-
+    Das Zuhören ist an, damit ReyRey ohne Tippen reagiert. Der Browser
+    überträgt dabei den Ton an Apple (Safari) bzw. Google (Chrome). Das ist
+    eine Eigenschaft des Browsers und lässt sich aus einer Webseite heraus
+    nicht umgehen. Ausschalten: auf die Kugel tippen.
     Das Kamerabild ist davon nicht betroffen und bleibt immer auf dem Gerät.
 
-  GEFAHRENHINWEISE:
-
-    Eine einzelne Kamera kann keine Entfernung messen. Die Hinweise beruhen
-    darauf, wie gross und wie schnell wachsend etwas im Bild ist.
-    Das ist eine Hilfe, kein Sicherheitssystem. Nicht darauf verlassen.
-
-
---------------------------------------------------------------------------------
-  ALS APP INSTALLIEREN
---------------------------------------------------------------------------------
-
-  Android/Chrome:  Menü (drei Punkte) → "App installieren"
-  iPhone/Safari:   Teilen-Symbol → "Zum Home-Bildschirm"
-
-  Danach startet die Seite im Vollbild und läuft auch ohne Internet.
+  WAS NICHT GEHT:
+    Zigaretten und Teppiche kennt keines der Modelle als Klasse. Die
+    Gefahrenhinweise sind eine Hilfe, kein Sicherheitssystem – eine Kamera
+    kann keine Entfernung messen.
 
 
 --------------------------------------------------------------------------------
   FREIWILLIG: KI-DIENST EINRICHTEN
 --------------------------------------------------------------------------------
 
-  Nur nötig für allgemeine Fragen und Übersetzungen.
+  Nur nötig für allgemeine Fragen, Übersetzungen und die KI-Zuordnung bei
+  Skills mit ungewöhnlichen Beschreibungen.
 
   1. Schlüssel holen auf console.anthropic.com → "API Keys".
   2. Im Dateimanager die Datei  kamera-hud/reyrey-proxy.php  bearbeiten
@@ -117,22 +158,8 @@ Kein PHP nötig, keine Datenbank, kein Server-Prozess – nur Dateien.
   3. Im HUD: "System" → "KI-Dienst" → einschalten, Betriebsart "Proxy",
      Adresse:  reyrey-proxy.php
 
-  Warum der Umweg über PHP: So bleibt der Schlüssel auf dem Server. Trägt man
-  ihn direkt im Browser ein, kann ihn jeder auslesen, der das Gerät in die
-  Hand bekommt.
-
-  Es entstehen Kosten pro Anfrage. Ohne Schlüssel läuft alles andere normal
-  weiter – nur eben ohne allgemeine Fragen.
-
-
---------------------------------------------------------------------------------
-  ANDEREN ORDNERNAMEN VERWENDEN
---------------------------------------------------------------------------------
-
-  Der Ordner darf beliebig heissen. Nach dem Entpacken im Dateimanager
-  umbenennen (Rechtsklick → Umbenennen). Innerhalb der Seite sind alle Pfade
-  relativ – es muss nichts angepasst werden. Auch ein Unterordner in einem
-  Unterordner funktioniert.
+  Der Schlüssel gehört NICHT ins Repository und nicht in den Browser –
+  nur in diese eine Datei auf dem Webspace.
 
 
 --------------------------------------------------------------------------------
@@ -142,37 +169,49 @@ Kein PHP nötig, keine Datenbank, kein Server-Prozess – nur Dateien.
   "Objektmodell nicht ladbar"
        pruefung.html öffnen. Meist wurde das Archiv nicht vollständig
        entpackt oder der Upload brach ab. Im Dateimanager prüfen:
-       assets/models/coco-ssd/ muss 6 Dateien enthalten, davon 4 mit je 4 MB.
+       assets/models/detector/ muss 3 Dateien enthalten (model.json,
+       group1-shard1of2.bin mit 4 MB, group1-shard2of2.bin mit 2,8 MB).
 
-  "Kamerazugriff verweigert"
-       In der Adresszeile auf das Schloss-Symbol tippen und Kamera erlauben.
-       iPhone: Einstellungen → Safari → Kamera → "Fragen" oder "Erlauben"
+  Startet nicht von selbst
+       Safari: aA → Website-Einstellungen → Kamera und Mikrofon auf
+       "Erlauben". Chrome: Schloss-Symbol → Berechtigungen.
 
-  Seite bleibt beim Ladebalken stehen
-       pruefung.html öffnen – dort steht, welche Datei fehlt.
-
-  Alles läuft, aber langsam
-       Unter "System" die Objekterkennung ausschalten. Die Gesichtserkennung
-       allein ist deutlich genügsamer. Ältere Geräte ohne Grafikbeschleunigung
-       rechnen um ein Vielfaches langsamer.
+  ReyRey spricht nicht
+       Einmal auf die Seite tippen (iOS-Regel). Unter System → ReyRey prüfen,
+       ob "Antworten sprechen" an ist.
 
   ReyRey reagiert nicht auf seinen Namen
-       Unter "System → ReyRey" prüfen, ob "Dauerhaft zuhören" an ist.
+       Steht "Tippen zum Zuhören" an der Kugel: einmal auf die Kugel tippen.
        In Firefox gibt es keine Spracherkennung – dort auf die Kugel tippen
        und die Frage eintippen.
+
+  Handzeichen werden nicht erkannt
+       Hand ganz ins Bild, Finger sichtbar, 1 Sekunde ruhig halten – der Ring
+       um die Hand füllt sich. Unter System prüfen, ob "Handzeichen erkennen"
+       an ist. Beim ersten Mal dauert das Laden 2–4 Sekunden.
+
+  Text wird nicht markiert
+       Kamera ruhig halten – bei Bewegung liest die Seite absichtlich nicht.
+       Kleine Schrift: auf den Block tippen, die Lupe liest 3× vergrössert.
+
+  Alles läuft, aber langsam
+       Unter "System" die Zweitstufe oder die Objekterkennung ausschalten.
+       Ältere Geräte ohne Grafikbeschleunigung rechnen um ein Vielfaches
+       langsamer.
 
 
 --------------------------------------------------------------------------------
   DATENSCHUTZ
 --------------------------------------------------------------------------------
 
-  Kamerabild, Gesichtsabdrücke und gemerkte Gegenstände verlassen das Gerät
-  nicht. Sie liegen im Browserspeicher genau des Geräts, auf dem sie erfasst
-  wurden.
+  Kamerabild, Gesichtsabdrücke, gemerkte Gegenstände, Handzeichen und Skills
+  verlassen das Gerät nicht. Sie liegen im Browserspeicher genau des Geräts,
+  auf dem sie erfasst wurden.
 
-  Nach draussen geht nur, was ausdrücklich freigegeben wurde:
-    - Sprachaufnahmen, wenn das Zuhören eingeschaltet ist (an den Browser-Hersteller)
-    - Fragetext und eine kurze Szenenbeschreibung, wenn der KI-Dienst an ist
+  Nach draussen geht nur:
+    - der Ton, solange zugehört wird (an den Browser-Hersteller)
+    - Fragetext, eine kurze Szenenbeschreibung und bei Skills die
+      Beschreibung samt Klassennamen – nur wenn der KI-Dienst an ist
 
   Unter "System → Privatsphäre":
     - Privatmodus: keine Namen im Bild, nichts wird gespeichert
@@ -181,7 +220,10 @@ Kein PHP nötig, keine Datenbank, kein Server-Prozess – nur Dateien.
 
   Gesichtsmerkmale sind biometrische Daten. Wer sie von anderen Personen
   erfasst, braucht deren Einverständnis (DSGVO Art. 9, revDSG Art. 5).
-  Die App fragt das vor jedem Speichern ab. Für den privaten Gebrauch am
-  eigenen Gerät gilt die Haushaltsausnahme.
+  Die App fragt das vor jedem Speichern ab.
+
+  Die Objekt-Modelle (YOLOv8, Ultralytics) stehen unter der AGPL-3.0-Lizenz:
+  Wer die Seite öffentlich betreibt, muss den Quellcode zugänglich machen
+  (das GitHub-Repository erfüllt das) oder eine Ultralytics-Lizenz erwerben.
 
 ================================================================================

@@ -71,7 +71,8 @@ export function movingTargets(tracks, limit = 3) {
     .slice(0, limit)
     .map((track) => ({
       id: track.id,
-      label: track.kind === 'face' ? 'Eine Person' : track.label,
+      label:
+        track.kind === 'face' ? 'Eine Person' : (track.fine?.label ?? track.labelDe ?? track.label),
       direction: track.motion.direction,
       speed: track.motion.speed,
     }));

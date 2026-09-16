@@ -15,7 +15,7 @@
  * auch in einem Unterordner, ohne dass hier etwas einzutragen wäre.
  */
 
-const VERSION = 'visionhud-v2';
+const VERSION = 'visionhud-v3';
 const SHELL = `${VERSION}-shell`;
 const HEAVY = `${VERSION}-modelle`;
 

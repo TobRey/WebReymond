@@ -80,7 +80,21 @@
 </IfModule>
 
 # ---------------------------------------------------------------------------
-# 5 Kein Verzeichnislisting
+# 5 Zustandsdatei des automatischen Uploads verbergen
+#    GitHub Actions merkt sich darin, welche Dateien schon oben sind.
+# ---------------------------------------------------------------------------
+<Files ".vision-hud-deploy-state.json">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</Files>
+
+# ---------------------------------------------------------------------------
+# 6 Kein Verzeichnislisting
 #    Sonst kann jeder den Inhalt von assets/models/ durchblättern.
 # ---------------------------------------------------------------------------
 Options -Indexes

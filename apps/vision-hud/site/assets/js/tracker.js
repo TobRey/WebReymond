@@ -84,9 +84,7 @@ export class Tracker {
       track.target = lerpBox(track.target, detection.box, t);
       track.rawBox = detection.box;
       track.score = track.score * 0.6 + detection.score * 0.4;
-      track.label = detection.label;
-      track.kind = detection.kind;
-      track.extra = detection.extra ?? track.extra;
+      this.#vote(track, detection);
       track.hits += 1;
       track.missed = 0;
       track.lastSeen = now;
@@ -95,7 +93,7 @@ export class Tracker {
     // Unbenutzte Treffer werden zu neuen Zielen.
     detections.forEach((detection, di) => {
       if (usedDetections.has(di)) return;
-      this.tracks.push({
+      const track = {
         id: this.nextId++,
         target: { ...detection.box },
         display: { ...detection.box },
@@ -104,6 +102,8 @@ export class Tracker {
         label: detection.label,
         kind: detection.kind,
         extra: detection.extra ?? null,
+        votes: {},
+        meta: {},
         identity: null,
         identifiedAt: 0,
         identifyPending: false,
@@ -113,7 +113,9 @@ export class Tracker {
         lastSeen: now,
         /** 0 … 1: Fortschritt der Einblend-Animation. */
         lock: 0,
-      });
+      };
+      this.#vote(track, detection);
+      this.tracks.push(track);
     });
 
     // Nicht wiedergefundene Ziele altern und verschwinden irgendwann.
@@ -124,6 +126,38 @@ export class Tracker {
     this.tracks = this.tracks.filter((track) => track.missed <= this.options.maxMissed);
 
     return this.tracks;
+  }
+
+  /**
+   * Stabilisiert den Namen eines Ziels über mehrere Durchläufe.
+   *
+   * Mit 601 Klassen wechselt der Detektor gern zwischen Nachbarn („Karton“,
+   * „Kiste“, „Behälter“). Jede Erkennung gibt ihrer Klasse eine Stimme, alte
+   * Stimmen verblassen; gezeigt wird die Klasse mit den meisten Stimmen. So
+   * springt der Name nicht bei jedem Bild, folgt aber einem echten Wechsel
+   * nach zwei, drei Durchläufen.
+   */
+  #vote(track, detection) {
+    for (const key of Object.keys(track.votes)) track.votes[key] *= 0.75;
+    track.votes[detection.label] = (track.votes[detection.label] ?? 0) + 1;
+    track.meta[detection.label] = detection;
+
+    let best = detection.label;
+    let bestVotes = -1;
+    for (const [label, votes] of Object.entries(track.votes)) {
+      if (votes > bestVotes) {
+        best = label;
+        bestVotes = votes;
+      }
+    }
+
+    const meta = track.meta[best];
+    track.label = best;
+    track.kind = meta.kind;
+    track.labelDe = meta.labelDe ?? track.labelDe;
+    track.group = meta.group ?? track.group;
+    track.generic = meta.generic ?? track.generic;
+    track.extra = detection.extra ?? track.extra;
   }
 
   /**

@@ -43,7 +43,6 @@
       <!-- Rein dekorative Ebenen; nehmen keine Eingaben entgegen. -->
       <div class="fx" aria-hidden="true">
         <div class="fx__grid"></div>
-        <div class="fx__scan"></div>
         <div class="fx__grain"></div>
         <div class="fx__vignette"></div>
         <div class="fx__corner fx__corner--tl"></div>
@@ -79,6 +78,12 @@
         </dl>
       </header>
 
+      <!-- Uhr und Datum, Sekundentakt -->
+      <div class="clock" id="clock" aria-hidden="true">
+        <span class="clock__date" id="clockDate"></span>
+        <span class="clock__time" id="clockTime"></span>
+      </div>
+
       <!-- ================= Seitliche Anzeigen ================= -->
       <aside class="rail rail--left" aria-hidden="true">
         <div class="rail__label">SENSOR</div>
@@ -112,6 +117,7 @@
           <span class="rey__ring rey__ring--slow"></span>
           <span class="rey__wave"></span>
         </button>
+        <span class="rey__hint" id="reyHint" hidden>Tippen für Ton</span>
         <div class="rey__bubble" id="reyBubble" hidden>
           <div class="rey__name" id="reyName">REYREY</div>
           <p class="rey__text" id="reyText"></p>
@@ -193,7 +199,11 @@
         </div>
         <p class="boot__hint" id="bootHint">Die Auswertung läuft vollständig auf diesem Gerät.</p>
 
-        <button class="btn btn--big" id="btnStart" type="button">Kamera freigeben</button>
+        <button class="btn btn--big" id="btnStart" type="button">Starten</button>
+        <p class="boot__note">
+          Gibt Kamera und Mikrofon frei. Ab dem nächsten Aufruf startet alles von selbst. Die
+          Spracherkennung läuft über Apple bzw. Google – das Kamerabild bleibt auf dem Gerät.
+        </p>
 
         <p class="boot__legal">
           Kein Bild verlässt dein Gerät. Gesichtsdaten liegen nur im Speicher dieses Browsers.
@@ -344,6 +354,8 @@
           <button class="btn btn--ghost" id="btnRoster" type="button">Kartei</button>
           <button class="btn btn--ghost" id="btnThings" type="button">Gegenstände</button>
           <button class="btn btn--ghost" id="btnRememberObject" type="button">Merken</button>
+          <button class="btn btn--ghost" id="btnGestures" type="button">Handzeichen</button>
+          <button class="btn btn--ghost" id="btnSkills" type="button">Skills</button>
           <a class="btn btn--ghost" href="pruefung.html">Selbsttest</a>
         </div>
 
@@ -500,6 +512,88 @@
             <button class="btn" id="btnVaultGo" type="submit">Bestätigen</button>
           </div>
         </form>
+      </div>
+    </section>
+
+    <!-- ================= Handzeichen ================= -->
+    <section class="sheet" id="sheetGestures" hidden aria-labelledby="gesturesTitle">
+      <div class="sheet__panel">
+        <header class="sheet__head">
+          <h2 id="gesturesTitle">Eigene Handzeichen</h2>
+          <button
+            class="sheet__close"
+            data-close="sheetGestures"
+            type="button"
+            aria-label="Schliessen"
+          >
+            ×
+          </button>
+        </header>
+        <p class="sheet__hint">
+          Eingebaute Zeichen (Faust, offene Hand, Peace, Daumen hoch/runter, Zeigefinger, „I love
+          you“) belegst du unter System → Handzeichen. Hier kommen deine eigenen dazu.
+        </p>
+        <ul class="roster" id="gesturesList"></ul>
+        <p class="sheet__empty" id="gesturesEmpty">Noch keine eigenen Handzeichen.</p>
+        <div class="sheet__footer">
+          <button class="btn" id="btnGestureRecord" type="button">Neues Zeichen aufnehmen</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Skills ================= -->
+    <section class="sheet" id="sheetSkills" hidden aria-labelledby="skillsTitle">
+      <div class="sheet__panel">
+        <header class="sheet__head">
+          <h2 id="skillsTitle">Skills</h2>
+          <button
+            class="sheet__close"
+            data-close="sheetSkills"
+            type="button"
+            aria-label="Schliessen"
+          >
+            ×
+          </button>
+        </header>
+        <p class="sheet__hint">
+          Ein Skill hebt eine Gruppe von Dingen hervor und sagt sie an – zum Beispiel „Bildschirme
+          und elektrische Geräte“. Anlegen per Sprache oder hier.
+        </p>
+        <ul class="roster" id="skillsList"></ul>
+        <p class="sheet__empty" id="skillsEmpty">Noch keine Skills.</p>
+        <div class="sheet__footer">
+          <button class="btn" id="btnSkillCreate" type="button">Neuen Skill anlegen</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Lupe ================= -->
+    <section class="sheet" id="sheetMagnifier" hidden aria-labelledby="magnifierTitle">
+      <div class="sheet__panel">
+        <header class="sheet__head">
+          <h2 id="magnifierTitle">Lupe</h2>
+          <button
+            class="sheet__close"
+            data-close="sheetMagnifier"
+            type="button"
+            aria-label="Schliessen"
+          >
+            ×
+          </button>
+        </header>
+        <div class="magnifier">
+          <div class="magnifier__view">
+            <canvas id="magnifierView" width="900" height="600"></canvas>
+            <span class="magnifier__zoom" id="magnifierZoom">3×</span>
+          </div>
+          <div class="magnifier__text" id="magnifierText"></div>
+          <div class="magnifier__meta" id="magnifierMeta"></div>
+          <div class="magnifier__actions">
+            <button class="btn btn--ghost" id="btnMagRead" type="button">Vorlesen</button>
+            <button class="btn btn--ghost" id="btnMagCopy" type="button">Kopieren</button>
+            <button class="btn btn--ghost" id="btnMagTranslate" type="button">Übersetzen</button>
+          </div>
+        </div>
       </div>
     </section>
 

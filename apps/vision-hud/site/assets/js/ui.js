@@ -6,7 +6,19 @@
  */
 
 import { CONFIG, DEFAULT_SETTINGS } from './config.js';
-import { GESTURES, GESTURE_ACTIONS, DEFAULT_BINDINGS } from './gestures.js';
+import { BUILTIN_GESTURES } from './hands.js';
+import { ACTIONS } from './skills.js';
+
+/** Voreinstellung für die eingebauten Zeichen. */
+export const DEFAULT_BINDINGS = {
+  Open_Palm: 'hud.toggle',
+  Closed_Fist: 'silence',
+  Victory: 'scan',
+  Thumb_Up: 'readText',
+  Thumb_Down: 'objects.toggle',
+  Pointing_Up: 'magnify',
+  ILoveYou: 'describe',
+};
 
 export const $ = (id) => document.getElementById(id);
 
@@ -30,13 +42,25 @@ const SETTINGS_SCHEMA = [
     key: 'objects',
     type: 'switch',
     name: 'Objekterkennung',
-    desc: '80 Klassen, von Auto bis Zahnbürste.',
+    desc: '601 Klassen (Open Images), dazu die Zweitstufe mit 1000 weiteren.',
   },
   {
     key: 'faces',
     type: 'switch',
     name: 'Gesichtserkennung',
     desc: 'Findet Gesichter und gleicht sie mit der Kartei ab.',
+  },
+  {
+    key: 'showFaint',
+    type: 'switch',
+    name: 'Unsicheres zeigen',
+    desc: 'Blasse „?“-Rahmen für Dinge, die das Netz nur vermutet.',
+  },
+  {
+    key: 'classifierEnabled',
+    type: 'switch',
+    name: 'Zweitstufe',
+    desc: 'Bestimmt Ausschnitte genauer: Karton → Paket, Gerät → Ventilator.',
   },
   {
     key: 'motionArrows',
@@ -99,9 +123,7 @@ const SETTINGS_SCHEMA = [
     key: 'assistantListening',
     type: 'switch',
     name: 'Dauerhaft zuhören',
-    desc: 'Achtung: Die Spracherkennung des Browsers überträgt den Ton an Google bzw. Apple.',
-    badge: 'überträgt Ton',
-    badgeTone: 'warn',
+    desc: 'Reagiert auf das Aktivierungswort. Die Spracherkennung läuft über Apple bzw. Google.',
   },
   {
     key: 'assistantSpeak',
@@ -116,14 +138,38 @@ const SETTINGS_SCHEMA = [
     desc: 'Zeigt die Antwort als Sprechblase im Bild.',
   },
 
-  { type: 'group', name: 'Gesten' },
+  { type: 'group', name: 'Handzeichen' },
   {
     key: 'gesturesEnabled',
     type: 'switch',
-    name: 'Gestensteuerung',
-    desc: 'Erkennt Wischen, Winken und Abdecken über die Bildbewegung.',
+    name: 'Handzeichen erkennen',
+    desc: 'Erkennt Fingerposen: Faust, offene Hand, Peace, Daumen hoch … und eigene Zeichen.',
   },
   { key: 'gestureBindings', type: 'gestures', when: (s) => s.gesturesEnabled },
+  {
+    key: '__gestures',
+    type: 'action',
+    name: 'Eigene Handzeichen',
+    desc: 'Aufnehmen, ansehen, löschen. Oder per Sprache: „erfasse neues Handzeichen“.',
+    label: 'Verwalten',
+  },
+
+  { type: 'group', name: 'Skills' },
+  {
+    key: '__skills',
+    type: 'action',
+    name: 'Skills',
+    desc: 'Gruppen wie „Bildschirme und Elektrogeräte“ hervorheben. Oder per Sprache: „ab jetzt erkennst du …“.',
+    label: 'Verwalten',
+  },
+
+  { type: 'group', name: 'Text' },
+  {
+    key: 'ocrBackground',
+    type: 'switch',
+    name: 'Text im Hintergrund lesen',
+    desc: 'Alle paar Sekunden bei ruhiger Kamera. Tipp auf einen Textblock öffnet die Lupe.',
+  },
 
   { type: 'group', name: 'Anzeige' },
   {
@@ -572,25 +618,25 @@ export class UI {
     const box = document.createElement('div');
     const bindings = { ...DEFAULT_BINDINGS, ...(this.settings.gestureBindings ?? {}) };
 
-    for (const gesture of GESTURES) {
+    for (const [id, label] of Object.entries(BUILTIN_GESTURES)) {
       const row = document.createElement('div');
       row.className = 'gesture';
 
       const name = document.createElement('span');
       name.className = 'gesture__name';
-      name.textContent = gesture.name;
+      name.textContent = label;
 
       const select = document.createElement('select');
-      select.setAttribute('aria-label', gesture.name);
-      for (const action of GESTURE_ACTIONS) {
+      select.setAttribute('aria-label', label);
+      for (const action of ACTIONS) {
         const option = document.createElement('option');
         option.value = action.id;
         option.textContent = action.name;
-        if (bindings[gesture.id] === action.id) option.selected = true;
+        if ((bindings[id] ?? 'none') === action.id) option.selected = true;
         select.appendChild(option);
       }
       select.addEventListener('change', () => {
-        const next = { ...bindings, [gesture.id]: select.value };
+        const next = { ...bindings, [id]: select.value };
         this.#change('gestureBindings', next);
       });
 
@@ -700,6 +746,18 @@ export class UI {
     $('reyHeard').textContent = '';
   }
 
+  /** Kleiner Hinweis an der Kugel („Tippen für Ton“, „Tippen zum Zuhören“). */
+  setHint(text) {
+    const hint = $('reyHint');
+    hint.textContent = text ?? '';
+    hint.hidden = !text;
+  }
+
+  /** „Tippen für Ton“ – solange iOS die Sprachausgabe noch sperrt. */
+  setNeedsUnlock(show) {
+    this.setHint(show ? 'Tippen für Ton' : null);
+  }
+
   /* ---------------- Gefahrenband ---------------- */
 
   showAlarm(text) {
@@ -762,6 +820,149 @@ export class UI {
       li.append(img, info, del);
       list.appendChild(li);
     }
+  }
+
+  /* ---------------- Uhr ---------------- */
+
+  /** Uhr und Datum im Sekundentakt. */
+  startClock() {
+    const days = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+    const tick = () => {
+      const now = new Date();
+      const two = (n) => String(n).padStart(2, '0');
+      $('clockDate').textContent =
+        `${days[now.getDay()]} ${two(now.getDate())}.${two(now.getMonth() + 1)}.`;
+      $('clockTime').textContent =
+        `${two(now.getHours())}:${two(now.getMinutes())}:${two(now.getSeconds())}`;
+    };
+    tick();
+    clearInterval(this.clockTimer);
+    this.clockTimer = setInterval(tick, 1000);
+  }
+
+  /* ---------------- Lupe ---------------- */
+
+  /**
+   * Zeigt einen vergrösserten Ausschnitt mit erkanntem Text.
+   * @param {{canvas: HTMLCanvasElement|null, text: string, confidence: number, factor: number}} result
+   */
+  showMagnifier(result) {
+    const view = $('magnifierView');
+    const ctx = view.getContext('2d');
+    ctx.fillStyle = '#04121a';
+    ctx.fillRect(0, 0, view.width, view.height);
+    if (result.canvas) {
+      // Einpassen, Seitenverhältnis erhalten.
+      const scale = Math.min(view.width / result.canvas.width, view.height / result.canvas.height);
+      const w = result.canvas.width * scale;
+      const h = result.canvas.height * scale;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(result.canvas, (view.width - w) / 2, (view.height - h) / 2, w, h);
+    }
+    $('magnifierZoom').textContent = `${(result.factor ?? 1).toFixed(1).replace('.0', '')}×`;
+    $('magnifierText').textContent = result.text ?? '';
+    $('magnifierMeta').textContent = result.text
+      ? `Sicherheit ${Math.round((result.confidence ?? 0) * 100)} % · ${result.text.length} Zeichen`
+      : 'Kein Text erkannt – Kamera ruhig halten und näher heran.';
+    this.openSheet('sheetMagnifier');
+  }
+
+  setMagnifierText(text, meta = '') {
+    $('magnifierText').textContent = text;
+    if (meta) $('magnifierMeta').textContent = meta;
+  }
+
+  /* ---------------- Handzeichen und Skills ---------------- */
+
+  /**
+   * Liste eigener Handzeichen.
+   * @param {Array<{id, name, action, samples}>} items
+   */
+  renderGestures(items, { onDelete, onRecord, actionName }) {
+    const list = $('gesturesList');
+    const empty = $('gesturesEmpty');
+    list.innerHTML = '';
+    empty.hidden = items.length > 0;
+
+    for (const item of items) {
+      const li = document.createElement('li');
+      const swatch = document.createElement('span');
+      swatch.className = 'roster__swatch';
+      swatch.style.color = '#2bf5dd';
+      swatch.style.background = '#2bf5dd';
+
+      const info = document.createElement('div');
+      info.className = 'roster__info';
+      const name = document.createElement('div');
+      name.className = 'roster__name';
+      name.textContent = item.name;
+      const meta = document.createElement('div');
+      meta.className = 'roster__meta';
+      meta.textContent = `${actionName(item.action)} · ${item.samples ?? '?'} Aufnahmen`;
+      info.append(name, meta);
+
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'roster__del';
+      del.textContent = 'Löschen';
+      del.addEventListener('click', () => onDelete(item));
+
+      li.append(swatch, info, del);
+      list.appendChild(li);
+    }
+    $('btnGestureRecord').onclick = () => onRecord();
+  }
+
+  /** Liste der Gruppen-Skills. */
+  renderSkills(items, { onDelete, onToggle, onCreate }) {
+    const list = $('skillsList');
+    const empty = $('skillsEmpty');
+    list.innerHTML = '';
+    empty.hidden = items.length > 0;
+
+    for (const item of items) {
+      const li = document.createElement('li');
+      const swatch = document.createElement('span');
+      swatch.className = 'roster__swatch';
+      swatch.style.color = item.color;
+      swatch.style.background = item.color;
+
+      const info = document.createElement('div');
+      info.className = 'roster__info';
+      const name = document.createElement('div');
+      name.className = 'roster__name';
+      name.textContent = item.name;
+      const meta = document.createElement('div');
+      meta.className = 'roster__meta';
+      meta.textContent = `${item.classes.length} Klassen · ${item.enabled !== false ? 'an' : 'aus'}`;
+      info.append(name, meta);
+
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'switch';
+      toggle.setAttribute('role', 'switch');
+      toggle.setAttribute('aria-checked', String(item.enabled !== false));
+      toggle.setAttribute('aria-label', `${item.name} ein/aus`);
+      toggle.addEventListener('click', () => onToggle(item, item.enabled === false));
+
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'roster__del';
+      del.textContent = 'Löschen';
+      del.addEventListener('click', () => onDelete(item));
+
+      li.append(swatch, info, toggle, del);
+      list.appendChild(li);
+    }
+    $('btnSkillCreate').onclick = () => onCreate();
+  }
+
+  /** Aufnahmefortschritt eines Handzeichens in der Sprechblase. */
+  setGestureProgress(fraction) {
+    const bubble = $('reyBubble');
+    if (fraction <= 0 || fraction >= 1) return;
+    bubble.hidden = false;
+    $('reyText').textContent = `Aufnahme … ${Math.round(fraction * 100)} %`;
   }
 
   /* ---------------- Rückfragen ---------------- */

@@ -12,27 +12,50 @@
  * verlässt, ist verlassen.
  */
 
-/** Klassen, bei denen eine schnelle Annäherung wirklich zählt. */
-const VEHICLES = new Set(['car', 'truck', 'bus', 'motorcycle', 'bicycle', 'train']);
+import { withArticle } from './labels.js';
+
+/** Klassen (Detektornamen), bei denen eine schnelle Annäherung wirklich zählt. */
+const VEHICLES = new Set([
+  'Car',
+  'Truck',
+  'Bus',
+  'Motorcycle',
+  'Bicycle',
+  'Train',
+  'Van',
+  'Taxi',
+  'Ambulance',
+  'Limousine',
+  'Golf cart',
+  'Snowmobile',
+  'Segway',
+  'Land vehicle',
+  'Vehicle',
+]);
 
 /** Klassen, über die man stolpert. */
-const OBSTACLES = new Set(['chair', 'bench', 'potted plant', 'suitcase', 'backpack', 'dog']);
+const OBSTACLES = new Set([
+  'Chair',
+  'Bench',
+  'Houseplant',
+  'Suitcase',
+  'Backpack',
+  'Dog',
+  'Cat',
+  'Table',
+  'Stool',
+  'Coffee table',
+  'Ladder',
+  'Wheelchair',
+  'Skateboard',
+  'Bicycle wheel',
+  'Stairs',
+]);
 
-const LABELS = {
-  car: 'ein Auto',
-  truck: 'ein Lastwagen',
-  bus: 'ein Bus',
-  motorcycle: 'ein Motorrad',
-  bicycle: 'ein Fahrrad',
-  train: 'ein Zug',
-  chair: 'ein Stuhl',
-  bench: 'eine Bank',
-  'potted plant': 'eine Pflanze',
-  suitcase: 'ein Koffer',
-  backpack: 'ein Rucksack',
-  dog: 'ein Hund',
-  person: 'eine Person',
-};
+/** Sprechbarer Name mit Artikel – aus dem deutschen Klassennamen des Ziels. */
+function nameOf(track) {
+  return withArticle(track.fine?.label ?? track.labelDe ?? track.label);
+}
 
 /**
  * Prüft die laufenden Ziele auf Auffälligkeiten.
@@ -48,7 +71,7 @@ export function assessHazards(tracks, videoWidth) {
   for (const track of tracks) {
     const relativeWidth = track.display.w / videoWidth;
     const growth = track.motion?.growth ?? 0;
-    const name = LABELS[track.label] ?? track.label;
+    const name = nameOf(track);
 
     // 1 Fahrzeug, das schnell grösser wird: das ist der eine Fall, der zählt.
     if (VEHICLES.has(track.label) && growth > 0.55 && relativeWidth > 0.14) {

@@ -8,7 +8,6 @@
  * bis drei Sekunden und ist deshalb nichts für den Dauerbetrieb.
  */
 
-import { labelFor } from './labels.js';
 import { movingTargets } from './motion.js';
 import { describeWhen } from './memory.js';
 import { looksLikeText } from './ocr.js';
@@ -69,8 +68,10 @@ export async function runScan(deps) {
   const objectTracks = objects.visible();
   const tally = new Map();
   for (const track of objectTracks) {
-    if (track.kind === 'person') continue;
-    tally.set(track.label, (tally.get(track.label) ?? 0) + 1);
+    // Nur sichere Treffer: Ein Bericht voller Vermutungen ist keiner.
+    if (track.kind === 'person' || track.faint) continue;
+    const name = track.fine?.label ?? track.labelDe ?? track.label;
+    tally.set(name, (tally.get(name) ?? 0) + 1);
   }
   details.objects = [...tally.entries()]
     .sort((a, b) => b[1] - a[1])
@@ -123,7 +124,7 @@ function composeReport(details, settings) {
     const listed = details.objects
       .slice(0, 6)
       .map(({ label, count }) =>
-        count === 1 ? labelFor(label).toLowerCase() : `${count} ${labelFor(label).toLowerCase()}`,
+        count === 1 ? label.toLowerCase() : `${count} ${label.toLowerCase()}`,
       );
     parts.push(`Gegenstände: ${joinList(listed)}`);
   }

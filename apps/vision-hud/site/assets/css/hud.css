@@ -127,7 +127,7 @@ input {
 .fx__grid {
   position: absolute;
   inset: 0;
-  opacity: 0.16;
+  opacity: 0.09;
   background-image:
     linear-gradient(var(--c-line-soft) 1px, transparent 1px),
     linear-gradient(90deg, var(--c-line-soft) 1px, transparent 1px);
@@ -135,37 +135,11 @@ input {
   mask-image: radial-gradient(120% 80% at 50% 50%, #000 35%, transparent 85%);
 }
 
-/* Horizontaler Suchstrahl. */
-.fx__scan {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 42vh;
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(43, 245, 221, 0.05) 45%,
-    rgba(43, 245, 221, 0.16) 50%,
-    rgba(43, 245, 221, 0.05) 55%,
-    transparent 100%
-  );
-  animation: scanDrift 7.5s linear infinite;
-}
-
-@keyframes scanDrift {
-  0% {
-    transform: translateY(-45vh);
-  }
-  100% {
-    transform: translateY(105vh);
-  }
-}
-
 /* Bildrauschen – simuliert einen echten Sensor bei wenig Licht. */
 .fx__grain {
   position: absolute;
   inset: -50%;
-  opacity: 0.045;
+  opacity: 0.028;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>");
   animation: grainShift 0.9s steps(4) infinite;
 }
@@ -1322,7 +1296,6 @@ input {
     transition-duration: 0.01ms !important;
   }
 
-  .fx__scan,
   .fx__grain,
   .radar__sweep {
     display: none;
@@ -1853,4 +1826,166 @@ input {
 
 .diag summary::-webkit-details-marker {
   display: none;
+}
+
+/* =========================================================================
+   14 Uhr, Lupe, Hand, Skills
+   ========================================================================= */
+
+/* Uhr und Datum – klein, unter den Zählern, Sekundentakt. */
+.clock {
+  position: absolute;
+  top: calc(var(--safe-t) + 60px);
+  right: calc(var(--safe-r) + 16px);
+  z-index: var(--z-chrome);
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
+  color: var(--c-text-dim);
+  pointer-events: none;
+}
+
+.clock__date {
+  font-size: 9.5px;
+}
+
+.clock__time {
+  font-size: 12.5px;
+  color: var(--c-turquoise);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Kontakte rutschen unter die Uhr. */
+.rail--right {
+  top: calc(var(--safe-t) + 84px);
+}
+
+/* Lupe */
+.magnifier {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 0 4px;
+}
+
+.magnifier__view {
+  position: relative;
+  border: 1px solid var(--c-line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #04121a;
+  aspect-ratio: 3 / 2;
+}
+
+.magnifier__view canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: auto;
+}
+
+.magnifier__zoom {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 7px;
+  border: 1px solid var(--c-line);
+  border-radius: 3px;
+  background: rgba(4, 16, 20, 0.85);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--c-turquoise);
+}
+
+.magnifier__text {
+  min-height: 56px;
+  max-height: 32vh;
+  overflow-y: auto;
+  padding: 12px 14px;
+  border: 1px solid var(--c-line-soft);
+  border-left: 2px solid var(--c-turquoise);
+  border-radius: 6px;
+  background: rgba(4, 16, 20, 0.75);
+  font-size: 19px;
+  line-height: 1.45;
+  color: var(--c-text);
+  word-break: break-word;
+}
+
+.magnifier__text:empty::before {
+  content: 'Lese …';
+  color: var(--c-text-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+
+.magnifier__meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--c-text-dim);
+}
+
+.magnifier__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.magnifier__actions .btn {
+  flex: 1;
+  padding: 11px 8px;
+  font-size: 11px;
+}
+
+/* Hinweis an der Kugel, solange iOS den Ton noch nicht freigegeben hat. */
+.rey__hint {
+  margin-top: -4px;
+  padding: 3px 8px;
+  border: 1px solid var(--c-line-soft);
+  border-radius: 4px;
+  background: rgba(6, 22, 28, 0.85);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--c-amber);
+  animation: cornerPulse 2.2s ease-in-out infinite;
+}
+
+.rey__hint[hidden] {
+  display: none;
+}
+
+/* Kugel pulsiert sichtbar, solange zugehört wird. */
+.rey[data-state='hört'] .rey__wave {
+  animation: reyPing 2.4s ease-out infinite;
+  opacity: 0.35;
+}
+
+/* Startbildschirm: Hinweiszeile unter dem Knopf. */
+.boot__note {
+  margin: 10px 0 0;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  line-height: 1.6;
+  color: var(--c-text-dim);
+}
+
+/* Listen für Handzeichen und Skills nutzen die Kartei-Optik. */
+.roster__swatch {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  box-shadow: 0 0 8px currentColor;
+}
+
+/* Ruhigere Zähler oben. */
+.stat {
+  background: rgba(7, 21, 28, 0.5);
+  border-color: rgba(43, 245, 221, 0.1);
 }
