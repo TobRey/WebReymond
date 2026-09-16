@@ -116,6 +116,13 @@ export class Ocr {
         langPath: PATHS.tesseract.replace(/\/$/, ''),
         gzip: true,
         /*
+         * Den Arbeiter direkt von seiner Adresse laden, nicht über eine
+         * Blob-URL (tesseract.js-Vorgabe). Nur dann kennt der Kern seinen
+         * eigenen Ordner und findet die .wasm-Datei neben sich – mit einer
+         * Blob-URL scheitert er an „Failed to parse URL“.
+         */
+        workerBlobURL: false,
+        /*
          * `logger` muss immer eine Funktion sein. tesseract.js ruft den
          * Rückmelder bei jeder Fortschrittsmeldung des Arbeiters auf, ohne zu
          * prüfen, ob es ihn gibt – mit `undefined` wirft jede einzelne Meldung
