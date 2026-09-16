@@ -377,7 +377,7 @@ entfernten COCO-Modells.
   Abbrüchen; die Freigabe muss auf „Erlauben“ stehen, sonst bleibt der
   Startknopf. Getestet wurde hier nur in Chromium – das iPhone-Verhalten
   muss am Gerät geprüft werden.
-- Erster Aufruf lädt rund 45 MB. Danach liegen die Modelle im Browser-Cache
+- Erster Aufruf lädt rund 50 MB (gepackt weniger). Danach liegen die Modelle im Browser-Cache
   und im Service Worker.
 
 ## Wenn das Objektmodell nicht lädt
