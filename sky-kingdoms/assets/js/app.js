@@ -537,8 +537,8 @@ function drawCataloguePreviews(root) {
         const ctx = element.getContext('2d');
         ctx.clearRect(0, 0, element.width, element.height);
         ctx.save();
-        ctx.translate(element.width / 2, element.height * 0.78);
-        drawBuilding(ctx, element.dataset.preview, element.width * 0.62, element.height * 0.3, 1, 0);
+        ctx.translate(element.width / 2, element.height * 0.84);
+        drawBuilding(ctx, element.dataset.preview, element.width * 0.52, element.height * 0.26, 1, 0);
         ctx.restore();
     });
 }

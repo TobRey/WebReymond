@@ -1008,35 +1008,94 @@ export function openIslands() {
 
 export function openShop() {
     const packs = (state.statics.shopPacks) || {};
+    const rates = (state.statics.sellRates) || {};
+    const sellable = Object.keys(state.statics.resources)
+        .filter((key) => key !== 'gold' && (rates[key] || 0) > 0 && stored(key) > 0);
 
     openSheet({
         key: 'shop',
         title: 'Markt',
         subtitle: 'Nur Spielwährung – keine Echtgeldkäufe.',
         body: `
-            <h3>Verkaufen</h3>
+            <h3>Kaufen</h3>
+            <ul class="sk-list">${Object.keys(packs).map((key) => {
+                const pack = packs[key];
+                const giveKey = Object.keys(pack.give)[0];
+                return listItem({
+                    icon: resourceIcon(giveKey, 32),
+                    title: escapeHtml(pack.name),
+                    sub: Object.keys(pack.give).map((k) =>
+                        compact(pack.give[k]) + ' ' + escapeHtml(resourceName(k))).join(', '),
+                    extra: costList(pack.price),
+                    right: `<button class="sk-btn sk-btn--small sk-btn--gold" data-buy="${key}">Kaufen</button>`
+                });
+            }).join('') || emptyNote('Zurzeit gibt es keine Angebote.')}</ul>
+
+            <h3 style="margin-top:20px">Verkaufen</h3>
+            ${sellable.length ? `
             <div class="sk-field">
                 <label for="sk-sell-res">Ware</label>
                 <select id="sk-sell-res">
-                    ${Object.keys(state.statics.resources).filter((k) => k !== 'gold' && stored(k) > 0)
-                        .map((k) => `<option value="${k}">${escapeHtml(resourceName(k))} (${compact(stored(k))})</option>`).join('')
-                        || '<option value="">Nichts im Lager</option>'}
+                    ${sellable.map((k) => `<option value="${k}" data-rate="${rates[k]}">`
+                        + `${escapeHtml(resourceName(k))} – ${compact(stored(k))} vorrätig`
+                        + `</option>`).join('')}
                 </select>
             </div>
             <div class="sk-field">
                 <label for="sk-sell-amount">Menge</label>
                 <input id="sk-sell-amount" type="number" min="1" value="100" inputmode="numeric">
+                <div class="sk-field__hint" id="sk-sell-preview"></div>
             </div>
-            <button class="sk-btn sk-btn--block sk-btn--gold" data-action="sell">Verkaufen</button>
-            <p class="sk-field__hint">Der Markt zahlt in Goldmünzen. Der Preis hängt von der Ware ab.</p>
+            <div class="sk-row">
+                <button class="sk-btn sk-btn--small" data-fill="half">Hälfte</button>
+                <button class="sk-btn sk-btn--small" data-fill="all">Alles</button>
+            </div>
+            <button class="sk-btn sk-btn--block sk-btn--gold" data-action="sell" style="margin-top:10px">Verkaufen</button>
+            ` : emptyNote('Du hast nichts im Lager, was der Markt annimmt.')}
         `,
         onMount(body) {
+            body.querySelectorAll('[data-buy]').forEach((button) => {
+                button.addEventListener('click', async () => {
+                    try {
+                        const result = await api.post('shop_buy', { pack: button.dataset.buy });
+                        applyResult(result);
+                        sfx.coins();
+                        haptics.success();
+                        const lost = Object.keys(result.lost || {}).length;
+                        toast(lost ? 'Gekauft – ein Teil passte nicht mehr ins Lager.' : 'Gekauft!', lost ? 'info' : 'gold');
+                        openShop();
+                    } catch (error) { toastError(error); }
+                });
+            });
+
+            const select = body.querySelector('#sk-sell-res');
+            const amount = body.querySelector('#sk-sell-amount');
+            const preview = body.querySelector('#sk-sell-preview');
+
+            const refresh = () => {
+                if (!select || !amount || !preview) { return; }
+                const rate = Number(select.selectedOptions[0].dataset.rate) || 0;
+                const count = Math.max(0, Number(amount.value) || 0);
+                preview.textContent = 'Erlös: ' + compact(Math.floor(count * rate)) + ' Goldmünzen';
+            };
+            select?.addEventListener('change', refresh);
+            amount?.addEventListener('input', refresh);
+            refresh();
+
+            body.querySelectorAll('[data-fill]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const have = stored(select.value);
+                    amount.value = String(button.dataset.fill === 'all' ? have : Math.floor(have / 2));
+                    refresh();
+                });
+            });
+
             body.querySelector('[data-action="sell"]')?.addEventListener('click', async () => {
-                const resource = body.querySelector('#sk-sell-res').value;
-                const amount = body.querySelector('#sk-sell-amount').value;
-                if (!resource) { return; }
                 try {
-                    const result = await api.post('shop_sell', { resource, amount });
+                    const result = await api.post('shop_sell', {
+                        resource: select.value,
+                        amount: amount.value
+                    });
                     applyResult(result);
                     sfx.coins();
                     toast(`${compact(result.sold)} verkauft für ${compact(result.gold)} Gold.`, 'gold');

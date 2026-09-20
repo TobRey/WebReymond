@@ -240,7 +240,9 @@ body.sk-game {
     box-shadow: 0 -12px 40px rgba(0, 0, 0, .4);
     transform: translateY(100%);
     transition: transform .28s cubic-bezier(.22, 1, .36, 1);
-    max-height: calc(88dvh - var(--sk-nav-height));
+    /* bewusst nicht bildschirmfüllend: Inselwechsler und Schnellzugriffe
+       oben bleiben sichtbar und bedienbar */
+    max-height: calc(78dvh - var(--sk-nav-height));
     display: flex;
     flex-direction: column;
 }

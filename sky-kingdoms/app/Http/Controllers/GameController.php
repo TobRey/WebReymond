@@ -237,8 +237,19 @@ final class GameController
             ];
         }
 
+        $packs = [];
+        foreach ((array) App::balance('shop.packs', []) as $key => $def) {
+            $packs[$key] = [
+                'name'  => (string) $def['name'],
+                'give'  => (array) ($def['give'] ?? []),
+                'price' => (array) ($def['price'] ?? []),
+            ];
+        }
+
         return [
             'resources'   => $resources,
+            'shopPacks'   => $packs,
+            'sellRates'   => (array) App::balance('shop.sell_rates', []),
             'buildings'   => $buildings,
             'islandTypes' => $islands,
             'modes'       => $modes,
