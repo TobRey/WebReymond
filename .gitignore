@@ -61,3 +61,27 @@ desktop.ini
 
 # --- Von Prisma erzeugter Client (wird beim Installieren neu gebaut) ---
 apps/api/src/generated/
+
+# --- Sky Kingdoms: lokale Installation und Spielstände ---
+sky-kingdoms/config/config.php
+sky-kingdoms/storage/data/*
+!sky-kingdoms/storage/data/.gitkeep
+!sky-kingdoms/storage/data/.htaccess
+!sky-kingdoms/storage/data/index.html
+sky-kingdoms/storage/logs/*
+!sky-kingdoms/storage/logs/.gitkeep
+!sky-kingdoms/storage/logs/.htaccess
+!sky-kingdoms/storage/logs/index.html
+sky-kingdoms/storage/sessions/*
+!sky-kingdoms/storage/sessions/.gitkeep
+!sky-kingdoms/storage/sessions/.htaccess
+!sky-kingdoms/storage/sessions/index.html
+sky-kingdoms/storage/cache/*
+!sky-kingdoms/storage/cache/.gitkeep
+!sky-kingdoms/storage/cache/.htaccess
+!sky-kingdoms/storage/cache/index.html
+sky-kingdoms/storage/backups/*
+!sky-kingdoms/storage/backups/.gitkeep
+!sky-kingdoms/storage/backups/.htaccess
+!sky-kingdoms/storage/backups/index.html
+sky-kingdoms/smoke-run.log

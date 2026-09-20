@@ -1,0 +1,90 @@
+# ======================================================================
+#  Sky Kingdoms – Apache-Konfiguration
+#  Funktioniert im Document-Root UND in jedem Unterordner.
+#  Ohne mod_rewrite laufen alle Seiten trotzdem (dann über index.php,
+#  api/index.php, admin/index.php und install/index.php).
+# ======================================================================
+
+# Verzeichnisauflistung abschalten
+Options -Indexes
+
+DirectoryIndex index.php index.html
+
+# UTF-8 als Standard
+AddDefaultCharset UTF-8
+
+# ----------------------------------------------------------------------
+# Sensible Ordner und Dateien sperren (zweite Verteidigungslinie – in den
+# Ordnern selbst liegt jeweils eine eigene .htaccess)
+# ----------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Kein direkter Zugriff auf Programmcode, Daten, Protokolle und Sicherungen
+    RewriteRule ^(app|config|storage|tests|tools)(/|$) - [F,L]
+
+    # Hübsche Adressen, sofern mod_rewrite vorhanden ist.
+    # Ohne diese Regeln funktioniert alles genauso über ?a= und ?p=.
+    RewriteRule ^api/([A-Za-z0-9_.\-]+)/?$        api/index.php?a=$1    [QSA,L]
+    RewriteRule ^admin/([A-Za-z0-9_.\-]+)/?$      admin/index.php?p=$1  [QSA,L]
+    RewriteRule ^spiel/?$                          index.php?p=game      [QSA,L]
+    RewriteRule ^anmelden/?$                       index.php?p=login     [QSA,L]
+    RewriteRule ^registrieren/?$                   index.php?p=register  [QSA,L]
+</IfModule>
+
+# Dateitypen, die niemals ausgeliefert werden dürfen
+<FilesMatch "\.(jsonl|log|bak|lock|sqlite|db|ini|sh|bak\.json)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Versteckte Dateien (.env, .git, .htaccess …)
+<FilesMatch "^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# ----------------------------------------------------------------------
+# Sicherheitskopfzeilen (PHP setzt sie zusätzlich selbst)
+# ----------------------------------------------------------------------
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "same-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()"
+</IfModule>
+
+# ----------------------------------------------------------------------
+# Komprimierung und Caching der Spielgrafiken
+# ----------------------------------------------------------------------
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml
+    AddOutputFilterByType DEFLATE application/javascript application/json
+    AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/svg+xml "access plus 30 days"
+    ExpiresByType image/png     "access plus 30 days"
+    ExpiresByType text/css      "access plus 7 days"
+    ExpiresByType application/javascript "access plus 7 days"
+    ExpiresByType application/manifest+json "access plus 1 day"
+</IfModule>
+
+# Service Worker darf nie aus dem Cache kommen
+<Files "sw.js">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "no-cache, must-revalidate"
+    </IfModule>
+</Files>

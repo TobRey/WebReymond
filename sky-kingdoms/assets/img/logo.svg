@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Sky Kingdoms">
+  <defs>
+    <linearGradient id="skySky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7fd8ff"/><stop offset="1" stop-color="#cfefff"/>
+    </linearGradient>
+    <linearGradient id="skyRock" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#9a7f63"/><stop offset=".55" stop-color="#6f5842"/><stop offset="1" stop-color="#4a382a"/>
+    </linearGradient>
+    <linearGradient id="skyGrass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8fe07a"/><stop offset="1" stop-color="#4fae57"/>
+    </linearGradient>
+    <linearGradient id="skyTower" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fdfbf4"/><stop offset=".55" stop-color="#e8e0cd"/><stop offset="1" stop-color="#c9bda3"/>
+    </linearGradient>
+    <linearGradient id="skyRoof" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#ff9f4a"/><stop offset="1" stop-color="#e2582f"/>
+    </linearGradient>
+    <radialGradient id="skyGlow" cx=".5" cy=".42" r=".55">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".85"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <circle cx="128" cy="128" r="124" fill="url(#skySky)"/>
+  <circle cx="128" cy="112" r="96" fill="url(#skyGlow)"/>
+
+  <!-- Wolken -->
+  <g fill="#ffffff" opacity=".85">
+    <ellipse cx="62" cy="74" rx="26" ry="13"/><ellipse cx="80" cy="70" rx="18" ry="11"/>
+    <ellipse cx="196" cy="168" rx="28" ry="13"/><ellipse cx="176" cy="172" rx="18" ry="10"/>
+  </g>
+
+  <!-- Schwebende Insel -->
+  <g>
+    <path d="M62 150 C62 138 84 128 128 128 C172 128 194 138 194 150 L176 176 L150 206 L128 224 L106 204 L80 176 Z" fill="url(#skyRock)"/>
+    <path d="M62 150 C62 138 84 128 128 128 C172 128 194 138 194 150 C194 160 172 168 128 168 C84 168 62 160 62 150 Z" fill="url(#skyGrass)"/>
+    <path d="M72 158 q14 7 32 8 M150 166 q18 -2 30 -8" stroke="#3d8f49" stroke-width="3" fill="none" stroke-linecap="round" opacity=".6"/>
+    <!-- Wasserfall -->
+    <path d="M112 164 q-3 22 2 40 q3 10 -4 14 q-8 -18 -6 -54 Z" fill="#bfeaff" opacity=".85"/>
+  </g>
+
+  <!-- Burg -->
+  <g>
+    <rect x="96" y="82" width="26" height="50" rx="4" fill="url(#skyTower)"/>
+    <rect x="134" y="70" width="30" height="62" rx="4" fill="url(#skyTower)"/>
+    <rect x="118" y="96" width="24" height="36" rx="3" fill="#ded5c0"/>
+    <path d="M92 82 h34 l-17 -22 Z" fill="url(#skyRoof)"/>
+    <path d="M130 70 h38 l-19 -26 Z" fill="url(#skyRoof)"/>
+    <rect x="104" y="100" width="9" height="13" rx="4" fill="#3a4a66"/>
+    <rect x="144" y="88" width="10" height="14" rx="5" fill="#3a4a66"/>
+    <rect x="124" y="112" width="12" height="20" rx="6" fill="#5b4433"/>
+    <!-- Fahne -->
+    <path d="M149 44 v-20" stroke="#6b5744" stroke-width="3.4" stroke-linecap="round"/>
+    <path d="M150 25 q16 4 22 10 q-12 5 -22 4 Z" fill="#ffc94a"/>
+  </g>
+
+  <circle cx="128" cy="128" r="122" fill="none" stroke="#ffffff" stroke-opacity=".55" stroke-width="5"/>
+</svg>
