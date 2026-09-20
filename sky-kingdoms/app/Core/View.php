@@ -7,31 +7,37 @@ namespace SkyKingdoms\Core;
 /**
  * Sehr schlanke Vorlagen-Engine: reine PHP-Dateien unter app/Views.
  * Ausgabe von Benutzerdaten immer über e().
+ *
+ * Die internen Variablen heissen absichtlich $skTemplate/$skData. extract()
+ * überspringt mit EXTR_SKIP bereits vorhandene Namen – hiesse der Parameter
+ * schlicht $data, käme eine Ansicht mit einer Variablen namens „data" nie an
+ * ihre Werte.
  */
 final class View
 {
     /** Vorlage rendern und zurückgeben. */
-    public static function render(string $template, array $data = []): string
+    public static function render(string $skTemplate, array $skData = []): string
     {
-        $file = SK_ROOT . '/app/Views/' . str_replace(['..', '\\'], '', $template) . '.php';
-        if (!is_file($file)) {
-            throw new \RuntimeException('Vorlage nicht gefunden: ' . $template);
+        $skFile = SK_ROOT . '/app/Views/' . str_replace(['..', '\\'], '', $skTemplate) . '.php';
+        if (!is_file($skFile)) {
+            throw new \RuntimeException('Vorlage nicht gefunden: ' . $skTemplate);
         }
 
-        extract($data, EXTR_SKIP);
+        extract($skData, EXTR_SKIP);
+        unset($skData, $skTemplate);
+
         ob_start();
-        require $file;
+        require $skFile;
 
         return (string) ob_get_clean();
     }
 
     /** Vorlage innerhalb eines Layouts rendern und ausgeben. */
-    public static function page(string $template, array $data = [], string $layout = 'partials/layout'): never
+    public static function page(string $skTemplate, array $skData = [], string $skLayout = 'partials/layout'): never
     {
-        $content = self::render($template, $data);
-        $data['content'] = $content;
+        $skData['content'] = self::render($skTemplate, $skData);
 
-        echo self::render($layout, $data);
+        echo self::render($skLayout, $skData);
         exit;
     }
 

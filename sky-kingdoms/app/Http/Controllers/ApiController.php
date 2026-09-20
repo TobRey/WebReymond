@@ -444,8 +444,11 @@ final class ApiController
         $routes = [];
         foreach ($snapshot['routes'] as $id => $route) {
             $routes[$id] = [
-                'flow'    => round($route['flow'] * 60, 2),
+                // 'flow' ist der tatsächliche Durchsatz, 'nominal' das, was die
+                // Träger bei voller Zulieferung schaffen würden.
+                'flow'    => round((float) ($route['effective'] ?? $route['flow']) * 60, 2),
                 'nominal' => round($route['nominal'] * 60, 2),
+                'reason'  => (string) ($route['reason'] ?? ''),
                 'jam'     => round($route['jam_factor'], 3),
                 'ok'      => (bool) $route['ok'],
                 'note'    => (string) $route['note'],

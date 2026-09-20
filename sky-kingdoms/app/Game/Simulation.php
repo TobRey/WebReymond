@@ -146,6 +146,29 @@ final class Simulation
             }
         }
 
+        // Tatsächlicher Durchsatz je Route (nach Drosselung durch leere Puffer,
+        // volle Lager und Staus) plus der Grund, falls es stockt.
+        $routes = $graph['plan']['routes'];
+        foreach ($graph['edges'] as $edge) {
+            if ($edge['kind'] !== 'route') {
+                continue;
+            }
+            $id = (string) $edge['ref'];
+            if (!isset($routes[$id])) {
+                continue;
+            }
+            $effective = $edge['rate'] * $graph['groups'][$edge['group']];
+            $routes[$id]['effective'] = $effective;
+            $routes[$id]['reason']    = self::stallReason($graph, $edge, $effective, $routes[$id]);
+        }
+        foreach ($routes as $id => $route) {
+            if (!isset($routes[$id]['effective'])) {
+                $routes[$id]['effective'] = 0.0;
+                $routes[$id]['reason']    = $route['ok'] ? 'Nichts zu transportieren.' : (string) $route['note'];
+            }
+        }
+        $graph['plan']['routes'] = $routes;
+
         return [
             'production'  => $production,
             'delivery'    => $delivery,
@@ -156,6 +179,38 @@ final class Simulation
             'hunger'      => $graph['hunger'],
             'notes'       => self::bottlenecks($graph),
         ];
+    }
+
+    /** Warum läuft eine Route langsamer als möglich? */
+    private static function stallReason(array $graph, array $edge, float $effective, array $route): string
+    {
+        $nominal = (float) ($route['nominal'] ?? 0) * (float) ($route['jam_factor'] ?? 1);
+        if ($nominal <= 0) {
+            return (string) ($route['note'] ?? '');
+        }
+        if ($effective >= $nominal - 1e-6) {
+            return ($route['jam_factor'] ?? 1) < 0.98 ? 'Stau auf der Brücke.' : '';
+        }
+
+        // Zielseite voll?
+        foreach ($edge['to'] as $tank) {
+            $entry = $graph['tanks'][$tank] ?? null;
+            if ($entry !== null && is_finite($entry['cap']) && $entry['amount'] >= $entry['cap'] - 1e-6) {
+                return $entry['kind'] === 'class'
+                    ? 'Das Lager ist voll – baue oder verbessere Lagergebäude.'
+                    : 'Der Eingang des Zielgebäudes ist voll.';
+            }
+        }
+
+        // Quelle leer?
+        foreach ($edge['from'] as $tank) {
+            $entry = $graph['tanks'][$tank] ?? null;
+            if ($entry !== null && $entry['amount'] <= 1e-6) {
+                return 'Es wird weniger hergestellt, als die Träger tragen könnten.';
+            }
+        }
+
+        return 'Die Zulieferung reicht nicht für die volle Auslastung.';
     }
 
     // =================================================================

@@ -20,7 +20,7 @@ final class RateLimit
     public static function attempt(string $action, string $identity): array
     {
         [$limit, $window] = self::rule($action);
-        if ($limit <= 0 || !App::isInstalled()) {
+        if ($limit <= 0) {
             return ['allowed' => true, 'remaining' => $limit, 'retry_after' => 0];
         }
 
@@ -62,11 +62,15 @@ final class RateLimit
     public static function peek(string $action, string $identity): array
     {
         [$limit, $window] = self::rule($action);
-        if ($limit <= 0 || !App::isInstalled()) {
+        if ($limit <= 0) {
             return ['allowed' => true, 'remaining' => $limit, 'retry_after' => 0];
         }
 
-        $state = App::store()->read(self::key($action, $identity), ['start' => 0, 'count' => 0]);
+        try {
+            $state = App::store()->read(self::key($action, $identity), ['start' => 0, 'count' => 0]);
+        } catch (StoreException) {
+            return ['allowed' => true, 'remaining' => $limit, 'retry_after' => 0];
+        }
         $start = (int) ($state['start'] ?? 0);
         $count = (int) ($state['count'] ?? 0);
         $now   = time();
@@ -85,9 +89,6 @@ final class RateLimit
     /** Zähler zurücksetzen – z. B. nach erfolgreicher Anmeldung. */
     public static function clear(string $action, string $identity): void
     {
-        if (!App::isInstalled()) {
-            return;
-        }
         try {
             App::store()->delete(self::key($action, $identity));
         } catch (StoreException) {
