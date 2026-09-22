@@ -1,4 +1,5 @@
-// YouGBT Admin: prüft, ob der Datenordner per Web wirklich gesperrt ist.
+// YouGBT Admin: prüft, ob gespeicherte Dateien per Web wirklich nichts preisgeben.
+// Getestet wird eine Datei im selben Format wie Spielstände/Konfiguration (.php mit Sperrzeile).
 (function () {
   var el = document.getElementById('probe-result');
   if (!el) return;
@@ -7,11 +8,11 @@
     .then(function (res) {
       if (res.text.indexOf('YOUGBT-PROBE-VISIBLE') !== -1) {
         el.className = 'fail';
-        el.textContent = '⚠ Der Server ignoriert .htaccess: data/ ist per Web lesbar. Spielstände und Schlüssel bleiben durch die PHP-Sperrzeile trotzdem geschützt, aber prüfe die Serverkonfiguration.';
+        el.textContent = '⚠ PHP wird im Ordner data/ nicht ausgeführt und Dateien sind lesbar. Bitte Hosting-Support fragen, ob PHP aktiv ist.';
       } else {
         el.className = 'pass';
-        el.textContent = '✔ Datenordner ist per Web gesperrt (HTTP ' + res.status + ')';
+        el.textContent = '✔ Gespeicherte Daten sind per Web nicht lesbar (HTTP ' + res.status + ')';
       }
     })
-    .catch(function () { el.className = 'pass'; el.textContent = '✔ Datenordner nicht per Web erreichbar'; });
+    .catch(function () { el.className = 'pass'; el.textContent = '✔ Gespeicherte Daten sind per Web nicht lesbar'; });
 })();

@@ -19,6 +19,14 @@ Die App funktioniert in **jedem** Unterordner. Aufruf = Domain + Pfad zum Ordner
 `https://deine-domain.de/games/yougbt/` (oder `…/irgendwas/tief/yougbt/`). Alle Links und Dateien
 sind relativ; es gibt keinen fest eingetragenen Domainnamen.
 
+## Anthropic-API-Schlüssel erstellen
+1. Auf console.anthropic.com anmelden.
+2. **Billing**: Guthaben aufladen (ohne Guthaben lehnt die API jede Anfrage ab). Empfohlen: unter
+   **Limits** ein monatliches Ausgabenlimit setzen.
+3. **API Keys → Create Key**: beliebiger Name (z. B. „YouGBT“), Workspace „Default“. Weitere
+   Einstellungen unverändert lassen.
+4. Den Schlüssel (beginnt mit `sk-ant-`) sofort kopieren – er wird nur einmal angezeigt.
+
 ## Einrichtung (einmalig, ca. 2 Minuten)
 1. Öffne `https://deine-domain.de/<pfad>/yougbt/admin.php`.
 2. Öffne im cPanel-Dateimanager `yougbt/data/setup-code.php` (Rechtsklick → View) und kopiere den
@@ -36,7 +44,10 @@ pro Spezialrunde ca. 4. Hinweise und Polling kosten nichts.
 - Spielstände, Konfiguration und Schlüssel liegen – wenn möglich – **außerhalb des Webroots**
   (`/home/<user>/yougbt-data-…`). Falls das Hosting das nicht erlaubt, im Ordner `yougbt/data/`,
   der per `.htaccess` gesperrt ist. Zusätzlich beginnt jede Datei mit einer PHP-Sperrzeile, sodass selbst
-  bei ignorierter `.htaccess` kein Inhalt ausgeliefert wird. Der Adminbereich prüft den Webschutz live.
+  bei ignorierter `.htaccess` (z. B. wenn ein Nginx-Cache vor Apache statische Dateien ausliefert)
+  kein Inhalt ausgeliefert wird. Der Adminbereich prüft das live.
+- Die Admin-Anmeldung braucht keine PHP-Sitzungen (signiertes Cookie), funktioniert also auch bei
+  Hostings mit Seiten-Cache.
 - Der API-Schlüssel wird nie an Browser gesendet. Alte Räume werden automatisch aufgeräumt.
 
 ## Deinstallation

@@ -9,12 +9,69 @@ yg_security_headers();
 header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: no-store');
 
-$https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
-session_name('yougbt_admin');
-session_set_cookie_params(['lifetime' => 0, 'path' => yg_base_path(), 'secure' => $https, 'httponly' => true, 'samesite' => 'Strict']);
-session_start();
-if (empty($_SESSION['csrf'])) {
-    $_SESSION['csrf'] = yg_rand_hex(24);
+// Anmeldung ohne PHP-Sitzungen (manche Shared-Hostings verlieren Sitzungen oder cachen Seiten):
+// signiertes Cookie + davon abgeleitetes CSRF-Token + Herkunftsprüfung (Origin/Referer).
+$https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https'
+    || (string) ($_SERVER['SERVER_PORT'] ?? '') === '443';
+header('Vary: Cookie');
+
+function yg_admin_secret(): string
+{
+    $s = (string) yg_cfg('secret');
+    if ($s === '' && yg_is_configured()) {
+        $s = yg_rand_hex(32);
+        yg_save_config(['secret' => $s]);
+    }
+    return $s;
+}
+
+function yg_admin_sig(string $exp, string $adminHash): string
+{
+    return hash_hmac('sha256', 'admin|' . $exp . '|' . substr($adminHash, -24), yg_admin_secret());
+}
+
+function yg_admin_set_cookie(string $value, int $expires): void
+{
+    global $https;
+    setcookie('yougbt_admin', $value, [
+        'expires' => $expires, 'path' => yg_base_path(), 'secure' => $https, 'httponly' => true, 'samesite' => 'Lax',
+    ]);
+}
+
+function yg_admin_login_cookie(string $adminHash): void
+{
+    $exp = (string) (time() + 8 * 3600);
+    yg_admin_set_cookie($exp . '.' . yg_admin_sig($exp, $adminHash), (int) $exp);
+}
+
+function yg_admin_cookie_valid(): bool
+{
+    $c = (string) ($_COOKIE['yougbt_admin'] ?? '');
+    if (!preg_match('/^(\d{10})\.([a-f0-9]{64})$/', $c, $m) || (int) $m[1] < time()) {
+        return false;
+    }
+    return hash_equals(yg_admin_sig($m[1], (string) yg_cfg('admin_hash')), $m[2]);
+}
+
+/** CSRF-Token: an das Anmelde-Cookie gebunden; vor der Anmeldung leer (dort schützen Einrichtungscode/Passwort + Herkunftsprüfung). */
+function yg_admin_csrf(): string
+{
+    $c = (string) ($_COOKIE['yougbt_admin'] ?? '');
+    return $c === '' || !yg_is_configured() ? 'none' : hash_hmac('sha256', 'csrf|' . $c, yg_admin_secret());
+}
+
+/** Anfrage muss von derselben Website kommen (falls der Browser Origin/Referer mitsendet). */
+function yg_admin_same_origin(): bool
+{
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    foreach (['HTTP_ORIGIN', 'HTTP_REFERER'] as $h) {
+        $v = (string) ($_SERVER[$h] ?? '');
+        if ($v !== '' && $v !== 'null') {
+            return strtolower((string) parse_url($v, PHP_URL_HOST)) . (parse_url($v, PHP_URL_PORT) ? ':' . parse_url($v, PHP_URL_PORT) : '') === $host;
+        }
+    }
+    return true;
 }
 
 function h(?string $s): string
@@ -24,7 +81,7 @@ function h(?string $s): string
 
 function yg_admin_csrf_ok(): bool
 {
-    return is_string($_POST['csrf'] ?? null) && hash_equals($_SESSION['csrf'], $_POST['csrf']);
+    return is_string($_POST['csrf'] ?? null) && hash_equals(yg_admin_csrf(), $_POST['csrf']);
 }
 
 /** Einmaliger Einrichtungscode – nur über den cPanel-Dateimanager lesbar. */
@@ -49,13 +106,16 @@ function yg_mask_key(string $k): string
 $msg = '';
 $err = '';
 $configured = yg_is_configured();
-$loggedIn = $configured && !empty($_SESSION['admin']) && ($_SESSION['admin_cfg'] ?? '') === substr((string) yg_cfg('admin_hash'), -16);
-$models = $_SESSION['models'] ?? null;
+$loggedIn = $configured && yg_admin_cookie_valid();
 $action = (string) ($_POST['do'] ?? '');
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        if (!yg_admin_csrf_ok()) {
+        if (!yg_admin_same_origin()) {
+            throw new YgError('csrf');
+        }
+        // Formulare im angemeldeten Bereich zusätzlich mit CSRF-Token
+        if ($loggedIn && !in_array($action, ['setup', 'login'], true) && !yg_admin_csrf_ok()) {
             throw new YgError('csrf');
         }
         if (!$configured && $action === 'setup') {
@@ -78,17 +138,19 @@ try {
             }
             $ids = array_column($list, 'id');
             $model = in_array(YG_DEFAULT_MODEL, $ids, true) ? YG_DEFAULT_MODEL : ($ids[0] ?? YG_DEFAULT_MODEL);
+            $hash = password_hash($pw, PASSWORD_DEFAULT);
+            $secret = yg_rand_hex(32);
             yg_save_config([
                 'api_key' => $key,
-                'admin_hash' => password_hash($pw, PASSWORD_DEFAULT),
+                'admin_hash' => $hash,
                 'model' => $model,
+                'models' => $list,
+                'secret' => $secret,
                 'created' => time(),
             ]);
             @unlink(YG_APP_DIR . '/data/setup-code.php');
-            session_regenerate_id(true);
-            $_SESSION['admin'] = true;
-            $_SESSION['admin_cfg'] = substr((string) (yg_read_guarded(yg_config_file())['admin_hash'] ?? ''), -16);
-            $_SESSION['models'] = $list;
+            $exp = (string) (time() + 8 * 3600);
+            yg_admin_set_cookie($exp . '.' . hash_hmac('sha256', 'admin|' . $exp . '|' . substr($hash, -24), $secret), (int) $exp);
             header('Location: admin.php?ok=setup');
             exit;
         }
@@ -97,21 +159,18 @@ try {
             if (!password_verify((string) ($_POST['password'] ?? ''), (string) yg_cfg('admin_hash'))) {
                 throw new YgError('login_failed');
             }
-            session_regenerate_id(true);
-            $_SESSION['admin'] = true;
-            $_SESSION['admin_cfg'] = substr((string) yg_cfg('admin_hash'), -16);
+            yg_admin_login_cookie((string) yg_cfg('admin_hash'));
             header('Location: admin.php');
             exit;
         }
         if ($loggedIn) {
             switch ($action) {
                 case 'logout':
-                    $_SESSION = [];
-                    session_destroy();
+                    yg_admin_set_cookie('', time() - 3600);
                     header('Location: admin.php');
                     exit;
                 case 'models':
-                    $_SESSION['models'] = yg_list_models((string) yg_cfg('api_key'));
+                    yg_save_config(['models' => yg_list_models((string) yg_cfg('api_key'))]);
                     header('Location: admin.php?ok=models');
                     exit;
                 case 'save':
@@ -121,7 +180,7 @@ try {
                         if (!preg_match('/^sk-ant-[A-Za-z0-9_\-]{20,200}$/', $key)) {
                             throw new YgError('api_key_format');
                         }
-                        $_SESSION['models'] = yg_list_models($key);
+                        $new['models'] = yg_list_models($key);
                         $new['api_key'] = $key;
                     }
                     $model = trim((string) ($_POST['model'] ?? ''));
@@ -146,7 +205,7 @@ try {
                     }
                     $hash = password_hash($pw, PASSWORD_DEFAULT);
                     yg_save_config(['admin_hash' => $hash]);
-                    $_SESSION['admin_cfg'] = substr($hash, -16);
+                    yg_admin_login_cookie($hash);
                     header('Location: admin.php?ok=password');
                     exit;
             }
@@ -155,7 +214,7 @@ try {
     }
 } catch (YgError $e) {
     $err = [
-        'csrf' => 'Sitzung abgelaufen. Bitte Seite neu laden und erneut versuchen.',
+        'csrf' => 'Sitzung abgelaufen oder Anfrage kam nicht von dieser Seite. Bitte Seite neu laden und erneut versuchen.',
         'setup_code_wrong' => 'Der Einrichtungscode stimmt nicht. Du findest ihn im cPanel-Dateimanager in yougbt/data/setup-code.php.',
         'password_rules' => 'Passwort: mindestens 10 Zeichen, beide Eingaben müssen übereinstimmen.',
         'api_key_format' => 'Das sieht nicht wie ein Anthropic-API-Schlüssel aus (beginnt mit „sk-ant-“).',
@@ -186,8 +245,8 @@ $checks = [
     ['mbstring-Erweiterung', function_exists('mb_strlen'), ''],
     ['Speicher beschreibbar', is_writable(yg_data_dir()), ''],
 ];
-$csrf = h($_SESSION['csrf']);
-$models = $_SESSION['models'] ?? null;
+$csrf = h(yg_admin_csrf());
+$models = yg_cfg('models');
 ?><!doctype html>
 <html lang="de" data-theme="dark">
 <head>
@@ -210,7 +269,7 @@ $models = $_SESSION['models'] ?? null;
       <?php foreach ($checks as [$label, $pass, $info]): ?>
         <li class="<?= $pass ? 'pass' : 'fail' ?>"><?= $pass ? '✔' : '✖' ?> <?= h($label) ?> <?= $info ? '<small>(' . h($info) . ')</small>' : '' ?></li>
       <?php endforeach; ?>
-      <li id="probe-result" class="muted" data-probe="data/probe.txt">… Webschutz des Datenordners wird geprüft</li>
+      <li id="probe-result" class="muted" data-probe="data/probe.php">… Webschutz des Datenordners wird geprüft</li>
     </ul>
 
 <?php if (!$configured): ?>
