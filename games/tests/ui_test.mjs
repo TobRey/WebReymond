@@ -80,7 +80,7 @@ await B.waitForTimeout(1600);
 ok((await B.textContent('.q-text')) === qb && (await B.inputValue('#answer')) === 'Wegen Rayleigh-Streuung', 'Nach Neuladen: gleiche Frage, Entwurf wiederhergestellt');
 
 // Gast: Hinweis holen
-await B.click('button:has-text("KI-Hilferuf")');
+await B.click('.composer-top button:has-text("💡")');
 await B.click('.modal .btn-primary');
 await B.waitForSelector('.hint-shown', { timeout: 8000 });
 ok((await B.textContent('.hint-shown')).includes('Streuung'), 'Hinweis-Stichwort angezeigt inkl. Abzug');
@@ -109,12 +109,11 @@ ok((await B.textContent('.results')).includes('Streuung'), 'Hinweis nach Auflös
 ok((await A.textContent('.results')).includes('+200'), 'Joker verdoppelt 100 → 200');
 
 // Light Mode + Englisch
-const themeBefore = await A.getAttribute('html', 'data-theme');
-await A.click('#btn-theme');
 await A.click('#btn-lang');
 await A.waitForTimeout(400);
-ok((await A.getAttribute('html', 'data-theme')) !== themeBefore, 'Hell/Dunkel umgeschaltet (' + themeBefore + ' → ' + (await A.getAttribute('html', 'data-theme')) + ')');
-ok((await A.textContent('.reveal-actions')).includes('Ready'), 'Oberfläche auf Englisch umgeschaltet');
+ok((await A.getAttribute('html', 'data-theme')) === 'dark' && (await A.locator('#btn-theme').count()) === 0, 'Nur Dark Mode');
+ok((await A.locator('.model').count()) === 0, 'Keine Musterantwort in der Auflösung');
+ok((await A.textContent('.reveal-actions')).includes('Next'), 'Oberfläche auf Englisch umgeschaltet');
 await A.screenshot({ path: OUT + '/11-reveal-theme-en.png' });
 
 // Beide bereit → Runde 2

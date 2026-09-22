@@ -38,7 +38,7 @@ sind relativ; es gibt keinen fest eingetragenen Domainnamen.
    (Standard 400) und **max. gleichzeitige Partien** (Standard 10) ändern.
 
 Kostenrichtwert: pro normaler Runde 2 KI-Aufrufe (1 Frage für die ganze Lobby + 1 gebündelte Bewertung),
-pro Spezialrunde ca. 4. Hinweise und Polling kosten nichts.
+pro Spezialrunde 2 (Frage + Rückfragen in einem Aufruf, Bewertung aller drei Antworten am Ende in einem Aufruf). Hinweise und Polling kosten nichts.
 
 ## Sicherheit & Speicherung
 - Spielstände, Konfiguration und Schlüssel liegen – wenn möglich – **außerhalb des Webroots**

@@ -118,25 +118,15 @@
 
   // ------------------------------------------------------------------ Einstellungen (Theme, Sprache, Bewegung)
   function applyPrefs() {
-    var theme = S.theme || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-    document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.setAttribute('data-theme', 'dark');
     document.documentElement.setAttribute('lang', S.lang);
     document.documentElement.classList.toggle('reduce-motion', reduced());
-    $('#btn-theme').textContent = theme === 'dark' ? '☾' : '☀';
-    $('#btn-theme').setAttribute('aria-label', t('theme_toggle'));
-    $('#btn-theme').title = t('theme_toggle');
     $('#btn-lang').textContent = S.lang.toUpperCase();
     $('#btn-lang').title = t('ui_lang');
     $('#btn-motion').textContent = reduced() ? '◌' : '✦';
     $('#btn-motion').title = reduced() ? t('motion_on') : t('motion_off');
     $('#btn-motion').setAttribute('aria-label', $('#btn-motion').title);
-    var meta = document.querySelector('meta[name=theme-color]');
-    if (meta) meta.setAttribute('content', theme === 'dark' ? '#0b0620' : '#f4f0ff');
   }
-  $('#btn-theme').addEventListener('click', function () {
-    var cur = document.documentElement.getAttribute('data-theme');
-    S.theme = cur === 'dark' ? 'light' : 'dark'; store.set('theme', S.theme); applyPrefs();
-  });
   $('#btn-lang').addEventListener('click', function () {
     S.lang = S.lang === 'de' ? 'en' : 'de'; store.set('lang', S.lang); applyPrefs(); S.screenKey = ''; route(true);
   });
@@ -269,34 +259,22 @@
     var top = bestVals.length ? Math.max.apply(null, bestVals.map(function (b) { return b.score; })) : null;
     var hero = h('section', { class: 'screen home' },
       h('div', { class: 'hero' },
-        h('div', { class: 'hero-badge', text: t('tagline_badge') }),
-        h('h1', { class: 'hero-title' }, h('span', { class: 'glitch', 'data-text': 'YouGBT', text: 'YouGBT' })),
-        h('p', { class: 'hero-sub', text: t('tagline') }),
-        h('div', { class: 'hero-chat', 'aria-hidden': 'true' },
-          h('div', { class: 'bubble in demo d1' }, h('b', { text: 'Brötchen-Bernd' }), ' ', t('demo_q1')),
-          h('div', { class: 'bubble out demo d2', text: t('demo_a1') }),
-          h('div', { class: 'score-chip demo d3', text: '87 / 100' })
-        )
+        h('h1', { class: 'hero-title' }, 'YouGBT'.split('').map(function (c, i) { return h('span', { class: 'hl', style: '--i:' + i, text: c }); })),
+        h('div', { class: 'hero-badge', text: t('tagline_badge') })
       ),
       !configured ? h('div', { class: 'alert alert-err', text: t('not_configured_home') }) : null,
       h('div', { class: 'home-actions' },
-        bigButton('🎮', t('play_solo'), t('play_solo_sub'), function () { renderCreate(true); }, !configured),
-        bigButton('🛸', t('create_room'), t('create_room_sub'), function () { renderCreate(false); }, !configured),
-        bigButton('🔑', t('join_room'), t('join_room_sub'), function () { renderJoin(''); }, false)
+        bigButton('🎮', t('play_solo'), 'c1', function () { renderCreate(true); }, !configured),
+        bigButton('🎉', t('create_room'), 'c2', function () { renderCreate(false); }, !configured),
+        bigButton('🔑', t('join_room'), 'c3', function () { renderJoin(''); }, false)
       ),
-      top !== null ? h('p', { class: 'best-line' }, '🏆 ', t('personal_best'), ': ', h('b', { text: String(top) })) : null,
-      h('div', { class: 'how' },
-        howCard('1', t('how1_t'), t('how1')), howCard('2', t('how2_t'), t('how2')), howCard('3', t('how3_t'), t('how3'))
-      )
+      top !== null ? h('p', { class: 'best-line' }, '🏆 ', h('b', { text: String(top) })) : null
     );
     app.appendChild(hero);
   }
-  function bigButton(icon, title, sub, fn, disabled) {
-    return h('button', { class: 'big-btn tilt', type: 'button', onclick: fn, disabled: disabled },
-      h('span', { class: 'big-icon', text: icon }), h('span', { class: 'big-title', text: title }), h('span', { class: 'big-sub', text: sub }));
-  }
-  function howCard(n, title, text) {
-    return h('div', { class: 'how-card glass' }, h('span', { class: 'how-n', text: n }), h('h3', { text: title }), h('p', { text: text }));
+  function bigButton(icon, title, color, fn, disabled) {
+    return h('button', { class: 'big-btn ' + color, type: 'button', onclick: fn, disabled: disabled },
+      h('span', { class: 'big-icon', text: icon }), h('span', { class: 'big-title', text: title }));
   }
 
   // ------------------------------------------------------------------ Erstellen / Beitreten
@@ -327,8 +305,7 @@
       h('div', { class: 'field' }, h('span', { text: t('rounds') }),
         chipGroup(t('rounds'), [3, 5, 11, 21].map(function (n) { return { v: n, label: String(n) }; }), s.rounds, function (v) { set('rounds', v); }, disabled)),
       h('div', { class: 'field' }, h('span', { text: t('mode') }),
-        chipGroup(t('mode'), [{ v: 'normal', label: t('mode_normal'), icon: '💬' }, { v: 'roulette', label: t('mode_roulette'), icon: '🎡' }], s.mode, function (v) { set('mode', v); }, disabled),
-        h('small', { class: 'muted', text: s.mode === 'roulette' ? t('mode_roulette_desc') : t('mode_normal_desc') })),
+        chipGroup(t('mode'), [{ v: 'normal', label: t('mode_normal'), icon: '💬' }, { v: 'roulette', label: t('mode_roulette'), icon: '🎡' }], s.mode, function (v) { set('mode', v); }, disabled)),
       h('div', { class: 'field' }, h('span', { text: t('game_lang') }),
         chipGroup(t('game_lang'), [{ v: 'de', label: 'Deutsch' }, { v: 'en', label: 'English' }], s.lang, function (v) { set('lang', v); }, disabled))
     );
@@ -340,7 +317,7 @@
     var preview = h('span', { class: 'name-preview' });
     function upd() { var v = input.value.trim().replace(/\s+AI$/i, ''); preview.textContent = v ? v + ' AI' : ''; }
     input.addEventListener('input', upd); upd();
-    return { el: h('label', { class: 'field' }, h('span', { text: t('your_name') }), input, h('small', { class: 'muted' }, t('name_hint'), ' ', preview)), input: input };
+    return { el: h('label', { class: 'field' }, h('span', { text: t('your_name') }), input, h('small', { class: 'muted' }, '→ ', preview)), input: input };
   }
 
   function renderCreate(solo) {
@@ -351,7 +328,7 @@
     function drawSettings() { clear(box); box.appendChild(settingsEditor(settings, function (s) { settings = s; drawSettings(); }, { solo: solo })); }
     drawSettings();
     var btn = h('button', { class: 'btn btn-primary btn-lg', type: 'submit', text: solo ? t('start_solo') : t('create_room') });
-    var form = h('form', { class: 'card glass form-card', onsubmit: function (e) {
+    var form = h('form', { class: 'card form-card', onsubmit: function (e) {
       e.preventDefault();
       btn.disabled = true; btn.classList.add('loading');
       store.set('name', nf.input.value.trim());
@@ -364,7 +341,6 @@
     } },
       h('h1', { class: 'title-sm', text: solo ? t('play_solo') : t('create_room') }),
       nf.el, box,
-      solo ? h('p', { class: 'muted small', text: t('solo_info') }) : null,
       h('div', { class: 'row' }, h('button', { class: 'btn btn-ghost', type: 'button', onclick: goHome, text: t('back') }), btn)
     );
     app.appendChild(h('section', { class: 'screen narrow' }, form));
@@ -385,7 +361,7 @@
         else info.textContent = t('invite_ok');
       });
     }
-    var form = h('form', { class: 'card glass form-card', onsubmit: function (e) {
+    var form = h('form', { class: 'card form-card', onsubmit: function (e) {
       e.preventDefault();
       btn.disabled = true; btn.classList.add('loading');
       store.set('name', nf.input.value.trim());
@@ -673,7 +649,7 @@
   // ------------------------------------------------------------------ Phasen
   function stageLobby(main, st) {
     var link = inviteLink(st.code);
-    var codeBox = st.solo ? null : h('div', { class: 'code-card glass tilt' },
+    var codeBox = st.solo ? null : h('div', { class: 'code-card tilt' },
       h('span', { class: 'muted small', text: t('room_code') }),
       h('div', { class: 'room-code', text: st.code }),
       h('div', { class: 'row wrap' },
@@ -693,10 +669,7 @@
     }, text: st.solo ? t('start_solo') : t('start_game') }) : h('p', { class: 'muted center-text', text: t('wait_host') });
     main.appendChild(h('div', { class: 'lobby' },
       codeBox,
-      h('div', { class: 'card glass' }, h('h2', { text: t('settings') }), editor,
-        !st.is_host ? h('p', { class: 'muted small', text: t('host_sets') }) : null),
-      h('div', { class: 'rules card glass' }, h('h2', { text: t('rules_t') }), h('ul', { class: 'rule-list' },
-        h('li', { text: t('rule_time') }), h('li', { text: t('rule_special') }), h('li', { text: t('rule_hint') }), h('li', { text: t('rule_joker') }))),
+      h('div', { class: 'card' }, editor),
       !st.solo && active < 2 ? h('p', { class: 'muted center-text', text: t('need_players') }) : null,
       startBtn));
   }
@@ -717,7 +690,8 @@
   function chatThread(st, typeIt) {
     var th = h('div', { class: 'thread' });
     (st.thread || []).forEach(function (m, i) {
-      th.appendChild(h('div', { class: 'bubble in old' }, h('span', { class: 'bubble-step', text: t('part_x', { x: i + 1 }) }), aiText(m)));
+      th.appendChild(h('div', { class: 'bubble in old' }, h('span', { class: 'bubble-step', text: t('part_x', { x: i + 1 }) }), aiText(m.q)));
+      if (m.mine) th.appendChild(h('div', { class: 'bubble out old', text: m.mine }));
     });
     var bubble = h('div', { class: 'bubble in main-q' });
     if (st.special) bubble.appendChild(h('span', { class: 'bubble-step', text: t('part_x', { x: st.sub + 1 }) }));
@@ -746,7 +720,8 @@
       var a0 = (i * seg - 90) * Math.PI / 180, a1 = ((i + 1) * seg - 90) * Math.PI / 180;
       var path = document.createElementNS(ns, 'path');
       path.setAttribute('d', 'M0 0 L' + (100 * Math.cos(a0)).toFixed(2) + ' ' + (100 * Math.sin(a0)).toFixed(2) + ' A100 100 0 0 1 ' + (100 * Math.cos(a1)).toFixed(2) + ' ' + (100 * Math.sin(a1)).toFixed(2) + ' Z');
-      path.setAttribute('fill', 'hsl(' + ((i * 360 / n + 260) % 360) + ' 85% ' + (i % 2 ? '58%' : '48%') + ')');
+      path.setAttribute('fill', ['#ffd23f', '#ff5d8f', '#3ddcff', '#3be08b', '#ff8a3d', '#8b5cf6', '#ffe98a', '#ff9ec0'][i % 8]);
+      path.setAttribute('stroke', '#12093a'); path.setAttribute('stroke-width', '2');
       g.appendChild(path);
       var tx = document.createElementNS(ns, 'text');
       var mid = (i + 0.5) * seg - 90;
@@ -787,7 +762,7 @@
       noticeBox(st),
       st.special && st.sub === 0 ? h('div', { class: 'special-banner', text: t('special_intro') }) : null,
       h('div', { class: 'bubble in typing-bubble' }, h('span', { class: 'dots' }, h('i'), h('i'), h('i'))),
-      h('p', { class: 'muted center-text', text: st.category ? t('generating_cat', { cat: st.category.label }) : t('generating') })));
+      st.category ? h('p', { class: 'muted center-text', text: st.category.label }) : null));
   }
 
   function stageAnswer(main, st) {
@@ -798,8 +773,8 @@
       thread.querySelector('.thread').appendChild(h('div', { class: 'bubble out' },
         my.joker ? h('span', { class: 'bubble-step joker', text: '🎲 ' + t('joker_active') }) : null,
         my.answer));
-      main.appendChild(h('div', { class: 'wait-box glass' }, h('div', { class: 'loader small' }, h('span'), h('span'), h('span')),
-        h('p', { text: st.solo ? t('grading_soon') : t('waiting_others') }), st.solo ? null : h('p', { class: 'muted', id: 'wait-count' })));
+      main.appendChild(h('div', { class: 'wait-box' }, h('div', { class: 'loader small' }, h('span'), h('span'), h('span')),
+        st.solo ? null : h('p', { class: 'muted', id: 'wait-count' })));
       return;
     }
     var key = st.q.key;
@@ -825,14 +800,14 @@
             b.disabled = true;
             api('hint', { key: key }).then(function (res) { if (!res.ok) { b.disabled = false; toast(errMsg(res.error), 'err'); } });
           } }]);
-      } }, '💡 ', st.me.hint_used ? t('hint_gone') : t('hint_btn', { p: penalty }));
+      } }, '💡 ', st.me.hint_used ? '✓' : '−' + penalty);
     }
     // Risiko-Joker
     var jokerEl;
     if (st.special) {
-      jokerEl = h('span', { class: 'joker-off small muted', text: '🎲 ' + t('joker_special_off') });
+      jokerEl = h('span', { class: 'joker-off small muted', title: t('joker_special_off'), text: '🎲 ✕' });
     } else if (st.me.joker_used) {
-      jokerEl = h('span', { class: 'joker-off small muted', text: '🎲 ' + t('joker_gone') });
+      jokerEl = h('span', { class: 'joker-off small muted', title: t('joker_gone'), text: '🎲 ✓' });
     } else {
       var on = !!S.joker[key];
       jokerEl = h('button', { class: 'btn btn-sm joker-btn' + (on ? ' on' : ''), type: 'button', 'aria-pressed': String(on), onclick: function () {
@@ -856,12 +831,11 @@
       });
     });
 
-    main.appendChild(h('div', { class: 'composer glass' },
+    main.appendChild(h('div', { class: 'composer' },
       h('div', { class: 'composer-top' }, hintEl, jokerEl),
       S.joker[key] ? h('p', { class: 'joker-note', text: t('joker_note', { x: 75 }) }) : null,
       ta,
-      h('div', { class: 'composer-bottom' }, counter, h('span', { class: 'muted small hide-sm', text: t('ctrl_enter') }), sendBtn),
-      h('p', { class: 'muted small', text: st.solo ? t('solo_no_timer') : t('final_note') })));
+      h('div', { class: 'composer-bottom' }, counter, sendBtn)));
     upd();
   }
 
@@ -869,12 +843,12 @@
     var thread = h('div', { class: 'chat-stage' }, personaHead(st), st.q ? chatThread(st, false) : null);
     main.appendChild(thread);
     if (st.my && st.my.submitted) thread.querySelector('.thread').appendChild(h('div', { class: 'bubble out', text: st.my.answer }));
-    main.appendChild(h('div', { class: 'wait-box glass grading' },
-      h('div', { class: 'scanner' }), h('p', { class: 'big-wait', text: t('grading') }), h('p', { class: 'muted', text: t('grading_sub') })));
+    main.appendChild(h('div', { class: 'wait-box grading' },
+      h('div', { class: 'loader' }, h('span'), h('span'), h('span')), h('p', { class: 'big-wait', text: t('grading') })));
   }
 
   function scoreBar(r) {
-    var pct = Math.round(100 * r.points / (r.joker && r.joker_ok ? 200 : r.max));
+    var pct = Math.round(100 * r.points / (r.joker && r.joker_ok ? 200 : (r.max || 100)));
     var bar = h('div', { class: 'bar' }, h('span', { class: 'bar-fill', style: '--w:' + Math.min(100, pct) + '%' }));
     return bar;
   }
@@ -883,38 +857,48 @@
     var res = st.results; if (!res) return;
     var me = st.me.id;
     var list = res.list.slice().sort(function (a, b) { return (b.id === me) - (a.id === me) || b.points - a.points; });
-    var thread = h('div', { class: 'chat-stage compact' }, personaHead(st), chatThread(st, false));
-    main.appendChild(thread);
+    if (res.questions) {
+      main.appendChild(h('div', { class: 'chat-stage compact' }, personaHead(st),
+        h('ol', { class: 'q-list' }, res.questions.map(function (q) { return h('li', { text: aiText(q) }); }))));
+    } else {
+      main.appendChild(h('div', { class: 'chat-stage compact' }, personaHead(st), chatThread(st, false)));
+    }
     var cards = h('div', { class: 'results' });
     list.forEach(function (r, i) {
+      var body;
+      if (r.special) {
+        body = h('ol', { class: 'sp-parts' }, r.parts.map(function (p) {
+          return h('li', null,
+            h('span', { class: 'sp-pts', text: p.points + '/50' }),
+            h('span', { class: 'sp-ans' + (p.none ? ' muted' : ''), text: p.none ? '—' : p.answer }),
+            p.hint ? h('span', { class: 'badge hint', text: '💡 −' + p.penalty }) : null);
+        }));
+      } else {
+        body = [
+          r.none ? h('p', { class: 'muted r-answer', text: '—' }) : h('p', { class: 'r-answer', text: r.answer }),
+          r.reason ? h('p', { class: 'r-reason', text: r.reason }) : null
+        ];
+      }
       var badges = h('div', { class: 'r-badges' },
-        r.joker ? h('span', { class: 'badge ' + (r.joker_ok ? 'ok' : 'out'), text: '🎲 ' + (r.joker_ok ? t('joker_win') : t('joker_lose')) }) : null,
-        r.hint ? h('span', { class: 'badge hint', text: '💡 ' + r.hint + ' (−' + r.penalty + ')' }) : null,
-        r.perfect ? h('span', { class: 'badge perfect', text: '💯 ' + t('perfect_badge') }) : null);
-      cards.appendChild(h('article', { class: 'r-card glass' + (r.id === me ? ' me' : '') + (r.perfect ? ' perfect' : ''), style: '--i:' + i },
+        r.joker ? h('span', { class: 'badge ' + (r.joker_ok ? 'ok' : 'out'), text: '🎲 ' + (r.joker_ok ? '×2' : '0') }) : null,
+        r.hint ? h('span', { class: 'badge hint', text: '💡 ' + r.hint + ' −' + r.penalty }) : null,
+        r.perfect ? h('span', { class: 'badge perfect', text: '💯' }) : null);
+      cards.appendChild(h('article', { class: 'r-card' + (r.id === me ? ' me' : '') + (r.perfect ? ' perfect' : ''), style: '--i:' + i },
         h('header', { class: 'r-head' }, avatar(r.name, 'sm'), h('span', { class: 'r-name', text: r.name }),
-          h('span', { class: 'r-points' }, h('b', { text: '+' + r.points }), h('small', { text: ' ' + t('raw_of', { x: r.raw, y: 100 }) }))),
-        scoreBar(r),
-        r.none ? h('p', { class: 'muted r-answer', text: t('no_answer') }) : h('p', { class: 'r-answer', text: r.answer }),
-        r.reason ? h('p', { class: 'r-reason' }, '🧑‍⚖️ ', r.reason) : null,
-        badges));
+          h('span', { class: 'r-points' }, h('b', { text: '+' + r.points }), r.special ? h('small', { text: ' /150' }) : null)),
+        scoreBar(r), body, badges));
     });
-    var model = h('details', { class: 'model glass', open: true },
-      h('summary', { text: '✅ ' + t('model_answer') }), h('p', { text: res.model_answer }),
-      h('p', { class: 'muted small', text: t('criteria') + ': ' + res.criteria.join(' · ') }));
-    main.appendChild(model);
     main.appendChild(cards);
 
     if (res.round_totals) main.appendChild(scoreboard(st, res.round_totals));
-    else if (st.special) main.appendChild(h('p', { class: 'muted center-text', text: t('special_pending') }));
 
-    var isLast = st.round >= st.settings.rounds && (!st.special || st.sub >= 2);
-    var nextLabel = isLast ? t('to_final') : (st.special && st.sub < 2 ? t('next_followup') : t('next_round'));
+    var isLast = st.round >= st.settings.rounds;
+    var nextLabel = isLast ? t('to_final') : t('next_round');
     var actions = h('div', { class: 'reveal-actions' });
     if (!st.me.ready) {
       actions.appendChild(h('button', { class: 'btn btn-primary btn-lg', type: 'button', onclick: function (e) {
         e.currentTarget.disabled = true; api('ready').then(function (r) { if (!r.ok) toast(errMsg(r.error), 'err'); });
-      }, text: st.solo ? nextLabel : t('ready_btn') + ' – ' + nextLabel }));
+      }, text: nextLabel + ' ▶' }));
     } else {
       actions.appendChild(h('p', { class: 'muted', text: t('waiting_ready') }));
     }
@@ -947,7 +931,7 @@
 
   function scoreboard(st, totals) {
     var rows = st.players.slice().sort(function (a, b) { return (a.status === 'left') - (b.status === 'left') || b.score - a.score; });
-    return h('div', { class: 'scoreboard glass' }, h('h3', { text: t('scoreboard') }),
+    return h('div', { class: 'scoreboard' }, h('h3', { text: t('scoreboard') }),
       h('ol', null, rows.map(function (p) {
         return h('li', { class: p.status === 'left' ? 'left' : '' }, h('span', { class: 'sb-name', text: p.name }),
           totals[p.id] !== undefined ? h('span', { class: 'sb-plus', text: '+' + totals[p.id] }) : null,
@@ -957,11 +941,10 @@
 
   function stageStalled(main, st) {
     var err = st.stalled ? st.stalled.err : 'ai_error';
-    main.appendChild(h('div', { class: 'card glass stalled' },
+    main.appendChild(h('div', { class: 'card stalled' },
       h('div', { class: 'stalled-icon', text: err === 'ai_limit' ? '🪫' : '📡' }),
       h('h2', { text: t('stalled_t') }),
       h('p', { text: errMsg(err) }),
-      h('p', { class: 'muted small', text: t('stalled_safe') }),
       st.is_host ? h('div', { class: 'row wrap center' },
         h('button', { class: 'btn btn-primary', type: 'button', onclick: function (e) {
           e.currentTarget.disabled = true; api('retry').then(function (r) { if (!r.ok) toast(errMsg(r.error), 'err'); });
@@ -971,7 +954,7 @@
   }
 
   function stageEliminated(st) {
-    return h('div', { class: 'card glass center-text' }, h('h2', { text: t('you_left') }), h('p', { class: 'muted', text: t('you_left_sub') }),
+    return h('div', { class: 'card center-text' }, h('h2', { text: t('you_left') }), h('p', { class: 'muted', text: t('you_left_sub') }),
       h('button', { class: 'btn btn-primary', type: 'button', onclick: function () { dropSession(st.code); goHome(); }, text: t('home') }));
   }
 
@@ -992,7 +975,7 @@
       var isNew = prevBest === null || score > prevBest;
       if (isNew && !S.savedBest) { best[k] = { score: score, date: Date.now() }; store.set('best', best); }
       S.savedBest = true;
-      main.appendChild(h('div', { class: 'solo-result glass tilt' },
+      main.appendChild(h('div', { class: 'solo-result tilt' },
         h('div', { class: 'muted', text: t('your_score') }),
         h('div', { class: 'solo-score', text: String(score) }),
         h('div', { class: 'muted', text: t('max_possible', { x: maxScore(st.settings.rounds) }) }),
@@ -1012,7 +995,7 @@
     } else {
       var w = ranking[0];
       var tie = ranking.length > 1 && ranking[1].rank === 1;
-      main.appendChild(h('div', { class: 'duel glass' },
+      main.appendChild(h('div', { class: 'duel' },
         tie ? h('div', { class: 'duel-title', text: '🤝 ' + t('tie') }) : h('div', { class: 'duel-title', text: '🏆 ' + t('winner_is', { name: w.name }) }),
         h('div', { class: 'duel-row' }, ranking.map(function (r) {
           return h('div', { class: 'duel-p' + (r.rank === 1 ? ' win' : '') }, avatar(r.name, 'lg'), h('b', { text: r.name }), h('span', { text: String(r.score) }));
@@ -1020,7 +1003,7 @@
       fx.burst(150);
     }
     if (!st.solo) {
-      main.appendChild(h('div', { class: 'ranking glass' }, h('h3', { text: t('ranking') }),
+      main.appendChild(h('div', { class: 'ranking' }, h('h3', { text: t('ranking') }),
         h('ol', null, ranking.map(function (r) {
           return h('li', { class: (r.left ? 'left ' : '') + (r.id === st.me.id ? 'me' : '') },
             h('span', { class: 'rk', text: String(r.rank) + '.' }), h('span', { class: 'rk-name', text: r.name }),

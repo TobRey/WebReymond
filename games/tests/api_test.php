@@ -206,7 +206,7 @@ check($by[$players[1]['pid']]['points'] === 70 && $by[$players[1]['pid']]['hint'
 check($by[$players[4]['pid']]['perfect'] === true && $by[$players[4]['pid']]['points'] === 100, 'Perfekte 100 erkannt, keine Extrapunkte');
 check($by[$players[5]['pid']]['points'] === 0, 'Manipulationsversuch bringt keine Punkte');
 check($by[$players[8]['pid']]['none'] === true && $by[$players[8]['pid']]['points'] === 0, 'Keine Antwort → 0 Punkte');
-check(!empty($s['results']['model_answer']) && !empty($s['results']['round_totals']), 'Musterantwort + Rundenwertung sichtbar');
+check(!isset($s['results']['model_answer']) && !str_contains(json_encode($s), 'Rayleigh') && !empty($s['results']['round_totals']), 'Keine Musterantwort/Kriterien an Clients, Rundenwertung sichtbar');
 $r = api(['a' => 'submit', 'key' => $key, 'answer' => 'zu spät'] + auth($players[9]));
 check(($r['error'] ?? '') === 'not_answering', 'Späte Abgabe nach Phase abgelehnt');
 
@@ -245,21 +245,21 @@ $r = api(['a' => 'hint', 'key' => $key] + auth($players[6]));
 check(!empty($r['ok']) && $r['state']['my']['hint'] !== null, 'Hilferuf in Spezialrunde nutzbar');
 $scoreBefore = array_column(st($host)['players'], 'score', 'id');
 $genBefore = mock_calls('gen');
+$gradeBefore = mock_calls('grade');
 for ($sub = 0; $sub < 3; $sub++) {
     $s = waitPhase($host, 'answering');
-    check($s['sub'] === $sub, "Spezialrunde Teil " . ($sub + 1) . " aktiv, eigener Timer");
+    check($s['sub'] === $sub && $s['q']['deadline'] - $s['q']['started'] === 6000, "Spezialrunde Teil " . ($sub + 1) . " aktiv, eigener Timer");
+    if ($sub > 0) {
+        check(count($s['thread'] ?? []) === $sub && mock_calls('grade') === $gradeBefore, 'Keine Einzelbewertung zwischen den Teilen, Verlauf sichtbar');
+    }
     $key = $s['q']['key'];
     api_multi(array_map(fn($p) => ['a' => 'submit', 'key' => $key, 'answer' => $p['pid'] === $players[6]['pid'] ? 'HIGH' : 'PERFECT'] + auth($p), $active));
-    $s = waitPhase($host, 'reveal');
-    $mine = array_values(array_filter($s['results']['list'], fn($x) => $x['id'] === $players[6]['pid']))[0];
-    if ($sub === 0) check($mine['points'] === 35 && $mine['max'] === 50, 'Teil 1: 80 roh → 40 − 5 (Hinweis, halbiert) = 35 von 50');
-    if ($sub < 2) {
-        $mid = array_column(st($host)['players'], 'score', 'id');
-        check($mid === $scoreBefore, 'Punkte erst am Ende der Spezialrunde addiert');
-        check(empty($s['results']['round_totals']), 'Noch keine Rundenwertung nach Teil ' . ($sub + 1));
-        api_multi(array_map(fn($p) => ['a' => 'ready'] + auth($p), $active));
-    }
 }
+$s = waitPhase($host, 'reveal');
+check(mock_calls('grade') - $gradeBefore === 1, 'Alle drei Teile am Ende in EINEM KI-Aufruf bewertet');
+$mine = array_values(array_filter($s['results']['list'], fn($x) => $x['id'] === $players[6]['pid']))[0];
+check(count($mine['parts']) === 3 && $mine['parts'][0]['points'] === 35 && $mine['max'] === 150, 'Teil 1: 80 roh → 40 − 5 (Hinweis) = 35 von 50');
+check(count($s['results']['questions']) === 3, 'Auflösung zeigt alle drei Fragen gemeinsam');
 check(mock_calls('gen') === $genBefore, 'Rückfragen ohne weitere KI-Aufrufe (vorab für alle gleich erzeugt)');
 $after = array_column(st($host)['players'], 'score', 'id');
 check($after[$players[6]['pid']] - $scoreBefore[$players[6]['pid']] === 35 + 40 + 40, 'Spezialrunde summiert: 35 + 40 + 40 = 115');

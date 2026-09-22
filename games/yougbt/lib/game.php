@@ -89,7 +89,7 @@ function yg_create_room(array $settings, string $name, bool $solo): array
             'solo' => $solo, 'host_id' => $player['id'],
             'players' => [$player['id'] => $player],
             'phase' => 'lobby', 'round' => 0, 'sub' => 0, 'gen' => 0,
-            'wheel' => array_slice($cats, 0, 8),
+            'wheel' => array_slice($cats, 0, 8), 'sp' => [],
             'category' => null, 'spin' => null, 'roundq' => null, 'q' => null,
             'answers' => [], 'hints' => [], 'results' => null, 'reveal_until' => null,
             'pending' => [], 'history' => [], 'avoid' => [], 'recent_cats' => [],
@@ -191,6 +191,22 @@ function yg_tick(array &$room, int $now): void
             }
             $timeUp = $room['q']['deadline'] !== null && $now > (int) $room['q']['deadline'] + YG_ANSWER_GRACE_MS;
             if ($all || $timeUp) {
+                if (yg_is_special($room['round'])) {
+                    // Spezialrunde: Antworten sammeln, nächste Rückfrage sofort; bewertet wird erst am Ende
+                    $room['sp'][$room['sub']] = ['answers' => $room['answers'], 'hints' => $room['hints']];
+                    if ($room['sub'] < 2) {
+                        $room['sub']++;
+                        yg_start_answering($room, $now);
+                        break;
+                    }
+                    $room['phase'] = 'grading';
+                    $room['job'] = null;
+                    $room['_dirty'] = true;
+                    if (!yg_special_has_answers($room)) {
+                        yg_apply_special_results($room, [], $now);
+                    }
+                    break;
+                }
                 $room['phase'] = 'grading';
                 $room['job'] = null;
                 $room['_dirty'] = true;
@@ -215,6 +231,18 @@ function yg_tick(array &$room, int $now): void
     }
 }
 
+function yg_special_has_answers(array $room): bool
+{
+    foreach ($room['sp'] ?? [] as $part) {
+        foreach ($part['answers'] as $a) {
+            if (trim((string) $a['text']) !== '') {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 function yg_has_answers(array $room): bool
 {
     foreach ($room['answers'] as $a) {
@@ -234,6 +262,7 @@ function yg_begin_round(array &$room, int $now): void
     $room['notice'] = null;
     $room['annulled'] = 0;
     $room['pending'] = [];
+    $room['sp'] = [];
     if ($room['mode'] === 'roulette') {
         $idx = random_int(0, count($room['wheel']) - 1);
         $room['category'] = $room['wheel'][$idx];
@@ -283,13 +312,6 @@ function yg_next_step(array &$room, int $now): void
     unset($p);
     $room['notice'] = null;
     $room['_dirty'] = true;
-    $special = yg_is_special($room['round']);
-    if ($special && $room['sub'] < 2) {
-        $room['sub']++;
-        $room['annulled'] = 0;
-        yg_start_answering($room, $now);
-        return;
-    }
     $room['round']++;
     if ($room['round'] >= $room['rounds']) {
         yg_finish($room, 'complete');
@@ -332,9 +354,10 @@ function yg_points(int $raw, bool $special, bool $joker, bool $hint): array
 /** Wendet Bewertungen an und wechselt in die Auflösung. $graded: pid => [score, reason]. */
 function yg_apply_results(array &$room, array $graded, int $now): void
 {
-    $special = yg_is_special($room['round']);
+    $special = false;
     $part = $room['roundq']['parts'][$room['sub']];
     $results = [];
+    $roundTotals = [];
     foreach ($room['players'] as $id => $p) {
         $ans = $room['answers'][$id] ?? null;
         if ($p['status'] !== 'active' && !$ans) {
@@ -363,37 +386,86 @@ function yg_apply_results(array &$room, array $graded, int $now): void
             'perfect' => $ans !== null && (int) $raw === 100,
         ];
         if ($p['status'] === 'active') {
-            $room['pending'][$id] = ($room['pending'][$id] ?? 0) + $pts['points'];
+            $roundTotals[$id] = $pts['points'];
         }
     }
-    $roundDone = !$special || $room['sub'] >= 2;
-    $roundTotals = null;
-    if ($roundDone) {
-        // Erst am Rundenende gutschreiben (bei Spezialrunden die Summe aller drei Phasen)
-        $roundTotals = [];
-        foreach ($room['pending'] as $id => $sum) {
-            if (isset($room['players'][$id]) && $room['players'][$id]['status'] === 'active') {
-                $room['players'][$id]['score'] += $sum;
-                $roundTotals[$id] = $sum;
-            }
-        }
-        $room['history'][] = [
-            'round' => $room['round'] + 1,
-            'special' => $special,
-            'category' => $room['category'],
-            'persona' => $room['roundq']['persona']['name'],
-            'points' => $roundTotals,
-        ];
-        $room['history'] = array_slice($room['history'], -25);
-        $room['pending'] = [];
-    }
+    yg_credit_round($room, $roundTotals, false);
     $room['results'] = [
         'key' => $room['q']['key'],
         'players' => $results,
-        'model_answer' => $part['model_answer'],
-        'criteria' => $part['criteria'],
         'round_totals' => $roundTotals,
     ];
+    yg_enter_reveal($room, $now);
+}
+
+/** Punkte gutschreiben und Rundenverlauf speichern. */
+function yg_credit_round(array &$room, array $totals, bool $special): void
+{
+    foreach ($totals as $id => $sum) {
+        if (isset($room['players'][$id]) && $room['players'][$id]['status'] === 'active') {
+            $room['players'][$id]['score'] += $sum;
+        }
+    }
+    $room['history'][] = [
+        'round' => $room['round'] + 1,
+        'special' => $special,
+        'category' => $room['category'],
+        'persona' => $room['roundq']['persona']['name'] ?? '',
+        'points' => $totals,
+    ];
+    $room['history'] = array_slice($room['history'], -25);
+    $room['pending'] = [];
+}
+
+/** Spezialrunde: alle drei Antworten je Spieler gemeinsam auswerten (je 0–50, max. 150). $graded: pid => [part => [score, reason]] */
+function yg_apply_special_results(array &$room, array $graded, int $now): void
+{
+    $results = [];
+    $totals = [];
+    foreach ($room['players'] as $id => $p) {
+        $any = false;
+        $parts = [];
+        $sum = 0;
+        $perfect = false;
+        for ($i = 0; $i < 3; $i++) {
+            $ans = $room['sp'][$i]['answers'][$id] ?? null;
+            $hint = !empty($room['sp'][$i]['hints'][$id]);
+            $raw = $ans ? (int) ($graded[$id][$i]['score'] ?? 0) : 0;
+            $pts = yg_points($raw, true, false, $hint);
+            $any = $any || $ans !== null;
+            $perfect = $perfect || ($ans !== null && $raw === 100);
+            $sum += $pts['points'];
+            $parts[] = [
+                'answer' => $ans ? (string) $ans['text'] : '',
+                'raw' => $raw,
+                'points' => $pts['points'],
+                'reason' => $ans ? (string) ($graded[$id][$i]['reason'] ?? '') : '',
+                'none' => $ans === null,
+                'hint' => $hint ? ($room['roundq']['parts'][$i]['hint'] ?? null) : null,
+                'penalty' => $pts['penalty'],
+            ];
+        }
+        if ($p['status'] !== 'active' && !$any) {
+            continue;
+        }
+        if ($p['status'] !== 'active') {
+            $sum = 0;
+        } else {
+            $totals[$id] = $sum;
+        }
+        $results[$id] = [
+            'special' => true, 'parts' => $parts, 'points' => $sum, 'max' => 150, 'raw' => null,
+            'none' => !$any, 'joker' => false, 'joker_ok' => null, 'perfect' => $perfect,
+            'answer' => '', 'reason' => '', 'hint' => null, 'penalty' => 0,
+        ];
+    }
+    yg_credit_round($room, $totals, true);
+    $room['results'] = ['key' => $room['q']['key'], 'players' => $results, 'round_totals' => $totals];
+    yg_enter_reveal($room, $now);
+}
+
+function yg_enter_reveal(array &$room, int $now): void
+{
     $room['phase'] = 'reveal';
     $room['reveal_until'] = $room['solo'] ? null : $now + YG_REVEAL_SECONDS * 1000;
     $room['job'] = null;
@@ -423,14 +495,19 @@ function yg_claim_job(array &$room, int $now): ?array
             $job['context'] = array_map(fn($p) => $p['message'], $room['roundq']['parts']);
         }
     } else {
-        $special = yg_is_special($room['round']);
-        $job['part'] = $room['roundq']['parts'][$room['sub']];
         $job['key'] = $room['q']['key'];
-        $job['answers'] = [];
-        foreach ($room['answers'] as $pid => $a) {
-            if (trim((string) $a['text']) !== '') {
-                $job['answers'][$pid] = (string) $a['text'];
+        $job['special'] = yg_is_special($room['round']);
+        // Liste von Fragen, jeweils mit den (nicht leeren) Antworten der Spieler
+        $sets = $job['special'] ? array_map(fn($x) => $x['answers'], $room['sp']) : [$room['answers']];
+        $job['items'] = [];
+        foreach ($sets as $i => $answers) {
+            $list = [];
+            foreach ($answers as $pid => $a) {
+                if (trim((string) $a['text']) !== '') {
+                    $list[$pid] = (string) $a['text'];
+                }
             }
+            $job['items'][] = ['part' => $room['roundq']['parts'][$job['special'] ? $i : $room['sub']], 'answers' => $list];
         }
     }
     $room['job'] = ['kind' => $kind, 'id' => $job['id'], 'started' => $now];
@@ -460,25 +537,34 @@ function yg_run_job(string $code, array $job): void
             }
         } else {
             // Anonyme, gemischte IDs: Die KI sieht keine Namen und keine Reihenfolge der Abgabe
-            $pids = array_keys($job['answers']);
-            shuffle($pids);
             $map = [];
-            $anon = [];
-            foreach ($pids as $i => $pid) {
-                $aid = 'a' . ($i + 1);
-                $map[$aid] = $pid;
-                $anon[$aid] = $job['answers'][$pid];
+            $blocks = [];
+            foreach ($job['items'] as $qi => $item) {
+                $pids = array_keys($item['answers']);
+                shuffle($pids);
+                $anon = [];
+                foreach ($pids as $i => $pid) {
+                    $aid = 'q' . ($qi + 1) . 'a' . ($i + 1);
+                    $map[$aid] = [$pid, $qi];
+                    $anon[$aid] = $item['answers'][$pid];
+                }
+                $blocks[] = ['part' => $item['part'], 'answers' => $anon];
             }
-            $ids = array_keys($anon);
+            $ids = array_keys($map);
             $grading = yg_claude_json(
                 yg_grade_system($lang),
-                yg_grade_user($job['part'], $anon),
-                400 + 140 * count($ids),
+                yg_grade_user($blocks),
+                400 + 120 * count($ids),
                 fn($d) => yg_validate_grading($d, $ids)
             );
             $byPid = [];
             foreach ($grading['results'] as $aid => $r) {
-                $byPid[$map[$aid]] = $r;
+                [$pid, $qi] = $map[$aid];
+                if ($job['special']) {
+                    $byPid[$pid][$qi] = $r;
+                } else {
+                    $byPid[$pid] = $r;
+                }
             }
             $output = ['valid' => $grading['question_valid'], 'reason' => $grading['invalid_reason'], 'graded' => $byPid];
         }
@@ -514,6 +600,10 @@ function yg_run_job(string $code, array $job): void
         }
         // Bewertung
         if ($room['q']['key'] !== $job['key']) {
+            return;
+        }
+        if ($job['special']) {
+            yg_apply_special_results($room, $output['graded'], $now);
             return;
         }
         if (!$output['valid'] && $room['annulled'] < 1) {
@@ -611,7 +701,10 @@ function yg_view(array $room, string $me, int $now): array
         ];
         // Frühere Teile der Spezialrunde als Chatverlauf
         if ($special && $room['sub'] > 0) {
-            $view['thread'] = array_map(fn($p) => $p['message'], array_slice($room['roundq']['parts'], 0, $room['sub']));
+            $view['thread'] = [];
+            for ($i = 0; $i < $room['sub']; $i++) {
+                $view['thread'][] = ['q' => $room['roundq']['parts'][$i]['message'], 'mine' => $room['sp'][$i]['answers'][$me]['text'] ?? null];
+            }
         }
         $a = $room['answers'][$me] ?? null;
         $view['my'] = [
@@ -628,8 +721,7 @@ function yg_view(array $room, string $me, int $now): array
         }
         $view['results'] = [
             'list' => $res,
-            'model_answer' => $room['results']['model_answer'],
-            'criteria' => $room['results']['criteria'],
+            'questions' => $special ? array_map(fn($p) => $p['message'], $room['roundq']['parts']) : null,
             'round_totals' => $room['results']['round_totals'],
             'reveal_until' => $room['reveal_until'],
         ];

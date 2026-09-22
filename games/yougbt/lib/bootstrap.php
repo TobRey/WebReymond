@@ -7,14 +7,14 @@ if (PHP_VERSION_ID < 80000) {
     exit('YouGBT benötigt PHP 8.0 oder neuer.');
 }
 
-const YG_VERSION = '1.0.0';
+const YG_VERSION = '1.1.0';
 const YG_APP_DIR = __DIR__ . '/..';
 const YG_GUARD = "<?php http_response_code(404); exit; ?>\n";
 
 // Zeiten sind nur für automatisierte lokale Tests per Umgebungsvariable verkürzbar (nicht übers Web).
-define('YG_ANSWER_SECONDS', (int) (getenv('YOUGBT_TEST_ANSWER_S') ?: 100));
+define('YG_ANSWER_SECONDS', (int) (getenv('YOUGBT_TEST_ANSWER_S') ?: 60));
 const YG_ANSWER_GRACE_MS = 2500;      // Netzwerk-Toleranz für späte Abgaben
-define('YG_REVEAL_SECONDS', (int) (getenv('YOUGBT_TEST_REVEAL_S') ?: 75)); // Auflösung, bis automatisch weitergeht
+define('YG_REVEAL_SECONDS', (int) (getenv('YOUGBT_TEST_REVEAL_S') ?: 45)); // Auflösung, bis automatisch weitergeht
 const YG_SPIN_MS = 6500;               // Dauer der Roulette-Animation
 const YG_MAX_ANSWER = 1500;
 const YG_MAX_CHAT = 200;

@@ -258,10 +258,10 @@ $models = yg_cfg('models');
 <link rel="stylesheet" href="assets/app.css?v=<?= YG_VERSION ?>">
 </head>
 <body class="admin">
-<div class="bg" aria-hidden="true"><div class="bg-layer bg-grid"></div><div class="bg-layer"><span class="orb o1"></span><span class="orb o3"></span></div></div>
+<div class="bg" aria-hidden="true"><div class="bg-layer bg-dots"></div><div class="bg-layer"><i class="sh s1"></i><i class="sh s6"></i></div></div>
 <main class="app admin-main">
   <div class="card glass">
-    <h1 class="title-sm"><span class="logo-mark">Y</span> YouGBT · Admin</h1>
+    <h1 class="title-sm"><span class="logo-mark">?</span> YouGBT · Admin</h1>
     <?php if ($err): ?><p class="alert alert-err"><?= h($err) ?></p><?php endif; ?>
     <?php if ($ok): ?><p class="alert alert-ok"><?= h($ok) ?></p><?php endif; ?>
 

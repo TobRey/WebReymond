@@ -26,7 +26,7 @@ if ($path === '/v1/models') {
 $body = json_decode((string) file_get_contents('php://input'), true);
 $sys = (string) ($body['system'] ?? '');
 $user = (string) ($body['messages'][0]['content'] ?? '');
-$kind = str_contains($sys, 'judge') ? 'grade' : 'gen';
+$kind = str_contains($sys, 'You write content') ? 'gen' : 'grade';
 file_put_contents($log, date('H:i:s') . " $kind model=" . ($body['model'] ?? '?') . "\n", FILE_APPEND | LOCK_EX);
 
 if ($mode === 'error500') { http_response_code(500); echo '{"type":"error"}'; exit; }
@@ -53,7 +53,7 @@ if ($kind === 'gen') {
     exit;
 }
 // Bewertung
-preg_match_all('/<answer id="(a\d+)">\n(.*?)\n<\/answer>/s', $user, $m, PREG_SET_ORDER);
+preg_match_all('/<answer id="([a-z0-9]+)">\n(.*?)\n<\/answer>/s', $user, $m, PREG_SET_ORDER);
 $results = [];
 foreach ($m as $row) {
     $text = $row[2];
