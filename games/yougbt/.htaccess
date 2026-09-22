@@ -1,0 +1,31 @@
+# YouGBT – Apache/LiteSpeed-Konfiguration (relativ, funktioniert in jedem Unterordner)
+Options -Indexes
+DirectoryIndex index.php
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "same-origin"
+  Header always set X-Frame-Options "SAMEORIGIN"
+</IfModule>
+
+# Interne Dateien sperren (zusätzlich zu data/.htaccess und lib/.htaccess)
+<FilesMatch "^(\.|storage-location\.php$|README|.*\.md$)">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^(data|lib)(/|$) - [F,L]
+</IfModule>
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 hour"
+  ExpiresByType application/javascript "access plus 1 hour"
+</IfModule>
