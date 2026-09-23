@@ -1,0 +1,127 @@
+{
+  "schema": "webatze-site/2.0",
+  "standardVersion": "2.0.0",
+  "siteId": "wabp7at54hf085mkfwk2",
+  "projectId": 5,
+  "name": "Faden & Form Atelier",
+  "defaultLocale": "de",
+  "locales": [
+    "de"
+  ],
+  "features": {
+    "contactForm": true,
+    "map": true,
+    "gallery": true,
+    "booking": true,
+    "backend": false,
+    "shop": false
+  },
+  "pages": [
+    {
+      "id": "pg_home",
+      "slug": "",
+      "title": "Startseite",
+      "inNav": true,
+      "file": "pages/pg_home.json"
+    },
+    {
+      "id": "pg_ueber_uns",
+      "slug": "ueber-uns",
+      "title": "Über uns",
+      "inNav": true,
+      "file": "pages/pg_ueber_uns.json"
+    },
+    {
+      "id": "pg_leistungen",
+      "slug": "leistungen",
+      "title": "Leistungen",
+      "inNav": true,
+      "file": "pages/pg_leistungen.json"
+    },
+    {
+      "id": "pg_galerie",
+      "slug": "galerie",
+      "title": "Galerie",
+      "inNav": true,
+      "file": "pages/pg_galerie.json"
+    },
+    {
+      "id": "pg_kontakt",
+      "slug": "kontakt",
+      "title": "Kontakt",
+      "inNav": true,
+      "file": "pages/pg_kontakt.json"
+    },
+    {
+      "id": "pg_impressum",
+      "slug": "impressum",
+      "title": "Impressum",
+      "inNav": false,
+      "file": "pages/pg_impressum.json"
+    },
+    {
+      "id": "pg_datenschutz",
+      "slug": "datenschutz",
+      "title": "Datenschutz",
+      "inNav": false,
+      "file": "pages/pg_datenschutz.json"
+    }
+  ],
+  "globals": {
+    "header": "globals/gl_header.json",
+    "footer": "globals/gl_footer.json"
+  },
+  "settings": {
+    "contactEmail": "info@faden-form.ch",
+    "company": {
+      "name": "Faden & Form Atelier",
+      "address": {
+        "street": "Musterstrasse 22",
+        "zip": "4410",
+        "city": "Liestal",
+        "country": "Schweiz"
+      },
+      "phone": "061 000 00 00",
+      "email": "info@faden-form.ch",
+      "founded": 2023,
+      "openingHours": [
+        {
+          "day": "Montag",
+          "time": "geschlossen"
+        },
+        {
+          "day": "Dienstag",
+          "time": "10:00–18:00 Uhr"
+        },
+        {
+          "day": "Mittwoch",
+          "time": "10:00–18:00 Uhr"
+        },
+        {
+          "day": "Donnerstag",
+          "time": "10:00–18:00 Uhr"
+        },
+        {
+          "day": "Freitag",
+          "time": "10:00–18:00 Uhr"
+        },
+        {
+          "day": "Samstag",
+          "time": "10:00–16:00 Uhr"
+        },
+        {
+          "day": "Sonntag",
+          "time": "geschlossen"
+        }
+      ]
+    },
+    "social": {
+      "instagram": "",
+      "facebook": "",
+      "linkedin": "",
+      "youtube": "",
+      "tiktok": ""
+    },
+    "favicon": ""
+  }
+}

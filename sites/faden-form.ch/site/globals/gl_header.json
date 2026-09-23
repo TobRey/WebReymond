@@ -1,0 +1,18 @@
+{
+  "id": "gl_header",
+  "type": "header",
+  "props": {
+    "logo": "",
+    "logoAlt": "Faden & Form Atelier – Logo",
+    "logoText": "Faden & Form Atelier",
+    "logoHeight": 44,
+    "menu": "main",
+    "sticky": true,
+    "cta": {
+      "label": "Platz anfragen",
+      "href": "/kontakt#anfrage",
+      "variant": "primary"
+    },
+    "mobileBreakpoint": "md"
+  }
+}

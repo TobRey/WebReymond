@@ -1,0 +1,171 @@
+{
+  "id": "pg_galerie",
+  "slug": "galerie",
+  "title": "Galerie",
+  "seo": {
+    "title": "Galerie – Vorher-nachher-Reparaturen | Faden & Form Atelier",
+    "description": "Vorher und nachher: reparierte Jeans, Jacken, Pullover und Hemden aus dem Faden & Form Atelier in Liestal. So werden Kleider wieder lange tragbar."
+  },
+  "sections": [
+    {
+      "id": "sec_gal_hero",
+      "type": "hero",
+      "props": {
+        "kicker": "Galerie",
+        "title": "Vorher – nachher: Kleider mit zweitem Leben",
+        "headingLevel": 1,
+        "text": "Hier zeigen wir Stücke aus dem Atelier, repariert von uns oder von Kursteilnehmenden. Jede Reparatur ist dafür gemacht, lange zu halten.",
+        "layout": "centered",
+        "align": "center",
+        "minHeight": "46vh"
+      },
+      "settings": {
+        "theme": "surface"
+      }
+    },
+    {
+      "id": "sec_gal_reparaturen",
+      "type": "gallery",
+      "props": {
+        "title": "Reparaturen vorher und nachher",
+        "columns": 4,
+        "lightbox": true,
+        "aspectRatio": "4/5",
+        "items": [
+          {
+            "image": "",
+            "alt": "Jeans mit aufgerissenem Knie – vorher",
+            "caption": "Jeans, vorher: Riss am Knie"
+          },
+          {
+            "image": "",
+            "alt": "Dieselbe Jeans mit unterlegtem Flicken und sichtbarer Stopfnaht – nachher",
+            "caption": "Jeans, nachher: Knie verstärkt und gestopft"
+          },
+          {
+            "image": "",
+            "alt": "Wollpullover mit Mottenloch am Ellbogen – vorher",
+            "caption": "Pullover, vorher: Loch am Ellbogen"
+          },
+          {
+            "image": "",
+            "alt": "Wollpullover mit gestopftem Ellbogen in Kontrastgarn – nachher",
+            "caption": "Pullover, nachher: sichtbar gestopft"
+          },
+          {
+            "image": "",
+            "alt": "Winterjacke mit defektem Reissverschluss – vorher",
+            "caption": "Jacke, vorher: Reissverschluss kaputt"
+          },
+          {
+            "image": "",
+            "alt": "Winterjacke mit neu eingesetztem Reissverschluss – nachher",
+            "caption": "Jacke, nachher: neuer Reissverschluss"
+          },
+          {
+            "image": "",
+            "alt": "Hemd mit ausgefranstem Kragen – vorher",
+            "caption": "Hemd, vorher: Kragen abgewetzt"
+          },
+          {
+            "image": "",
+            "alt": "Hemd mit gewendetem Kragen – nachher",
+            "caption": "Hemd, nachher: Kragen gewendet"
+          },
+          {
+            "image": "",
+            "alt": "Zu lange Anzughose mit ausgetretenem Saum – vorher",
+            "caption": "Anzughose, vorher: Saum ausgetreten"
+          },
+          {
+            "image": "",
+            "alt": "Anzughose mit neuem Saum auf passender Länge – nachher",
+            "caption": "Anzughose, nachher: gekürzt und neu gesäumt"
+          },
+          {
+            "image": "",
+            "alt": "Rucksack mit ausgerissenem Träger – vorher",
+            "caption": "Rucksack, vorher: Träger ausgerissen"
+          },
+          {
+            "image": "",
+            "alt": "Rucksack mit neu vernähtem und verstärktem Träger – nachher",
+            "caption": "Rucksack, nachher: Träger verstärkt"
+          }
+        ]
+      },
+      "settings": {
+        "anchor": "vorher-nachher"
+      }
+    },
+    {
+      "id": "sec_gal_atelier",
+      "type": "gallery",
+      "props": {
+        "title": "Aus dem Atelier",
+        "columns": 3,
+        "lightbox": true,
+        "aspectRatio": "3/2",
+        "items": [
+          {
+            "image": "",
+            "alt": "Nähkurs mit mehreren Teilnehmenden an Nähmaschinen",
+            "caption": "Nähkurs für Einsteiger"
+          },
+          {
+            "image": "",
+            "alt": "Zuschneidetisch mit Schnittmuster, Kreide und Stoffschere",
+            "caption": "Zuschnitt"
+          },
+          {
+            "image": "",
+            "alt": "Garnrollen in vielen Farben an der Wand des Ateliers",
+            "caption": "Unsere Garnwand"
+          },
+          {
+            "image": "",
+            "alt": "Teilnehmerin hält stolz ihre erste selbst genähte Tasche hoch",
+            "caption": "Das erste eigene Projekt"
+          },
+          {
+            "image": "",
+            "alt": "Workshop-Tisch mit mitgebrachten Kleidungsstücken und Nadelkissen",
+            "caption": "Workshop Ändern & Flicken"
+          },
+          {
+            "image": "",
+            "alt": "Nahaufnahme einer Stopfnaht in Kontrastfarbe auf blauem Wollstoff",
+            "caption": "Stopfen als Gestaltung"
+          }
+        ]
+      },
+      "settings": {
+        "theme": "surface"
+      }
+    },
+    {
+      "id": "sec_gal_cta",
+      "type": "cta",
+      "props": {
+        "title": "Dein Stück könnte das nächste sein",
+        "text": "Bring es in den Workshop mit oder lass es von uns reparieren.",
+        "buttons": [
+          {
+            "label": "Reparatur anfragen",
+            "href": "/kontakt#anfrage",
+            "variant": "primary"
+          },
+          {
+            "label": "Workshops ansehen",
+            "href": "/leistungen#workshops",
+            "variant": "outline"
+          }
+        ],
+        "align": "center"
+      },
+      "settings": {
+        "theme": "dark"
+      }
+    }
+  ]
+}

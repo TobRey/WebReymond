@@ -1,0 +1,148 @@
+{
+  "colors": {
+    "primary": "#234638",
+    "primaryContrast": "#f7f3ea",
+    "secondary": "#b85f45",
+    "secondaryContrast": "#ffffff",
+    "accentStrong": "#ad5840",
+    "accent": "#b85f45",
+    "accentContrast": "#ffffff",
+    "background": "#f7f3ea",
+    "surface": "#efe8d9",
+    "surfaceAlt": "#ffffff",
+    "text": "#1f2a25",
+    "textMuted": "#55625b",
+    "heading": "#1b3a2e",
+    "border": "#ddd3bf",
+    "dark": "#1b3a2e",
+    "darkText": "#f7f3ea",
+    "darkTextMuted": "#c9d3cb",
+    "link": "#8f4631",
+    "linkHover": "#234638",
+    "success": "#2f6b4f",
+    "error": "#a2372a"
+  },
+  "brandInput": {
+    "primary": "#f7f3ea",
+    "secondary": "#234638",
+    "accent": "#b85f45"
+  },
+  "fonts": {
+    "heading": {
+      "family": "ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
+      "weight": 700,
+      "letterSpacing": "-0.02em",
+      "lineHeight": 1.12,
+      "source": "system"
+    },
+    "body": {
+      "family": "ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
+      "weight": 400,
+      "lineHeight": 1.65,
+      "source": "system"
+    },
+    "baseSize": "17px",
+    "scale": 1.25,
+    "sizes": {
+      "h1": "clamp(2.4rem, 5.2vw, 4.2rem)",
+      "h2": "clamp(1.8rem, 3.4vw, 2.7rem)",
+      "h3": "1.35rem",
+      "small": "0.875rem"
+    }
+  },
+  "radius": {
+    "sm": "6px",
+    "md": "12px",
+    "lg": "22px",
+    "pill": "999px",
+    "button": "999px",
+    "card": "18px",
+    "image": "18px"
+  },
+  "spacing": {
+    "unit": "8px",
+    "sectionY": "clamp(72px, 10vw, 136px)",
+    "sectionYSm": "56px",
+    "gap": "28px",
+    "containerWidth": "1200px",
+    "containerNarrow": "760px",
+    "gutter": "20px"
+  },
+  "shadows": {
+    "sm": "0 2px 8px rgba(27,58,46,.08)",
+    "md": "0 12px 32px -14px rgba(27,58,46,.28)",
+    "lg": "0 24px 60px -24px rgba(27,58,46,.38)"
+  },
+  "buttons": {
+    "primary": {
+      "background": "#ad5840",
+      "color": "#ffffff",
+      "border": "#ad5840",
+      "hoverBackground": "#8f4631",
+      "hoverColor": "#ffffff"
+    },
+    "secondary": {
+      "background": "#234638",
+      "color": "#f7f3ea",
+      "border": "#234638",
+      "hoverBackground": "#18332a",
+      "hoverColor": "#ffffff"
+    },
+    "outline": {
+      "background": "transparent",
+      "color": "#234638",
+      "border": "#234638",
+      "hoverBackground": "#234638",
+      "hoverColor": "#f7f3ea"
+    },
+    "ghost": {
+      "background": "transparent",
+      "color": "#8f4631",
+      "border": "transparent",
+      "hoverBackground": "rgba(184,95,69,.1)",
+      "hoverColor": "#8f4631"
+    },
+    "paddingY": "14px",
+    "paddingX": "28px",
+    "fontWeight": 600,
+    "textTransform": "none"
+  },
+  "themes": {
+    "surface": {
+      "background": "#efe8d9",
+      "text": "#1f2a25",
+      "heading": "#1b3a2e"
+    },
+    "dark": {
+      "background": "#1b3a2e",
+      "text": "#f7f3ea",
+      "heading": "#f7f3ea",
+      "muted": "#c9d3cb",
+      "link": "#f0b9a6"
+    },
+    "primary": {
+      "background": "#234638",
+      "text": "#f7f3ea",
+      "heading": "#ffffff",
+      "muted": "#d6ded8",
+      "link": "#f0b9a6"
+    }
+  },
+  "header": {
+    "sticky": true,
+    "transparentOnHero": false,
+    "background": "#f7f3ea",
+    "shadowOnScroll": true
+  },
+  "animations": {
+    "enabled": true,
+    "default": "none",
+    "duration": 500,
+    "hover": true,
+    "parallax": true,
+    "respectReducedMotion": true
+  },
+  "custom": {
+    "css": "/* Faden & Form – Bewegung ohne Einblend-Show.\n   Parallaxe und Scroll-Bewegung laufen über CSS scroll-driven animations:\n   kein JavaScript, nur transform (GPU), abgeschaltet bei prefers-reduced-motion. */\n\n:root { --ff-stitch: repeating-linear-gradient(90deg, currentColor 0 10px, transparent 10px 18px); }\n\n/* Nahtlinie als Gestaltungsmotiv unter Kicker-Texten */\n.wa-kicker, [data-kicker] { position: relative; padding-bottom: .6rem; }\n.wa-kicker::after, [data-kicker]::after {\n  content: \"\"; position: absolute; left: 0; bottom: 0; width: 64px; height: 2px;\n  background: var(--ff-stitch); color: var(--color-accent); opacity: .9;\n}\n\n/* Hover: Karten heben sich leicht, Bilder zoomen sanft */\n.wa-card, .wa-cards__item, .wa-pricing__plan, .wa-steps__item {\n  transition: transform .35s cubic-bezier(.2,.7,.2,1), box-shadow .35s ease;\n}\n.wa-card:hover, .wa-cards__item:hover, .wa-pricing__plan:hover, .wa-steps__item:hover {\n  transform: translateY(-6px);\n  box-shadow: 0 18px 40px -18px rgba(35,70,56,.35);\n}\n.wa-gallery__item, .wa-imagetext__media, .wa-image { overflow: hidden; }\n.wa-gallery__item img, .wa-imagetext__media img, .wa-image img {\n  transition: transform .8s cubic-bezier(.2,.7,.2,1);\n}\n.wa-gallery__item:hover img, .wa-imagetext__media:hover img { transform: scale(1.05); }\n\n.wa-btn { transition: transform .25s ease, background-color .25s ease, color .25s ease, box-shadow .25s ease; }\n.wa-btn:hover { transform: translateY(-2px); }\n\n@supports (animation-timeline: view()) {\n  @media (prefers-reduced-motion: no-preference) {\n    /* Parallaxe: Medien wandern langsamer als der Inhalt */\n    .ff-parallax .wa-imagetext__media img,\n    .ff-parallax .wa-hero__media img,\n    .ff-parallax .wa-hero__bg {\n      animation: ff-parallax linear both;\n      animation-timeline: view();\n      animation-range: cover;\n      will-change: transform;\n    }\n    @keyframes ff-parallax {\n      from { transform: translateY(-8%) scale(1.12); }\n      to   { transform: translateY(8%)  scale(1.12); }\n    }\n\n    /* Leichtes Gegeneinander-Gleiten von Spalten */\n    .ff-drift > :nth-child(odd)  { animation: ff-drift-up linear both;   animation-timeline: view(); animation-range: cover; }\n    .ff-drift > :nth-child(even) { animation: ff-drift-down linear both; animation-timeline: view(); animation-range: cover; }\n    @keyframes ff-drift-up   { from { transform: translateY(24px); }  to { transform: translateY(-24px); } }\n    @keyframes ff-drift-down { from { transform: translateY(-12px); } to { transform: translateY(12px); } }\n\n    /* Grosse Zahlen gleiten seitlich mit dem Scrollen */\n    .ff-slide .wa-stats__item { animation: ff-slide linear both; animation-timeline: view(); animation-range: entry 0% cover 60%; }\n    @keyframes ff-slide { from { transform: translateX(-18px); } to { transform: translateX(0); } }\n  }\n}\n\n@media (prefers-reduced-motion: reduce) {\n  *, *::before, *::after { animation: none !important; transition: none !important; }\n}\n"
+  }
+}

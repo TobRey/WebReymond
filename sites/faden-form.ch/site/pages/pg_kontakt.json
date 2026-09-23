@@ -1,0 +1,220 @@
+{
+  "id": "pg_kontakt",
+  "slug": "kontakt",
+  "title": "Kontakt",
+  "seo": {
+    "title": "Kontakt & Anfrage – Faden & Form Atelier Liestal",
+    "description": "Kursplatz, Workshop oder Reparatur anfragen: Faden & Form Atelier, Musterstrasse 22, 4410 Liestal. Offen Di–Fr 10–18 Uhr, Sa 10–16 Uhr."
+  },
+  "sections": [
+    {
+      "id": "sec_kontakt_hero",
+      "type": "hero",
+      "props": {
+        "kicker": "Kontakt",
+        "title": "Schreib uns – wir freuen uns auf dich",
+        "headingLevel": 1,
+        "text": "Frag einen Kursplatz an, reserviere einen Workshop oder beschreib uns deine Reparatur. Wir antworten dir innert zwei Arbeitstagen.",
+        "layout": "centered",
+        "align": "center",
+        "minHeight": "40vh"
+      },
+      "settings": {
+        "theme": "surface"
+      }
+    },
+    {
+      "id": "sec_kontakt_main",
+      "type": "columns",
+      "props": {
+        "columns": 2,
+        "ratio": "7/5",
+        "gap": "lg",
+        "stackOn": "md"
+      },
+      "settings": {
+        "animate": "fade",
+        "anchor": "anfrage"
+      },
+      "children": [
+        {
+          "id": "el_kontakt_col_form",
+          "type": "container",
+          "props": {},
+          "children": [
+            {
+              "id": "el_kontakt_form",
+              "type": "contactform",
+              "props": {
+                "title": "Deine Anfrage",
+                "headingLevel": 2,
+                "intro": "Füll die Felder aus – je genauer du dein Anliegen beschreibst, desto schneller können wir dir einen Termin vorschlagen.",
+                "recipient": "info@faden-form.ch",
+                "subject": "Neue Anfrage über faden-form.ch",
+                "fields": [
+                  {
+                    "name": "name",
+                    "type": "text",
+                    "label": "Dein Name",
+                    "required": true,
+                    "autocomplete": "name"
+                  },
+                  {
+                    "name": "email",
+                    "type": "email",
+                    "label": "Deine E-Mail-Adresse",
+                    "required": true,
+                    "autocomplete": "email"
+                  },
+                  {
+                    "name": "phone",
+                    "type": "tel",
+                    "label": "Deine Telefonnummer (optional)",
+                    "required": false,
+                    "autocomplete": "tel"
+                  },
+                  {
+                    "name": "anliegen",
+                    "type": "select",
+                    "label": "Worum geht es?",
+                    "required": true,
+                    "options": [
+                      "Nähkurs für Einsteiger",
+                      "Workshop Ändern & Flicken",
+                      "Reparaturservice",
+                      "Gutschein",
+                      "Etwas anderes"
+                    ]
+                  },
+                  {
+                    "name": "wunschtermin",
+                    "type": "date",
+                    "label": "Dein Wunschtermin (optional)",
+                    "required": false
+                  },
+                  {
+                    "name": "personen",
+                    "type": "number",
+                    "label": "Anzahl Personen",
+                    "required": false,
+                    "min": 1,
+                    "max": 6
+                  },
+                  {
+                    "name": "message",
+                    "type": "textarea",
+                    "label": "Deine Nachricht",
+                    "required": true,
+                    "placeholder": "Zum Beispiel: Ich möchte den Einsteigerkurs besuchen und bin abends flexibel."
+                  }
+                ],
+                "privacy": {
+                  "required": true,
+                  "label": "Ich habe die <a href=\"/datenschutz\">Datenschutzerklärung</a> gelesen und bin einverstanden, dass meine Angaben zur Bearbeitung meiner Anfrage verwendet werden."
+                },
+                "submitLabel": "Anfrage senden",
+                "successMessage": "Danke für deine Anfrage! Wir melden uns innert zwei Arbeitstagen bei dir.",
+                "errorMessage": "Das hat leider nicht geklappt. Bitte versuch es nochmals oder ruf uns an: 061 000 00 00.",
+                "honeypot": true
+              }
+            }
+          ]
+        },
+        {
+          "id": "el_kontakt_col_info",
+          "type": "container",
+          "props": {},
+          "styles": {
+            "base": {
+              "padding": "32px",
+              "background": "var(--color-surface)",
+              "borderRadius": "var(--radius-card)"
+            },
+            "sm": {
+              "padding": "22px"
+            }
+          },
+          "children": [
+            {
+              "id": "el_kontakt_info_h",
+              "type": "heading",
+              "props": {
+                "text": "So findest du uns",
+                "level": 2
+              }
+            },
+            {
+              "id": "el_kontakt_info_text",
+              "type": "richtext",
+              "props": {
+                "html": "<p><strong>Faden & Form Atelier</strong><br>Musterstrasse 22<br>4410 Liestal</p><p>Telefon: <a href=\"tel:+41610000000\">061 000 00 00</a><br>E-Mail: <a href=\"mailto:info@faden-form.ch\">info@faden-form.ch</a></p>"
+              }
+            },
+            {
+              "id": "el_kontakt_hours_h",
+              "type": "heading",
+              "props": {
+                "text": "Öffnungszeiten",
+                "level": 3
+              }
+            },
+            {
+              "id": "el_kontakt_hours",
+              "type": "richtext",
+              "props": {
+                "html": "<p><strong>Dienstag bis Freitag</strong><br>10:00–18:00 Uhr</p><p><strong>Samstag</strong><br>10:00–16:00 Uhr</p><p><strong>Montag und Sonntag</strong><br>geschlossen</p>",
+                "customerEditable": true
+              }
+            },
+            {
+              "id": "el_kontakt_hint",
+              "type": "text",
+              "props": {
+                "text": "Kurse und Workshops finden auch ausserhalb der Öffnungszeiten statt, zum Beispiel am Abend. Die genauen Daten erhältst du mit der Bestätigung."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sec_kontakt_karte",
+      "type": "section",
+      "props": {
+        "container": "wide"
+      },
+      "settings": {
+        "theme": "surface"
+      },
+      "children": [
+        {
+          "id": "el_kontakt_karte_h",
+          "type": "heading",
+          "props": {
+            "text": "Anfahrt",
+            "level": 2
+          }
+        },
+        {
+          "id": "el_kontakt_karte_text",
+          "type": "text",
+          "props": {
+            "text": "Das Atelier liegt zentral in Liestal und ist vom Bahnhof in wenigen Gehminuten erreichbar."
+          }
+        },
+        {
+          "id": "el_kontakt_map",
+          "type": "map",
+          "props": {
+            "provider": "openstreetmap",
+            "address": "Musterstrasse 22, 4410 Liestal, Schweiz",
+            "zoom": 16,
+            "height": 420,
+            "consent": true,
+            "title": "Karte: Faden & Form Atelier, Musterstrasse 22, 4410 Liestal"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,282 @@
+{
+  "id": "pg_leistungen",
+  "slug": "leistungen",
+  "title": "Leistungen",
+  "seo": {
+    "title": "Leistungen – Nähkurse, Workshops & Reparaturen | Faden & Form Atelier",
+    "description": "Nähkurs für Einsteiger ab 14 Jahren, Workshops zum Ändern und Flicken deiner Kleider und Reparaturservice in Liestal. Alle Angebote, Ablauf und Preise."
+  },
+  "sections": [
+    {
+      "id": "sec_leist_hero",
+      "type": "hero",
+      "props": {
+        "kicker": "Leistungen",
+        "title": "Kurse, Workshops und Reparaturen",
+        "headingLevel": 1,
+        "text": "Du willst selbst nähen lernen, deine Kleider an einem Nachmittag reparieren oder ein Stück in gute Hände geben? Hier findest du alle Angebote mit Ablauf und Preisen.",
+        "buttons": [
+          {
+            "label": "Zu den Preisen",
+            "href": "#preise",
+            "variant": "primary"
+          }
+        ],
+        "image": "",
+        "imageAlt": "Nähmaschine mit eingespanntem Stoff und bunten Garnrollen",
+        "layout": "split",
+        "align": "left",
+        "minHeight": "60vh"
+      },
+      "styles": {
+        "base": {
+          "className": "ff-parallax"
+        }
+      }
+    },
+    {
+      "id": "sec_leist_kurse",
+      "type": "imagetext",
+      "props": {
+        "kicker": "Nähkurs für Einsteiger",
+        "title": "Deine ersten Nähte – sicher und mit Freude",
+        "headingLevel": 2,
+        "text": "<p>Der Kurs für alle ab 14 Jahren, die bei null anfangen oder ihr Wissen auffrischen möchten. An vier Abenden lernst du:</p><ul><li>Nähmaschine einfädeln, einstellen und pflegen</li><li>gerade Nähte, Rundungen und Versäuberung</li><li>Schnittmuster lesen und Stoff zuschneiden</li><li>ein eigenes kleines Projekt, zum Beispiel eine Tasche oder ein Kissen</li></ul><p><strong>Gruppengrösse:</strong> max. 6 Personen · <strong>Dauer:</strong> 4 × 3 Stunden · Maschinen und Material sind inbegriffen.</p>",
+        "image": "",
+        "imageAlt": "Teilnehmerin näht konzentriert eine gerade Naht an der Nähmaschine",
+        "imagePosition": "right",
+        "buttons": [
+          {
+            "label": "Kursplatz anfragen",
+            "href": "/kontakt#anfrage",
+            "variant": "primary"
+          }
+        ]
+      },
+      "settings": {
+        "anchor": "kurse"
+      },
+      "styles": {
+        "base": {
+          "className": "ff-parallax"
+        }
+      }
+    },
+    {
+      "id": "sec_leist_workshops",
+      "type": "imagetext",
+      "props": {
+        "kicker": "Workshop Ändern & Flicken",
+        "title": "Bring deine Kleider mit – wir reparieren sie zusammen",
+        "headingLevel": 2,
+        "text": "<p>Im Workshop arbeitest du an deinen eigenen Stücken. Du bringst mit, was geändert oder geflickt werden soll, und wir zeigen dir die passende Technik:</p><ul><li>Hosen und Ärmel kürzen, Säume neu setzen</li><li>Löcher stopfen und Risse flicken – unsichtbar oder als Blickfang</li><li>Knöpfe annähen, Druckknöpfe setzen</li><li>Reissverschlüsse ersetzen</li><li>Kleider enger oder weiter machen</li></ul><p><strong>Gruppengrösse:</strong> max. 6 Personen · <strong>Dauer:</strong> 1 Nachmittag (4 Stunden)</p>",
+        "image": "",
+        "imageAlt": "Mehrere Hände arbeiten an einem Tisch an mitgebrachten Kleidungsstücken",
+        "imagePosition": "left",
+        "buttons": [
+          {
+            "label": "Workshop anfragen",
+            "href": "/kontakt#anfrage",
+            "variant": "primary"
+          }
+        ]
+      },
+      "settings": {
+        "theme": "surface",
+        "anchor": "workshops"
+      },
+      "styles": {
+        "base": {
+          "className": "ff-parallax"
+        }
+      }
+    },
+    {
+      "id": "sec_leist_reparatur",
+      "type": "imagetext",
+      "props": {
+        "kicker": "Reparaturservice",
+        "title": "Wir machen dein Lieblingsstück wieder tragbar",
+        "headingLevel": 2,
+        "text": "<p>Du hast keine Zeit, selbst zu nähen? Bring dein Kleidungsstück während der Öffnungszeiten vorbei. Wir schauen es gemeinsam an, nennen dir den Preis und den Abholtermin.</p><ul><li>Reissverschlüsse ersetzen</li><li>Säume kürzen und neu nähen</li><li>Risse, Löcher und aufgegangene Nähte reparieren</li><li>Kleider ändern und anpassen</li><li>Futter ersetzen</li></ul><p>Die meisten Reparaturen sind innert einer Woche fertig.</p>",
+        "image": "",
+        "imageAlt": "Neu eingesetzter Reissverschluss an einer Winterjacke",
+        "imagePosition": "right",
+        "buttons": [
+          {
+            "label": "Reparatur anfragen",
+            "href": "/kontakt#anfrage",
+            "variant": "secondary"
+          }
+        ]
+      },
+      "settings": {
+        "anchor": "reparatur"
+      },
+      "styles": {
+        "base": {
+          "className": "ff-parallax"
+        }
+      }
+    },
+    {
+      "id": "sec_leist_preise",
+      "type": "pricing",
+      "props": {
+        "kicker": "Preise",
+        "title": "Klare Preise, alles inklusive",
+        "text": "Maschinen, Werkzeug, Garn und Getränke sind in allen Kursen inbegriffen.",
+        "currency": "CHF",
+        "plans": [
+          {
+            "name": "Nähkurs für Einsteiger",
+            "price": "290",
+            "period": "4 Abende à 3 Std.",
+            "features": [
+              "max. 6 Personen",
+              "ab 14 Jahren",
+              "Nähmaschine gestellt",
+              "Material für ein erstes Projekt",
+              "Kursunterlagen zum Mitnehmen"
+            ],
+            "button": {
+              "label": "Platz anfragen",
+              "href": "/kontakt#anfrage",
+              "variant": "outline"
+            }
+          },
+          {
+            "name": "Workshop Ändern & Flicken",
+            "price": "95",
+            "period": "1 Nachmittag à 4 Std.",
+            "features": [
+              "max. 6 Personen",
+              "an deinen eigenen Kleidern",
+              "Nähmaschine gestellt",
+              "Garn, Flicken und Knöpfe inklusive"
+            ],
+            "button": {
+              "label": "Platz anfragen",
+              "href": "/kontakt#anfrage",
+              "variant": "primary"
+            },
+            "highlight": true,
+            "badge": "Beliebt"
+          },
+          {
+            "name": "Reparaturservice",
+            "price": "ab 15",
+            "period": "pro Stück",
+            "features": [
+              "Kostenvoranschlag vor Ort",
+              "Saum kürzen ab CHF 15",
+              "Reissverschluss ersetzen ab CHF 35",
+              "Fertig meist innert einer Woche"
+            ],
+            "button": {
+              "label": "Reparatur anfragen",
+              "href": "/kontakt#anfrage",
+              "variant": "outline"
+            }
+          }
+        ]
+      },
+      "settings": {
+        "theme": "surface",
+        "animate": "fade",
+        "anchor": "preise"
+      }
+    },
+    {
+      "id": "sec_leist_ablauf",
+      "type": "steps",
+      "props": {
+        "kicker": "Ablauf",
+        "title": "Von der Anfrage bis zum fertigen Stück",
+        "items": [
+          {
+            "title": "Anfrage senden",
+            "text": "Wähle im Kontaktformular Kurs, Workshop oder Reparatur und nenne uns deinen Wunschtermin."
+          },
+          {
+            "title": "Bestätigung erhalten",
+            "text": "Wir melden uns innert zwei Arbeitstagen und reservieren dir deinen Platz verbindlich."
+          },
+          {
+            "title": "Vorbereiten",
+            "text": "Für Workshops bringst du die Kleider mit, an denen du arbeiten möchtest – gewaschen und trocken."
+          },
+          {
+            "title": "Nähen",
+            "text": "Im Atelier steht alles bereit. Du arbeitest, wir begleiten dich."
+          }
+        ],
+        "numbered": true
+      },
+      "settings": {
+        "theme": "dark"
+      },
+      "styles": {
+        "base": {
+          "className": "ff-drift"
+        }
+      }
+    },
+    {
+      "id": "sec_leist_faq",
+      "type": "faq",
+      "props": {
+        "kicker": "Häufige Fragen",
+        "title": "Gut zu wissen",
+        "items": [
+          {
+            "question": "Brauche ich Vorkenntnisse?",
+            "answer": "Nein. Der Nähkurs für Einsteiger beginnt ganz am Anfang. Auch in den Workshops helfen wir dir, wenn du noch nie genäht hast."
+          },
+          {
+            "question": "Ab welchem Alter kann ich teilnehmen?",
+            "answer": "Unsere Kurse richten sich an Erwachsene. Die Einsteigerkurse stehen auch Jugendlichen ab 14 Jahren offen."
+          },
+          {
+            "question": "Muss ich eine eigene Nähmaschine mitbringen?",
+            "answer": "Nein, im Atelier stehen genügend Maschinen bereit. Wenn du deine eigene Maschine kennenlernen möchtest, darfst du sie aber gern mitbringen."
+          },
+          {
+            "question": "Welche Kleider kann ich in den Workshop mitbringen?",
+            "answer": "Alles, was geändert oder geflickt werden soll: Hosen, Hemden, Pullover, Jacken, Röcke. Bei sehr dicken Stoffen wie Leder oder Wintermänteln sprich uns bitte vorher kurz an."
+          },
+          {
+            "question": "Was passiert, wenn ich einen Kurstermin verpasse?",
+            "answer": "Gib uns möglichst früh Bescheid. Wenn Platz ist, holst du den Abend in einem späteren Kurs nach."
+          },
+          {
+            "question": "Kann ich einen Kurs verschenken?",
+            "answer": "Ja. Schreib uns, wir stellen dir gern einen Gutschein für einen Kurs oder Workshop aus."
+          }
+        ]
+      },
+      "settings": {
+        "anchor": "fragen"
+      }
+    },
+    {
+      "id": "sec_leist_cta",
+      "type": "cta",
+      "props": {
+        "title": "Such dir deinen Platz aus",
+        "text": "Die Kurse sind klein und schnell voll. Frag deinen Wunschtermin am besten gleich an.",
+        "buttons": [
+          {
+            "label": "Platz anfragen",
+            "href": "/kontakt#anfrage",
+            "variant": "primary"
+          }
+        ],
+        "align": "center"
+      },
+      "settings": {
+        "theme": "primary"
+      }
+    }
+  ]
+}

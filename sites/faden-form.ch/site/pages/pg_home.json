@@ -1,0 +1,231 @@
+{
+  "id": "pg_home",
+  "slug": "",
+  "title": "Startseite",
+  "seo": {
+    "title": "Faden & Form Atelier – Nähkurse, Workshops & Reparaturen in Liestal",
+    "description": "Nähen lernen in kleinen Gruppen mit max. 6 Personen, Kleider ändern und flicken im Workshop oder reparieren lassen: Faden & Form Atelier in Liestal."
+  },
+  "sections": [
+    {
+      "id": "sec_home_hero",
+      "type": "hero",
+      "props": {
+        "kicker": "Nähatelier in Liestal",
+        "title": "Nähen lernen. Flicken statt wegwerfen.",
+        "headingLevel": 1,
+        "text": "In kleinen Kursen mit höchstens sechs Personen lernst du nähen, ändern und reparieren – gern direkt an deinen eigenen Kleidern. Oder du bringst uns dein Lieblingsstück und wir machen es wieder tragbar.",
+        "buttons": [
+          {
+            "label": "Kurse entdecken",
+            "href": "/leistungen#kurse",
+            "variant": "primary"
+          },
+          {
+            "label": "Reparatur anfragen",
+            "href": "/kontakt#anfrage",
+            "variant": "outline"
+          }
+        ],
+        "image": "",
+        "imageAlt": "Hände an einer Nähmaschine, die eine Naht an einer Jeans setzen",
+        "layout": "split",
+        "align": "left",
+        "minHeight": "88vh"
+      },
+      "settings": {
+        "anchor": "start"
+      },
+      "styles": {
+        "base": {
+          "className": "ff-parallax"
+        }
+      }
+    },
+    {
+      "id": "sec_home_marquee",
+      "type": "marquee",
+      "props": {
+        "items": [
+          "Nähkurse für Einsteiger",
+          "Kleider ändern",
+          "Löcher stopfen",
+          "Reissverschlüsse ersetzen",
+          "Säume kürzen",
+          "Max. 6 Personen pro Kurs",
+          "Eigene Kleider mitbringen",
+          "Länger tragen statt neu kaufen"
+        ],
+        "speed": 40,
+        "direction": "left",
+        "separator": "✂",
+        "pauseOnHover": true
+      },
+      "settings": {
+        "theme": "primary"
+      }
+    },
+    {
+      "id": "sec_home_leistungen",
+      "type": "cards",
+      "props": {
+        "kicker": "Was wir machen",
+        "title": "Drei Wege zu Kleidern, die länger halten",
+        "text": "Ob du selbst zur Nadel greifen willst oder lieber reparieren lässt: Bei uns findest du den passenden Weg.",
+        "columns": 3,
+        "variant": "elevated",
+        "items": [
+          {
+            "icon": "scissors",
+            "title": "Nähkurse",
+            "text": "Von der ersten Naht bis zum eigenen Kleidungsstück: Du lernst die Nähmaschine kennen, schneidest zu und nähst Schritt für Schritt. Für Erwachsene und Einsteiger ab 14 Jahren.",
+            "link": {
+              "label": "Zu den Kursen",
+              "href": "/leistungen#kurse"
+            }
+          },
+          {
+            "icon": "shirt",
+            "title": "Workshops Ändern & Flicken",
+            "text": "Hose zu lang, Pulli mit Loch, Knopf ab? Im Workshop arbeitest du an deinen eigenen Kleidern und nimmst sie repariert wieder mit nach Hause.",
+            "link": {
+              "label": "Zu den Workshops",
+              "href": "/leistungen#workshops"
+            }
+          },
+          {
+            "icon": "needle",
+            "title": "Reparaturservice",
+            "text": "Keine Zeit oder keine Lust selbst zu nähen? Wir ersetzen Reissverschlüsse, flicken Risse, kürzen Säume und passen Kleider an.",
+            "link": {
+              "label": "Zum Reparaturservice",
+              "href": "/leistungen#reparatur"
+            }
+          }
+        ]
+      },
+      "settings": {
+        "animate": "fade",
+        "anchor": "angebot"
+      },
+      "styles": {
+        "base": {
+          "className": "ff-drift"
+        }
+      }
+    },
+    {
+      "id": "sec_home_vorher_nachher",
+      "type": "imagetext",
+      "props": {
+        "kicker": "Vorher – nachher",
+        "title": "Repariert heisst nicht zweite Wahl",
+        "headingLevel": 2,
+        "text": "<p>Eine gut gesetzte Naht hält oft länger als der Stoff daneben. Wir zeigen dir, wie du Risse, Löcher und abgewetzte Stellen so reparierst, dass dein Kleidungsstück wieder jahrelang getragen werden kann – unauffällig oder bewusst sichtbar als Gestaltungselement.</p><p>In unserer Galerie findest du Beispiele aus dem Atelier: jeweils vorher und nachher.</p>",
+        "image": "",
+        "imageAlt": "Vorher-nachher-Vergleich: aufgerissenes Jeansknie und dasselbe Knie mit sauber gesetztem Flicken",
+        "imagePosition": "left",
+        "buttons": [
+          {
+            "label": "Vorher-nachher ansehen",
+            "href": "/galerie",
+            "variant": "secondary"
+          }
+        ]
+      },
+      "settings": {
+        "theme": "surface"
+      },
+      "styles": {
+        "base": {
+          "className": "ff-parallax"
+        }
+      }
+    },
+    {
+      "id": "sec_home_zahlen",
+      "type": "stats",
+      "props": {
+        "kicker": "Darauf kannst du zählen",
+        "title": "Klein, persönlich und praktisch",
+        "items": [
+          {
+            "value": "6",
+            "label": "Personen maximal pro Kurs – so bleibt Zeit für deine Fragen"
+          },
+          {
+            "value": "14+",
+            "label": "Jahre: ab diesem Alter bist du in den Einsteigerkursen dabei"
+          },
+          {
+            "value": "100 %",
+            "label": "Praxis an deinen eigenen Kleidern, wenn du möchtest"
+          },
+          {
+            "value": "2023",
+            "label": "haben wir das Atelier in Liestal eröffnet"
+          }
+        ],
+        "countUp": true
+      },
+      "settings": {
+        "theme": "dark"
+      },
+      "styles": {
+        "base": {
+          "className": "ff-slide"
+        }
+      }
+    },
+    {
+      "id": "sec_home_ablauf",
+      "type": "steps",
+      "props": {
+        "kicker": "So einfach geht’s",
+        "title": "In drei Schritten ins Atelier",
+        "items": [
+          {
+            "title": "Angebot wählen",
+            "text": "Such dir einen Kurs oder Workshop aus – oder beschreib uns kurz, was an deinem Kleidungsstück kaputt ist."
+          },
+          {
+            "title": "Platz anfragen",
+            "text": "Schick uns deine Anfrage übers Formular oder ruf an. Wir bestätigen dir Termin und Platz persönlich."
+          },
+          {
+            "title": "Loslegen",
+            "text": "Bring deine Kleider mit, wir stellen Maschinen, Werkzeug und Tee bereit. Den Rest machen wir zusammen."
+          }
+        ],
+        "numbered": true
+      },
+      "settings": {
+        "animate": "fade"
+      }
+    },
+    {
+      "id": "sec_home_cta",
+      "type": "cta",
+      "props": {
+        "title": "Hast du ein Lieblingsstück, das wieder getragen werden will?",
+        "text": "Frag einen Kursplatz an oder erzähl uns, was repariert werden soll. Wir melden uns innert zwei Arbeitstagen bei dir.",
+        "buttons": [
+          {
+            "label": "Jetzt anfragen",
+            "href": "/kontakt#anfrage",
+            "variant": "primary"
+          },
+          {
+            "label": "061 000 00 00",
+            "href": "tel:+41610000000",
+            "variant": "ghost"
+          }
+        ],
+        "align": "center"
+      },
+      "settings": {
+        "theme": "primary"
+      }
+    }
+  ]
+}
