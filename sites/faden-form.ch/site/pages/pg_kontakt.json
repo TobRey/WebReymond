@@ -6,6 +6,14 @@
     "title": "Kontakt & Anfrage – Faden & Form Atelier Liestal",
     "description": "Kursplatz, Workshop oder Reparatur anfragen: Faden & Form Atelier, Musterstrasse 22, 4410 Liestal. Offen Di–Fr 10–18 Uhr, Sa 10–16 Uhr."
   },
+  "globals": {
+    "header": "gl_header",
+    "footer": "gl_footer"
+  },
+  "layout": {
+    "header": "gl_header",
+    "footer": "gl_footer"
+  },
   "sections": [
     {
       "id": "sec_kontakt_hero",

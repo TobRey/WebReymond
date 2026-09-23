@@ -7,6 +7,14 @@
     "description": "Wie Faden & Form Atelier deine Personendaten bearbeitet: Kontaktformular, Server-Logfiles, Karte und deine Rechte nach dem Schweizer Datenschutzgesetz.",
     "noindex": true
   },
+  "globals": {
+    "header": "gl_header",
+    "footer": "gl_footer"
+  },
+  "layout": {
+    "header": "gl_header",
+    "footer": "gl_footer"
+  },
   "sections": [
     {
       "id": "sec_datenschutz",

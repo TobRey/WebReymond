@@ -6,6 +6,14 @@
     "title": "Über uns – Faden & Form Atelier in Liestal",
     "description": "Seit 2023 zeigt Faden & Form Atelier in Liestal, wie Kleider genäht, geändert und repariert werden: persönlich, in kleinen Gruppen und mit viel Geduld."
   },
+  "globals": {
+    "header": "gl_header",
+    "footer": "gl_footer"
+  },
+  "layout": {
+    "header": "gl_header",
+    "footer": "gl_footer"
+  },
   "sections": [
     {
       "id": "sec_about_hero",

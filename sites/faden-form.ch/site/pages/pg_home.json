@@ -6,6 +6,14 @@
     "title": "Faden & Form Atelier – Nähkurse, Workshops & Reparaturen in Liestal",
     "description": "Nähen lernen in kleinen Gruppen mit max. 6 Personen, Kleider ändern und flicken im Workshop oder reparieren lassen: Faden & Form Atelier in Liestal."
   },
+  "globals": {
+    "header": "gl_header",
+    "footer": "gl_footer"
+  },
+  "layout": {
+    "header": "gl_header",
+    "footer": "gl_footer"
+  },
   "sections": [
     {
       "id": "sec_home_hero",

@@ -7,6 +7,34 @@
     "logoText": "Faden & Form Atelier",
     "logoHeight": 44,
     "menu": "main",
+    "nav": "main",
+    "items": [
+      {
+        "label": "Startseite",
+        "href": "/",
+        "pageId": "pg_home"
+      },
+      {
+        "label": "Über uns",
+        "href": "/ueber-uns",
+        "pageId": "pg_ueber_uns"
+      },
+      {
+        "label": "Leistungen",
+        "href": "/leistungen",
+        "pageId": "pg_leistungen"
+      },
+      {
+        "label": "Galerie",
+        "href": "/galerie",
+        "pageId": "pg_galerie"
+      },
+      {
+        "label": "Kontakt",
+        "href": "/kontakt",
+        "pageId": "pg_kontakt"
+      }
+    ],
     "sticky": true,
     "cta": {
       "label": "Platz anfragen",
@@ -14,5 +42,54 @@
       "variant": "primary"
     },
     "mobileBreakpoint": "md"
-  }
+  },
+  "name": "Header",
+  "sections": [
+    {
+      "id": "sec_gl_header",
+      "type": "header",
+      "props": {
+        "logo": "assets/img/01m379p1cmm4jakz0kkk3g57m0.png",
+        "logoAlt": "Faden & Form Atelier – Logo",
+        "logoText": "Faden & Form Atelier",
+        "logoHeight": 44,
+        "menu": "main",
+        "nav": "main",
+        "items": [
+          {
+            "label": "Startseite",
+            "href": "/",
+            "pageId": "pg_home"
+          },
+          {
+            "label": "Über uns",
+            "href": "/ueber-uns",
+            "pageId": "pg_ueber_uns"
+          },
+          {
+            "label": "Leistungen",
+            "href": "/leistungen",
+            "pageId": "pg_leistungen"
+          },
+          {
+            "label": "Galerie",
+            "href": "/galerie",
+            "pageId": "pg_galerie"
+          },
+          {
+            "label": "Kontakt",
+            "href": "/kontakt",
+            "pageId": "pg_kontakt"
+          }
+        ],
+        "sticky": true,
+        "cta": {
+          "label": "Platz anfragen",
+          "href": "/kontakt#anfrage",
+          "variant": "primary"
+        },
+        "mobileBreakpoint": "md"
+      }
+    }
+  ]
 }

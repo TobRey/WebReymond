@@ -68,8 +68,94 @@
     }
   ],
   "globals": {
-    "header": "globals/gl_header.json",
-    "footer": "globals/gl_footer.json"
+    "header": "gl_header",
+    "footer": "gl_footer"
+  },
+  "layout": {
+    "header": "gl_header",
+    "footer": "gl_footer"
+  },
+  "navigation": {
+    "main": [
+      {
+        "label": "Startseite",
+        "href": "/",
+        "pageId": "pg_home"
+      },
+      {
+        "label": "Über uns",
+        "href": "/ueber-uns",
+        "pageId": "pg_ueber_uns"
+      },
+      {
+        "label": "Leistungen",
+        "href": "/leistungen",
+        "pageId": "pg_leistungen"
+      },
+      {
+        "label": "Galerie",
+        "href": "/galerie",
+        "pageId": "pg_galerie"
+      },
+      {
+        "label": "Kontakt",
+        "href": "/kontakt",
+        "pageId": "pg_kontakt"
+      }
+    ],
+    "footer": [
+      {
+        "label": "Impressum",
+        "href": "/impressum",
+        "pageId": "pg_impressum"
+      },
+      {
+        "label": "Datenschutz",
+        "href": "/datenschutz",
+        "pageId": "pg_datenschutz"
+      }
+    ]
+  },
+  "menus": {
+    "main": [
+      {
+        "label": "Startseite",
+        "href": "/",
+        "pageId": "pg_home"
+      },
+      {
+        "label": "Über uns",
+        "href": "/ueber-uns",
+        "pageId": "pg_ueber_uns"
+      },
+      {
+        "label": "Leistungen",
+        "href": "/leistungen",
+        "pageId": "pg_leistungen"
+      },
+      {
+        "label": "Galerie",
+        "href": "/galerie",
+        "pageId": "pg_galerie"
+      },
+      {
+        "label": "Kontakt",
+        "href": "/kontakt",
+        "pageId": "pg_kontakt"
+      }
+    ],
+    "footer": [
+      {
+        "label": "Impressum",
+        "href": "/impressum",
+        "pageId": "pg_impressum"
+      },
+      {
+        "label": "Datenschutz",
+        "href": "/datenschutz",
+        "pageId": "pg_datenschutz"
+      }
+    ]
   },
   "settings": {
     "contactEmail": "info@faden-form.ch",

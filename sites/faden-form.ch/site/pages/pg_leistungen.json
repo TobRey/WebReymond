@@ -6,6 +6,14 @@
     "title": "Leistungen – Nähkurse, Workshops & Reparaturen | Faden & Form Atelier",
     "description": "Nähkurs für Einsteiger ab 14 Jahren, Workshops zum Ändern und Flicken deiner Kleider und Reparaturservice in Liestal. Alle Angebote, Ablauf und Preise."
   },
+  "globals": {
+    "header": "gl_header",
+    "footer": "gl_footer"
+  },
+  "layout": {
+    "header": "gl_header",
+    "footer": "gl_footer"
+  },
   "sections": [
     {
       "id": "sec_leist_hero",

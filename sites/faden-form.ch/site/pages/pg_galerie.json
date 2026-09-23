@@ -6,6 +6,14 @@
     "title": "Galerie – Vorher-nachher-Reparaturen | Faden & Form Atelier",
     "description": "Vorher und nachher: reparierte Jeans, Jacken, Pullover und Hemden aus dem Faden & Form Atelier in Liestal. So werden Kleider wieder lange tragbar."
   },
+  "globals": {
+    "header": "gl_header",
+    "footer": "gl_footer"
+  },
+  "layout": {
+    "header": "gl_header",
+    "footer": "gl_footer"
+  },
   "sections": [
     {
       "id": "sec_gal_hero",

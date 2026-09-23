@@ -7,6 +7,14 @@
     "description": "Impressum und rechtliche Angaben von Faden & Form Atelier, Liestal.",
     "noindex": true
   },
+  "globals": {
+    "header": "gl_header",
+    "footer": "gl_footer"
+  },
+  "layout": {
+    "header": "gl_header",
+    "footer": "gl_footer"
+  },
   "sections": [
     {
       "id": "sec_impressum",
