@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://faden-form.ch/sitemap.xml

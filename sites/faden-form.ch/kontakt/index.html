@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kontakt &amp; Anfrage – Faden &amp; Form Atelier Liestal</title>
+<meta name="description" content="Kursplatz, Workshop oder Reparatur anfragen: Faden &amp; Form Atelier, Musterstrasse 22, 4410 Liestal. Offen Di–Fr 10–18 Uhr, Sa 10–16 Uhr.">
+<link rel="canonical" href="https://faden-form.ch/kontakt/">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="de_CH">
+<meta property="og:site_name" content="Faden &amp; Form Atelier">
+<meta property="og:title" content="Kontakt &amp; Anfrage – Faden &amp; Form Atelier Liestal">
+<meta property="og:description" content="Kursplatz, Workshop oder Reparatur anfragen: Faden &amp; Form Atelier, Musterstrasse 22, 4410 Liestal. Offen Di–Fr 10–18 Uhr, Sa 10–16 Uhr.">
+<meta property="og:url" content="https://faden-form.ch/kontakt/">
+<meta property="og:image" content="https://faden-form.ch/assets/img/logo.png">
+<meta name="theme-color" content="#234638">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="apple-touch-icon" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/assets/css/style.css">
+<script src="/assets/js/main.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#inhalt">Zum Inhalt springen</a><header class="header"><div class="wrap header__in"><a class="logo" href="/" aria-label="Faden &amp; Form Atelier – zur Startseite"><img src="/assets/img/logo.png" alt="Faden &amp; Form" width="459" height="180"></a><button class="burger" type="button" aria-expanded="false" aria-controls="nav" aria-label="Menü öffnen"><span></span><span></span><span></span></button><nav class="nav" id="nav" aria-label="Hauptnavigation"><ul class="nav__list"><li><a href="/">Start</a></li><li><a href="/ueber-uns/">Über uns</a></li><li><a href="/leistungen/">Leistungen</a></li><li><a href="/galerie/">Galerie</a></li><li><a href="/kontakt/" aria-current="page">Kontakt</a></li></ul><a class="btn" href="/kontakt/#anfrage">Platz anfragen</a></nav></div></header>
+<main id="inhalt">
+
+<section class="page-hero"><div class="wrap page-hero__grid"><div><p class="kicker">Kontakt</p><h1>Schreib uns – wir freuen uns auf dich</h1><p class="lead">Frag einen Kursplatz an, reserviere einen Workshop oder beschreib uns deine Reparatur. Wir antworten dir innert zwei Arbeitstagen.</p></div></div><div class="page-hero__stitch" aria-hidden="true"></div></section>
+<section class="sec sec--tight" id="anfrage">
+  <div class="wrap contact">
+    <form class="form" action="/anfrage.php" method="post">
+      <h2>Deine Anfrage</h2>
+      <p style="color:var(--muted);margin:0">Je genauer du dein Anliegen beschreibst, desto schneller können wir dir einen Termin vorschlagen. Felder mit <span class="req">*</span> brauchen wir.</p>
+      <div id="form-msg" class="form__msg" role="status" hidden></div>
+      <div class="form__grid">
+        <fieldset class="field field--full topics"><legend>Worum geht es? <span class="req">*</span></legend><label class="topic"><input type="radio" name="thema" value="Nähkurs für Einsteiger" required checked><span>Nähkurs für Einsteiger</span></label><label class="topic"><input type="radio" name="thema" value="Workshop Ändern &amp; Flicken"><span>Workshop Ändern &amp; Flicken</span></label><label class="topic"><input type="radio" name="thema" value="Reparatur"><span>Reparatur</span></label><label class="topic"><input type="radio" name="thema" value="Gutschein"><span>Gutschein</span></label><label class="topic"><input type="radio" name="thema" value="Etwas anderes"><span>Etwas anderes</span></label></fieldset>
+        <div class="field"><label for="f-name">Dein Name <span class="req">*</span></label><input id="f-name" name="name" type="text" autocomplete="name" required maxlength="120"></div>
+        <div class="field"><label for="f-email">Deine E-Mail-Adresse <span class="req">*</span></label><input id="f-email" name="email" type="email" autocomplete="email" required maxlength="160"></div>
+        <div class="field"><label for="f-tel">Telefon <span class="opt">(freiwillig)</span></label><input id="f-tel" name="telefon" type="tel" autocomplete="tel" maxlength="40"></div>
+        <div class="field"><label for="f-pers">Anzahl Personen</label><select id="f-pers" name="personen"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>
+        <div class="field field--full"><label for="f-datum">Wunschtermin <span class="opt">(freiwillig)</span></label><input id="f-datum" name="wunschtermin" type="text" maxlength="120" placeholder="z. B. Dienstagabend oder ab Mitte Oktober"></div>
+        <div class="field field--full"><label for="f-msg">Deine Nachricht <span class="req">*</span></label><textarea id="f-msg" name="nachricht" required maxlength="4000" placeholder="Was möchtest du lernen oder reparieren lassen?"></textarea></div>
+        <div class="hp" aria-hidden="true"><label for="f-web">Website</label><input id="f-web" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+        <label class="check field--full"><input type="checkbox" name="datenschutz" value="ja" required><span>Ich habe die <a href="/datenschutz/">Datenschutzerklärung</a> gelesen und bin einverstanden, dass meine Angaben zur Bearbeitung meiner Anfrage verwendet werden. <span class="req">*</span></span></label>
+        <div class="field--full"><button class="btn" type="submit">Anfrage senden<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
+      </div>
+    </form>
+    <div class="info">
+      <div class="info__card">
+        <h2>So erreichst du uns</h2>
+        <div class="info__row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><div>Faden &amp; Form Atelier<br>Musterstrasse 22<br>4410 Liestal</div></div>
+        <div class="info__row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg><div><a href="tel:+41610000000">061 000 00 00</a></div></div>
+        <div class="info__row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><div><a href="mailto:info@faden-form.ch">info@faden-form.ch</a></div></div>
+      </div>
+      <div class="info__card info__card--light">
+        <h2>Öffnungszeiten</h2>
+        <p class="open-state">Öffnungszeiten</p>
+        <table class="hours"><caption class="sr">Öffnungszeiten des Ateliers</caption><tr data-day="2,3,4,5"><th scope="row">Dienstag – Freitag</th><td>10:00–18:00 Uhr</td></tr><tr data-day="6"><th scope="row">Samstag</th><td>10:00–16:00 Uhr</td></tr><tr data-day="1,0"><th scope="row">Montag, Sonntag</th><td>geschlossen</td></tr></table>
+        <p style="color:var(--muted);font-size:.95rem;margin:16px 0 0">Kurse und Workshops finden auch ausserhalb dieser Zeiten statt, zum Beispiel am Abend. Die genauen Daten erhältst du mit der Bestätigung.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="sec sec--surface" id="anfahrt">
+  <div class="wrap">
+    <div class="sec-head"><p class="kicker">Anfahrt</p><h2>Mitten in Liestal</h2>
+    <p class="lead">Das Atelier liegt zentral in Liestal an der Musterstrasse 22 und ist gut mit Bahn und Bus erreichbar.</p></div>
+    <div class="map" data-src="https://www.openstreetmap.org/export/embed.html?bbox=7.725%2C47.478%2C7.745%2C47.490&amp;layer=mapnik&amp;marker=47.4840%2C7.7350">
+      <div class="map__bg"><svg viewBox="0 0 1200 520" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs></defs><rect width="1200" height="520" fill="#e9e1cf"/><path d="M-100 0 L20 520" stroke="#f7f3ea" stroke-width="14"/><path d="M40 0 L160 520" stroke="#f7f3ea" stroke-width="14"/><path d="M180 0 L300 520" stroke="#f7f3ea" stroke-width="14"/><path d="M320 0 L440 520" stroke="#f7f3ea" stroke-width="14"/><path d="M460 0 L580 520" stroke="#f7f3ea" stroke-width="14"/><path d="M600 0 L720 520" stroke="#f7f3ea" stroke-width="14"/><path d="M740 0 L860 520" stroke="#f7f3ea" stroke-width="14"/><path d="M880 0 L1000 520" stroke="#f7f3ea" stroke-width="14"/><path d="M1020 0 L1140 520" stroke="#f7f3ea" stroke-width="14"/><path d="M1160 0 L1280 520" stroke="#f7f3ea" stroke-width="14"/><path d="M0 40 L1200 0" stroke="#f7f3ea" stroke-width="18"/><path d="M0 150 L1200 110" stroke="#f7f3ea" stroke-width="18"/><path d="M0 260 L1200 220" stroke="#f7f3ea" stroke-width="18"/><path d="M0 370 L1200 330" stroke="#f7f3ea" stroke-width="18"/><path d="M0 480 L1200 440" stroke="#f7f3ea" stroke-width="18"/><path d="M0 380 C 300 330, 600 440, 1200 300" stroke="#b9cdbf" stroke-width="40" fill="none"/><circle cx="600" cy="250" r="16" fill="#b85f45"/><circle cx="600" cy="250" r="34" fill="#b85f45" opacity=".2"/></svg></div>
+      <div class="map__consent"><div>
+        <h3>Karte anzeigen</h3>
+        <p>Die Karte wird von OpenStreetMap geladen. Dabei wird deine IP-Adresse an OpenStreetMap übermittelt. Mehr dazu in der <a href="/datenschutz/">Datenschutzerklärung</a>.</p>
+        <button class="btn btn--green" type="button" data-map>Karte laden</button>
+        <p style="margin:14px 0 0"><a href="https://www.openstreetmap.org/search?query=Musterstrasse%2022%2C%204410%20Liestal" target="_blank" rel="noopener">In OpenStreetMap öffnen</a></p>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+</main>
+<footer class="footer"><div class="wrap"><div class="footer__grid"><div class="footer__brand"><img src="/assets/img/logo.png" alt="Faden &amp; Form" width="459" height="180" loading="lazy"><p>Nähkurse, Workshops und Reparaturen in Liestal. Damit deine Lieblingsstücke noch lange getragen werden.</p></div><div><h2>Atelier</h2><ul><li><a href="/ueber-uns/">Über uns</a></li><li><a href="/leistungen/">Leistungen</a></li><li><a href="/leistungen/#preise">Preise</a></li><li><a href="/galerie/">Vorher – nachher</a></li><li><a href="/kontakt/">Kontakt &amp; Anfahrt</a></li></ul></div><div><h2>Kontakt</h2><address>Faden &amp; Form Atelier<br>Musterstrasse 22<br>4410 Liestal<br><a href="tel:+41610000000">061 000 00 00</a><br><a href="mailto:info@faden-form.ch">info@faden-form.ch</a></address></div><div><h2>Öffnungszeiten</h2><dl class="footer__hours"><dt>Di–Fr</dt><dd>10:00–18:00 Uhr</dd><dt>Sa</dt><dd>10:00–16:00 Uhr</dd><dt>Mo, So</dt><dd>geschlossen</dd></dl><a class="btn btn--green" href="/kontakt/#anfrage">Platz anfragen<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div></div><div class="footer__bottom"><p style="margin:0">© <span data-year>2026</span> Faden &amp; Form Atelier, Liestal</p><ul><li><a href="/impressum/">Impressum</a></li><li><a href="/datenschutz/">Datenschutz</a></li></ul></div></div></footer><button class="to-top" type="button" aria-label="Nach oben"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
+</body>
+</html>
