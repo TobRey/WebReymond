@@ -2,7 +2,7 @@
   "id": "gl_header",
   "type": "header",
   "props": {
-    "logo": "",
+    "logo": "assets/img/01m379p1cmm4jakz0kkk3g57m0.png",
     "logoAlt": "Faden & Form Atelier – Logo",
     "logoText": "Faden & Form Atelier",
     "logoHeight": 44,
