@@ -5,3 +5,6 @@ coverage/
 
 # Dokumentation wird von Hand formatiert (Tabellen, Diagramme, Einrückungen).
 *.md
+
+# Eigenständiges PHP-Spiel (enthält Fremdbibliothek qrcode.js)
+games/

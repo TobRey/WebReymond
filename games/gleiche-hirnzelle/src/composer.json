@@ -1,0 +1,2 @@
+{"require":{"php":">=8.1","anthropic-ai/sdk":"^0.54","guzzlehttp/guzzle":"^7.9"},
+ "config":{"platform":{"php":"8.1.0"},"preferred-install":"dist","allow-plugins":{"php-http/discovery":false}}}

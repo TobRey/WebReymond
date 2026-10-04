@@ -1,0 +1,6 @@
+src/vendor/
+
+src/data/*
+!src/data/.htaccess
+!src/data/index.html
+build/

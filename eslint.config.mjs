@@ -13,6 +13,7 @@ export default tseslint.config(
       '**/coverage/**',
       '**/node_modules/**',
       '**/src/generated/**',
+      'games/**',
       '**/*.config.js',
       '**/*.config.mjs',
     ],

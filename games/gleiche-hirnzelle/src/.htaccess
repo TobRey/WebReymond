@@ -1,0 +1,31 @@
+# Gleiche Hirnzelle – Schutzregeln (funktioniert auch in Unterordnern)
+DirectoryIndex index.php
+Options -Indexes
+
+# Konfiguration und interne Dateien nie ausliefern
+<FilesMatch "^(config\.php|composer\.(json|lock)|INSTALLATION\.(md|txt)|.*\.lock|.*\.tmp)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+# Interne Ordner sperren
+<IfModule mod_alias.c>
+  RedirectMatch 404 /(lib|data|vendor)(/|$)
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  <FilesMatch "\.(css|js|woff2|svg)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_mime.c>
+  AddType font/woff2 .woff2
+  AddType image/svg+xml .svg
+</IfModule>
