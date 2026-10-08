@@ -1,0 +1,76 @@
+KAMERA-BRÜCKE für Kamera-Link (Canon EOS M50 Mark II)
+=====================================================
+
+Was die Brücke macht
+--------------------
+Die Kamera bietet ihre Bilder über "CCAPI" an – unverschlüsseltes HTTP ohne
+Freigabe für Webseiten. Safari darf deshalb nicht direkt zugreifen. Die Brücke
+läuft auf einem Computer im selben WLAN, liefert die App selbst aus und leitet
+nur LESENDE Anfragen an die Kamera weiter. Löschen ist technisch gesperrt.
+
+Voraussetzungen (einmalig)
+--------------------------
+1. CCAPI an der Kamera aktivieren:
+   - Kostenlos registrieren im Canon-Entwicklerprogramm (Canon Developer
+     Community, Region Europa: developers.canon-europe.com).
+   - CCAPI für die EOS M50 Mark II anfordern und mit dem dort beschriebenen
+     Aktivierungswerkzeug per USB freischalten (aktuelle Kamera-Firmware nötig).
+   - Danach erscheint im Kameramenü (WLAN-/Wireless-Einstellungen) der Punkt
+     für die CCAPI-Verbindung.
+2. Python 3.9 oder neuer auf dem Computer:
+   - Mac: wird beim ersten Start automatisch angeboten (Befehlszeilentools).
+   - Windows: https://www.python.org/downloads/ (Haken "Add python.exe to PATH").
+   - Linux/Raspberry Pi: meist vorhanden (python3).
+
+Start
+-----
+Mac:      Ordner entpacken, Rechtsklick auf "Kamera-Bruecke starten.command"
+          > Öffnen (beim ersten Mal wegen Gatekeeper). Netzwerkzugriff erlauben.
+Windows:  "Kamera-Bruecke starten.bat" doppelklicken. Bei der Firewall-Frage
+          "Private Netzwerke" erlauben.
+Linux/Pi: python3 kamera-bruecke.py
+
+Das Fenster zeigt eine Adresse wie http://192.168.1.23:8765 und einen QR-Code.
+iPhone im selben WLAN: QR-Code mit der Kamera-App scannen oder Adresse in Safari
+öffnen. Tipp: In Safari "Zum Home-Bildschirm" für ein App-Symbol.
+
+Kamera verbinden
+----------------
+- Kamera per CCAPI mit DEMSELBEN WLAN verbinden wie Computer und iPhone
+  (Heimnetz oder iPhone-Hotspot).
+- In der App unter "Verbindung" > "Im Netzwerk suchen" oder die IP der Kamera
+  eintragen (steht im CCAPI-Bildschirm der Kamera). Wird gespeichert.
+- Alternativ beim Start: python3 kamera-bruecke.py --camera 192.168.1.2
+
+In die Fotos-App sichern (HTTPS)
+--------------------------------
+Safari erlaubt "Bild sichern" über das Teilen-Menü nur über HTTPS.
+1. "Kamera-Bruecke mit Fotos-Funktion (HTTPS)" starten (bzw. Option --https).
+   Benötigt "openssl" (Mac/Linux vorhanden; Windows z. B. über Git for Windows).
+2. Auf dem iPhone in der App unter "Verbindung" > "Zertifikat laden".
+3. Einstellungen > "Profil geladen" > Installieren.
+4. Einstellungen > Allgemein > Info > Zertifikatsvertrauenseinstellungen >
+   "Kamera-Bruecke CA" einschalten.
+5. "Sicher öffnen" antippen (https://…:8766). Fertig.
+Das Zertifikat gilt nur für deine Brücke; der Schlüssel bleibt auf dem Computer
+(Ordner ~/.kamera-bruecke/tls).
+
+Unterwegs ohne Computer: Raspberry Pi
+-------------------------------------
+Ein Raspberry Pi (z. B. Zero 2 W) kann einen eigenen WLAN-Hotspot aufspannen
+(Raspberry Pi OS: nmcli device wifi hotspot ssid KameraLink password ...).
+Kamera und iPhone verbinden sich mit diesem Hotspot, auf dem Pi läuft
+"python3 kamera-bruecke.py" (per systemd-Dienst automatisch beim Start).
+
+Optionen
+--------
+  --camera IP[:PORT]   Kameraadresse (Standard-Port 8080)
+  --port 8765          Port der Brücke
+  --https              zusätzlich HTTPS auf Port+1 (Fotos-App)
+  --no-qr              keinen QR-Code anzeigen
+  --verbose            Anfragen protokollieren
+
+Datenschutz
+-----------
+Alles bleibt im lokalen Netz. Die Brücke sendet nichts ins Internet.
+Einstellungen: ~/.kamera-bruecke/config.json

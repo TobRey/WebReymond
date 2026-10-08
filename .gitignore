@@ -61,3 +61,6 @@ desktop.ini
 
 # --- Von Prisma erzeugter Client (wird beim Installieren neu gebaut) ---
 apps/api/src/generated/
+
+# --- Kamera-Link: fertige Auslieferung bewusst versioniert ---
+!kamera-app/release/*.zip

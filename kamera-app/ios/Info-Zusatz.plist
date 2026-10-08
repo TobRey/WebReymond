@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Diese Schlüssel in die Info.plist bzw. unter Target › Info übernehmen. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Kamera-Link verbindet sich im WLAN mit deiner Kamera, um Fotos zu übertragen.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Kamera-Link speichert übertragene Originalfotos und Videos in deiner Fotos-App.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- Die Kamera spricht nur HTTP im lokalen Netz -->
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+</dict>
+</plist>

@@ -15,6 +15,8 @@ export default tseslint.config(
       '**/src/generated/**',
       '**/*.config.js',
       '**/*.config.mjs',
+      // Eigenständiges Teilprojekt (Browser-App + Python), eigene Tests in kamera-app/tests
+      'kamera-app/**',
     ],
   },
   js.configs.recommended,
