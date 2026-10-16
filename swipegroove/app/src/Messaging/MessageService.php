@@ -195,6 +195,10 @@ final class MessageService
         $db = $this->app->db();
         $id = $db->transaction(function () use ($db, $conversationId, $userId, $other, $body, $linkType, $linkRef, $conv): int {
             $now = $db->now();
+            if ($conv['status'] === 'pending' && (int) $conv['initiator_id'] !== $userId) {
+                // Antwort des Empfängers gilt als Annahme der Anfrage
+                $db->update('conversations', ['status' => 'accepted'], 'id = ?', [$conversationId]);
+            }
             $id = $db->insert('messages', ['conversation_id' => $conversationId, 'sender_id' => $userId, 'body' => $body, 'link_type' => $linkType, 'link_ref' => $linkRef, 'created_at' => $now]);
             $db->update('conversations', ['last_message_id' => $id, 'last_message_at' => $now], 'id = ?', [$conversationId]);
             $db->run('UPDATE conversation_members SET unread_count = unread_count + 1 WHERE conversation_id = ? AND user_id = ?', [$conversationId, $other]);

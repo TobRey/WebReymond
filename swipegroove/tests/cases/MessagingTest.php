@@ -77,6 +77,15 @@ final class MessagingTest extends TestCase
         self::assertSame(403, $this->t->request('POST', '/api/conversations/' . $c['id'] . '/messages', ['body' => 'x'], $this->tokens['owner'])->status);
     }
 
+    public function testRecipientReplyAcceptsRequest(): void
+    {
+        $conv = TestApp::json($this->t->request('POST', '/api/conversations', ['username' => 'bob'], $this->tokens['user2']));
+        $this->t->request('POST', '/api/conversations/' . $conv['id'] . '/messages', ['body' => 'Hi'], $this->tokens['user2']);
+        self::assertSame(200, $this->t->request('POST', '/api/conversations/' . $conv['id'] . '/messages', ['body' => 'Hallo zurück'], $this->tokens['user3'])->status);
+        self::assertSame('accepted', $this->t->db->value('SELECT status FROM conversations WHERE id = ?', [$conv['id']]));
+        self::assertSame(200, $this->t->request('POST', '/api/conversations/' . $conv['id'] . '/messages', ['body' => 'Und weiter'], $this->tokens['user2'])->status);
+    }
+
     public function testAdminCannotReadChatsWithoutReport(): void
     {
         $conv = TestApp::json($this->t->request('POST', '/api/conversations', ['username' => 'bob'], $this->tokens['user2']));

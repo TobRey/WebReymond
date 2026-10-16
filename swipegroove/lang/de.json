@@ -99,6 +99,7 @@
   "validation.prompt_length": "Die Bildbeschreibung muss 3–1500 Zeichen lang sein.",
   "validation.invalid": "Ungültiger Wert.",
   "operation.invalid_id": "Ungültige Vorgangs-ID.",
+  "operation.in_progress": "Dieser Vorgang läuft bereits. Bitte warte kurz.",
   "operation.not_found": "Vorgang nicht gefunden.",
   "swipe.invalid_mode": "Ungültiger Feed-Modus.",
   "swipe.invalid_track": "Ungültige Song-ID.",

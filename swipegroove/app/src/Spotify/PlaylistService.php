@@ -183,7 +183,7 @@ final class PlaylistService
             $stmt = $db->pdo()->prepare('INSERT INTO playlist_items_cache (playlist_cache_id, position, track_id, uri, name, artists, artist_ids, album_name, album_id, image_url, duration_ms, is_local, added_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
             foreach ($result['items'] as $pos => $it) {
                 $stmt->execute([
-                    $row['id'], $pos, $it['id'], $it['uri'], $it['name'] !== null ? mb_substr($it['name'], 0, 255) : null,
+                    $row['id'], $pos, $it['id'], $it['uri'] !== null ? mb_substr($it['uri'], 0, 255) : null, $it['name'] !== null ? mb_substr($it['name'], 0, 255) : null,
                     json_encode($it['artists'], JSON_UNESCAPED_UNICODE), json_encode($it['artist_ids']),
                     $it['album_name'] !== null ? mb_substr($it['album_name'], 0, 255) : null, $it['album_id'], $it['image_url'], $it['duration_ms'], (int) $it['is_local'],
                     $it['added_at'] ? gmdate('Y-m-d H:i:s', strtotime($it['added_at']) ?: time()) : null,

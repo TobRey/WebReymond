@@ -3,13 +3,18 @@
 ## Was getestet wurde
 
 ### Automatisierte Backend-Tests (`php tests/run.php`, MariaDB 10.11, PHP 8.3)
-48 Tests, alle bestanden – mit simulierten Spotify-/OpenAI-/Stripe-Antworten (lokale Fixtures, erscheinen nie in der echten Anwendung):
+53 Tests, alle bestanden – mit simulierten Spotify-/OpenAI-/Stripe-Antworten (lokale Fixtures, erscheinen nie in der echten Anwendung):
 
 - Genau **ein Besitzer** bei paralleler Erstregistrierung (DB-Eindeutigkeit `platform_owner.id = 1`, zweiter Versuch wird regulär behandelt und bei geschlossener Registrierung abgewiesen)
 - Genau **ein Konto pro Spotify-ID** (Unique-Index + erneuter Login öffnet dasselbe Konto)
 - Falscher/abgelaufener OAuth-State, falscher Einrichtungsschlüssel, geschlossene Registrierung
 - Abgelaufene Access-Tokens (automatischer Refresh unter Zeilensperre), widerrufene Refresh-Tokens (Status „widerrufen“, erneutes Verbinden), Spotify-Rate-Limit mit `Retry-After`
 - CSRF-Schutz (Token + Herkunftsprüfung), Logout auf allen Geräten
+- OAuth-Callback nur mit Browser-Bindung (Nonce-Cookie): fremde Callback-URLs können keine Sitzung unterschieben (Login-CSRF)
+- Stripe: verspätet zugestellte ältere Ereignisse überschreiben keine neueren Zustände (keine Reaktivierung gekündigter Abos)
+- Mehrschrittige Operationen sind gegen parallele Ausführung gesperrt (Doppelklick/Retry fügt nichts doppelt hinzu)
+- Playlists mit lokalen Dateien (lange `spotify:local:`-URIs) laden korrekt
+- Antwort des Empfängers auf eine Nachrichtenanfrage gilt als Annahme (kein Blockieren beider Seiten)
 - Playlist-Liste mit 120 Playlists (3 Seiten Paginierung), Inhalte über mehrere Seiten, Cache-Nutzung
 - Erstellen/Umbenennen, Spotify-Sichtbarkeit getrennt von SwipeGroove-Veröffentlichung, fremde Playlists nicht bearbeitbar
 - Duplikaterkennung nur per identischer Track-ID; Entfernen bestimmter Vorkommen
@@ -65,6 +70,10 @@ Gegen einen lokalen Fake-Spotify-Server (`tests/e2e/`), Anwendung im Unterordner
 7. **Refresh-Tokens** laufen nach 6 Monaten ab (seit Juni/Juli 2026); erneute Anmeldung nötig, die App weist darauf hin.
 8. `/me` liefert keine E-Mail, kein Land und keinen Premium-Status mehr → Registrierung kommt ohne E-Mail aus; Premium wird bei Wiedergabe über die Fehlermeldung erkannt.
 9. **ISRC/external_ids** sind nicht verlässlich verfügbar → Duplikate nur per Track-ID (keine Zusammenführung von Remixen/Live-Versionen).
+
+## Unabhängiger Code-Review
+
+Ein separater Review-Durchlauf des Backends (Autorisierung, SQL, Session/CSRF, Spotify-/Stripe-/Cover-Logik, PHP-8.4-Kompatibilität) fand sechs Defekte (Login-CSRF über ungebundenen OAuth-State, zu kurze URI-Spalte für lokale Dateien, Stripe-Ereignisreihenfolge, wirkungslose Operations-Sperre, Nachrichtenanfrage-Deadlock, hängende Cover-Jobs bei Dekodierfehlern). Alle sechs wurden behoben und mit Regressionstests abgedeckt. Keine Befunde bei Autorisierung/Privatsphäre, SQL-Injection und CSRF.
 
 ## Weitere Hinweise
 

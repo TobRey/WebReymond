@@ -75,7 +75,8 @@ final class AuthController
     public function callback(Request $request): Response
     {
         $auth = $this->app->service(SpotifyAuth::class);
-        $state = $auth->consumeState($request->queryStr('state'));
+        $nonce = $_COOKIE[SpotifyAuth::BROWSER_COOKIE] ?? null;
+        $state = $auth->consumeState($request->queryStr('state'), is_string($nonce) ? $nonce : null);
         if (!$state) {
             return $this->fail('auth.state_invalid');
         }

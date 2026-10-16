@@ -91,6 +91,20 @@ final class BillingTest extends TestCase
         self::assertStringContains('billing.stripe.com', $p['url']);
     }
 
+    public function testLateOlderEventDoesNotReactivateCanceledSubscription(): void
+    {
+        $uid = $this->t->userId('spotify_user2');
+        $sub = $this->t->http->stripeSubscription('sub_9', 'active', ['customer' => 'cus_late', 'user_id' => $uid]);
+        $t0 = time() - 100;
+        self::assertSame(200, $this->webhook(['id' => 'evt_a', 'type' => 'customer.subscription.created', 'livemode' => false, 'created' => $t0, 'data' => ['object' => $sub]])->status);
+        $canceled = $this->t->http->stripeSubscription('sub_9', 'canceled', ['customer' => 'cus_late', 'user_id' => $uid]);
+        self::assertSame(200, $this->webhook(['id' => 'evt_c', 'type' => 'customer.subscription.deleted', 'livemode' => false, 'created' => $t0 + 50, 'data' => ['object' => $canceled]])->status);
+        // Verspätet zugestelltes älteres "updated"-Ereignis (active) darf die Kündigung nicht überschreiben
+        self::assertSame(200, $this->webhook(['id' => 'evt_b', 'type' => 'customer.subscription.updated', 'livemode' => false, 'created' => $t0 + 20, 'data' => ['object' => $sub]])->status);
+        self::assertSame('canceled', $this->t->db->value('SELECT status FROM subscriptions WHERE user_id = ?', [$uid]));
+        self::assertFalse(TestApp::json($this->t->request('GET', '/api/me', [], $this->tokens['user2']))['premium']['active']);
+    }
+
     public function testCheckoutCompletedEventFetchesSubscription(): void
     {
         $uid = $this->t->userId('spotify_user3');

@@ -100,8 +100,15 @@ final class PlaylistOperations
     private function run(array $op): array
     {
         $db = $this->app->db();
-        // Sperre gegen parallele Ausführung derselben Operation
-        $locked = $db->exec('UPDATE playlist_operations SET updated_at = ? WHERE id = ? AND status <> ?', [$db->now(), $op['id'], 'running']);
+        // Sperre gegen parallele Ausführung derselben Operation (Doppelklick, Retry, paralleles Fortsetzen)
+        $locked = $db->exec(
+            'UPDATE playlist_operations SET locked_until = ? WHERE id = ? AND (locked_until IS NULL OR locked_until < ?)',
+            [gmdate('Y-m-d H:i:s', time() + 300), $op['id'], $db->now()]
+        );
+        if ($locked === 0) {
+            throw HttpException::conflict('operation.in_progress');
+        }
+        $op = $db->one('SELECT * FROM playlist_operations WHERE id = ?', [$op['id']]) ?? $op;
         $payload = json_decode((string) $op['payload'], true) ?: [];
         $progress = json_decode((string) ($op['progress'] ?? '{}'), true) ?: ['added' => [], 'removed' => [], 'failed' => []];
         $userId = (int) $op['user_id'];
@@ -128,6 +135,9 @@ final class PlaylistOperations
             $this->save($op, 'partial', $progress, $e->reason . ($e->spotifyMessage ? ': ' . $e->spotifyMessage : ''));
         } catch (HttpException $e) {
             $this->save($op, 'partial', $progress, $e->errorCode);
+        } catch (\Throwable $e) {
+            $this->save($op, 'partial', $progress, 'internal: ' . $e->getMessage());
+            $this->app->logger->error('Playlist-Operation fehlgeschlagen', ['op' => $op['op_uuid'], 'message' => $e->getMessage()]);
         }
         return $this->present($this->find($userId, (string) $op['op_uuid']) ?? $op);
     }
@@ -137,7 +147,7 @@ final class PlaylistOperations
         $db = $this->app->db();
         $db->update('playlist_operations', [
             'status' => $status, 'progress' => json_encode($progress, JSON_UNESCAPED_UNICODE),
-            'error' => $error !== null ? mb_substr($error, 0, 500) : null, 'updated_at' => $db->now(),
+            'error' => $error !== null ? mb_substr($error, 0, 500) : null, 'updated_at' => $db->now(), 'locked_until' => null,
         ], 'id = ?', [$op['id']]);
     }
 

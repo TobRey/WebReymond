@@ -171,16 +171,17 @@ final class SubscriptionService
             }
         }
         if ($best) {
-            $this->applySubscriptionObject($best, (int) $user->id);
+            $this->applySubscriptionObject($best, (int) $user->id, time());
         }
         $fresh = $this->app->service(UserRepository::class)->find((int) $user->id) ?? $user;
         return $this->summary($fresh);
     }
 
     /** Übernimmt ein Stripe-Subscription-Objekt in die Datenbank. */
-    public function applySubscriptionObject(array $s, ?int $userIdHint = null): void
+    public function applySubscriptionObject(array $s, ?int $userIdHint = null, ?int $eventCreated = null): void
     {
         $db = $this->app->db();
+        $eventCreated ??= time();
         $customerId = is_array($s['customer'] ?? null) ? ($s['customer']['id'] ?? null) : ($s['customer'] ?? null);
         $userId = $userIdHint;
         if (!$userId && isset($s['metadata']['sg_user_id'])) {
@@ -205,6 +206,7 @@ final class SubscriptionService
             'current_period_start' => $periodStart ? gmdate('Y-m-d H:i:s', (int) $periodStart) : null,
             'current_period_end' => $periodEnd ? gmdate('Y-m-d H:i:s', (int) $periodEnd) : null,
             'cancel_at_period_end' => !empty($s['cancel_at_period_end']) ? 1 : 0,
+            'last_event_at' => $eventCreated,
             'updated_at' => $db->now(),
         ];
         if (in_array($data['status'], ['active', 'trialing'], true)) {
@@ -212,6 +214,10 @@ final class SubscriptionService
         }
         $existing = $this->row($userId);
         if ($existing) {
+            // Verspätet zugestellte ältere Ereignisse dürfen neuere Zustände nicht überschreiben
+            if ($existing['stripe_subscription_id'] === ($s['id'] ?? null) && (int) $existing['last_event_at'] > $eventCreated) {
+                return;
+            }
             // Ein neueres aktives Abo nicht durch ein altes gekündigtes überschreiben
             if ($existing['stripe_subscription_id'] && $existing['stripe_subscription_id'] !== ($s['id'] ?? null)
                 && in_array($existing['status'], ['active', 'trialing'], true) && !in_array($data['status'], ['active', 'trialing'], true)) {
@@ -246,13 +252,14 @@ final class SubscriptionService
             return 'duplicate';
         }
         $obj = $event['data']['object'] ?? [];
+        $created = isset($event['created']) && is_numeric($event['created']) ? (int) $event['created'] : time();
         try {
             switch ($type) {
                 case 'checkout.session.completed':
                     if (($obj['mode'] ?? '') === 'subscription' && !empty($obj['subscription'])) {
                         $userId = (int) ($obj['client_reference_id'] ?? $obj['metadata']['sg_user_id'] ?? 0);
                         $sub = $this->stripe()->request('GET', '/subscriptions/' . $obj['subscription']);
-                        $this->applySubscriptionObject($sub, $userId ?: null);
+                        $this->applySubscriptionObject($sub, $userId ?: null, time());
                     }
                     break;
                 case 'customer.subscription.created':
@@ -260,14 +267,14 @@ final class SubscriptionService
                 case 'customer.subscription.deleted':
                 case 'customer.subscription.paused':
                 case 'customer.subscription.resumed':
-                    $this->applySubscriptionObject($obj);
+                    $this->applySubscriptionObject($obj, null, $created);
                     break;
                 case 'invoice.paid':
                 case 'invoice.payment_succeeded':
                     $subId = $obj['subscription'] ?? ($obj['parent']['subscription_details']['subscription'] ?? null);
                     if (is_string($subId)) {
                         $sub = $this->stripe()->request('GET', '/subscriptions/' . $subId);
-                        $this->applySubscriptionObject($sub);
+                        $this->applySubscriptionObject($sub, null, time());
                     }
                     break;
                 case 'invoice.payment_failed':
@@ -279,7 +286,7 @@ final class SubscriptionService
                     $subId = $obj['subscription'] ?? ($obj['parent']['subscription_details']['subscription'] ?? null);
                     if (is_string($subId)) {
                         $sub = $this->stripe()->request('GET', '/subscriptions/' . $subId);
-                        $this->applySubscriptionObject($sub);
+                        $this->applySubscriptionObject($sub, null, time());
                     }
                     break;
                 default:

@@ -87,7 +87,7 @@ final class TestApp
     }
 
     /** Baut ein Request-Objekt wie aus Globals. */
-    public function request(string $method, string $path, array $json = [], ?string $sessionToken = null, array $query = [], array $headers = []): Response
+    public function request(string $method, string $path, array $json = [], ?string $sessionToken = null, array $query = [], array $headers = [], array $cookies = []): Response
     {
         $r = new Request();
         $r->method = strtoupper($method);
@@ -97,7 +97,7 @@ final class TestApp
         $r->rawBody = $json ? (string) json_encode($json) : '';
         $r->headers = array_change_key_case(array_merge(['content-type' => 'application/json', 'accept' => 'application/json', 'sec-fetch-site' => 'same-origin', 'user-agent' => 'TestClient'], $headers), CASE_LOWER);
         $r->ip = '127.0.0.1';
-        $_COOKIE = $sessionToken ? ['sg_session' => $sessionToken] : [];
+        $_COOKIE = ($sessionToken ? ['sg_session' => $sessionToken] : []) + $cookies;
         // CSRF-Token wird aus der Session gezogen und als Header gesetzt (Client-Verhalten)
         if ($sessionToken && !isset($r->headers['x-csrf-token'])) {
             $csrf = $this->db->value('SELECT csrf_token FROM sessions WHERE id = ?', [Crypto::hash($sessionToken)]);
@@ -135,7 +135,8 @@ final class TestApp
         }
         parse_str((string) parse_url($url, PHP_URL_QUERY), $q);
         $code = $this->http->issueCode($spotifyUser);
-        $resp = $this->request('GET', '/auth/spotify/callback', [], null, ['code' => $code, 'state' => $q['state']]);
+        $nonce = (string) $auth->lastNonce;
+        $resp = $this->request('GET', '/auth/spotify/callback', [], null, ['code' => $code, 'state' => $q['state']], [], ['sg_oauth' => $nonce]);
         $token = null;
         // Session-Token aus der DB (setcookie läuft in CLI nicht): neueste Session des Nutzers
         $row = $this->db->one('SELECT s.id, u.id AS uid FROM sessions s JOIN users u ON u.id = s.user_id WHERE u.spotify_user_id = ? ORDER BY s.created_at DESC, s.id DESC LIMIT 1', [$spotifyUser]);

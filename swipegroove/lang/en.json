@@ -99,6 +99,7 @@
   "validation.prompt_length": "The image description must be 3–1500 characters long.",
   "validation.invalid": "Invalid value.",
   "operation.invalid_id": "Invalid operation ID.",
+  "operation.in_progress": "This operation is already running. Please wait a moment.",
   "operation.not_found": "Operation not found.",
   "swipe.invalid_mode": "Invalid feed mode.",
   "swipe.invalid_track": "Invalid track ID.",

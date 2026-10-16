@@ -146,6 +146,42 @@ final class PlaylistTest extends TestCase
         self::assertCount(3, $http->playlists['pltarget000000000000001']['items']);
     }
 
+    public function testConcurrentOperationStartIsRejectedWhileLocked(): void
+    {
+        $http = $this->t->http;
+        $http->addPlaylist('pla00000000000000000001', 'spotify_user2', 'A', [1, 2]);
+        $http->addPlaylist('plb00000000000000000001', 'spotify_user2', 'B', [3]);
+        $op = $this->uuid();
+        $now = $this->t->db->now();
+        $this->t->db->insert('playlist_operations', [
+            'op_uuid' => $op, 'user_id' => $this->t->userId('spotify_user2'), 'type' => 'copy', 'source_playlist_id' => 'pla00000000000000000001', 'target_playlist_id' => 'plb00000000000000000001',
+            'payload' => json_encode(['uris' => ['spotify:track:' . $http->trackId(1)]]), 'status' => 'pending', 'progress' => '{}',
+            'locked_until' => gmdate('Y-m-d H:i:s', time() + 120), 'created_at' => $now, 'updated_at' => $now,
+        ]);
+        $r = $this->t->request('POST', '/api/playlists/copy', ['op_id' => $op, 'source_id' => 'pla00000000000000000001', 'target_id' => 'plb00000000000000000001', 'uris' => ['spotify:track:' . $http->trackId(1)]], $this->tokens['user2']);
+        self::assertSame(409, $r->status);
+        self::assertSame('operation.in_progress', TestApp::json($r)['error']);
+        self::assertCount(1, $http->playlists['plb00000000000000000001']['items'], 'Nichts doppelt hinzugefügt');
+        // Abgelaufene Sperre → Ausführung
+        $this->t->db->run('UPDATE playlist_operations SET locked_until = ? WHERE op_uuid = ?', [gmdate('Y-m-d H:i:s', time() - 5), $op]);
+        $r = TestApp::json($this->t->request('POST', '/api/playlists/operations/' . $op . '/resume', [], $this->tokens['user2']));
+        self::assertSame('done', $r['status']);
+        self::assertCount(2, $http->playlists['plb00000000000000000001']['items']);
+        self::assertNull($this->t->db->value('SELECT locked_until FROM playlist_operations WHERE op_uuid = ?', [$op]));
+    }
+
+    public function testLocalFilesWithLongUrisDoNotBreakLoading(): void
+    {
+        $http = $this->t->http;
+        $http->addPlaylist('pl000000000000000000001', 'spotify_user2', 'Local', [1]);
+        $longUri = 'spotify:local:' . str_repeat('Artist+Name+', 10) . ':' . str_repeat('Album+', 10) . ':' . str_repeat('Title+', 10) . ':240';
+        $http->tracks['localtrack0000000000001'] = ['id' => null, 'uri' => $longUri, 'name' => 'Lokale Datei', 'duration_ms' => 240000, 'artists' => [['id' => null, 'name' => 'Lokal']], 'album' => ['id' => null, 'name' => 'Album', 'images' => []]];
+        $http->playlists['pl000000000000000000001']['items'][] = 'localtrack0000000000001';
+        $r = $this->t->request('GET', '/api/playlists/pl000000000000000000001', [], $this->tokens['user2']);
+        self::assertSame(200, $r->status, $r->body);
+        self::assertCount(2, TestApp::json($r)['items']);
+    }
+
     public function testMergeAndDuplicateKeepOrderAndSkipExisting(): void
     {
         $http = $this->t->http;

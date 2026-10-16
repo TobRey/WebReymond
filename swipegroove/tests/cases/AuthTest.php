@@ -71,15 +71,34 @@ final class AuthTest extends TestCase
         $this->t->app->settings()->set('setup_key_hash', password_hash('k-123456789012', PASSWORD_DEFAULT));
         $auth = $this->t->app->service(\SwipeGroove\Spotify\SpotifyAuth::class);
         $urlA = $auth->startUrl('setup', null, true, 'de');
+        $nonceA = (string) $auth->lastNonce;
         $urlB = $auth->startUrl('setup', null, true, 'de');
+        $nonceB = (string) $auth->lastNonce;
         parse_str((string) parse_url($urlA, PHP_URL_QUERY), $qa);
         parse_str((string) parse_url($urlB, PHP_URL_QUERY), $qb);
-        $ra = $this->t->request('GET', '/auth/spotify/callback', [], null, ['code' => $this->t->http->issueCode('spotify_owner'), 'state' => $qa['state']]);
-        $rb = $this->t->request('GET', '/auth/spotify/callback', [], null, ['code' => $this->t->http->issueCode('spotify_user2'), 'state' => $qb['state']]);
+        $ra = $this->t->request('GET', '/auth/spotify/callback', [], null, ['code' => $this->t->http->issueCode('spotify_owner'), 'state' => $qa['state']], [], ['sg_oauth' => $nonceA]);
+        $rb = $this->t->request('GET', '/auth/spotify/callback', [], null, ['code' => $this->t->http->issueCode('spotify_user2'), 'state' => $qb['state']], [], ['sg_oauth' => $nonceB]);
         self::assertSame(302, $ra->status);
         self::assertStringContains('registration_closed', (string) $rb->headers['Location']);
         self::assertSame(1, (int) $db->value('SELECT COUNT(*) FROM platform_owner'));
         self::assertSame(1, (int) $db->value('SELECT COUNT(*) FROM users'));
+    }
+
+    public function testCallbackWithoutBrowserCookieIsRejected(): void
+    {
+        $this->t->seedUsers();
+        $auth = $this->t->app->service(\SwipeGroove\Spotify\SpotifyAuth::class);
+        $url = $auth->startUrl('login', null, false, 'de');
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $q);
+        $sessionsBefore = (int) $this->t->db->value('SELECT COUNT(*) FROM sessions');
+        // Angreifer schickt dem Opfer seine Callback-URL: Browser des Opfers hat die Nonce nicht
+        $r = $this->t->request('GET', '/auth/spotify/callback', [], null, ['code' => $this->t->http->issueCode('spotify_user3'), 'state' => $q['state']], [], ['sg_oauth' => 'fremd']);
+        self::assertSame(302, $r->status);
+        self::assertStringContains('auth.state_invalid', (string) $r->headers['Location']);
+        self::assertSame($sessionsBefore, (int) $this->t->db->value('SELECT COUNT(*) FROM sessions'), 'Keine Session für das Opfer erzeugt');
+        // State ist verbraucht – auch mit richtiger Nonce nicht mehr nutzbar
+        $r = $this->t->request('GET', '/auth/spotify/callback', [], null, ['code' => $this->t->http->issueCode('spotify_user3'), 'state' => $q['state']], [], ['sg_oauth' => (string) $auth->lastNonce]);
+        self::assertStringContains('auth.state_invalid', (string) $r->headers['Location']);
     }
 
     public function testInvalidStateIsRejected(): void

@@ -131,13 +131,19 @@ final class CoverService
         }
         // Bild lokal, sicher und neu kodiert speichern (PNG/WebP/JPEG → WebP für Vorschau, JPEG für Spotify)
         $imgSvc = $this->app->service(ImageService::class);
-        $gd = $imgSvc->decode($result['bytes']);
-        $square = $imgSvc->cropResize($gd, 1024, 1024, null);
-        imagedestroy($gd);
         $file = 'cover-' . $jobUuid . '.jpg';
         $path = $this->dir() . '/' . $file;
-        imagejpeg($square, $path, 92);
-        imagedestroy($square);
+        try {
+            $gd = $imgSvc->decode($result['bytes']);
+            $square = $imgSvc->cropResize($gd, 1024, 1024, null);
+            imagedestroy($gd);
+            imagejpeg($square, $path, 92);
+            imagedestroy($square);
+        } catch (\Throwable $e) {
+            // Anbieter hat geliefert (berechnet), Bild aber nicht verwertbar: nicht als fertiges Cover zählen
+            $db->update('cover_jobs', ['status' => 'failed', 'error' => mb_substr('decode: ' . $e->getMessage(), 0, 500), 'finished_at' => $db->now()], 'id = ?', [$jobId]);
+            throw new HttpException(502, 'covers.provider_invalid', null, ['job_id' => $jobUuid]);
+        }
         @chmod($path, 0640);
         $db->update('cover_jobs', ['status' => 'done', 'file_path' => $file, 'finished_at' => $db->now(), 'model' => $result['model']], 'id = ?', [$jobId]);
         $job = $db->one('SELECT * FROM cover_jobs WHERE id = ?', [$jobId]);

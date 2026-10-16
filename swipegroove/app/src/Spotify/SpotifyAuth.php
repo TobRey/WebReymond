@@ -26,6 +26,10 @@ final class SpotifyAuth
         'user-modify-playback-state',
     ];
 
+    public const BROWSER_COOKIE = 'sg_oauth';
+    /** Zuletzt erzeugte Browser-Nonce (für Tests). */
+    public ?string $lastNonce = null;
+
     public function __construct(private App $app)
     {
     }
@@ -71,9 +75,14 @@ final class SpotifyAuth
         $state = Crypto::randomToken(32);
         $verifier = Crypto::randomToken(64);
         $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
+        // Browser-Bindung: Nonce im Cookie, Hash in der DB – verhindert Login-CSRF/Session-Fixation über fremde Callback-URLs
+        $nonce = Crypto::randomToken(32);
+        $this->lastNonce = $nonce;
+        $this->setBrowserCookie($nonce);
         $db->insert('oauth_states', [
             'state' => $state,
             'code_verifier' => $verifier,
+            'browser_hash' => Crypto::hash($nonce),
             'purpose' => $purpose,
             'user_id' => $userId,
             'setup_key_ok' => $setupKeyOk ? 1 : 0,
@@ -95,8 +104,11 @@ final class SpotifyAuth
         return $this->accountsBase() . '/authorize?' . http_build_query($params);
     }
 
-    /** @return array<string,mixed>|null */
-    public function consumeState(string $state): ?array
+    /**
+     * Löst den State auf; gültig nur mit passender Browser-Nonce (Cookie) – sonst null.
+     * @return array<string,mixed>|null
+     */
+    public function consumeState(string $state, ?string $browserNonce): ?array
     {
         $db = $this->app->db();
         if (!preg_match('/^[A-Za-z0-9\-_]{40,60}$/', $state)) {
@@ -106,7 +118,25 @@ final class SpotifyAuth
         if ($row) {
             $db->run('DELETE FROM oauth_states WHERE state = ?', [$state]);
         }
+        if (!$row || !$browserNonce || !hash_equals((string) $row['browser_hash'], Crypto::hash($browserNonce))) {
+            return null;
+        }
+        $this->setBrowserCookie('', true);
         return $row;
+    }
+
+    private function setBrowserCookie(string $value, bool $clear = false): void
+    {
+        if (PHP_SAPI === 'cli') {
+            return;
+        }
+        setcookie(self::BROWSER_COOKIE, $value, [
+            'expires' => $clear ? time() - 3600 : time() + 600,
+            'path' => $this->app->url->basePath() ?: '/',
+            'secure' => str_starts_with($this->app->url->base(), 'https://'),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
     }
 
     /**
