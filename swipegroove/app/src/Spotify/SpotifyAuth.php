@@ -35,6 +35,13 @@ final class SpotifyAuth
         return $this->app->config?->string('spotify.client_id') ?? '';
     }
 
+    /** Basis der Accounts-API (nur für lokale Tests überschreibbar; Standard: accounts.spotify.com). */
+    public function accountsBase(): string
+    {
+        $v = rtrim($this->app->config?->string('spotify.accounts_base_url') ?? '', '/');
+        return $v !== '' ? $v : 'https://accounts.spotify.com';
+    }
+
     public function isConfigured(): bool
     {
         return $this->clientId() !== '';
@@ -85,7 +92,7 @@ final class SpotifyAuth
             'code_challenge' => $challenge,
             'show_dialog' => $purpose === 'reconnect' ? 'true' : 'false',
         ];
-        return self::AUTH_URL . '?' . http_build_query($params);
+        return $this->accountsBase() . '/authorize?' . http_build_query($params);
     }
 
     /** @return array<string,mixed>|null */
@@ -133,7 +140,7 @@ final class SpotifyAuth
     {
         $start = microtime(true);
         try {
-            $resp = $this->app->http->request('POST', self::TOKEN_URL, [
+            $resp = $this->app->http->request('POST', $this->accountsBase() . '/api/token', [
                 'Content-Type' => 'application/x-www-form-urlencoded',
             ], $body);
         } catch (\Throwable $e) {

@@ -30,6 +30,13 @@ final class SpotifyClient
     {
     }
 
+    /** Basis der Web-API (nur für lokale Tests überschreibbar; Standard: api.spotify.com/v1). */
+    private function apiBase(): string
+    {
+        $v = rtrim($this->app->config?->string('spotify.api_base_url') ?? '', '/');
+        return $v !== '' ? $v : self::API;
+    }
+
     // ------------------------------------------------------------------ Low-level
 
     /**
@@ -68,7 +75,7 @@ final class SpotifyClient
 
     private function raw(string $method, string $path, array $query, array|string|null $body, string $token, ?string $contentType, int $userId): HttpResponse
     {
-        $url = str_starts_with($path, 'http') ? $path : self::API . '/' . ltrim($path, '/');
+        $url = str_starts_with($path, 'http') ? $path : $this->apiBase() . '/' . ltrim($path, '/');
         if ($query !== []) {
             $url .= (str_contains($url, '?') ? '&' : '?') . http_build_query($query);
         }
@@ -148,7 +155,7 @@ final class SpotifyClient
         // Direkt mit Token (während des Logins existiert noch kein Nutzer)
         $start = microtime(true);
         try {
-            $resp = $this->app->http->request('GET', self::API . '/me', ['Authorization' => 'Bearer ' . $accessToken, 'Accept' => 'application/json']);
+            $resp = $this->app->http->request('GET', $this->apiBase() . '/me', ['Authorization' => 'Bearer ' . $accessToken, 'Accept' => 'application/json']);
         } catch (\Throwable $e) {
             $this->log('GET', 'me', 0, $start, 0, $e->getMessage());
             throw new SpotifyException(SpotifyException::UNAVAILABLE, 0, 'Spotify nicht erreichbar');

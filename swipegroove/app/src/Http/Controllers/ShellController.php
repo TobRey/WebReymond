@@ -32,7 +32,7 @@ final class ShellController
             'platform' => $this->platformInfo(),
             'i18n' => $this->app->i18n->bundle($lang),
         ];
-        $json = json_encode($boot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '{}';
+        $json = json_encode($boot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?: '{}';
         $base = htmlspecialchars($this->app->url->basePath() . '/');
         $css = '';
         foreach ($assets['css'] as $href) {
@@ -63,7 +63,7 @@ final class ShellController
 </head>
 <body>
 <div id="app"><div class="boot-splash" aria-busy="true"><div class="boot-logo"></div></div></div>
-<script>window.__SG__ = {$json};</script>
+<script type="application/json" id="sg-boot">{$json}</script>
 {$js}
 </body>
 </html>

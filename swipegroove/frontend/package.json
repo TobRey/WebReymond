@@ -1,14 +1,13 @@
 {
-  "name": "frontend",
+  "name": "swipegroove-frontend",
+  "private": true,
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
     "@preact/preset-vite": "^2.10.1",
     "typescript": "^5.8.3",
