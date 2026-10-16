@@ -1,0 +1,23 @@
+{
+    "name": "swipegroove/swipegroove",
+    "description": "SwipeGroove – Spotify-Playlist-Manager, Community und Swipe-Feed",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.2",
+        "ext-pdo_mysql": "*",
+        "ext-curl": "*",
+        "ext-gd": "*",
+        "ext-sodium": "*",
+        "ext-mbstring": "*",
+        "ext-json": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "SwipeGroove\\": "app/src/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

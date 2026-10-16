@@ -61,3 +61,18 @@ desktop.ini
 
 # --- Von Prisma erzeugter Client (wird beim Installieren neu gebaut) ---
 apps/api/src/generated/
+
+# --- SwipeGroove (PHP) ---
+swipegroove/config/config.php
+swipegroove/storage/logs/*
+swipegroove/storage/cache/*
+swipegroove/storage/covers/*
+swipegroove/storage/tmp/*
+swipegroove/storage/exports/*
+swipegroove/uploads/avatars/*
+swipegroove/uploads/banners/*
+swipegroove/uploads/backgrounds/*
+swipegroove/frontend/node_modules/
+swipegroove/vendor/
+!swipegroove/storage/**/.gitkeep
+!swipegroove/uploads/**/.gitkeep
