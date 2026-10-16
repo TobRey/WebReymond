@@ -3,7 +3,7 @@ import { Layout } from '../components/Layout';
 import { api, showError, uuid } from '../lib/api';
 import { t, fmtDate } from '../lib/i18n';
 import { toast, user, platform } from '../lib/state';
-import { route, href } from '../lib/router';
+import { href } from '../lib/router';
 import type { Cover, Quota, Playlist } from '../lib/types';
 import { Confirm, EmptyState, Field, Loading, Notice, Sheet, Spinner, TopBar } from '../components/ui';
 import { PlaylistPicker } from '../components/PlaylistPicker';
@@ -20,7 +20,6 @@ export function Covers() {
   const [apply, setApply] = useState<Cover | null>(null);
   const [applyTo, setApplyTo] = useState<{ cover: Cover; pl: Playlist } | null>(null);
   const [del, setDel] = useState<Cover | null>(null);
-  const presetTarget = route.value.query.get('playlist');
   const me = user.value!;
   const load = () => api<{ covers: Cover[]; quota: Quota; styles: string[] }>('/api/covers').then((r) => { setCovers(r.covers); setQuota(r.quota); setStyles(r.styles); }).catch((e) => { showError(e); setCovers([]); });
   useEffect(() => { load(); }, []);
@@ -99,7 +98,6 @@ export function Covers() {
       {apply && <PlaylistPicker title={t('covers.choose_playlist')} onClose={() => setApply(null)} onPick={(pl) => { setApplyTo({ cover: apply, pl }); setApply(null); }} />}
       {applyTo && <Confirm title={t('covers.confirm_title')} text={t('covers.confirm_text', { name: applyTo.pl.name })} busy={busy} onClose={() => setApplyTo(null)} onConfirm={doApply} confirmLabel={t('covers.set_cover')} />}
       {del && <Confirm title={t('common.delete')} danger text={t('covers.delete_text')} onClose={() => setDel(null)} onConfirm={remove} />}
-      {presetTarget && !apply && !applyTo && covers && covers.length > 0 && null}
     </Layout>
   );
 }

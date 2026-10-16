@@ -142,9 +142,9 @@ export function Conversation({ id }: { id: number }) {
           {msgs.map((m) => (
             <div key={m.id} class={'bubble' + (m.mine ? ' mine' : '') + (m.deleted ? ' deleted' : '')} onContextMenu={(e) => { if (!m.mine && !m.deleted) { e.preventDefault(); setReport(m.id); } }}>
               {m.deleted ? t('messages.deleted') : (<>
-                {m.link && <a class="btn sm block mb-1" href={href(m.link.type === 'profile' ? '/u/' + m.link.ref : '/community/playlists/' + m.link.ref)}>{m.link.type === 'profile' ? <IUser /> : <IMusic />}{m.body || (m.link.type === 'profile' ? '@' + m.link.ref : t('messages.playlist_link'))}</a>}
-                {(!m.link || !m.body) ? (m.link ? null : m.body) : null}
-                {m.link && m.body ? null : null}
+                {m.link
+                  ? <a class="btn sm block" href={href(m.link.type === 'profile' ? '/u/' + m.link.ref : '/community/playlists/' + m.link.ref)}>{m.link.type === 'profile' ? <IUser /> : <IMusic />}{m.body || (m.link.type === 'profile' ? '@' + m.link.ref : t('messages.playlist_link'))}</a>
+                  : m.body}
               </>)}
               <span class="time">{fmtDate(m.created_at, true)}{!m.mine && !m.deleted && <button class="btn ghost sm" style="min-height:0;padding:0 .3rem;font-size:.65rem" onClick={() => setReport(m.id)}><IFlag style="width:11px;height:11px" />{t('report.short')}</button>}</span>
             </div>
