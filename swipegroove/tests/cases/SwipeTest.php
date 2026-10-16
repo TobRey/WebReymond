@@ -87,10 +87,11 @@ final class SwipeTest extends TestCase
         $r = TestApp::json($this->t->request('POST', '/api/swipe/action', ['action_id' => $this->uuid(), 'playlist_id' => 'pltarget000000000000001', 'track_id' => $card['id'], 'action' => 'hide'], $this->tokens['user2']));
         self::assertSame('done', $r['status']);
         self::assertSame(1, (int) $this->t->db->value('SELECT COUNT(*) FROM swipe_hidden WHERE spotify_playlist_id = ?', ['pltarget000000000000001']));
-        // Für eine andere Zielplaylist darf der Song erscheinen
+        // Für eine andere Zielplaylist darf der Song erscheinen (deterministisch über Künstlerfilter)
         $ids = [];
-        for ($i = 0; $i < 6; $i++) {
-            $f = TestApp::json($this->t->request('GET', '/api/swipe/feed', [], $this->tokens['user2'], ['playlist_id' => 'plother0000000000000001', 'mode' => 'discover']));
+        $filters = json_encode(['artists' => [['name' => $card['artists'][0]]]]);
+        for ($i = 0; $i < 4; $i++) {
+            $f = TestApp::json($this->t->request('GET', '/api/swipe/feed', [], $this->tokens['user2'], ['playlist_id' => 'plother0000000000000001', 'mode' => 'custom', 'filters' => $filters, 'limit' => 12]));
             $ids = array_merge($ids, array_column($f['cards'], 'id'));
             if (in_array($card['id'], $ids, true) || $f['cards'] === []) {
                 break;

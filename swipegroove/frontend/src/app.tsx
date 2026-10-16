@@ -57,30 +57,26 @@ export function App() {
     if (!u) api<Platform>('/api/platform').then((pl) => { platform.value = pl; }).catch(() => undefined);
   }, [u?.id]);
 
+  // Weiterleitungen zentral bestimmen (Hooks dürfen nicht bedingt aufgerufen werden)
+  const isPublic = p.startsWith('/legal/') || p === '/setup';
+  let redirectTo: string | null = null;
+  if (!isPublic) {
+    if (!u && p !== '/login') redirectTo = '/login' + (p !== '/' ? '?redirect=' + encodeURIComponent(p) : '');
+    else if (u && u.status === 'active' && !u.onboarding_done && p !== '/welcome') redirectTo = '/welcome';
+    else if (u && u.status === 'active' && p === '/login') redirectTo = '/';
+  }
+  useEffect(() => { if (redirectTo) navigate(redirectTo, true); }, [redirectTo]);
+
   if (p.startsWith('/legal/')) {
     const page = p.slice(7);
     if (page === 'privacy' || page === 'terms' || page === 'imprint') return <Legal page={page} />;
     return <NotFound />;
   }
   if (p === '/setup') return <Setup />;
-  if (!u) {
-    if (p !== '/login') {
-      const redirect = p !== '/' ? '?redirect=' + encodeURIComponent(p) : '';
-      useEffect(() => { navigate('/login' + redirect, true); }, []);
-      return null;
-    }
-    return <Login />;
-  }
+  if (redirectTo) return null;
+  if (!u) return <Login />;
   if (u.status !== 'active') return <Login />;
-  if (!u.onboarding_done && p !== '/welcome') {
-    useEffect(() => { navigate('/welcome', true); }, []);
-    return null;
-  }
   if (p === '/welcome') return <Welcome />;
-  if (p === '/login') {
-    useEffect(() => { navigate('/', true); }, []);
-    return null;
-  }
   let m: Record<string, string> | null;
   if (p === '/') return <Overview />;
   if ((m = match('/playlists/:id', p))) return <PlaylistDetail id={m.id} />;
