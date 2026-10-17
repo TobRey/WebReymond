@@ -522,6 +522,9 @@ final class PlaylistService
     {
         $db = $this->app->db();
         $row = $this->cacheRow($userId, $playlistId);
+        if ($published && !(int) $row['is_owner']) {
+            throw HttpException::forbidden('playlist.publish_own_only');
+        }
         $now = $db->now();
         $existing = $db->one('SELECT * FROM published_playlists WHERE user_id = ? AND spotify_playlist_id = ?', [$userId, $playlistId]);
         if ($published) {

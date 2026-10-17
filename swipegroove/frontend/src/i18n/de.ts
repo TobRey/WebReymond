@@ -142,4 +142,7 @@ export const de: Record<string, string> = {
   'admin.cache': 'Spotify-Zwischenspeicher', 'admin.cache_lists': 'Playlist-Liste (Minuten)', 'admin.cache_items': 'Playlist-Inhalte (Minuten)', 'admin.legal': 'Betreiberangaben', 'admin.legal_hint': 'Diese Angaben erscheinen auf den rechtlichen Seiten. Leere Felder werden dort als auszufüllend markiert.',
   'admin.legal_operator_name': 'Betreibername', 'admin.legal_operator_address': 'Adresse', 'admin.legal_operator_email': 'Kontakt-E-Mail', 'admin.legal_operator_country': 'Land',
   'admin.public_confirm': 'Öffentlicher Betrieb öffnet die Registrierung für alle. Stelle sicher, dass Spotify-Freigaben, Betreiberangaben und Zahlungen eingerichtet sind.', 'admin.no_errors': 'Keine Fehler protokolliert', 'admin.scope': 'Bereich', 'admin.message': 'Meldung', 'admin.location': 'Ort', 'admin.action': 'Aktion', 'admin.target': 'Ziel',
+  'playlist.restricted_title': 'Songliste nicht verfügbar',
+  'playlist.restricted_text': 'Diese Playlist gehört jemand anderem. Spotify gibt Songlisten nur für eigene Playlists und solche frei, an denen du mitwirkst. Du kannst sie in Spotify öffnen oder aus deiner Bibliothek entfernen.',
+  'playlist.restricted_text_forbidden': 'Spotify hat das Laden der Songliste für diese Playlist abgelehnt. Du kannst sie in Spotify öffnen oder aus deiner Bibliothek entfernen.',
 };

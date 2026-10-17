@@ -142,4 +142,7 @@ export const en: Record<string, string> = {
   'admin.cache': 'Spotify cache', 'admin.cache_lists': 'Playlist list (minutes)', 'admin.cache_items': 'Playlist contents (minutes)', 'admin.legal': 'Operator details', 'admin.legal_hint': 'These details appear on the legal pages. Empty fields are marked there as to be completed.',
   'admin.legal_operator_name': 'Operator name', 'admin.legal_operator_address': 'Address', 'admin.legal_operator_email': 'Contact e-mail', 'admin.legal_operator_country': 'Country',
   'admin.public_confirm': 'Public operation opens registration to everyone. Make sure Spotify approvals, operator details and payments are set up.', 'admin.no_errors': 'No errors logged', 'admin.scope': 'Scope', 'admin.message': 'Message', 'admin.location': 'Location', 'admin.action': 'Action', 'admin.target': 'Target',
+  'playlist.restricted_title': 'Track list not available',
+  'playlist.restricted_text': 'This playlist belongs to someone else. Spotify only provides track lists for your own playlists and ones you collaborate on. You can open it in Spotify or remove it from your library.',
+  'playlist.restricted_text_forbidden': 'Spotify refused to load the track list for this playlist. You can open it in Spotify or remove it from your library.',
 };

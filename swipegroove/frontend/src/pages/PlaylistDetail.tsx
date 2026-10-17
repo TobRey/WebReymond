@@ -10,7 +10,7 @@ import { PlaylistPicker } from '../components/PlaylistPicker';
 import { ICopy, IDown, IEdit, IExternal, IGlobe, IHandle, IImage, IMore, IMove, IMusic, IPlus, IRefresh, ISearch, ITrash, IUp, IX, ISparkle, IWarn } from '../components/Icons';
 import { artistsText, readFileAsDataUrl } from '../lib/util';
 
-interface Detail { playlist: Playlist; items: Track[]; complete: boolean }
+interface Detail { playlist: Playlist; items: Track[]; complete: boolean; restricted?: boolean; restricted_reason?: string }
 
 export function PlaylistDetail({ id }: { id: string }) {
   const [data, setData] = useState<Detail | null>(null);
@@ -110,7 +110,7 @@ export function PlaylistDetail({ id }: { id: string }) {
       { label: t('playlist.ai_cover'), icon: <ISparkle />, onClick: () => navigate('/covers?playlist=' + id) },
       { label: t('playlist.find_duplicates'), icon: <ICopy />, onClick: () => setSheet('duplicates') },
     ] : []),
-    { label: t('playlist.duplicate'), icon: <ICopy />, onClick: () => setSheet('duplicate') },
+    ...(!data?.restricted ? [{ label: t('playlist.duplicate'), icon: <ICopy />, onClick: () => setSheet('duplicate') }] : []),
     { label: t('playlist.refresh'), icon: <IRefresh />, onClick: () => load(true) },
     { label: t('playlist.open_spotify'), icon: <IExternal />, onClick: () => window.open(pl.spotify_url, '_blank', 'noopener') },
     { label: t('playlist.remove_from_library'), icon: <ITrash />, danger: true, onClick: () => setSheet('unfollow') },
@@ -124,7 +124,7 @@ export function PlaylistDetail({ id }: { id: string }) {
         <div class="grow col gap-1">
           <h2 class="truncate">{pl.name}</h2>
           {pl.description && <p class="muted small">{pl.description}</p>}
-          <div class="small muted">{t('playlist.n_songs', { n: items.length })} · {pl.is_owner ? t('playlist.yours') : pl.owner_name}{!canEdit ? ' · ' + t('playlist.read_only') : ''}</div>
+          <div class="small muted">{t('playlist.n_songs', { n: data?.restricted ? pl.track_count : items.length })} · {pl.is_owner ? t('playlist.yours') : pl.owner_name}{!canEdit ? ' · ' + t('playlist.read_only') : ''}</div>
           <div class="row wrap gap-1">
             {pl.spotify_public !== null && <span class="chip">{pl.spotify_public ? t('playlist.spotify_public_short') : t('playlist.spotify_private_short')}</span>}
             {pl.is_collaborative && <span class="chip">{t('playlist.collab')}</span>}
@@ -132,11 +132,22 @@ export function PlaylistDetail({ id }: { id: string }) {
           </div>
         </div>
       </div>
-      <div class="card mt-2" style="padding:0.25rem 1rem">
+      {data?.restricted && (
+        <div class="card mt-2 col gap-1">
+          <Notice kind="info"><strong>{t('playlist.restricted_title')}</strong><br />{t(data.restricted_reason === 'not_owner' ? 'playlist.restricted_text' : 'playlist.restricted_text_forbidden')}</Notice>
+          <div class="row wrap gap-1">
+            <a class="btn primary" href={pl.spotify_url} target="_blank" rel="noopener"><IExternal />{t('playlist.open_spotify')}</a>
+            <button class="btn" onClick={() => setSheet('unfollow')}><ITrash />{t('playlist.remove_from_library')}</button>
+          </div>
+        </div>
+      )}
+      {pl.is_owner && <div class="card mt-2" style="padding:0.25rem 1rem">
         <Toggle label={t('playlist.publish_toggle')} desc={t('playlist.publish_hint')} checked={pl.is_published} disabled={busy}
           onChange={(v) => handle(async () => { const r = await api<Playlist>('/api/playlists/' + id + '/publish', { body: { published: v } }); setData({ ...data!, playlist: r }); toast(v ? t('playlist.published_ok') : t('playlist.unpublished_ok'), 'ok'); }, false)} />
         {pl.is_published && pl.published_id && <div class="small" style="padding-bottom:.6rem"><a href={href('/community/playlists/' + pl.published_id)}>{t('playlist.view_community')}</a></div>}
-      </div>
+      </div>}
+
+      {!data?.restricted && <>
 
       <div class="row wrap gap-1 mt-2">
         <div class="search grow" style="min-width:180px"><ISearch /><input class="input" placeholder={t('playlist.filter_songs')} value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} /></div>
@@ -179,6 +190,8 @@ export function PlaylistDetail({ id }: { id: string }) {
             );
           })}
       </div>
+
+      </>}
 
       {selectMode && selected.size > 0 && (
         <div class="selection-bar">

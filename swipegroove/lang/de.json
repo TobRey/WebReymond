@@ -84,6 +84,7 @@
   "playlist.snapshot_conflict": "Die Playlist wurde zwischenzeitlich in Spotify geändert. Bitte neu laden und erneut versuchen.",
   "playlist.no_items": "Keine Songs ausgewählt.",
   "playlist.same_playlist": "Quelle und Ziel sind identisch.",
+  "playlist.publish_own_only": "Nur eigene Playlists können auf SwipeGroove veröffentlicht werden.",
   "playlist.no_target": "Keine Zielplaylist angegeben.",
   "validation.playlist_name": "Der Name muss 1–100 Zeichen lang sein.",
   "validation.username_length": "Der Benutzername muss 3–32 Zeichen lang sein.",

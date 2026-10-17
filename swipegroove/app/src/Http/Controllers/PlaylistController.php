@@ -84,7 +84,32 @@ final class PlaylistController
     public function show(Request $r): array
     {
         $force = $r->queryStr('refresh') === '1';
-        return $this->guard(fn() => $this->pls()->items($r->userId(), $this->id($r), $force));
+        $id = $this->id($r);
+        $row = $this->guard(fn() => $this->pls()->cacheRow($r->userId(), $id));
+        // Spotify (seit Feb. 2026) liefert Songlisten nur für eigene und kollaborative Playlists
+        if (!(int) $row['can_edit']) {
+            return $this->restricted($row, 'not_owner');
+        }
+        try {
+            return $this->guard(fn() => $this->pls()->items($r->userId(), $id, $force));
+        } catch (HttpException $e) {
+            if ($e->status === 403 && $e->errorCode === 'spotify.forbidden') {
+                return $this->restricted($row, 'spotify_forbidden');
+            }
+            throw $e;
+        }
+    }
+
+    /** Metadaten ohne Songliste, wenn Spotify die Inhalte nicht freigibt. */
+    private function restricted(array $row, string $reason): array
+    {
+        return [
+            'playlist' => $this->pls()->presentRow($row),
+            'items' => [],
+            'complete' => false,
+            'restricted' => true,
+            'restricted_reason' => $reason,
+        ];
     }
 
     public function update(Request $r): array

@@ -86,6 +86,34 @@ final class PlaylistTest extends TestCase
         self::assertSame('playlist.not_editable', TestApp::json($r)['error']);
     }
 
+    public function testFollowedForeignPlaylistShowsRestrictedViewInsteadOfError(): void
+    {
+        $this->t->http->addPlaylist('plforeign00000000000009', 'spotify_user3', 'Fremd', [1, 2, 3]);
+        $this->t->http->playlists['plforeign00000000000009']['followers'] = ['spotify_user2'];
+        $r = $this->t->request('GET', '/api/playlists/plforeign00000000000009', [], $this->tokens['user2']);
+        self::assertSame(200, $r->status, $r->body);
+        $j = TestApp::json($r);
+        self::assertTrue($j['restricted']);
+        self::assertSame('not_owner', $j['restricted_reason']);
+        self::assertSame(3, $j['playlist']['track_count']);
+        self::assertSame([], $j['items']);
+        $calls = array_filter($this->t->http->log, fn($l) => str_contains($l['url'], 'plforeign00000000000009/items'));
+        self::assertSame(0, count($calls), 'Kein verbotener Spotify-Aufruf');
+        // Fremde Playlist kann nicht veröffentlicht werden
+        $r = $this->t->request('POST', '/api/playlists/plforeign00000000000009/publish', ['published' => true], $this->tokens['user2']);
+        self::assertSame(403, $r->status);
+        self::assertSame('playlist.publish_own_only', TestApp::json($r)['error']);
+    }
+
+    public function testOwnPlaylistForbiddenBySpotifyShowsRestrictedView(): void
+    {
+        $this->t->http->addPlaylist('pl000000000000000000077', 'spotify_user2', 'Eigen', [1]);
+        $this->t->http->failures['GET pl000000000000000000077/items'] = [403, ['error' => ['status' => 403, 'message' => 'Forbidden']], 5];
+        $r = $this->t->request('GET', '/api/playlists/pl000000000000000000077', [], $this->tokens['user2']);
+        self::assertSame(200, $r->status, $r->body);
+        self::assertSame('spotify_forbidden', TestApp::json($r)['restricted_reason']);
+    }
+
     public function testDuplicatesDetectedBySameTrackIdOnly(): void
     {
         $this->t->http->addPlaylist('pl000000000000000000001', 'spotify_user2', 'Dup', [1, 2, 1, 3, 2, 1]);

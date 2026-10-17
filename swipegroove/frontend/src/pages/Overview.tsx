@@ -30,7 +30,7 @@ export function SpotifyBanner() {
 export function Overview() {
   const [lists, setLists] = useState<Playlist[] | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<Filter>(() => (localStorage.getItem('sg_filter') as Filter) || 'own');
   const [sort, setSort] = useState<Sort>('name');
   const [q, setQ] = useState('');
   const [view, setView] = useState<'grid' | 'list'>(() => (localStorage.getItem('sg_view') as 'grid' | 'list') || 'grid');
@@ -51,6 +51,7 @@ export function Overview() {
   };
   useEffect(() => { load(); }, []);
   useEffect(() => { localStorage.setItem('sg_view', view); }, [view]);
+  useEffect(() => { localStorage.setItem('sg_filter', filter); }, [filter]);
 
   const filtered = useMemo(() => {
     let l = lists ?? [];

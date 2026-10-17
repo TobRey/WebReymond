@@ -54,6 +54,15 @@ await page.waitForTimeout(300);
 const emptyCards = await page.locator('.pl-card').count();
 check(emptyCards >= 2 && emptyCards < cards, `Leer-Filter: ${emptyCards}`);
 await page.click('text=Alle');
+// Fremde (nur gefolgte) Playlist: eingeschränkte Ansicht statt Fehler
+await page.fill('input[placeholder="Playlists durchsuchen"]', 'Fremde');
+await page.waitForTimeout(200);
+await page.click('.pl-card');
+await page.waitForSelector('text=Songliste nicht verfügbar');
+check(!(await page.isVisible('text=Da ist etwas schiefgelaufen')), 'Fremde Playlist zeigt Hinweis statt Fehler');
+await page.screenshot({ path: `${SHOTS}/21-foreign-playlist.png` });
+await page.goto(BASE + '/');
+await page.waitForSelector('.pl-card');
 await page.fill('input[placeholder="Playlists durchsuchen"]', 'Sommer');
 await page.waitForTimeout(200);
 check((await page.locator('.pl-card').count()) === 1, 'Suche filtert auf Sommer Vibes');
