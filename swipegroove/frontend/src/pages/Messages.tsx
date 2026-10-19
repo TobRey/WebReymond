@@ -6,7 +6,7 @@ import { setUser, toast, user } from '../lib/state';
 import { href, navigate } from '../lib/router';
 import type { Conversation as ConvT, Message, UserCard } from '../lib/types';
 import { Avatar, EmptyState, ErrorState, Loading, Menu, Sheet, Spinner, TopBar, UserRow, Notice } from '../components/ui';
-import { IChat, IFlag, IMore, IPlus, ISend, IUser, IMusic, ISearch } from '../components/Icons';
+import { IChat, IFlag, IMore, IPlus, ISend, IUser, IMusic, ISearch, IEdit } from '../components/Icons';
 import { ReportSheet } from './PublishedPlaylist';
 
 export function Messages() {
@@ -16,8 +16,7 @@ export function Messages() {
   useEffect(() => { load(); const h = window.setInterval(() => { if (document.visibilityState === 'visible') load(); }, 20000); return () => window.clearInterval(h); }, []);
   return (
     <Layout width="narrow">
-      <TopBar title={t('messages.title')} right={<button class="btn icon primary" aria-label={t('messages.new')} onClick={() => setStart(true)}><IPlus /></button>} />
-      <p class="tiny muted mb-2">{t('messages.e2e_note')}</p>
+      <TopBar title={user.value!.username} right={<button class="icon-btn" aria-label={t('messages.new')} onClick={() => setStart(true)}><IEdit /></button>} />
       {convs === null ? <Loading /> : convs.length === 0 ? <EmptyState icon={<IChat />} title={t('messages.empty_title')} text={t('messages.empty_text')} action={<button class="btn primary" onClick={() => setStart(true)}>{t('messages.new')}</button>} /> : (
         <div class="list">
           {convs.map((c) => (
@@ -27,7 +26,7 @@ export function Messages() {
                 <div class="title row between"><span class="truncate">{c.other.display_name}</span>{c.last_message_at && <span class="tiny muted" style="font-weight:400">{timeAgo(c.last_message_at)}</span>}</div>
                 <div class="sub truncate">{c.status === 'pending' ? (c.is_initiator ? t('messages.request_pending_short') : t('messages.request_incoming')) : c.status === 'declined' ? t('messages.declined_short') : c.last_message ? (c.last_message.mine ? t('messages.you') + ': ' : '') + (c.last_message.deleted ? t('messages.deleted') : c.last_message.link ? '🔗 ' + c.last_message.body : c.last_message.body) : ''}</div>
               </div>
-              {c.unread_count > 0 && <span class="badge-dot" style="position:static">{c.unread_count}</span>}
+              {c.unread_count > 0 && <span class="count-badge" style="position:static;border:0">{c.unread_count}</span>}
             </a>
           ))}
         </div>
@@ -51,8 +50,8 @@ function StartSheet({ onClose }: { onClose: () => void }) {
   return (
     <Sheet title={t('messages.new')} onClose={onClose}>
       <div class="search"><ISearch /><input class="input" placeholder={t('community.search_users')} value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} autoFocus /></div>
-      <p class="tiny muted mt-1">{t('messages.request_note')}</p>
-      <div class="list mt-2">{users.map((u) => <UserRow key={u.id} user={u} right={<button class="btn sm primary" onClick={() => start(u)}><IChat /></button>} />)}</div>
+      <p class="tiny muted mt-1">{t('messages.request_note')} {t('messages.e2e_note')}</p>
+      <div class="list mt-2">{users.map((u) => <UserRow key={u.id} user={u} right={<button class="btn icon sm primary" aria-label={t('messages.new')} onClick={() => start(u)}><IChat /></button>} />)}</div>
     </Sheet>
   );
 }
@@ -130,7 +129,7 @@ export function Conversation({ id }: { id: number }) {
   const canSend = conv.status === 'accepted' || (conv.status === 'pending' && conv.is_initiator && msgs.length === 0);
   return (
     <Layout width="narrow">
-      <TopBar back="/messages" right={<Menu button={<button class="btn icon ghost" aria-label={t('common.more')}><IMore /></button>} items={[{ label: t('profile.view'), icon: <IUser />, onClick: () => navigate('/u/' + conv.other.username) }]} />}>
+      <TopBar back="/messages" right={<Menu button={<button class="icon-btn" aria-label={t('common.more')}><IMore /></button>} items={[{ label: t('profile.view'), icon: <IUser />, onClick: () => navigate('/u/' + conv.other.username) }]} />}>
         <a href={href('/u/' + conv.other.username)} class="row gap-1 grow" style="color:inherit;text-decoration:none;min-width:0"><Avatar user={conv.other} size="sm" /><strong class="truncate">{conv.other.display_name}</strong></a>
       </TopBar>
       <div class="chat">

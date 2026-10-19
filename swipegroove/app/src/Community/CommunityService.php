@@ -542,7 +542,39 @@ final class CommunityService
     // ------------------------------------------------------------------ Feed
 
     /** @return array{items:list<array<string,mixed>>, next_cursor:?int} */
-    public function feed(?object $viewer, int $before = 0, int $limit = 20): array
+    /** @return list<array<string,mixed>> */
+    public function searchPlaylists(string $q, ?object $viewer, int $limit = 24): array
+    {
+        $q = trim($q);
+        if (mb_strlen($q) < 2) {
+            return [];
+        }
+        $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], mb_substr($q, 0, 60)) . '%';
+        $rows = $this->app->db()->all(
+            'SELECT p.*, u.username, u.display_name, u.avatar_path, u.is_private FROM published_playlists p
+             JOIN users u ON u.id = p.user_id AND u.status = \'active\' AND u.is_private = 0
+             WHERE p.is_published = 1 AND (p.name LIKE ? OR p.description LIKE ?)
+             ORDER BY p.like_count DESC, p.published_at DESC LIMIT ' . ((int) $limit * 2),
+            [$like, $like]
+        );
+        $viewerId = $viewer ? (int) $viewer->id : 0;
+        $out = [];
+        foreach ($rows as $r) {
+            if ($viewerId && $this->isBlocked($viewerId, (int) $r['user_id'])) {
+                continue;
+            }
+            $out[] = $this->presentPublished($r, $viewer);
+            if (count($out) >= $limit) {
+                break;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Aktivitäten-Feed. scope = all (öffentlich, auch Gäste) | following (Personen, denen man folgt, Freunde, sich selbst).
+     */
+    public function feed(?object $viewer, int $before = 0, int $limit = 20, string $scope = 'all'): array
     {
         $db = $this->app->db();
         $viewerId = $viewer ? (int) $viewer->id : 0;
@@ -550,11 +582,17 @@ final class CommunityService
                        au.username AS actor_username, au.display_name AS actor_display_name, au.avatar_path AS actor_avatar, au.is_private AS actor_private,
                        p.*, u.username, u.display_name, u.avatar_path, u.is_private
                 FROM activities a
-                JOIN users au ON au.id = a.user_id AND au.status = \'active\' AND au.is_private = 0
+                JOIN users au ON au.id = a.user_id AND au.status = \'active\' AND (au.is_private = 0 OR au.id = ?)
                 JOIN published_playlists p ON p.id = a.published_playlist_id AND p.is_published = 1
-                JOIN users u ON u.id = p.user_id AND u.status = \'active\' AND u.is_private = 0
+                JOIN users u ON u.id = p.user_id AND u.status = \'active\' AND (u.is_private = 0 OR u.id = ?)
                 WHERE 1=1';
-        $params = [];
+        $params = [$viewerId, $viewerId];
+        if ($scope === 'following' && $viewerId) {
+            $sql .= ' AND (a.user_id = ?
+                      OR a.user_id IN (SELECT followed_id FROM follows WHERE follower_id = ?)
+                      OR a.user_id IN (SELECT IF(user_low = ?, user_high, user_low) FROM friendships WHERE status = \'accepted\' AND (user_low = ? OR user_high = ?)))';
+            array_push($params, $viewerId, $viewerId, $viewerId, $viewerId, $viewerId);
+        }
         if ($before > 0) {
             $sql .= ' AND a.id < ?';
             $params[] = $before;

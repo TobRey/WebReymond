@@ -1,11 +1,63 @@
 {
+  "node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff": {
+    "file": "jetbrains-mono-latin-400-normal-6-qcROiO.woff",
+    "src": "node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff"
+  },
+  "node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2": {
+    "file": "jetbrains-mono-latin-400-normal-V6pRDFza.woff2",
+    "src": "node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2"
+  },
+  "node_modules/@fontsource/sora/files/sora-latin-400-normal.woff": {
+    "file": "sora-latin-400-normal-l8SGSYkh.woff",
+    "src": "node_modules/@fontsource/sora/files/sora-latin-400-normal.woff"
+  },
+  "node_modules/@fontsource/sora/files/sora-latin-400-normal.woff2": {
+    "file": "sora-latin-400-normal-DhRtpwiA.woff2",
+    "src": "node_modules/@fontsource/sora/files/sora-latin-400-normal.woff2"
+  },
+  "node_modules/@fontsource/sora/files/sora-latin-600-normal.woff": {
+    "file": "sora-latin-600-normal-ClGqUdxE.woff",
+    "src": "node_modules/@fontsource/sora/files/sora-latin-600-normal.woff"
+  },
+  "node_modules/@fontsource/sora/files/sora-latin-600-normal.woff2": {
+    "file": "sora-latin-600-normal-ifZEVkag.woff2",
+    "src": "node_modules/@fontsource/sora/files/sora-latin-600-normal.woff2"
+  },
+  "node_modules/@fontsource/sora/files/sora-latin-700-normal.woff": {
+    "file": "sora-latin-700-normal-COF_ZrUT.woff",
+    "src": "node_modules/@fontsource/sora/files/sora-latin-700-normal.woff"
+  },
+  "node_modules/@fontsource/sora/files/sora-latin-700-normal.woff2": {
+    "file": "sora-latin-700-normal-DBOlR3oX.woff2",
+    "src": "node_modules/@fontsource/sora/files/sora-latin-700-normal.woff2"
+  },
+  "node_modules/@fontsource/sora/files/sora-latin-800-normal.woff": {
+    "file": "sora-latin-800-normal-CYmMoV6m.woff",
+    "src": "node_modules/@fontsource/sora/files/sora-latin-800-normal.woff"
+  },
+  "node_modules/@fontsource/sora/files/sora-latin-800-normal.woff2": {
+    "file": "sora-latin-800-normal-DIMcU3k6.woff2",
+    "src": "node_modules/@fontsource/sora/files/sora-latin-800-normal.woff2"
+  },
   "src/main.tsx": {
-    "file": "app-cxUen8RQ.js",
+    "file": "app-Cd7ZiIFK.js",
     "name": "main",
     "src": "src/main.tsx",
     "isEntry": true,
     "css": [
-      "main-Dz3cL_ou.css"
+      "main-OuAUqQgY.css"
+    ],
+    "assets": [
+      "sora-latin-400-normal-DhRtpwiA.woff2",
+      "sora-latin-400-normal-l8SGSYkh.woff",
+      "sora-latin-600-normal-ifZEVkag.woff2",
+      "sora-latin-600-normal-ClGqUdxE.woff",
+      "sora-latin-700-normal-DBOlR3oX.woff2",
+      "sora-latin-700-normal-COF_ZrUT.woff",
+      "sora-latin-800-normal-DIMcU3k6.woff2",
+      "sora-latin-800-normal-CYmMoV6m.woff",
+      "jetbrains-mono-latin-400-normal-V6pRDFza.woff2",
+      "jetbrains-mono-latin-400-normal-6-qcROiO.woff"
     ]
   }
 }

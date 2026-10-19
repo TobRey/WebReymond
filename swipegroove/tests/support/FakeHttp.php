@@ -37,6 +37,10 @@ final class FakeHttp implements HttpClientInterface
     public array $libraryUnfollowed = [];
     /** Verzögerung (Sekunden) simulierter Antworten – 0 in Tests */
     public int $searchLimitCap = 10;
+    /** Vom Nutzer zuletzt erteilte Scopes (Fake-Autorisierung). */
+    public string $grantScope = 'playlist-read-private playlist-modify-public playlist-modify-private ugc-image-upload';
+    /** @var list<array<string,mixed>> Wiedergabe-Aufrufe */
+    public array $plays = [];
 
     public function __construct()
     {
@@ -144,7 +148,7 @@ final class FakeHttp implements HttpClientInterface
         $this->tokens[$access] = $user;
         $refresh = $keepRefresh ?? ('refresh-' . $user . '-' . $this->tokenCounter);
         $this->refreshTokens[$refresh] = $user;
-        return $this->json(200, ['access_token' => $access, 'token_type' => 'Bearer', 'expires_in' => 3600, 'refresh_token' => $refresh, 'scope' => 'playlist-read-private playlist-modify-public playlist-modify-private ugc-image-upload']);
+        return $this->json(200, ['access_token' => $access, 'token_type' => 'Bearer', 'expires_in' => 3600, 'refresh_token' => $refresh, 'scope' => $this->grantScope]);
     }
 
     public function expireAccessTokens(): void
@@ -177,6 +181,16 @@ final class FakeHttp implements HttpClientInterface
         $data = $body ? (json_decode($body, true) ?? []) : [];
         $seg = explode('/', $p);
 
+        if ($p === 'me/player/play' && $method === 'PUT') {
+            if (!$this->premiumUsers) {
+                return $this->json(403, ['error' => ['status' => 403, 'message' => 'Player command failed: Premium required', 'reason' => 'PREMIUM_REQUIRED']]);
+            }
+            $this->plays[] = ['user' => $user, 'device' => $q['device_id'] ?? null] + $data;
+            return new HttpResponse(204, [], '');
+        }
+        if ($p === 'me/player/pause' && $method === 'PUT') {
+            return new HttpResponse(204, [], '');
+        }
         if ($p === 'me' || $p === 'me/') {
             return $this->json(200, ['id' => $user, 'display_name' => $this->users[$user]['display_name'] ?? $user, 'images' => [['url' => 'https://i.scdn.co/image/' . $user, 'width' => 300]], 'uri' => 'spotify:user:' . $user]);
         }

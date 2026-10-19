@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { Layout } from '../components/Layout';
 import { api, ApiError, showError, uuid } from '../lib/api';
 import { t } from '../lib/i18n';
-import { platform, toast, user } from '../lib/state';
-import { route, href } from '../lib/router';
+import { toast } from '../lib/state';
+import { autoplay, now, playing, loadingKey, playTracks, togglePause } from '../lib/player';
+import { route } from '../lib/router';
 import type { Card, Playlist } from '../lib/types';
-import { EmptyState, ErrorState, Loading, Notice, Seg, Sheet, Spinner, TopBar, Field } from '../components/ui';
+import { CoverImg, EmptyState, ErrorState, Loading, Sheet, Spinner, TopBar, Field } from '../components/ui';
 import { PlaylistPicker } from '../components/PlaylistPicker';
-import { IExternal, IHeart, IMusic, IPause, IPlay, ISkip, IUndo, IX, IFilter, ISearch, IRefresh } from '../components/Icons';
+import { IHeartFill, IMusic, IPauseFill, IPlayFill, ISkip, IUndo, IX, IFilter, ISearch, IRefresh, ISwipe, IChevronDown } from '../components/Icons';
 import { artistsText, prefersReducedMotion } from '../lib/util';
 import { SpotifyBanner } from './Overview';
 
@@ -30,18 +31,15 @@ export function Discover() {
   const [fly, setFly] = useState<'left' | 'right' | null>(null);
   const [drag, setDrag] = useState({ dx: 0, dy: 0, active: false });
   const [undoing, setUndoing] = useState(false);
-  const [playback, setPlayback] = useState<{ enabled: boolean; playing: boolean; device: string | null; error: string | null }>({ enabled: false, playing: false, device: null, error: null });
   const start = useRef<{ x: number; y: number } | null>(null);
   const busy = useRef(false);
   const seen = useRef<Set<string>>(new Set());
-  const u = user.value!;
-  const playbackAvailable = platform.value.playback_mode === 'connect' && u.playback_enabled;
 
   // Ziel aus Query (?target=) vorbelegen
   useEffect(() => {
     const q = route.value.query.get('target') || localStorage.getItem('sg_target');
     if (!q) return;
-    api<{ targets: Playlist[] }>('/api/swipe/targets').then((r) => { const p = r.targets.find((x) => x.id === q); if (p) setTarget(p); }).catch(() => undefined);
+    api<{ targets: Playlist[] }>('/api/swipe/targets').then((r) => { const p = r.targets.find((x) => x.id === q); if (p) { setTarget(p); try { localStorage.setItem('sg_target', p.id); } catch { /* egal */ } } }).catch(() => undefined);
   }, []);
   useEffect(() => { localStorage.setItem('sg_mode', mode); }, [mode]);
 
@@ -69,14 +67,20 @@ export function Discover() {
 
   useEffect(() => { if (target && cards.length > 0 && cards.length < 3 && !loading && !exhausted) fetchCards(false); }, [cards.length]);
 
-  // Wiedergabe über Spotify Connect beim Kartenwechsel
+  // Autoplay: nach dem ersten Tipp auf «Hören» spielt jede neue Karte direkt auf der Seite
   const current = cards[0];
+  const cardMeta = (c: Card) => ({ title: c.name, subtitle: artistsText(c.artists), image: c.image_url });
   useEffect(() => {
-    if (!current || !playback.enabled || !playbackAvailable) return;
-    api('/api/playback/play', { body: { track_id: current.id, device_id: playback.device } }).then(() => setPlayback((p) => ({ ...p, playing: true, error: null }))).catch((e) => {
-      setPlayback((p) => ({ ...p, playing: false, error: (e as Error).message, enabled: e instanceof ApiError && e.status === 403 ? false : p.enabled }));
-    });
-  }, [current?.id, playback.enabled]);
+    if (!current || !autoplay.value) return;
+    playTracks('swipe:' + current.id, [current.id], cardMeta(current));
+  }, [current?.id]);
+  const listen = async () => {
+    if (!current) return;
+    if (autoplay.value && now.value?.key === 'swipe:' + current.id) { await togglePause(); return; }
+    const ok = await playTracks('swipe:' + current.id, [current.id], cardMeta(current));
+    autoplay.value = ok;
+  };
+  const isPlaying = !!current && now.value?.key === 'swipe:' + current.id && playing.value;
 
   const act = async (action: 'add' | 'hide' | 'skip') => {
     const card = cards[0];
@@ -142,27 +146,23 @@ export function Discover() {
 
   return (
     <Layout>
-      <TopBar title={t('discover.title')} right={<button class="btn icon ghost" aria-label={t('common.refresh')} onClick={() => { seen.current = new Set(); setCards([]); fetchCards(true); }} disabled={!target || loading}><IRefresh /></button>} />
-      <SpotifyBanner />
+      <TopBar title={target ? undefined : t('discover.title')} right={<>
+        {mode === 'custom' && target && <button class="icon-btn" aria-label={t('discover.filters')} onClick={() => setShowFilters(true)}><IFilter /></button>}
+        <button class="icon-btn" aria-label={t('common.refresh')} onClick={() => { seen.current = new Set(); setCards([]); fetchCards(true); }} disabled={!target || loading}><IRefresh /></button>
+      </>}>
+        {target && <div class="grow"><button class="target-pill" onClick={() => setPick(true)} aria-label={t('discover.change_target')}>
+          <span class="avatar" style="overflow:hidden"><CoverImg src={target.image_url} id={target.id} /></span>
+          <span class="truncate">{target.name}</span><IChevronDown class="chev" />
+        </button></div>}
+      </TopBar>
+      <div class="pad"><SpotifyBanner /></div>
       {!target ? (
-        <EmptyState icon={<IMusic />} title={t('discover.choose_target_title')} text={t('discover.choose_target_text')} action={<button class="btn primary lg" onClick={() => setPick(true)}>{t('discover.choose_target')}</button>} />
+        <EmptyState icon={<ISwipe />} title={t('discover.choose_target_title')} text={t('discover.choose_target_text')} action={<button class="btn primary lg" onClick={() => setPick(true)}>{t('discover.choose_target')}</button>} />
       ) : (
         <div class="feed">
-          <button class="target-pill" onClick={() => setPick(true)} aria-label={t('discover.change_target')}>
-            {target.image_url ? <img src={target.image_url} alt="" /> : <span class="avatar sm"><IMusic style="width:16px;height:16px" /></span>}
-            <span class="truncate">{t('discover.target')}: {target.name}</span>
-          </button>
-          <div class="row wrap center gap-1">
-            <Seg value={mode} onChange={setMode} options={[{ value: 'match', label: t('discover.mode_match') }, { value: 'discover', label: t('discover.mode_discover') }, { value: 'custom', label: t('discover.mode_custom') }]} />
-            {mode === 'custom' && <button class="btn sm" onClick={() => setShowFilters(true)}><IFilter />{t('discover.filters')}</button>}
+          <div class="seg" role="tablist">
+            {(['match', 'discover', 'custom'] as Mode[]).map((m) => <button key={m} role="tab" aria-selected={mode === m} class={mode === m ? 'active' : ''} onClick={() => setMode(m)}>{t('discover.mode_' + m)}</button>)}
           </div>
-          {playbackAvailable && (
-            <div class="row gap-1 small">
-              {!playback.enabled ? <button class="btn sm" onClick={() => setPlayback((p) => ({ ...p, enabled: true }))}><IPlay />{t('discover.enable_playback')}</button>
-                : <button class="btn sm" onClick={() => { api('/api/playback/pause', { body: {} }).catch(() => undefined); setPlayback((p) => ({ ...p, enabled: false, playing: false })); }}><IPause />{t('discover.disable_playback')}</button>}
-              {playback.error && <span class="tiny" style="color:var(--warning)">{playback.error}</span>}
-            </div>
-          )}
           <div class="deck">
             {error ? <ErrorState text={error.message} retry={() => fetchCards(true)} />
               : cards.length === 0 ? (loading ? <Loading text={t('discover.loading')} /> : <ExhaustedState reason={exhausted} mode={mode} onRetry={() => { seen.current = new Set(); fetchCards(true); }} />)
@@ -173,29 +173,26 @@ export function Discover() {
                   <div key={c.id} class={'swipe-card' + (isTop ? '' : ' behind') + (isTop && drag.active ? ' dragging' : '') + (isTop && fly ? ' fly-' + fly : '')} style={style}
                     onPointerDown={isTop ? onPointerDown : undefined} onPointerMove={isTop ? onPointerMove : undefined} onPointerUp={isTop ? onPointerUp : undefined} onPointerCancel={isTop ? onPointerUp : undefined}>
                     <div class="art">
-                      {c.image_url ? <img src={c.image_url} alt="" draggable={false} /> : <div class="state" style="height:100%"><IMusic /></div>}
-                      {isTop && <><div class="stamp add" style={{ opacity: stampAdd }}>{t('swipe.stamp_add')}</div><div class="stamp hide" style={{ opacity: stampHide }}>{t('swipe.stamp_hide')}</div></>}
+                      <CoverImg src={c.image_url} id={c.id} />
                     </div>
+                    {isTop && <><div class="stamp add" style={{ opacity: stampAdd }}>{t('swipe.stamp_add')}</div><div class="stamp hide" style={{ opacity: stampHide }}>{t('swipe.stamp_hide')}</div></>}
+                    {isTop && isPlaying && <div class="eq" aria-hidden="true"><i /><i /><i /></div>}
                     <div class="info">
                       <div class="title truncate">{c.name}</div>
                       <div class="artist truncate">{artistsText(c.artists)}</div>
-                      {c.album_name && <div class="album truncate">{c.album_name}</div>}
-                      <div class="row between mt-1">
-                        <span class="tiny muted truncate">{c.source ? t('discover.source_' + c.source.split(':')[0], { v: c.source.split(':').slice(1).join(':') }) : ''}</span>
-                        {c.spotify_url && <a class="btn sm ghost" href={c.spotify_url} target="_blank" rel="noopener" onPointerDown={(e) => e.stopPropagation()}><IExternal />{t('track.listen_spotify')}</a>}
-                      </div>
+                      {c.source && <div class="album truncate">{t('discover.source_' + c.source.split(':')[0], { v: c.source.split(':').slice(1).join(':') })}</div>}
                     </div>
                   </div>
                 );
               })}
           </div>
           <div class="swipe-controls" aria-label={t('swipe.controls')}>
-            <button class="btn icon" aria-label={t('swipe.undo')} disabled={history.length === 0 || undoing} onClick={undo}>{undoing ? <Spinner small /> : <IUndo />}</button>
-            <button class="btn icon danger main" aria-label={t('swipe.hide')} disabled={!current} onClick={() => act('hide')}><IX /></button>
-            <button class="btn icon" aria-label={t('swipe.skip')} disabled={!current} onClick={() => act('skip')}><ISkip /></button>
-            <button class="btn icon success main" aria-label={t('swipe.add')} disabled={!current} onClick={() => act('add')}><IHeart /></button>
+            <button class="round" aria-label={t('swipe.undo')} disabled={history.length === 0 || undoing} onClick={undo}>{undoing ? <Spinner small /> : <IUndo />}</button>
+            <button class="round big no" aria-label={t('swipe.hide')} disabled={!current} onClick={() => act('hide')}><IX /></button>
+            <button class="round big yes" aria-label={t('swipe.add')} disabled={!current} onClick={() => act('add')}><IHeartFill /></button>
+            <button class="round" aria-label={isPlaying ? t('player.pause') : t('swipe.listen')} aria-pressed={isPlaying} disabled={!current} onClick={listen}>{loadingKey.value?.startsWith('swipe:') ? <Spinner small /> : isPlaying ? <IPauseFill /> : <IPlayFill />}</button>
           </div>
-          <p class="tiny muted" style="text-align:center;max-width:40ch">{t('discover.method_note')}</p>
+          <button class="btn ghost sm" disabled={!current} onClick={() => act('skip')}><ISkip />{t('swipe.skip')}</button>
         </div>
       )}
       {pick && <PlaylistPicker title={t('discover.choose_target')} onClose={() => setPick(false)} onPick={(p) => { setTarget(p); localStorage.setItem('sg_target', p.id); setPick(false); }} />}

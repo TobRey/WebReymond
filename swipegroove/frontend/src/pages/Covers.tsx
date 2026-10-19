@@ -88,7 +88,7 @@ export function Covers() {
               <img src={c.image_url!} alt={c.prompt} loading="lazy" onClick={() => setResult(c)} />
               <div class="row gap-1">
                 <button class="btn sm grow" onClick={() => setApply(c)}>{t('covers.use')}</button>
-                <button class="btn icon ghost sm" aria-label={t('common.delete')} onClick={() => setDel(c)}><ITrash /></button>
+                <button class="icon-btn sm" aria-label={t('common.delete')} onClick={() => setDel(c)}><ITrash /></button>
               </div>
               {c.applied_playlist_id && <span class="tiny muted truncate">{t('covers.applied_short')}</span>}
             </div>

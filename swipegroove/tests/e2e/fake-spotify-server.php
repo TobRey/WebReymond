@@ -49,6 +49,7 @@ if ($path === '/authorize') {
     $user = $_GET['as'] ?? null;
     if ($user && isset($fake->users[$user])) {
         $code = $fake->issueCode($user);
+        $fake->grantScope = (string) ($_GET['scope'] ?? $fake->grantScope);
         $redirect = $_GET['redirect_uri'] . '?code=' . rawurlencode($code) . '&state=' . rawurlencode($_GET['state'] ?? '');
         file_put_contents($stateFile, serialize($fake));
         header('Location: ' . $redirect, true, 302);
@@ -82,7 +83,7 @@ if ($target === '__reset') {
 }
 if ($target === '__state') {
     header('Content-Type: application/json');
-    echo json_encode(['playlists' => array_map(fn($p) => ['name' => $p['name'], 'items' => $p['items'], 'owner' => $p['owner']], $fake->playlists), 'unfollowed' => $fake->libraryUnfollowed]);
+    echo json_encode(['playlists' => array_map(fn($p) => ['name' => $p['name'], 'items' => $p['items'], 'owner' => $p['owner']], $fake->playlists), 'unfollowed' => $fake->libraryUnfollowed, 'plays' => $fake->plays]);
     exit;
 }
 if ($target === null) {

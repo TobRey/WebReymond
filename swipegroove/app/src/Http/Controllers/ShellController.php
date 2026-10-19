@@ -45,14 +45,14 @@ final class ShellController
         $title = 'SwipeGroove';
         $html = <<<HTML
 <!doctype html>
-<html lang="{$lang}" data-theme="dark">
+<html lang="{$lang}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="dark">
-<meta name="theme-color" content="#0b0d14">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#F7F7FA">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="robots" content="noindex">
 <title>{$title}</title>
@@ -62,7 +62,7 @@ final class ShellController
 {$css}
 </head>
 <body>
-<div id="app"><div class="boot-splash" aria-busy="true"><div class="boot-logo"></div></div></div>
+<div id="app"></div>
 <script type="application/json" id="sg-boot">{$json}</script>
 {$js}
 </body>
@@ -70,8 +70,26 @@ final class ShellController
 HTML;
         $r = Response::html($html);
         $r->headers['Cache-Control'] = 'no-store';
-        $r->headers['Content-Security-Policy'] = "default-src 'self'; img-src 'self' data: blob: https://i.scdn.co https://mosaic.scdn.co https://image-cdn-ak.spotifycdn.com https://image-cdn-fa.spotifycdn.com https://*.scdn.co https://*.spotifycdn.com; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-src https://checkout.stripe.com https://billing.stripe.com; form-action 'self' https://accounts.spotify.com https://checkout.stripe.com https://billing.stripe.com; base-uri 'self'; object-src 'none'";
+        $r->headers['Content-Security-Policy'] = $this->csp();
         return $r;
+    }
+
+    /** CSP; mit aktivierter Wiedergabe zusätzlich die Quellen des Spotify Web Playback SDK. */
+    private function csp(): string
+    {
+        $script = "'self'";
+        $connect = "'self'";
+        $frame = 'https://checkout.stripe.com https://billing.stripe.com';
+        $media = "'self'";
+        if ($this->app->settings()->str('playback_mode', 'off') === 'connect') {
+            $script .= ' https://sdk.scdn.co';
+            $connect .= ' https://*.spotify.com wss://*.spotify.com https://*.scdn.co https://*.spotifycdn.com';
+            $frame .= ' https://sdk.scdn.co';
+            $media .= ' blob: https://*.scdn.co https://*.spotifycdn.com';
+        }
+        return "default-src 'self'; img-src 'self' data: blob: https://*.scdn.co https://*.spotifycdn.com; style-src 'self' 'unsafe-inline'; font-src 'self'; "
+            . "script-src $script; connect-src $connect; media-src $media; frame-src $frame; "
+            . "form-action 'self' https://accounts.spotify.com https://checkout.stripe.com https://billing.stripe.com; base-uri 'self'; object-src 'none'";
     }
 
     /** @return array{css:list<string>, js:list<string>} */

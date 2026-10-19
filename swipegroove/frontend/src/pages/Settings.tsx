@@ -6,7 +6,7 @@ import { platform, setUser, toast, user } from '../lib/state';
 import { href, navigate } from '../lib/router';
 import type { Me, UserCard, Playlist } from '../lib/types';
 import { Confirm, Field, Notice, Seg, Sheet, Spinner, Toggle, TopBar, UserRow } from '../components/ui';
-import { IBlock, IDownload, ILogout, ISpotify, ITrash, IRefresh } from '../components/Icons';
+import { IBlock, IDownload, ILogout, ISpotify, ITrash, IRefresh, ILibrary, IStar, ISparkle, IShield, IChevron } from '../components/Icons';
 
 export function Settings() {
   const me = user.value!;
@@ -38,7 +38,13 @@ export function Settings() {
   return (
     <Layout width="narrow">
       <TopBar back="/profile" title={t('nav.settings')} />
-      <div class="col gap-2">
+      <div class="list">
+        <a class="item" href={href('/library')}><span class="ai-sm"><ILibrary /></span><div class="meta"><div class="title">{t('nav.library')}</div></div><IChevron style="width:18px;height:18px;color:var(--text-4)" /></a>
+        <a class="item" href={href('/premium')}><span class="ai-sm"><IStar /></span><div class="meta"><div class="title">{t('nav.premium')}</div><div class="sub">{me.premium.active ? t('settings.premium_active') : t('settings.premium_inactive')}</div></div><IChevron style="width:18px;height:18px;color:var(--text-4)" /></a>
+        <a class="item" href={href('/covers')}><span class="ai-sm"><ISparkle /></span><div class="meta"><div class="title">{t('nav.covers')}</div></div><IChevron style="width:18px;height:18px;color:var(--text-4)" /></a>
+        {me.is_admin && <a class="item" href={href('/admin')}><span class="ai-sm"><IShield /></span><div class="meta"><div class="title">{t('nav.admin')}</div></div><IChevron style="width:18px;height:18px;color:var(--text-4)" /></a>}
+      </div>
+      <div class="col flat-sections">
         <section class="card">
           <h3 class="mb-1">{t('settings.language')}</h3>
           <Seg value={me.lang} onChange={setLang} options={[{ value: 'de', label: 'Deutsch' }, { value: 'en', label: 'English' }]} />

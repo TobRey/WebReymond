@@ -52,7 +52,7 @@ cPanel → *MySQL Databases*:
 1. `https://…/setup` öffnen, Einrichtungsschlüssel eingeben, *Weiter mit Spotify*.
 2. Bei Spotify anmelden und SwipeGroove freigeben.
 3. Benutzername/Anzeigename wählen. Dieses Konto ist automatisch **Besitzer**, **Admin** und hat **dauerhaft Premium ohne Cover-Limit**.
-4. Der Einrichtungsschlüssel ist jetzt ungültig; die öffentliche Registrierung bleibt geschlossen, bis sie im Adminbereich (*Einstellungen*) geöffnet wird.
+4. Der Einrichtungsschlüssel ist jetzt ungültig; die Registrierung ist danach offen (Betriebsmodus *Öffentlich*). Schliessen lässt sie sich im Adminbereich unter *Einstellungen*.
 
 ## 5. Cronjob einrichten
 
@@ -77,8 +77,8 @@ Adminbereich → *Integrationen*: Spotify Client-ID, OpenAI-Schlüssel, Stripe-S
 ## 7. Betriebsmodus
 
 Adminbereich → *Einstellungen*:
-- **Geschlossene Beta** (Standard nach Setup): Registrierung geschlossen; nur über *Öffentliche Registrierung* gezielt öffnen.
-- **Öffentlich**: Registrierung offen. Erst sinnvoll, wenn Spotify Extended Quota Mode erteilt ist (siehe `EXTERNE-FREIGABEN.md`).
+- **Öffentlich** (Standard nach Setup): Registrierung offen. Im Spotify Development Mode können sich trotzdem nur die im Spotify-Dashboard freigeschalteten Konten (max. 5) anmelden – siehe `EXTERNE-FREIGABEN.md`.
+- **Geschlossene Beta**: Registrierung geschlossen; bestehende Konten können sich weiter anmelden.
 
 ## Updates
 

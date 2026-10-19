@@ -31,9 +31,12 @@ final class AuthTest extends TestCase
         self::assertTrue($me['is_admin']);
         self::assertTrue($me['premium']['active']);
         self::assertTrue($me['premium']['unlimited_covers']);
-        // Schlüssel ungültig, Registrierung geschlossen
+        // Schlüssel ungültig, Registrierung danach offen (Social-Plattform)
         self::assertNull($this->t->app->settings()->get('setup_key_hash'));
-        self::assertFalse($this->t->app->settings()->bool('registration_open'));
+        self::assertTrue($this->t->app->settings()->bool('registration_open'));
+        self::assertSame('public', $this->t->app->settings()->str('operation_mode'));
+        // Admin kann sie schliessen → neue Konten werden abgelehnt
+        $this->t->app->settings()->set('registration_open', false);
         $closed = $this->t->loginAs('spotify_user2');
         self::assertSame(302, $closed['status']);
         self::assertStringContains('auth.registration_closed', (string) $closed['location']);
@@ -64,7 +67,7 @@ final class AuthTest extends TestCase
         $db->run('INSERT INTO platform_owner (id, user_id, created_at) VALUES (1, ?, ?)', [$u1, $now]);
         self::assertThrows(\PDOException::class, fn() => $db->run('INSERT INTO platform_owner (id, user_id, created_at) VALUES (1, ?, ?)', [$u2, $now]));
         self::assertSame(1, (int) $db->value('SELECT COUNT(*) FROM platform_owner'));
-        // Über den Service: Nutzer 2 wird nach Besitzer-Registrierung regulär behandelt (Registrierung geschlossen)
+        // Über den Service: Nutzer 2 wird nach Besitzer-Registrierung regulär behandelt
         $db->run('DELETE FROM platform_owner');
         $db->run('DELETE FROM users');
         $this->t->app->settings()->reload();
@@ -79,9 +82,11 @@ final class AuthTest extends TestCase
         $ra = $this->t->request('GET', '/auth/spotify/callback', [], null, ['code' => $this->t->http->issueCode('spotify_owner'), 'state' => $qa['state']], [], ['sg_oauth' => $nonceA]);
         $rb = $this->t->request('GET', '/auth/spotify/callback', [], null, ['code' => $this->t->http->issueCode('spotify_user2'), 'state' => $qb['state']], [], ['sg_oauth' => $nonceB]);
         self::assertSame(302, $ra->status);
-        self::assertStringContains('registration_closed', (string) $rb->headers['Location']);
+        // Zweiter Setup-Versuch wird normaler Nutzer (Registrierung ist offen), nie zweiter Besitzer
+        self::assertSame(302, $rb->status);
         self::assertSame(1, (int) $db->value('SELECT COUNT(*) FROM platform_owner'));
-        self::assertSame(1, (int) $db->value('SELECT COUNT(*) FROM users'));
+        self::assertSame('spotify_owner', (string) $db->value('SELECT u.spotify_user_id FROM platform_owner p JOIN users u ON u.id = p.user_id'));
+        self::assertSame(1, (int) $db->value("SELECT COUNT(*) FROM users WHERE role = 'admin'"));
     }
 
     public function testCallbackWithoutBrowserCookieIsRejected(): void

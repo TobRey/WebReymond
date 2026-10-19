@@ -2,7 +2,7 @@
 
 | Daten | Speicherort | Aufbewahrung / Bereinigung |
 |---|---|---|
-| Spotify Access-/Refresh-Tokens | `spotify_accounts` (libsodium-verschlüsselt, Schlüssel in `config/config.php`) | bis Trennung der Verbindung, Kontolöschung oder Widerruf; nie im Browser, nie in Logs |
+| Spotify Access-/Refresh-Tokens | `spotify_accounts` (libsodium-verschlüsselt, Schlüssel in `config/config.php`) | bis Trennung der Verbindung, Kontolöschung oder Widerruf; Refresh-Token nie im Browser; nie in Logs. Ausnahme bei aktivierter Wiedergabe: das kurzlebige Access-Token (≤ 1 h) wird für den Web-Player an den Browser gegeben (nur im Arbeitsspeicher) |
 | Playlist-Liste (Name, Cover-URL, Anzahl, Snapshot) | `playlist_cache` | TTL 30 min (einstellbar); Zeilen nach 7 Tagen ohne Sync gelöscht (Cron) |
 | Playlist-Inhalte (Titel, Künstler, Album, Bild-URL) | `playlist_items_cache` | TTL 15 min (einstellbar); nach 24 h gelöscht (Cron) |
 | Veröffentlichte Playlists (Titel, Cover, Songliste bis 500 Titel) | `published_playlists`, `published_playlist_tracks` | bis zur Aufhebung der Veröffentlichung / Kontolöschung |

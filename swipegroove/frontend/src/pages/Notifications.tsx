@@ -6,7 +6,7 @@ import { setUser, user } from '../lib/state';
 import { href } from '../lib/router';
 import type { Notification, UserCard } from '../lib/types';
 import { Avatar, EmptyState, Loading, TopBar, UserRow } from '../components/ui';
-import { IBell } from '../components/Icons';
+import { IBell, IX } from '../components/Icons';
 
 export function Notifications() {
   const [items, setItems] = useState<Notification[] | null>(null);
@@ -33,11 +33,12 @@ export function Notifications() {
   };
   return (
     <Layout width="narrow">
-      <TopBar back="/profile" title={t('nav.notifications')} />
+      <TopBar back="/" title={t('nav.notifications')} />
       {reqs && reqs.incoming.length > 0 && (
-        <div class="mb-3">
-          <h3 class="mb-1">{t('notif.friend_requests')}</h3>
-          <div class="list">{reqs.incoming.map((u) => <UserRow key={u.id} user={u} right={<><button class="btn sm success" onClick={() => respond(u, true)}>{t('profile.accept')}</button><button class="btn sm" onClick={() => respond(u, false)}>{t('profile.decline')}</button></>} />)}</div>
+        <div class="mb-1">
+          <div class="section-label">{t('notif.friend_requests')}</div>
+          <div class="list">{reqs.incoming.map((u) => <UserRow key={u.id} user={u} right={<><button class="btn sm primary" onClick={() => respond(u, true)}>{t('profile.accept')}</button><button class="icon-btn sm" aria-label={t('profile.decline')} onClick={() => respond(u, false)}><IX /></button></>} />)}</div>
+          <div class="section-label">{t('notif.recent')}</div>
         </div>
       )}
       {items === null ? <Loading /> : items.length === 0 ? <EmptyState icon={<IBell />} title={t('notif.empty')} /> : (
@@ -47,11 +48,11 @@ export function Notifications() {
               <Avatar user={n.actor} size="sm" />
               <div class="meta">
                 <div class="small"><strong>{n.actor?.display_name ?? 'SwipeGroove'}</strong> {t('notif.' + n.type, { name: n.data?.name ?? '' })}{n.data?.excerpt ? <span class="muted"> „{n.data.excerpt}“</span> : null}</div>
-                <div class="sub">{timeAgo(n.created_at)}</div>
+                <div class="meta-mono">{timeAgo(n.created_at)}</div>
               </div>
             </a>
           ))}
-          {cursor && <button class="btn" onClick={() => load(cursor)}>{t('common.load_more')}</button>}
+          {cursor && <div class="row center mt-1"><button class="btn outline sm" onClick={() => load(cursor)}>{t('common.load_more')}</button></div>}
         </div>
       )}
     </Layout>

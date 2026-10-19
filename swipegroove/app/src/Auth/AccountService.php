@@ -114,8 +114,8 @@ final class AccountService
             $settings = $this->app->settings();
             $settings->set('setup_key_hash', null);
             $settings->set('owner_registered', true);
-            $settings->set('operation_mode', 'closed_beta');
-            $settings->set('registration_open', false);
+            $settings->set('operation_mode', 'public');
+            $settings->set('registration_open', true);
             $this->app->service(\SwipeGroove\Admin\AuditLog::class)->record($userId, 'owner.registered', 'user', (string) $userId, [], $request);
         }
 

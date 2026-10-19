@@ -34,10 +34,16 @@ DirectoryIndex index.php
     Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
 </IfModule>
 
+# Schriften (manche Hoster kennen den Typ nicht)
+<IfModule mod_mime.c>
+    AddType font/woff2 .woff2
+    AddType font/woff .woff
+</IfModule>
+
 # Caching für gebaute Assets (Dateinamen enthalten Hashes)
 <IfModule mod_expires.c>
     ExpiresActive On
-    <FilesMatch "\.(js|css|woff2|svg|png|jpg|jpeg|webp|ico)$">
+    <FilesMatch "\.(js|css|woff2?|svg|png|jpg|jpeg|webp|ico)$">
         ExpiresDefault "access plus 30 days"
     </FilesMatch>
 </IfModule>

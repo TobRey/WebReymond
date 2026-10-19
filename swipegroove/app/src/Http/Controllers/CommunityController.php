@@ -30,7 +30,8 @@ final class CommunityController
 
     public function feed(Request $r): array
     {
-        return $this->svc()->feed($r->user, $r->queryInt('before'));
+        $scope = $r->user && $r->queryStr('scope') === 'following' ? 'following' : 'all';
+        return $this->svc()->feed($r->user, $r->queryInt('before'), 20, $scope);
     }
 
     public function playlist(Request $r): array
@@ -76,8 +77,21 @@ final class CommunityController
 
     public function searchUsers(Request $r): array
     {
-        $this->app->limiter()->enforce('usersearch:' . $r->userId(), 120, 600);
+        $this->app->limiter()->enforce('usersearch:' . $this->limitKey($r), 120, 600);
         return ['users' => $this->svc()->searchUsers($r->queryStr('q'), $r->user)];
+    }
+
+    /** Kombinierte Suche (Personen + veröffentlichte Playlists), auch für Gäste. */
+    public function search(Request $r): array
+    {
+        $this->app->limiter()->enforce('usersearch:' . $this->limitKey($r), 120, 600);
+        $q = $r->queryStr('q');
+        return ['users' => $this->svc()->searchUsers($q, $r->user, 12), 'playlists' => $this->svc()->searchPlaylists($q, $r->user)];
+    }
+
+    private function limitKey(Request $r): string
+    {
+        return $r->user ? 'u' . $r->userId() : 'ip' . $r->ip;
     }
 
     public function profile(Request $r): array

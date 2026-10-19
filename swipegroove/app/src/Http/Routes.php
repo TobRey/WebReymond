@@ -78,23 +78,25 @@ final class Routes
         $r->get('/api/playback/devices', [C\SwipeController::class, 'devices']);
         $r->post('/api/playback/play', [C\SwipeController::class, 'play']);
         $r->post('/api/playback/pause', [C\SwipeController::class, 'pause']);
+        $r->get('/api/playback/token', [C\SwipeController::class, 'playerToken']);
 
-        // --- Community
-        $r->get('/api/community/feed', [C\CommunityController::class, 'feed']);
-        $r->get('/api/community/playlists/{id}', [C\CommunityController::class, 'playlist']);
+        // --- Community (Lesen auch ohne Konto; Privatsphäre-/Blockregeln greifen im Service)
+        $r->get('/api/community/search', [C\CommunityController::class, 'search'], $pub);
+        $r->get('/api/community/feed', [C\CommunityController::class, 'feed'], $pub);
+        $r->get('/api/community/playlists/{id}', [C\CommunityController::class, 'playlist'], $pub);
         $r->post('/api/community/playlists/{id}/like', [C\CommunityController::class, 'like']);
         $r->delete('/api/community/playlists/{id}/like', [C\CommunityController::class, 'unlike']);
-        $r->get('/api/community/playlists/{id}/likes', [C\CommunityController::class, 'likes']);
-        $r->get('/api/community/playlists/{id}/comments', [C\CommunityController::class, 'comments']);
+        $r->get('/api/community/playlists/{id}/likes', [C\CommunityController::class, 'likes'], $pub);
+        $r->get('/api/community/playlists/{id}/comments', [C\CommunityController::class, 'comments'], $pub);
         $r->post('/api/community/playlists/{id}/comments', [C\CommunityController::class, 'addComment']);
         $r->patch('/api/community/comments/{id}', [C\CommunityController::class, 'editComment']);
         $r->delete('/api/community/comments/{id}', [C\CommunityController::class, 'deleteComment']);
-        $r->get('/api/users/search', [C\CommunityController::class, 'searchUsers']);
-        $r->get('/api/users/{username}', [C\CommunityController::class, 'profile']);
-        $r->get('/api/users/{username}/playlists', [C\CommunityController::class, 'userPlaylists']);
-        $r->get('/api/users/{username}/followers', [C\CommunityController::class, 'followers']);
-        $r->get('/api/users/{username}/following', [C\CommunityController::class, 'following']);
-        $r->get('/api/users/{username}/friends', [C\CommunityController::class, 'friends']);
+        $r->get('/api/users/search', [C\CommunityController::class, 'searchUsers'], $pub);
+        $r->get('/api/users/{username}', [C\CommunityController::class, 'profile'], $pub);
+        $r->get('/api/users/{username}/playlists', [C\CommunityController::class, 'userPlaylists'], $pub);
+        $r->get('/api/users/{username}/followers', [C\CommunityController::class, 'followers'], $pub);
+        $r->get('/api/users/{username}/following', [C\CommunityController::class, 'following'], $pub);
+        $r->get('/api/users/{username}/friends', [C\CommunityController::class, 'friends'], $pub);
         $r->post('/api/users/{username}/follow', [C\CommunityController::class, 'follow']);
         $r->delete('/api/users/{username}/follow', [C\CommunityController::class, 'unfollow']);
         $r->post('/api/users/{username}/friend-request', [C\CommunityController::class, 'friendRequest']);

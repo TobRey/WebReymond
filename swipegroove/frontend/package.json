@@ -14,6 +14,8 @@
     "vite": "^6.3.5"
   },
   "dependencies": {
+    "@fontsource/jetbrains-mono": "5.2.6",
+    "@fontsource/sora": "5.2.6",
     "@preact/signals": "^2.0.4",
     "preact": "^10.26.9"
   }

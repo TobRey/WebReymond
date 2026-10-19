@@ -5,96 +5,133 @@ import { t } from '../lib/i18n';
 import { setUser, toast, user } from '../lib/state';
 import { href, navigate } from '../lib/router';
 import type { Me, Profile as ProfileT, PublishedPlaylist, UserCard } from '../lib/types';
-import { Avatar, Confirm, Cropper, EmptyState, ErrorState, Field, Loading, Menu, OwnerBadge, Sheet, Spinner, Tabs, TopBar, UserRow } from '../components/ui';
-import { IBlock, IChat, IEdit, IFlag, ILink, ILock, IMore, IMusic, IUsers, IBell, ISettings, IX, ICheck } from '../components/Icons';
-import { PlaylistTile } from './Community';
+import { Avatar, Confirm, CoverImg, Cropper, EmptyState, ErrorState, Field, Loading, Menu, OwnerBadge, Sheet, Spinner, TopBar, UserRow } from '../components/ui';
+import { IBlock, IFlag, ILink, ILock, IMore, IMusic, IUsers, IBell, ISettings, IX, ICheck, IGrid, ILibrary, IGlobe, IUserPlus, IUserCheck, IClock } from '../components/Icons';
+import { requireLogin } from './Home';
+import { LibraryContent } from './Overview';
 import { ReportSheet, ShareSheet } from './PublishedPlaylist';
 import { readFileAsDataUrl } from '../lib/util';
+
+type PeopleKind = 'followers' | 'following' | 'friends';
 
 export function Profile({ username, self }: { username: string; self: boolean }) {
   const [p, setP] = useState<ProfileT | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
-  const [tab, setTab] = useState<'playlists' | 'followers' | 'following' | 'friends'>('playlists');
+  const [tab, setTab] = useState<'grid' | 'library'>('grid');
   const [lists, setLists] = useState<PublishedPlaylist[] | null>(null);
-  const [people, setPeople] = useState<UserCard[] | null>(null);
+  const [people, setPeople] = useState<{ kind: PeopleKind; users: UserCard[] | null } | null>(null);
   const [edit, setEdit] = useState(false);
   const [report, setReport] = useState(false);
   const [block, setBlock] = useState(false);
   const [share, setShare] = useState(false);
   const [busy, setBusy] = useState(false);
-  const me = user.value!;
+  const me = user.value;
   const load = async () => {
     setError(null);
     try { setP(await api<ProfileT>('/api/users/' + encodeURIComponent(username))); } catch (e) { if (e instanceof ApiError) setError(e); else showError(e); }
   };
-  useEffect(() => { load(); setTab('playlists'); }, [username]);
+  useEffect(() => { setP(null); load(); setTab('grid'); }, [username]);
   useEffect(() => {
-    if (!p) return;
-    if (tab === 'playlists') { setLists(null); api<{ playlists: PublishedPlaylist[] }>('/api/users/' + username + '/playlists').then((r) => setLists(r.playlists)).catch(() => setLists([])); }
-    else { setPeople(null); api<{ users: UserCard[] }>('/api/users/' + username + '/' + tab).then((r) => setPeople(r.users)).catch(() => setPeople([])); }
-  }, [tab, p?.id, p?.relationship?.friend_status, p?.relationship?.following]);
+    if (!p || !p.content_visible) return;
+    setLists(null);
+    api<{ playlists: PublishedPlaylist[] }>('/api/users/' + encodeURIComponent(username) + '/playlists').then((r) => setLists(r.playlists)).catch(() => setLists([]));
+  }, [p?.id, p?.content_visible]);
+  const openPeople = (kind: PeopleKind) => {
+    if (!p?.content_visible && kind !== 'followers') return;
+    setPeople({ kind, users: null });
+    api<{ users: UserCard[] }>('/api/users/' + encodeURIComponent(username) + '/' + kind).then((r) => setPeople({ kind, users: r.users })).catch(() => setPeople({ kind, users: [] }));
+  };
   const rel = async (path: string, method = 'POST') => {
+    if (!requireLogin()) return;
     setBusy(true);
-    try { const r = await api<ProfileT['relationship']>(path, { method, body: {} }); setP((x) => x ? { ...x, relationship: r } : x); } catch (e) { showError(e); } finally { setBusy(false); }
+    try {
+      const r = await api<ProfileT['relationship']>(path, { method, body: {} });
+      setP((x) => x ? { ...x, relationship: r, follower_count: x.follower_count + (path.endsWith('/follow') ? (method === 'POST' ? 1 : -1) : 0) } : x);
+    } catch (e) { showError(e); } finally { setBusy(false); }
   };
   const message = async () => {
+    if (!requireLogin()) return;
     try { const c = await api<{ id: number }>('/api/conversations', { body: { username } }); navigate('/messages/' + c.id); } catch (e) { showError(e); }
   };
-  if (error) return <Layout><TopBar back="/community" /><ErrorState text={error.message} /></Layout>;
-  if (!p) return <Layout><TopBar back={self ? undefined : '/community'} /><Loading /></Layout>;
+  const back = self ? undefined : '/';
+  if (error) return <Layout><TopBar back={back ?? '/'} /><ErrorState text={error.message} /></Layout>;
+  if (!p) return <Layout><TopBar back={back} /><Loading /></Layout>;
   const r = p.relationship;
-  const friendBtn = r && (r.friend_status === 'friends' ? <button class="btn sm" disabled={busy} onClick={() => rel('/api/users/' + username + '/friend', 'DELETE')}><ICheck />{t('profile.friends')}</button>
-    : r.friend_status === 'requested' ? <button class="btn sm" disabled={busy} onClick={() => rel('/api/users/' + username + '/friend-decline')}>{t('profile.request_sent')}</button>
-    : r.friend_status === 'incoming' ? <span class="row gap-1"><button class="btn sm success" disabled={busy} onClick={() => rel('/api/users/' + username + '/friend-accept')}>{t('profile.accept')}</button><button class="btn sm" disabled={busy} onClick={() => rel('/api/users/' + username + '/friend-decline')}>{t('profile.decline')}</button></span>
-    : <button class="btn sm" disabled={busy || r.blocked} onClick={() => rel('/api/users/' + username + '/friend-request')}><IUsers />{t('profile.add_friend')}</button>);
+  const u = '/api/users/' + encodeURIComponent(username);
+  const friendBtn = r && (r.friend_status === 'friends'
+    ? <button class="btn icon outline" title={t('profile.friends')} aria-label={t('profile.friends')} disabled={busy} onClick={() => rel(u + '/friend', 'DELETE')}><IUserCheck /></button>
+    : r.friend_status === 'requested'
+      ? <button class="btn icon outline" title={t('profile.request_sent')} aria-label={t('profile.request_sent')} disabled={busy} onClick={() => rel(u + '/friend-decline')}><IClock /></button>
+      : r.friend_status === 'incoming'
+        ? <button class="btn success" disabled={busy} onClick={() => rel(u + '/friend-accept')}><ICheck />{t('profile.accept')}</button>
+        : <button class="btn icon outline" title={t('profile.add_friend')} aria-label={t('profile.add_friend')} disabled={busy || r.blocked} onClick={() => rel(u + '/friend-request')}><IUserPlus /></button>);
   return (
     <Layout>
-      {p.background_url && <div class="profile-bg" style={{ backgroundImage: `url(${p.background_url})` }} aria-hidden="true" />}
-      <TopBar back={self ? undefined : '/community'} title={self ? t('nav.profile') : p.display_name} right={self ? <>
-        <a class="btn icon ghost rel" href={href('/notifications')} aria-label={t('nav.notifications')}><IBell />{me.unread_notifications > 0 && <span class="badge-dot" style="top:4px;right:4px">{me.unread_notifications}</span>}</a>
-        <a class="btn icon ghost" href={href('/settings')} aria-label={t('nav.settings')}><ISettings /></a>
-      </> : <Menu button={<button class="btn icon ghost" aria-label={t('common.more')}><IMore /></button>} items={[
+      {p.background_url && <div class="profile-bg" style={{ backgroundImage: `url("${p.background_url}")` }} aria-hidden="true" />}
+      <TopBar back={back} title={'@' + p.username} right={self ? <>
+        <a class="icon-btn hide-desktop" href={href('/notifications')} aria-label={t('nav.notifications')}><IBell />{me && me.unread_notifications + me.pending_friend_requests > 0 && <span class="dot" />}</a>
+        <a class="icon-btn" href={href('/settings')} aria-label={t('nav.settings')}><ISettings /></a>
+      </> : <Menu button={<button class="icon-btn" aria-label={t('common.more')}><IMore /></button>} items={[
         { label: t('common.share'), icon: <ILink />, onClick: () => setShare(true) },
-        { label: t('report.title'), icon: <IFlag />, onClick: () => setReport(true) },
-        r?.blocked ? { label: t('profile.unblock'), icon: <IBlock />, onClick: () => rel('/api/users/' + username + '/block', 'DELETE') } : { label: t('profile.block'), icon: <IBlock />, danger: true, onClick: () => setBlock(true) },
+        ...(me ? [{ label: t('report.title'), icon: <IFlag />, onClick: () => setReport(true) },
+          r?.blocked ? { label: t('profile.unblock'), icon: <IBlock />, onClick: () => rel(u + '/block', 'DELETE') } : { label: t('profile.block'), icon: <IBlock />, danger: true, onClick: () => setBlock(true) }] : []),
       ]} />} />
-      <div class="banner" style={p.banner_url ? { backgroundImage: `url(${p.banner_url})` } : undefined} />
-      <div class="profile-head">
+      <div class="profile-cover" style={p.banner_url ? { backgroundImage: `url("${p.banner_url}")` } : undefined} />
+      <div class="profile-top">
         <Avatar user={p} size="xl" />
-        <div class="grow" style="padding-bottom:.4rem">
-          <h2 class="row gap-1 wrap">{p.display_name} {p.is_owner && <OwnerBadge />}{p.is_private && <ILock style="width:16px;height:16px;color:var(--text-3)" aria-label={t('profile.private')} />}</h2>
-          <div class="muted small">@{p.username}</div>
+        <div class="stats">
+          <div><b>{p.published_count ?? '–'}</b><span>{t('profile.posts')}</span></div>
+          <button onClick={() => openPeople('followers')}><b>{p.follower_count}</b><span>{t('profile.followers')}</span></button>
+          <button onClick={() => openPeople('following')} disabled={!p.content_visible}><b>{p.content_visible ? p.following_count : '–'}</b><span>{t('profile.following')}</span></button>
         </div>
       </div>
-      <div class="row wrap gap-2 mt-2" style="padding:0 1rem">
-        <span class="small"><strong>{p.follower_count}</strong> <span class="muted">{t('profile.followers')}</span></span>
-        {p.content_visible && <span class="small"><strong>{p.following_count}</strong> <span class="muted">{t('profile.following')}</span></span>}
-        {p.content_visible && <span class="small"><strong>{p.friend_count}</strong> <span class="muted">{t('profile.friends')}</span></span>}
+      <div class="profile-info">
+        <h1>{p.display_name}{p.is_owner && <OwnerBadge small />}{p.is_private && <ILock style="width:15px;height:15px;color:var(--text-3)" aria-label={t('profile.private')} />}</h1>
+        <div class="handle">@{p.username}{r?.followed_by ? ' · ' + t('profile.follows_you') : ''}{p.content_visible && p.friend_count ? ' · ' : ''}{p.content_visible && p.friend_count ? <button class="linkish" onClick={() => openPeople('friends')}>{t('profile.n_friends', { n: p.friend_count })}</button> : null}</div>
+        {p.content_visible && p.bio && <p class="bio">{p.bio}</p>}
       </div>
-      {p.content_visible && p.bio && <p class="mt-2 small" style="padding:0 1rem;white-space:pre-wrap">{p.bio}</p>}
-      <div class="row wrap gap-1 mt-2" style="padding:0 1rem">
-        {self ? <button class="btn sm" onClick={() => setEdit(true)}><IEdit />{t('profile.edit')}</button> : r && (<>
-          <button class={'btn sm' + (r.following ? '' : ' primary')} disabled={busy || r.blocked} onClick={() => rel('/api/users/' + username + '/follow', r.following ? 'DELETE' : 'POST')}>{r.following ? t('profile.unfollow') : t('profile.follow')}</button>
+      <div class="profile-actions">
+        {self ? (<>
+          <button class="btn outline" onClick={() => setEdit(true)}>{t('profile.edit')}</button>
+          <button class="btn outline" onClick={() => setShare(true)}>{t('common.share')}</button>
+        </>) : (<>
+          <button class={'btn ' + (r?.following ? 'outline' : 'primary')} disabled={busy || !!r?.blocked} onClick={() => rel(u + '/follow', r?.following ? 'DELETE' : 'POST')}>{r?.following ? t('profile.unfollow') : t('profile.follow')}</button>
+          {r?.can_message && <button class="btn outline" onClick={message}>{t('profile.message')}</button>}
           {friendBtn}
-          {r.can_message && <button class="btn sm" onClick={message}><IChat />{t('profile.message')}</button>}
-          {r.followed_by && <span class="chip">{t('profile.follows_you')}</span>}
+          {!me && <button class="btn outline" onClick={() => requireLogin()}>{t('profile.message')}</button>}
         </>)}
       </div>
       {!p.content_visible ? (
-        <div class="mt-3"><EmptyState icon={<ILock />} title={t('profile.private_title')} text={t('profile.private_text')} /></div>
+        <div class="mt-2"><EmptyState icon={<ILock />} title={t('profile.private_title')} text={t('profile.private_text')} /></div>
       ) : (
         <>
-          <div class="mt-3"><Tabs value={tab} onChange={setTab} options={[{ value: 'playlists', label: t('profile.playlists') + (p.published_count !== null ? ` (${p.published_count})` : '') }, { value: 'followers', label: t('profile.followers') }, { value: 'following', label: t('profile.following') }, { value: 'friends', label: t('profile.friends') }]} /></div>
-          <div class="mt-2">
-            {tab === 'playlists' ? (lists === null ? <Loading /> : lists.length === 0 ? <EmptyState icon={<IMusic />} title={t('profile.no_playlists')} text={self ? t('profile.no_playlists_self') : undefined} action={self ? <a class="btn" href={href('/')}>{t('nav.overview')}</a> : undefined} /> : <div class="grid">{lists.map((pl) => <PlaylistTile key={pl.id} p={pl} />)}</div>)
-              : (people === null ? <Loading /> : people.length === 0 ? <EmptyState icon={<IUsers />} title={t('common.nobody_yet')} /> : <div class="list">{people.map((u) => <UserRow key={u.id} user={u} />)}</div>)}
+          <div class="tabs mt-1" role="tablist">
+            <button role="tab" aria-selected={tab === 'grid'} aria-label={t('profile.playlists')} class={tab === 'grid' ? 'active' : ''} onClick={() => setTab('grid')}><IGrid /></button>
+            {self && <button role="tab" aria-selected={tab === 'library'} aria-label={t('nav.library')} class={tab === 'library' ? 'active' : ''} onClick={() => setTab('library')}><ILibrary /></button>}
           </div>
+          {tab === 'library' && self ? <LibraryContent embedded /> : lists === null ? <Loading /> : lists.length === 0 ? (
+            <EmptyState icon={<IMusic />} title={t('profile.no_playlists')} text={self ? t('profile.no_playlists_self') : undefined} action={self ? <a class="btn primary" href={href('/library?filter=own')}><IGlobe />{t('create.publish')}</a> : undefined} />
+          ) : (
+            <div class="pgrid">
+              {lists.map((pl) => (
+                <a key={pl.id} href={href('/community/playlists/' + pl.id)} aria-label={pl.name}>
+                  <CoverImg src={pl.image_url} id={pl.id} />
+                  <span class="cap truncate">{pl.name}</span>
+                </a>
+              ))}
+            </div>
+          )}
         </>
+      )}
+      {people && (
+        <Sheet title={t('profile.' + people.kind)} onClose={() => setPeople(null)}>
+          {people.users === null ? <Loading /> : people.users.length === 0 ? <EmptyState icon={<IUsers />} title={t('common.nobody_yet')} /> : <div class="list">{people.users.map((x) => <div key={x.id} onClick={() => setPeople(null)}><UserRow user={x} /></div>)}</div>}
+        </Sheet>
       )}
       {edit && <EditProfile onClose={() => setEdit(false)} onSaved={() => { setEdit(false); load(); }} />}
       {report && <ReportSheet type="user" id={p.id} onClose={() => setReport(false)} />}
       {share && <ShareSheet type="profile" refId={p.username} label={'@' + p.username} onClose={() => setShare(false)} />}
-      {block && <Confirm title={t('profile.block')} danger text={t('profile.block_text', { name: p.display_name })} busy={busy} onClose={() => setBlock(false)} onConfirm={async () => { await rel('/api/users/' + username + '/block'); setBlock(false); toast(t('profile.blocked'), 'ok'); }} />}
+      {block && <Confirm title={t('profile.block')} danger text={t('profile.block_text', { name: p.display_name })} busy={busy} onClose={() => setBlock(false)} onConfirm={async () => { await rel(u + '/block'); setBlock(false); toast(t('profile.blocked'), 'ok'); }} />}
     </Layout>
   );
 }
@@ -151,14 +188,14 @@ function EditProfile({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
       ) : (
         <form class="col" onSubmit={save}>
           {(['avatar', 'banner', 'background'] as const).map((kind) => (
-            <div key={kind} class="row between surface">
+            <div key={kind} class="row between" style="padding:6px 0;border-bottom:1px solid var(--line)">
               <div class="row gap-1">
-                {kind === 'avatar' ? <Avatar user={cur} /> : cur[(kind + '_url') as 'banner_url'] ? <img src={cur[(kind + '_url') as 'banner_url']!} alt="" style="width:64px;height:40px;object-fit:cover;border-radius:6px" /> : <div style="width:64px;height:40px;border-radius:6px;background:var(--bg-card-2)" />}
+                {kind === 'avatar' ? <Avatar user={cur} /> : cur[(kind + '_url') as 'banner_url'] ? <img src={cur[(kind + '_url') as 'banner_url']!} alt="" style="width:64px;height:40px;object-fit:cover;border-radius:6px" /> : <div style="width:64px;height:40px;border-radius:6px;background:var(--surface-2)" />}
                 <span class="small">{t('profile.img_' + kind)}</span>
               </div>
               <div class="row gap-1">
-                <label class="btn sm">{t('common.choose')}<input type="file" accept="image/*" class="sr-only" onChange={(e) => pickFile(kind, e)} /></label>
-                {cur[(kind + '_url') as 'avatar_url'] && <button type="button" class="btn icon ghost sm" aria-label={t('common.remove')} onClick={() => removeImg(kind)}><IX /></button>}
+                <label class="btn sm outline">{t('common.choose')}<input type="file" accept="image/*" class="sr-only" onChange={(e) => pickFile(kind, e)} /></label>
+                {cur[(kind + '_url') as 'avatar_url'] && <button type="button" class="icon-btn sm" aria-label={t('common.remove')} onClick={() => removeImg(kind)}><IX /></button>}
               </div>
             </div>
           ))}

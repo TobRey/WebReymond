@@ -66,7 +66,12 @@ Gegen einen lokalen Fake-Spotify-Server (`tests/e2e/`), Anwendung im Unterordner
 3. **Suche** liefert maximal 10 Treffer pro Anfrage (Dev-Mode-Limit); „Mehr laden“ paginiert.
 4. **Fremde Playlists**: Inhalte sind nur für eigene und kollaborative Playlists lesbar (`/playlists/{id}/items`). Gefolgte fremde Listen erscheinen in der Übersicht, sind aber nur lesbar/entfolgbar.
 5. **Löschen** existiert in der API nicht – nur Entfolgen/aus Bibliothek entfernen; die Oberfläche beschriftet und erklärt das.
-6. **Wiedergabe**: Web Playback SDK bräuchte ein Access-Token im Browser (widerspricht der Vorgabe „Tokens nur serverseitig“). Umgesetzt ist stattdessen **Spotify Connect** (Server steuert das aktive Spotify-Gerät des Nutzers; Premium nötig). Standardmässig **aus**, bis kommerzielle Freigabe nachgewiesen ist; Fallback „Auf Spotify anhören“ immer vorhanden. Keine Beat-Synchronisation.
+6. **Wiedergabe direkt auf der Seite** (ab 1.1.0, Admin schaltet sie ein, standardmässig aus):
+   - **Desktop**: Spotify **Web Playback SDK** – der Player läuft im Browser-Tab, ein Tipp startet ihn, danach spielt der Swipe-Feed jede neue Karte automatisch (Autoplay). Spotify wird dafür nicht geöffnet.
+   - **Handy-Browser**: Das SDK wird von Spotify auf Mobilgeräten nicht unterstützt. Dort steuert der Server per **Spotify Connect** die Spotify-App im Hintergrund (sie muss einmal geöffnet worden sein, damit ein Gerät existiert).
+   - **Spotify Premium ist Pflicht** (Spotify-Vorgabe), ohne Premium erscheint eine klare Meldung.
+   - **Abweichung von der ursprünglichen Vorgabe «Tokens nur serverseitig»**: Das SDK braucht ein Access-Token im Browser. SwipeGroove gibt dafür nur das kurzlebige Access-Token (max. 1 h) über `GET /api/playback/token` heraus – nur bei aktivierter Wiedergabe, nur mit `streaming`-Berechtigung, `Cache-Control: no-store`, ohne Speicherung im Browser (nur im Arbeitsspeicher des Players) und ohne Logging. Das Refresh-Token verlässt den Server nie.
+   - Keine Beat-Synchronisation, kein Download, keine Audioanalyse.
 7. **Refresh-Tokens** laufen nach 6 Monaten ab (seit Juni/Juli 2026); erneute Anmeldung nötig, die App weist darauf hin.
 8. `/me` liefert keine E-Mail, kein Land und keinen Premium-Status mehr → Registrierung kommt ohne E-Mail aus; Premium wird bei Wiedergabe über die Fehlermeldung erkannt.
 9. **ISRC/external_ids** sind nicht verlässlich verfügbar → Duplikate nur per Track-ID (keine Zusammenführung von Remixen/Live-Versionen).

@@ -7,7 +7,7 @@ const ctx = await b.newContext(mobile);
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
-page.on('console', (m) => { if (m.type() === 'error' && !m.text().startsWith('Failed to load resource')) errors.push(m.text()); });
+page.on('console', (m) => { if (m.type() === 'error' && !m.text().startsWith('Failed to load resource') && !(m.location().url || '').includes('scdn.co') && !m.text().includes('sdk.scdn.co')) errors.push(m.text()); });
 const failed = [];
 page.on('response', (r) => { if (r.status() >= 400 && !r.url().includes('scdn.co') && !r.url().includes('/install')) failed.push(r.status() + ' ' + r.url()); });
 const shot = (n) => page.screenshot({ path: `${SHOTS}/${n}.png`, fullPage: false });
@@ -20,8 +20,8 @@ const api = async (path, opts = {}) => {
 
 // ---- 1. Setup & Besitzer-Registrierung
 await page.goto(BASE + '/');
-await page.waitForURL(/\/login/);
-check(await page.isVisible('text=Die Plattform ist noch nicht eingerichtet'), 'Login zeigt Setup-Hinweis');
+await page.waitForSelector('text=Die Plattform ist noch nicht eingerichtet');
+check(!(await page.isVisible('.boot-splash')), 'Kein Ladebildschirm, direkt Anmeldung');
 await shot('10-login-setup-pending');
 await page.goto(BASE + '/setup');
 await page.fill('input[type=password]', 'falscher-schluessel');
@@ -32,7 +32,7 @@ await page.fill('input[type=password]', 'local-setup-key-123456');
 await page.click('button[type=submit]');
 await page.waitForURL(/8090\/authorize/);
 check(page.url().includes('code_challenge='), 'PKCE-Challenge in Autorisierungs-URL');
-check(page.url().includes('scope=playlist-read-private'), 'Nur Playlist-Scopes angefordert');
+check(page.url().includes('scope=playlist-read-private') && !page.url().includes('streaming'), 'Ohne aktivierte Wiedergabe nur Playlist-Scopes');
 await page.click('#login-spotify_owner');
 await page.waitForURL(/\/groove\/welcome/);
 await shot('11-welcome');
@@ -40,33 +40,38 @@ await page.fill('input[maxlength="32"]', 'tobi');
 await page.fill('input[maxlength="60"]', 'Tobi');
 await page.click('button[type=submit]');
 await page.waitForURL((u) => u.pathname === '/groove/' || u.pathname === '/groove');
-check(true, 'Onboarding abgeschlossen → Übersicht');
+check(true, 'Onboarding abgeschlossen → Feed');
+await page.waitForSelector('.stories');
+await shot('12-feed-empty');
 
-// ---- 2. Übersicht
-await page.waitForSelector('.pl-card, .item', { timeout: 30000 });
+// ---- 2. Bibliothek (Playlist-Manager)
+await page.goto(BASE + '/library');
+await page.waitForSelector('.tile', { timeout: 30000 });
 const me = (await api('/api/me')).json;
 check(me.is_owner && me.is_admin && me.premium.active && me.premium.unlimited_covers, 'Besitzer hat Admin + Premium ohne Limit');
-const cards = await page.locator('.pl-card').count();
-check(cards >= 50, `Übersicht zeigt ${cards} Playlists (Paginierung)`);
-await shot('20-overview-mobile');
-await page.click('text=Leer');
+const cards = await page.locator('.tile').count();
+check(cards >= 50, `Bibliothek zeigt ${cards} Playlists (Paginierung)`);
+await shot('20-library-mobile');
+await page.click('.seg button[role=tab]:has-text("Leer")');
 await page.waitForTimeout(300);
-const emptyCards = await page.locator('.pl-card').count();
+const emptyCards = await page.locator('.tile').count();
 check(emptyCards >= 2 && emptyCards < cards, `Leer-Filter: ${emptyCards}`);
-await page.click('text=Alle');
+await page.click('.seg button[role=tab]:has-text("Alle")');
+const seg = await page.locator('.hscroll').first().evaluate((el) => getComputedStyle(el).overflowY);
+check(seg === 'hidden', 'Horizontale Leisten scrollen nicht vertikal');
 // Fremde (nur gefolgte) Playlist: eingeschränkte Ansicht statt Fehler
 await page.fill('input[placeholder="Playlists durchsuchen"]', 'Fremde');
 await page.waitForTimeout(200);
-await page.click('.pl-card');
+await page.click('.tile');
 await page.waitForSelector('text=Songliste nicht verfügbar');
 check(!(await page.isVisible('text=Da ist etwas schiefgelaufen')), 'Fremde Playlist zeigt Hinweis statt Fehler');
 await page.screenshot({ path: `${SHOTS}/21-foreign-playlist.png` });
-await page.goto(BASE + '/');
-await page.waitForSelector('.pl-card');
+await page.goto(BASE + '/library');
+await page.waitForSelector('.tile');
 await page.fill('input[placeholder="Playlists durchsuchen"]', 'Sommer');
 await page.waitForTimeout(200);
-check((await page.locator('.pl-card').count()) === 1, 'Suche filtert auf Sommer Vibes');
-await page.click('.pl-card');
+check((await page.locator('.tile').count()) === 1, 'Suche filtert auf Sommer Vibes');
+await page.click('.tile');
 await page.waitForURL(/\/playlists\/pltest0000000000000001/);
 
 // ---- 3. Playlist-Detail: Duplikate, Auswahl, Veröffentlichung
@@ -92,7 +97,7 @@ await page.click('role=switch[name="Auf SwipeGroove veröffentlichen"]');
 await page.waitForSelector('text=Playlist veröffentlicht');
 check(true, 'Playlist veröffentlicht');
 // Auswahl + Kopieren
-await page.click('button:has-text("Auswählen")');
+await page.click('button[aria-label="Auswählen"]');
 await page.locator('.list .item').nth(0).click();
 await page.locator('.list .item').nth(1).click();
 await page.waitForSelector('text=2 ausgewählt');
@@ -132,41 +137,73 @@ check(true, 'Wischgeste nach rechts fügt hinzu');
 const fakeState = await (await fetch('http://127.0.0.1:8090/__state')).json();
 check(fakeState.playlists.pltest0000000000000001.items.length === 9, 'Zielplaylist hat nun 9 Songs (7 + 2 Swipes)');
 check(new Set(fakeState.playlists.pltest0000000000000001.items).size === 9, 'Keine doppelten Songs in der Zielplaylist');
+// Ohne aktivierte Wiedergabe: kurzer Hinweis statt Spotify zu öffnen
+await page.click('button[aria-label="Anhören"]');
+await page.waitForSelector('text=Abspielen ist auf dieser Plattform noch nicht aktiviert');
+check(page.url().includes('/discover'), 'Anhören öffnet kein Spotify');
 // Modus-Wechsel: Selbst einstellen ohne Filter → ehrlicher Zustand
-await page.click('text=Selbst einstellen');
+await page.click('.seg button:has-text("Selbst einstellen")');
 await page.waitForSelector('text=Keine Filter gesetzt');
 check(true, 'Custom-Modus ohne Filter zeigt ehrlichen Leerzustand');
 
-// ---- 5. Community & Profil
-await page.goto(BASE + '/community');
-await page.waitForSelector('text=hat eine Playlist veröffentlicht');
-await shot('50-community');
-await page.click('.item:has-text("Sommer Vibes")');
+// ---- 5. Feed, Beitrag, Profil
+await page.goto(BASE + '/');
+await page.waitForSelector('.post:has-text("Sommer Vibes")');
+await shot('50-feed');
+await page.click('.post .post-media');
 await page.waitForURL(/\/community\/playlists\/\d+/);
-await page.fill('textarea', 'Starke Liste!');
+await page.fill('form.composer textarea', 'Starke Liste!');
 await page.click('button[aria-label="Senden"]');
 await page.waitForSelector('text=Starke Liste!');
-await page.click('button:has-text("0")');
-await page.waitForSelector('button:has-text("1")');
+await page.click('button[aria-label="Gefällt mir"]');
+await page.waitForSelector('button[aria-label="Gefällt mir"][aria-pressed="true"]');
 check(true, 'Kommentar und Like funktionieren');
 await shot('51-published-playlist');
+await page.goto(BASE + '/profile');
+await page.waitForSelector('.pgrid a');
+const avatarBox = await page.locator('.profile-top .avatar').boundingBox();
+const coverBox = await page.locator('.profile-cover').boundingBox();
+const topEl = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('.avatar') !== null, [avatarBox.x + avatarBox.width / 2, avatarBox.y + 10]);
+check(topEl && avatarBox.y < coverBox.y + coverBox.height, 'Profilbild liegt über dem Banner (nicht verdeckt)');
+await shot('52-profile-grid');
+await page.click('button[aria-label="Bibliothek"]');
+await page.waitForSelector('.tile');
+check(true, 'Eigene Bibliothek im Profil');
 
 // ---- 6. Einstellungen: Sprache EN
 await page.goto(BASE + '/settings');
 await page.click('button:has-text("English")');
 await page.waitForSelector('text=Private profile');
-check(await page.isVisible('nav.bottom-nav >> text=Overview'), 'Navigation auf Englisch');
+check(await page.isVisible('nav.bottom-nav a[aria-label="Messages"]'), 'Navigation auf Englisch');
 await shot('60-settings-en');
 await page.click('button:has-text("Deutsch")');
 await page.waitForSelector('text=Privates Profil');
 
-// ---- 7. Admin öffnet Registrierung, zweiter Nutzer registriert sich
+// ---- 7. Registrierung ist offen, Gast stöbert, zweiter Nutzer registriert sich
 await page.goto(BASE + '/admin/settings');
 await page.waitForSelector('role=switch[name="Öffentliche Registrierung"]');
-await page.click('role=switch[name="Öffentliche Registrierung"]');
-await page.click('button:has-text("Speichern")');
-await page.waitForSelector('text=Gespeichert');
+check((await page.getAttribute('role=switch[name="Öffentliche Registrierung"]', 'aria-checked')) === 'true', 'Registrierung nach Einrichtung offen');
 await shot('70-admin-settings');
+const g = await b.newContext(mobile);
+const gp = await g.newPage();
+gp.on('pageerror', (e) => errors.push('guest: ' + e));
+await gp.goto(BASE + '/');
+await gp.click('text=Ohne Konto umschauen');
+await gp.waitForSelector('.post:has-text("Sommer Vibes")');
+await gp.screenshot({ path: `${SHOTS}/74-guest-explore.png` });
+await gp.click('.post button[aria-label="Gefällt mir"]');
+await gp.waitForURL(/\/login\?redirect=/);
+check(await gp.isVisible('text=Mit Spotify anmelden'), 'Gast: Liken verlangt Anmeldung');
+await gp.goto(BASE + '/search');
+await gp.fill('input[type=search]', 'Sommer');
+await gp.waitForSelector('.tile:has-text("Sommer Vibes")');
+await gp.click('.tile:has-text("Sommer Vibes")');
+await gp.waitForSelector('text=Starke Liste!');
+check(await gp.isVisible('text=Zum Kommentieren anmelden'), 'Gast: Playlist und Kommentare lesbar, Schreiben nur mit Konto');
+await gp.goto(BASE + '/messages');
+await gp.waitForURL(/\/login/);
+check(true, 'Gast: Nachrichten nur mit Konto');
+await g.close();
 const ctx2 = await b.newContext({ viewport: { width: 1280, height: 860 }, locale: 'de-CH' });
 const p2 = await ctx2.newPage();
 p2.on('pageerror', (e) => errors.push('p2: ' + e));
@@ -179,16 +216,25 @@ await p2.fill('input[maxlength="32"]', 'alice');
 await p2.fill('input[maxlength="60"]', 'Alice');
 await p2.click('button[type=submit]');
 await p2.waitForURL((u) => u.pathname === '/groove/' || u.pathname === '/groove');
-await p2.waitForSelector('.sidebar');
-await p2.screenshot({ path: `${SHOTS}/71-desktop-overview.png` });
+await p2.waitForSelector('.rail');
+await p2.click('.head-tabs button:has-text("Entdecken")');
+await p2.waitForSelector('.post');
+await p2.screenshot({ path: `${SHOTS}/71-desktop-feed.png` });
 check(true, 'Zweiter Nutzer registriert (Desktop-Layout mit Seitenleiste)');
 // Alice folgt Tobi, sendet Freundschaftsanfrage und Nachricht
 await p2.goto(BASE + '/u/tobi');
 await p2.waitForSelector('button:has-text("Folgen")');
 await p2.click('button:has-text("Folgen")');
 await p2.waitForSelector('button:has-text("Entfolgen")');
-await p2.click('button:has-text("Freund hinzufügen")');
-await p2.waitForSelector('text=Anfrage gesendet');
+await p2.click('button[aria-label="Freund hinzufügen"]');
+await p2.waitForSelector('button[aria-label="Anfrage gesendet"]');
+await p2.screenshot({ path: `${SHOTS}/75-desktop-profile.png` });
+await p2.goto(BASE + '/');
+await p2.click('.head-tabs button:has-text("Freunde")');
+await p2.waitForSelector('.post:has-text("Sommer Vibes")');
+check(true, 'Freunde-Feed zeigt Playlists von gefolgten Personen');
+await p2.goto(BASE + '/u/tobi');
+await p2.waitForSelector('button:has-text("Nachricht")');
 await p2.click('button:has-text("Nachricht")');
 await p2.waitForURL(/\/messages\/\d+/);
 await p2.fill('textarea', 'Hallo Tobi!');
@@ -251,6 +297,32 @@ await page.click('.sheet button:has-text("Entfernen")');
 await page.waitForSelector('text=Playlists entfernt', { timeout: 60000 });
 const st2 = await (await fetch('http://127.0.0.1:8090/__state')).json();
 check(st2.unfollowed.length >= 2, `Leere Playlists bei Spotify entfolgt (${st2.unfollowed.length})`);
+
+// ---- 9b. Wiedergabe direkt auf der Seite (Admin aktiviert, einmalige Zusatz-Berechtigung)
+await page.goto(BASE + '/admin/settings');
+await page.click('.seg button:has-text("Auf der Seite abspielen")');
+await page.click('button:has-text("Speichern")');
+await page.waitForSelector('text=Gespeichert');
+await page.goto(BASE + '/discover?target=pltest0000000000000001');
+await page.click('.seg button:has-text("Playlist-Match")');
+await page.waitForSelector('.swipe-card', { timeout: 30000 });
+await page.click('button[aria-label="Anhören"]');
+await page.waitForURL(/8090\/authorize/, { timeout: 15000 });
+check(page.url().includes('streaming') && page.url().includes('user-modify-playback-state'), 'Wiedergabe fragt streaming-Berechtigung einmalig an');
+await page.click('#login-spotify_owner');
+await page.waitForURL(/\/groove\/discover/);
+await page.waitForSelector('.swipe-card', { timeout: 30000 });
+await page.click('button[aria-label="Anhören"]');
+await page.waitForSelector('.player', { timeout: 30000 });
+const playsA = (await (await fetch('http://127.0.0.1:8090/__state')).json()).plays.length;
+check(playsA >= 1, 'Song startet auf der Seite (Mini-Player sichtbar)');
+await shot('95-player');
+await page.click('button[aria-label="Zur Playlist hinzufügen"]');
+await page.waitForTimeout(1500);
+const playsB = (await (await fetch('http://127.0.0.1:8090/__state')).json()).plays.length;
+check(playsB > playsA, 'Autoplay: nächste Karte spielt automatisch');
+check(!page.url().includes('open.spotify.com'), 'Spotify wurde nicht geöffnet');
+await page.click('.player button[aria-label="Schliessen"]');
 
 // ---- 10. Rechtliche Seiten & Logout
 await page.goto(BASE + '/legal/privacy');

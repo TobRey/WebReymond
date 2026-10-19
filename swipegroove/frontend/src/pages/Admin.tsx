@@ -245,7 +245,7 @@ function SettingsAdmin() {
       <div class="card col gap-1">
         <h3>{t('settings.playback')}</h3>
         <Notice kind="warn">{t('admin.playback_note')}</Notice>
-        <Seg value={v('playback_mode')} onChange={(m) => setForm({ ...form, playback_mode: m })} options={[{ value: 'off', label: t('common.off') }, { value: 'connect', label: 'Spotify Connect' }]} />
+        <Seg value={v('playback_mode')} onChange={(m) => setForm({ ...form, playback_mode: m })} options={[{ value: 'off', label: t('common.off') }, { value: 'connect', label: t('admin.playback_on') }]} />
       </div>
       <div class="card col gap-1">
         <h3>{t('nav.covers')}</h3>

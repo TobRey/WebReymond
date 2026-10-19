@@ -3,16 +3,17 @@ import { route, match, navigate } from './lib/router';
 import { user, setUser, platform } from './lib/state';
 import { lang } from './lib/i18n';
 import { api } from './lib/api';
-import type { Me, Platform } from './lib/types';
+import type { Platform } from './lib/types';
 import { Login, Setup } from './pages/Login';
 import { Welcome } from './pages/Welcome';
 import { Legal } from './pages/Legal';
-import { Overview } from './pages/Overview';
+import { Library } from './pages/Overview';
+import { Home, Explore } from './pages/Home';
+import { Search } from './pages/Search';
 import { PlaylistDetail } from './pages/PlaylistDetail';
 import { EmptyCleanup } from './pages/EmptyCleanup';
 import { Merge } from './pages/Merge';
 import { Discover } from './pages/Discover';
-import { Community } from './pages/Community';
 import { PublishedPlaylist } from './pages/PublishedPlaylist';
 import { Profile } from './pages/Profile';
 import { Messages, Conversation } from './pages/Messages';
@@ -59,11 +60,13 @@ export function App() {
 
   // Weiterleitungen zentral bestimmen (Hooks dürfen nicht bedingt aufgerufen werden)
   const isPublic = p.startsWith('/legal/') || p === '/setup';
+  const guestOk = p === '/explore' || p === '/search' || !!match('/community/playlists/:id', p) || !!match('/u/:username', p);
   let redirectTo: string | null = null;
   if (!isPublic) {
-    if (!u && p !== '/login') redirectTo = '/login' + (p !== '/' ? '?redirect=' + encodeURIComponent(p) : '');
+    if (!u && p !== '/login' && p !== '/' && !guestOk) redirectTo = '/login?redirect=' + encodeURIComponent(p);
     else if (u && u.status === 'active' && !u.onboarding_done && p !== '/welcome') redirectTo = '/welcome';
-    else if (u && u.status === 'active' && p === '/login') redirectTo = '/';
+    else if (u && u.status === 'active' && p === '/login') redirectTo = r.query.get('redirect')?.startsWith('/') ? r.query.get('redirect')! : '/';
+    else if (u && (p === '/community' || p === '/explore')) redirectTo = p === '/community' ? '/search' : '/';
   }
   useEffect(() => { if (redirectTo) navigate(redirectTo, true); }, [redirectTo]);
 
@@ -74,16 +77,24 @@ export function App() {
   }
   if (p === '/setup') return <Setup />;
   if (redirectTo) return null;
-  if (!u) return <Login />;
-  if (u.status !== 'active') return <Login />;
-  if (p === '/welcome') return <Welcome />;
   let m: Record<string, string> | null;
-  if (p === '/') return <Overview />;
+  if (!u || u.status !== 'active') {
+    // Ohne Konto: nur stöbern (öffentliche Playlists und Profile)
+    if (u && u.status !== 'active') return <Login />;
+    if (p === '/explore') return <Explore />;
+    if (p === '/search') return <Search />;
+    if ((m = match('/community/playlists/:id', p))) return <PublishedPlaylist id={Number(m.id)} />;
+    if ((m = match('/u/:username', p))) return <Profile username={m.username} self={false} />;
+    return <Login />;
+  }
+  if (p === '/welcome') return <Welcome />;
+  if (p === '/') return <Home />;
+  if (p === '/search') return <Search />;
+  if (p === '/library') return <Library />;
   if ((m = match('/playlists/:id', p))) return <PlaylistDetail id={m.id} />;
   if (p === '/playlists/tools/empty') return <EmptyCleanup />;
   if (p === '/playlists/tools/merge') return <Merge />;
   if (p === '/discover') return <Discover />;
-  if (p === '/community') return <Community />;
   if ((m = match('/community/playlists/:id', p))) return <PublishedPlaylist id={Number(m.id)} />;
   if (p === '/profile') return <Profile username={u.username} self />;
   if ((m = match('/u/:username', p))) return <Profile username={m.username} self={m.username === u.username} />;

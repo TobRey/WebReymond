@@ -21,9 +21,13 @@ final class SpotifyAuth
         'playlist-modify-private',
         'ugc-image-upload',
     ];
+    /** Wiedergabe: Connect-Steuerung + Web Playback SDK (streaming, user-read-email/-private verlangt das SDK). */
     public const PLAYBACK_SCOPES = [
         'user-read-playback-state',
         'user-modify-playback-state',
+        'streaming',
+        'user-read-email',
+        'user-read-private',
     ];
 
     public const BROWSER_COOKIE = 'sg_oauth';

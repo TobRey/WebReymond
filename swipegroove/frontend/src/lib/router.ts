@@ -13,15 +13,23 @@ function parse(): Route {
 
 export const route = signal<Route>(parse());
 
+let depth = 0;
+
 export function navigate(path: string, replace = false): void {
   const target = boot.basePath + path;
   if (replace) history.replaceState(null, '', target);
-  else history.pushState(null, '', target);
+  else { history.pushState(null, '', target); depth++; }
   route.value = parse();
   window.scrollTo({ top: 0 });
 }
 
-window.addEventListener('popstate', () => { route.value = parse(); });
+window.addEventListener('popstate', () => { depth = Math.max(0, depth - 1); route.value = parse(); });
+
+/** Zurück innerhalb der App, sonst zur Ausweichseite. */
+export function goBack(fallback: string): void {
+  if (depth > 0) history.back();
+  else navigate(fallback, true);
+}
 
 // Interne Links abfangen
 document.addEventListener('click', (e) => {

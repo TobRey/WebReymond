@@ -21,11 +21,11 @@ Diese Liste nennt exakt, was ausserhalb von SwipeGroove eingerichtet werden muss
 
 **Berechtigungen (Scopes), die SwipeGroove anfordert:**
 `playlist-read-private`, `playlist-read-collaborative`, `playlist-modify-public`, `playlist-modify-private`, `ugc-image-upload`.
-Nur wenn der Admin die Wiedergabe über Spotify Connect aktiviert, zusätzlich `user-read-playback-state`, `user-modify-playback-state`.
+Nur wenn der Admin «Auf der Seite abspielen» aktiviert, zusätzlich `user-read-playback-state`, `user-modify-playback-state`, `streaming`, `user-read-email`, `user-read-private` (die letzten drei verlangt das Web Playback SDK). Nutzer bestätigen sie einmalig beim ersten Abspielen.
 
 **Nutzungsbedingungen (Spotify Developer Terms/Policy), relevant für den Betrieb:**
 - Keine Verwendung von Spotify-Inhalten für KI-/ML-Training oder als Input für KI-Modelle → SwipeGroove schickt keine Spotify-Daten an OpenAI.
-- Kommerzielle Nutzung und Wiedergabe-Integration benötigen ggf. Spotifys schriftliche Zustimmung → **Wiedergabe ist standardmässig deaktiviert**.
+- Kommerzielle Nutzung und Wiedergabe-Integration benötigen ggf. Spotifys schriftliche Zustimmung → **Wiedergabe ist standardmässig deaktiviert** und wird vom Admin bewusst eingeschaltet (Admin → Einstellungen → Wiedergabe). Das Web Playback SDK funktioniert nur mit Spotify Premium und nicht in mobilen Browsern.
 - Refresh-Tokens laufen nach **6 Monaten** ab; Nutzer müssen sich dann erneut anmelden (wird in den Einstellungen angezeigt).
 
 ## 2. OpenAI (optional – KI-Cover)

@@ -445,10 +445,21 @@ final class SpotifyClient
         return array_values(array_filter($data['devices'] ?? [], 'is_array'));
     }
 
-    public function play(int $userId, string $trackUri, ?string $deviceId = null): void
+    /** @param string|list<string> $trackUris */
+    public function play(int $userId, string|array $trackUris, ?string $deviceId = null, int $offset = 0): void
     {
+        $uris = is_array($trackUris) ? array_values($trackUris) : [$trackUris];
         $query = $deviceId ? ['device_id' => $deviceId] : [];
-        $this->expect($this->request($userId, 'PUT', 'me/player/play', $query, ['uris' => [$trackUri]]));
+        $body = ['uris' => $uris];
+        if ($offset > 0 && $offset < count($uris)) {
+            $body['offset'] = ['position' => $offset];
+        }
+        $this->expect($this->request($userId, 'PUT', 'me/player/play', $query, $body));
+    }
+
+    public function resume(int $userId): void
+    {
+        $this->expect($this->request($userId, 'PUT', 'me/player/play'));
     }
 
     public function pause(int $userId): void

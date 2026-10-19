@@ -5,7 +5,7 @@ import { toasts, type Toast } from '../lib/state';
 import { initials } from '../lib/util';
 import { ICheck, IInfo, IWarn, IX, ICrown } from './Icons';
 import type { UserCard as UserCardT } from '../lib/types';
-import { href } from '../lib/router';
+import { href, goBack } from '../lib/router';
 
 export function Spinner({ small = false }: { small?: boolean }) {
   return <div class={'spinner' + (small ? ' sm' : '')} role="status" aria-label={t('common.loading')} />;
@@ -138,7 +138,7 @@ export function Sheet({ title, onClose, children, wide, actions }: { title?: str
         <div class="grabber" />
         <div class="row between mb-1">
           {title ? <h2>{title}</h2> : <span />}
-          <button class="btn icon ghost sm close" aria-label={t('common.close')} onClick={onClose}><IX /></button>
+          <button class="icon-btn sm close" aria-label={t('common.close')} onClick={onClose}><IX /></button>
         </div>
         {children}
         {actions && <div class="actions">{actions}</div>}
@@ -202,16 +202,32 @@ export function Menu({ button, items }: { button: ComponentChildren; items: { la
 }
 
 export function TopBar({ title, back, right, children }: { title?: string; back?: string | (() => void); right?: ComponentChildren; children?: ComponentChildren }) {
+  const icon = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7" /></svg>;
   return (
-    <div class="topbar">
+    <div class={'topbar' + (back ? ' has-back' : '')}>
       {back && (typeof back === 'string'
-        ? <a class="btn icon ghost" href={href(back)} aria-label={t('common.back')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px"><path d="M15 5l-7 7 7 7" /></svg></a>
-        : <button class="btn icon ghost" onClick={back} aria-label={t('common.back')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px"><path d="M15 5l-7 7 7 7" /></svg></button>)}
+        ? <a class="icon-btn" href={href(back)} aria-label={t('common.back')} onClick={(e) => { e.preventDefault(); goBack(back); }}>{icon}</a>
+        : <button class="icon-btn" onClick={back} aria-label={t('common.back')}>{icon}</button>)}
       {title && <h1 class="grow truncate">{title}</h1>}
       {children}
       {right}
     </div>
   );
+}
+
+/** Farbiger Platzhalter (deterministisch je ID), falls kein Cover vorhanden ist. */
+export function phClass(id: string | number): string {
+  const s = String(id);
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return 'ph ph-' + (h % 6);
+}
+
+export function CoverImg({ src, id, alt = '' }: { src: string | null | undefined; id: string | number; alt?: string }) {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => setBroken(false), [src]);
+  if (src && !broken) return <img src={src} alt={alt} loading="lazy" onError={() => setBroken(true)} />;
+  return <div class={phClass(id)} aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg></div>;
 }
 
 /** Bildzuschnitt (Canvas, Touch & Maus), gibt relative Crop-Werte zurück. */

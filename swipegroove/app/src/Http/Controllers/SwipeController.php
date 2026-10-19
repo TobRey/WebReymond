@@ -6,6 +6,7 @@ namespace SwipeGroove\Http\Controllers;
 use SwipeGroove\Core\App;
 use SwipeGroove\Core\HttpException;
 use SwipeGroove\Core\Request;
+use SwipeGroove\Core\Response;
 use SwipeGroove\Spotify\PlaylistService;
 use SwipeGroove\Spotify\SpotifyClient;
 use SwipeGroove\Spotify\SpotifyException;
@@ -110,16 +111,32 @@ final class SwipeController
     {
         $this->assertPlayback($r);
         $this->app->limiter()->enforce('play:' . $r->userId(), 120, 600);
-        $trackId = $r->str('track_id');
-        if (!preg_match('/^[A-Za-z0-9]{22}$/', $trackId)) {
-            throw HttpException::badRequest('swipe.invalid_track');
+        if ($r->bool('resume')) {
+            try {
+                $this->app->service(SpotifyClient::class)->resume($r->userId());
+            } catch (SpotifyException $e) {
+                throw new HttpException($e->reason === SpotifyException::NOT_FOUND ? 404 : 502, $e->reason === SpotifyException::NOT_FOUND ? 'playback.no_device' : $e->errorCode());
+            }
+            return ['ok' => true];
         }
+        // Einzelner Song oder Warteschlange (max. 50, z. B. die Songs einer Playlist)
+        $ids = array_values(array_filter(array_map('strval', $r->arr('track_ids'))));
+        if ($ids === []) {
+            $ids = [$r->str('track_id')];
+        }
+        $ids = array_slice($ids, 0, 50);
+        foreach ($ids as $trackId) {
+            if (!preg_match('/^[A-Za-z0-9]{22}$/', $trackId)) {
+                throw HttpException::badRequest('swipe.invalid_track');
+            }
+        }
+        $offset = max(0, min(count($ids) - 1, $r->int('offset')));
         $device = $r->str('device_id') ?: null;
         if ($device !== null && !preg_match('/^[A-Za-z0-9]{10,80}$/', $device)) {
             $device = null;
         }
         try {
-            $this->app->service(SpotifyClient::class)->play($r->userId(), 'spotify:track:' . $trackId, $device);
+            $this->app->service(SpotifyClient::class)->play($r->userId(), array_map(static fn(string $id) => 'spotify:track:' . $id, $ids), $device, $offset);
         } catch (SpotifyException $e) {
             if ($e->reason === SpotifyException::NOT_FOUND) {
                 throw new HttpException(404, 'playback.no_device');
@@ -130,6 +147,32 @@ final class SwipeController
             throw new HttpException(502, $e->errorCode());
         }
         return ['ok' => true];
+    }
+
+    /**
+     * Kurzlebiges Zugriffstoken für den Web Playback SDK-Player im Browser (nur Wiedergabe auf dieser Seite).
+     * Das Refresh-Token verlässt den Server nie; das Token wird nicht gespeichert oder geloggt.
+     */
+    public function playerToken(Request $r): Response
+    {
+        $this->assertPlayback($r);
+        $store = $this->app->service(TokenStore::class);
+        if (!$store->hasScope($r->userId(), 'streaming')) {
+            throw HttpException::forbidden('playback.scope_missing');
+        }
+        $this->app->limiter()->enforce('ptoken:' . $r->userId(), 60, 600);
+        $acc = $store->account($r->userId());
+        $soon = !$acc || strtotime((string) ($acc['token_expires_at'] ?? '')) < time() + 300;
+        try {
+            $token = $store->accessToken($r->userId(), $soon);
+        } catch (SpotifyException $e) {
+            throw new HttpException($e->reason === SpotifyException::REVOKED ? 401 : 502, $e->errorCode());
+        }
+        $acc = $store->account($r->userId());
+        $expiresIn = max(60, (int) (strtotime((string) ($acc['token_expires_at'] ?? '')) - time()));
+        $resp = Response::json(['access_token' => $token, 'expires_in' => $expiresIn]);
+        $resp->headers['Cache-Control'] = 'no-store, private';
+        return $resp;
     }
 
     public function pause(Request $r): array

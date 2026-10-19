@@ -111,7 +111,8 @@ final class ImageService
         imagedestroy($src);
         $dir = $this->app->root . '/uploads/' . $spec['dir'];
         if (!is_dir($dir)) {
-            mkdir($dir, 0750, true);
+            mkdir($dir, 0755, true);
+            @chmod($dir, 0755);
         }
         $name = $userId . '-' . bin2hex(random_bytes(8)) . '.webp';
         $path = $dir . '/' . $name;
@@ -122,7 +123,8 @@ final class ImageService
         $w = imagesx($img);
         $h = imagesy($img);
         imagedestroy($img);
-        @chmod($path, 0640);
+        // Der Webserver (oft ein anderer Systembenutzer als PHP) muss die Datei lesen können
+        @chmod($path, 0644);
         $db = $this->app->db();
         $rel = $spec['dir'] . '/' . $name;
         $db->insert('user_images', ['user_id' => $userId, 'kind' => $kind, 'path' => $rel, 'width' => $w, 'height' => $h, 'bytes' => (int) filesize($path), 'created_at' => $db->now()]);
@@ -172,6 +174,30 @@ final class ImageService
     /**
      * Bereitet ein Bild als Spotify-Playlist-Cover auf: quadratisches JPEG, Base64 ≤ 256 KB.
      */
+    /**
+     * Setzt lesbare Rechte für alle Upload-Verzeichnisse (0755) und Bilder (0644).
+     * Ältere Versionen speicherten mit 0750/0640, was auf Shared-Hosting zu 403 führte.
+     */
+    public static function repairPermissions(string $uploadsDir): int
+    {
+        if (!is_dir($uploadsDir)) {
+            return 0;
+        }
+        $fixed = 0;
+        $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($uploadsDir, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST);
+        foreach ($it as $f) {
+            $path = $f->getPathname();
+            if ($f->isDir()) {
+                if ((fileperms($path) & 0777) !== 0755 && @chmod($path, 0755)) {
+                    $fixed++;
+                }
+            } elseif (preg_match('/\.(webp|jpe?g|png)$/i', $path) && (fileperms($path) & 0777) !== 0644 && @chmod($path, 0644)) {
+                $fixed++;
+            }
+        }
+        return $fixed;
+    }
+
     public function toSpotifyCoverJpeg(string $bytes, ?array $crop = null): string
     {
         $src = $this->decode($bytes);

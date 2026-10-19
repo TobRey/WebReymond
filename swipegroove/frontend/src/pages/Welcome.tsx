@@ -33,11 +33,11 @@ export function Welcome() {
   };
   return (
     <Bare>
-      <div class="hero">
-        <img class="logo" src={href('/assets/logo.svg')} alt="" />
+      <div class="auth">
+        <div class="auth-box">
+        <div class="wordmark">swipe<b>groove</b></div>
         <h1>{t('welcome.title')}</h1>
-        <p>{t('welcome.intro')}</p>
-        <form class="col card" style="width:min(100%,440px);text-align:left" onSubmit={submit}>
+        <form class="col" style="width:100%;text-align:left" onSubmit={submit}>
           {u.is_owner && <Notice kind="ok">{t('welcome.owner_note')}</Notice>}
           <Field label={t('profile.username')} hint={t('profile.username_hint')} error={errors.username}>
             <input class={'input' + (errors.username ? ' error' : '')} value={username} onInput={(e) => setUsername((e.target as HTMLInputElement).value.toLowerCase())} maxLength={32} autocomplete="off" required />
@@ -51,6 +51,7 @@ export function Welcome() {
           {errors._ && <Notice kind="danger">{errors._}</Notice>}
           <button class="btn primary lg block" type="submit" disabled={busy}>{busy ? <Spinner small /> : t('welcome.start')}</button>
         </form>
+        </div>
       </div>
     </Bare>
   );

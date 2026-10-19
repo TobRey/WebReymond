@@ -13,7 +13,7 @@ final class Settings
 
     public const DEFAULTS = [
         'operation_mode' => 'setup',          // setup | closed_beta | public
-        'registration_open' => false,
+        'registration_open' => true,
         'playback_mode' => 'off',             // off | connect
         'premium_price_chf' => '2.00',
         'premium_cover_quota' => 50,

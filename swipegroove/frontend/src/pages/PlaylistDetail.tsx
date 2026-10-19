@@ -5,9 +5,10 @@ import { t, fmtDuration } from '../lib/i18n';
 import { toast } from '../lib/state';
 import { href, navigate } from '../lib/router';
 import type { Playlist, Track, Operation } from '../lib/types';
-import { Check, Confirm, Cropper, EmptyState, ErrorState, Field, Loading, Menu, Notice, Sheet, Spinner, TopBar, Toggle } from '../components/ui';
+import { Check, Confirm, CoverImg, Cropper, EmptyState, ErrorState, Field, Loading, Menu, Notice, Sheet, Spinner, TopBar, Toggle, phClass } from '../components/ui';
+import { now, playTracks } from '../lib/player';
 import { PlaylistPicker } from '../components/PlaylistPicker';
-import { ICopy, IDown, IEdit, IExternal, IGlobe, IHandle, IImage, IMore, IMove, IMusic, IPlus, IRefresh, ISearch, ITrash, IUp, IX, ISparkle, IWarn } from '../components/Icons';
+import { ICopy, IDown, IEdit, IExternal, IGlobe, IHandle, IImage, IMore, IMove, IMusic, IPlus, IRefresh, ISearch, ITrash, IUp, IX, ISparkle, IWarn, IPlayFill, ISwipe, ICheckSquare } from '../components/Icons';
 import { artistsText, readFileAsDataUrl } from '../lib/util';
 
 interface Detail { playlist: Playlist; items: Track[]; complete: boolean; restricted?: boolean; restricted_reason?: string }
@@ -53,6 +54,13 @@ export function PlaylistDetail({ id }: { id: string }) {
   const items = data?.items ?? [];
   const canEdit = !!pl?.can_edit;
   const visible = q ? items.filter((i) => (i.name ?? '').toLowerCase().includes(q.toLowerCase()) || artistsText(i.artists).toLowerCase().includes(q.toLowerCase())) : items;
+  const playFrom = (pos: number) => {
+    const valid = items.filter((x) => x.id && !x.is_local);
+    const idx = Math.max(0, valid.findIndex((x) => x.position === pos));
+    // Spotify erlaubt max. 50 Songs pro Wiedergabeliste: Fenster ab dem gewählten Song
+    const start = Math.max(0, Math.min(idx, valid.length - 50));
+    playTracks('own:' + id, valid.slice(start, start + 50).map((x) => x.id!), { title: data?.playlist.name ?? '', subtitle: data?.playlist.owner_name ?? '', image: data?.playlist.image_url ?? null }, idx - start);
+  };
   const selItems = items.filter((i) => selected.has(i.position!));
 
   const toggleSel = (pos: number) => {
@@ -118,46 +126,50 @@ export function PlaylistDetail({ id }: { id: string }) {
 
   return (
     <Layout width="wide">
-      <TopBar back="/" title={pl.name} right={<Menu button={<button class="btn icon ghost" aria-label={t('common.more')}><IMore /></button>} items={menuItems} />} />
-      <div class="card row gap-2" style="align-items:flex-start">
-        {pl.image_url ? <img src={pl.image_url} alt="" style="width:96px;height:96px;border-radius:12px;object-fit:cover" /> : <div class="thumb lg" style="width:96px;height:96px;border-radius:12px;background:var(--bg-card-2);display:grid;place-items:center"><IMusic /></div>}
-        <div class="grow col gap-1">
+      <TopBar back="/" title={pl.name} right={<Menu button={<button class="icon-btn" aria-label={t('common.more')}><IMore /></button>} items={menuItems} />} />
+      <div class="row gap-2 pad" style="align-items:flex-end">
+        <div style="width:112px;height:112px;border-radius:20px;overflow:hidden;flex:none;box-shadow:var(--shadow-sm)" class="tile-art"><CoverImg src={pl.image_url} id={pl.id} /></div>
+        <div class="grow col gap-1" style="min-width:0">
           <h2 class="truncate">{pl.name}</h2>
-          {pl.description && <p class="muted small">{pl.description}</p>}
-          <div class="small muted">{t('playlist.n_songs', { n: data?.restricted ? pl.track_count : items.length })} · {pl.is_owner ? t('playlist.yours') : pl.owner_name}{!canEdit ? ' · ' + t('playlist.read_only') : ''}</div>
+          <div class="meta-mono truncate">{t('playlist.n_songs', { n: data?.restricted ? pl.track_count : items.length })} · {pl.is_owner ? t('playlist.yours') : pl.owner_name}</div>
           <div class="row wrap gap-1">
             {pl.spotify_public !== null && <span class="chip">{pl.spotify_public ? t('playlist.spotify_public_short') : t('playlist.spotify_private_short')}</span>}
             {pl.is_collaborative && <span class="chip">{t('playlist.collab')}</span>}
-            {pl.is_published && <span class="chip accent"><IGlobe style="width:12px;height:12px" />{t('playlist.published')}</span>}
+            {pl.is_published && <span class="chip accent"><IGlobe />{t('playlist.published')}</span>}
+            {!canEdit && <span class="chip">{t('playlist.read_only')}</span>}
           </div>
         </div>
       </div>
+      {pl.description && <p class="muted small pad mt-1">{pl.description}</p>}
+      {!data?.restricted && items.length > 0 && (
+        <div class="row gap-1 pad mt-2">
+          <button class="btn primary" onClick={() => playFrom(0)}><IPlayFill />{t('player.play')}</button>
+          {canEdit && <a class="btn icon outline" href={href('/discover?target=' + id)} aria-label={t('playlist.go_discover')} title={t('playlist.go_discover')}><ISwipe /></a>}
+          {canEdit && <button class="btn icon outline" onClick={() => setSheet('add')} aria-label={t('playlist.add_songs')} title={t('playlist.add_songs')}><IPlus /></button>}
+          {canEdit && <button class={'btn icon ' + (selectMode ? 'dark' : 'outline')} onClick={() => { setSelectMode(!selectMode); setSelected(new Set()); }} aria-label={selectMode ? t('common.done') : t('playlist.select')} title={t('playlist.select')}><ICheckSquare /></button>}
+        </div>
+      )}
       {data?.restricted && (
-        <div class="card mt-2 col gap-1">
+        <div class="pad mt-2 col gap-1">
           <Notice kind="info"><strong>{t('playlist.restricted_title')}</strong><br />{t(data.restricted_reason === 'not_owner' ? 'playlist.restricted_text' : 'playlist.restricted_text_forbidden')}</Notice>
           <div class="row wrap gap-1">
-            <a class="btn primary" href={pl.spotify_url} target="_blank" rel="noopener"><IExternal />{t('playlist.open_spotify')}</a>
-            <button class="btn" onClick={() => setSheet('unfollow')}><ITrash />{t('playlist.remove_from_library')}</button>
+            <a class="btn outline" href={pl.spotify_url} target="_blank" rel="noopener"><IExternal />{t('playlist.open_spotify')}</a>
+            <button class="btn ghost" onClick={() => setSheet('unfollow')}><ITrash />{t('playlist.remove_from_library')}</button>
           </div>
         </div>
       )}
-      {pl.is_owner && <div class="card mt-2" style="padding:0.25rem 1rem">
-        <Toggle label={t('playlist.publish_toggle')} desc={t('playlist.publish_hint')} checked={pl.is_published} disabled={busy}
+      {pl.is_owner && <div class="pad mt-1">
+        <Toggle label={t('playlist.publish_toggle')} desc={pl.is_published && pl.published_id ? undefined : t('playlist.publish_hint')} checked={pl.is_published} disabled={busy}
           onChange={(v) => handle(async () => { const r = await api<Playlist>('/api/playlists/' + id + '/publish', { body: { published: v } }); setData({ ...data!, playlist: r }); toast(v ? t('playlist.published_ok') : t('playlist.unpublished_ok'), 'ok'); }, false)} />
-        {pl.is_published && pl.published_id && <div class="small" style="padding-bottom:.6rem"><a href={href('/community/playlists/' + pl.published_id)}>{t('playlist.view_community')}</a></div>}
+        {pl.is_published && pl.published_id && <a class="small" style="font-weight:700" href={href('/community/playlists/' + pl.published_id)}>{t('playlist.view_community')}</a>}
       </div>}
 
       {!data?.restricted && <>
 
-      <div class="row wrap gap-1 mt-2">
-        <div class="search grow" style="min-width:180px"><ISearch /><input class="input" placeholder={t('playlist.filter_songs')} value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} /></div>
-        {canEdit && <button class="btn sm primary" onClick={() => setSheet('add')}><IPlus />{t('playlist.add_songs')}</button>}
-        {canEdit && items.length > 0 && <button class={'btn sm' + (selectMode ? ' success' : '')} onClick={() => { setSelectMode(!selectMode); setSelected(new Set()); }}>{selectMode ? t('common.done') : t('playlist.select')}</button>}
-      </div>
-      {canEdit && !selectMode && items.length > 1 && <p class="kbd-hint mt-1">{t('playlist.reorder_hint')}</p>}
+      {items.length > 8 && <div class="pad mt-2"><div class="search"><ISearch /><input class="input" placeholder={t('playlist.filter_songs')} value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} /></div></div>}
 
-      <div class="list mt-2">
-        {items.length === 0 ? <EmptyState icon={<IMusic />} title={t('playlist.empty_title')} text={canEdit ? t('playlist.empty_text') : undefined} action={canEdit ? <a class="btn primary" href={href('/discover?target=' + id)}>{t('playlist.go_discover')}</a> : undefined} />
+      <div class="list mt-1">
+        {items.length === 0 ? <EmptyState icon={<IMusic />} title={t('playlist.empty_title')} action={canEdit ? <div class="row gap-1"><a class="btn primary" href={href('/discover?target=' + id)}><ISwipe />{t('playlist.go_discover')}</a><button class="btn outline" onClick={() => setSheet('add')}><IPlus />{t('playlist.add_songs')}</button></div> : undefined} />
           : visible.map((it, vi) => {
             const pos = it.position!;
             const isSel = selected.has(pos);
@@ -171,19 +183,18 @@ export function PlaylistDetail({ id }: { id: string }) {
                 onDragEnd={() => { dragFrom.current = null; setDragOver(null); }}
                 onClick={() => selectMode && toggleSel(pos)}>
                 {selectMode ? <Check on={isSel} onToggle={() => toggleSel(pos)} /> : canEdit && !q ? <span class="drag-handle hide-mobile" aria-hidden="true"><IHandle /></span> : null}
-                {it.image_url ? <img class="thumb" src={it.image_url} alt="" loading="lazy" /> : <div class="thumb" />}
-                <div class="meta">
-                  <div class="title truncate">{it.name ?? t('playlist.unavailable_track')}</div>
+                {it.image_url ? <img class="thumb" src={it.image_url} alt="" loading="lazy" onClick={(e) => { if (!selectMode && it.id) { e.stopPropagation(); playFrom(it.position!); } }} style={it.id && !selectMode ? 'cursor:pointer' : undefined} /> : <div class={'thumb ' + phClass(it.id ?? pos)} />}
+                <div class="meta" onClick={() => { if (!selectMode && it.id) playFrom(it.position!); }} style={it.id && !selectMode ? 'cursor:pointer' : undefined}>
+                  <div class={'title truncate' + (now.value?.key === 'own:' + id && now.value.title === it.name ? ' accent-text' : '')}>{it.name ?? t('playlist.unavailable_track')}</div>
                   <div class="sub truncate">{artistsText(it.artists)}{it.album_name ? ' · ' + it.album_name : ''}{it.is_local ? ' · ' + t('playlist.local_file') : ''}</div>
                 </div>
-                <span class="tiny muted hide-mobile">{fmtDuration(it.duration_ms)}</span>
+                <span class="meta-mono hide-mobile">{fmtDuration(it.duration_ms)}</span>
                 {!selectMode && (
                   <div class="actions">
                     {canEdit && !q && <span class="hide-desktop row gap-0" style="gap:0">
-                      <button class="btn icon ghost sm" aria-label={t('playlist.move_up')} disabled={vi === 0 || busy} onClick={() => reorder(pos, pos - 1)}><IUp /></button>
-                      <button class="btn icon ghost sm" aria-label={t('playlist.move_down')} disabled={vi === visible.length - 1 || busy} onClick={() => reorder(pos, pos + 1)}><IDown /></button>
+                      <button class="icon-btn sm" aria-label={t('playlist.move_up')} disabled={vi === 0 || busy} onClick={() => reorder(pos, pos - 1)}><IUp /></button>
+                      <button class="icon-btn sm" aria-label={t('playlist.move_down')} disabled={vi === visible.length - 1 || busy} onClick={() => reorder(pos, pos + 1)}><IDown /></button>
                     </span>}
-                    {it.spotify_url && <a class="btn icon ghost sm" href={it.spotify_url} target="_blank" rel="noopener" aria-label={t('track.open_spotify')}><IExternal /></a>}
                   </div>
                 )}
               </div>
