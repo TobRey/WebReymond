@@ -13,7 +13,7 @@ if (PHP_VERSION_ID < 80200) {
 
 define('SG_ROOT', dirname(__DIR__));
 define('SG_APP', __DIR__);
-define('SG_VERSION', '1.1.0');
+define('SG_VERSION', '1.2.0');
 
 spl_autoload_register(static function (string $class): void {
     $prefix = 'SwipeGroove\\';

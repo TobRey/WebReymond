@@ -188,6 +188,24 @@ final class FakeHttp implements HttpClientInterface
             $this->plays[] = ['user' => $user, 'device' => $q['device_id'] ?? null] + $data;
             return new HttpResponse(204, [], '');
         }
+        if ($p === 'me/player/seek' && $method === 'PUT') {
+            $this->plays[] = ['user' => $user, 'seek' => (int) ($q['position_ms'] ?? -1)];
+            return new HttpResponse(204, [], '');
+        }
+        if ($p === 'me/player' && $method === 'GET') {
+            $last = null;
+            foreach (array_reverse($this->plays) as $pl) {
+                if (($pl['user'] ?? '') === $user && (isset($pl['uris']) || isset($pl['context_uri']))) {
+                    $last = $pl;
+                    break;
+                }
+            }
+            if (!$last) {
+                return new HttpResponse(204, [], '');
+            }
+            $tid = isset($last['uris']) ? substr((string) $last['uris'][0], 14) : 'ctxtrack000000000000001';
+            return $this->json(200, ['is_playing' => true, 'progress_ms' => 42000, 'item' => ['id' => $tid, 'name' => 'Playing ' . $tid, 'duration_ms' => 200000, 'artists' => [['name' => 'Fake Artist']], 'album' => ['images' => [['url' => 'https://i.scdn.co/image/x']]]]]);
+        }
         if ($p === 'me/player/pause' && $method === 'PUT') {
             return new HttpResponse(204, [], '');
         }

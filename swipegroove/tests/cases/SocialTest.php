@@ -119,10 +119,33 @@ final class SocialTest extends TestCase
         self::assertSame(['position' => 1], $last['offset']);
         self::assertSame('webplayer0123456789', $last['device']);
         self::assertSame(200, $this->t->request('POST', '/api/playback/play', ['resume' => true], $alice)->status);
+        // Ganze Playlist als Kontext (z. B. sehr lange Playlists), Start an Position + Sekunde
+        $r = $this->t->request('POST', '/api/playback/play', ['playlist_id' => str_repeat('c', 22), 'offset' => 3, 'position_ms' => 30000], $alice);
+        self::assertSame(200, $r->status);
+        $last = end($this->t->http->plays);
+        self::assertSame('spotify:playlist:' . str_repeat('c', 22), $last['context_uri']);
+        self::assertSame(['position' => 3], $last['offset']);
+        self::assertSame(30000, $last['position_ms']);
+        self::assertSame(400, $this->t->request('POST', '/api/playback/play', ['playlist_id' => '../x'], $alice)->status);
+        // Spulen und Wiedergabestand
+        self::assertSame(200, $this->t->request('POST', '/api/playback/seek', ['position_ms' => 90000], $alice)->status);
+        self::assertSame(90000, end($this->t->http->plays)['seek']);
+        $st = TestApp::json($this->t->request('GET', '/api/playback/state', [], $alice));
+        self::assertTrue($st['active']);
+        self::assertSame(200000, $st['duration_ms']);
         // Ohne Premium: klare Meldung
         $this->t->http->premiumUsers = false;
         $r = $this->t->request('POST', '/api/playback/play', ['track_id' => $a], $alice);
         self::assertSame('playback.premium_required', TestApp::json($r)['error']);
+    }
+
+    public function testEmptyPublishedSongListHealsWhenOwnerLoadsPlaylist(): void
+    {
+        $pid = $this->publishedId();
+        $this->t->db->run('DELETE FROM published_playlist_tracks WHERE published_playlist_id = ?', [$pid]);
+        self::assertSame([], TestApp::json($this->t->request('GET', '/api/community/playlists/' . $pid))['tracks']);
+        $this->t->request('GET', '/api/playlists/plalice0000000000000001', [], $this->tokens['user2']);
+        self::assertCount(3, TestApp::json($this->t->request('GET', '/api/community/playlists/' . $pid))['tracks']);
     }
 
     public function testRepairPermissionsMakesUploadsReadable(): void

@@ -79,6 +79,8 @@ final class Routes
         $r->post('/api/playback/play', [C\SwipeController::class, 'play']);
         $r->post('/api/playback/pause', [C\SwipeController::class, 'pause']);
         $r->get('/api/playback/token', [C\SwipeController::class, 'playerToken']);
+        $r->post('/api/playback/seek', [C\SwipeController::class, 'seek']);
+        $r->get('/api/playback/state', [C\SwipeController::class, 'state']);
 
         // --- Community (Lesen auch ohne Konto; Privatsphäre-/Blockregeln greifen im Service)
         $r->get('/api/community/search', [C\CommunityController::class, 'search'], $pub);

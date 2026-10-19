@@ -173,7 +173,9 @@ final class PlaylistService
         $row = $this->cacheRow($userId, $playlistId);
         $fresh = $row['items_synced_at'] && strtotime((string) $row['items_synced_at']) > time() - $this->ttlSeconds('spotify_items_cache_ttl_minutes', 15);
         if (!$force && (int) $row['items_complete'] === 1 && $fresh) {
-            return ['playlist' => $this->presentRow($row), 'items' => $this->cachedItems((int) $row['id']), 'complete' => true];
+            $items = $this->cachedItems((int) $row['id']);
+            $this->healPublishedTracks($userId, $playlistId, $items, (string) $row['snapshot_id']);
+            return ['playlist' => $this->presentRow($row), 'items' => $items, 'complete' => true];
         }
         $meta = $this->client()->playlist($userId, $playlistId);
         $result = $this->client()->allPlaylistItems($userId, $playlistId);
@@ -201,7 +203,24 @@ final class PlaylistService
             ], 'id = ?', [$row['id']]);
         });
         $row = $this->cacheRow($userId, $playlistId);
-        return ['playlist' => $this->presentRow($row), 'items' => $this->cachedItems((int) $row['id']), 'complete' => true];
+        $items = $this->cachedItems((int) $row['id']);
+        $this->healPublishedTracks($userId, $playlistId, $items, (string) $row['snapshot_id']);
+        return ['playlist' => $this->presentRow($row), 'items' => $items, 'complete' => true];
+    }
+
+    /** Veröffentlichte Songliste nachziehen, wenn sie leer oder veraltet ist (nach frischem Laden der Inhalte). */
+    private function healPublishedTracks(int $userId, string $playlistId, array $items, string $snapshot): void
+    {
+        $db = $this->app->db();
+        $pub = $db->one('SELECT id, snapshot_id FROM published_playlists WHERE user_id = ? AND spotify_playlist_id = ? AND is_published = 1', [$userId, $playlistId]);
+        if (!$pub || $items === []) {
+            return;
+        }
+        $stored = (int) $db->value('SELECT COUNT(*) FROM published_playlist_tracks WHERE published_playlist_id = ?', [$pub['id']]);
+        if ($stored === 0 || $pub['snapshot_id'] !== $snapshot) {
+            $this->storePublishedTracks((int) $pub['id'], $items);
+            $db->update('published_playlists', ['snapshot_id' => $snapshot, 'track_count' => count($items), 'updated_at' => $db->now()], 'id = ?', [$pub['id']]);
+        }
     }
 
     /** @return list<array<string,mixed>> */
@@ -582,8 +601,10 @@ final class PlaylistService
                 'name' => $r['name'], 'description' => $r['description'], 'image_url' => $r['image_url'],
                 'track_count' => (int) $r['track_count'], 'updated_at' => $db->now(),
             ], 'id = ?', [$r['pub_id']]);
-            if ($r['pub_snapshot'] !== $r['snapshot_id'] && (int) $r['items_complete'] === 1) {
-                $this->storePublishedTracks((int) $r['pub_id'], $this->cachedItems((int) $r['id']));
+            $cached = (int) $r['items_complete'] === 1 ? $this->cachedItems((int) $r['id']) : [];
+            // Nie mit einer leeren Liste überschreiben, wenn die Playlist Songs hat
+            if ($r['pub_snapshot'] !== $r['snapshot_id'] && $cached !== []) {
+                $this->storePublishedTracks((int) $r['pub_id'], $cached);
                 $db->update('published_playlists', ['snapshot_id' => $r['snapshot_id']], 'id = ?', [$r['pub_id']]);
             }
         }

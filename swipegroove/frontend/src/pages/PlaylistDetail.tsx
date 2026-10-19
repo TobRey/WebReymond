@@ -6,7 +6,7 @@ import { toast } from '../lib/state';
 import { href, navigate } from '../lib/router';
 import type { Playlist, Track, Operation } from '../lib/types';
 import { Check, Confirm, CoverImg, Cropper, EmptyState, ErrorState, Field, Loading, Menu, Notice, Sheet, Spinner, TopBar, Toggle, phClass } from '../components/ui';
-import { now, playTracks } from '../lib/player';
+import { now, playPlaylist } from '../lib/player';
 import { PlaylistPicker } from '../components/PlaylistPicker';
 import { ICopy, IDown, IEdit, IExternal, IGlobe, IHandle, IImage, IMore, IMove, IMusic, IPlus, IRefresh, ISearch, ITrash, IUp, IX, ISparkle, IWarn, IPlayFill, ISwipe, ICheckSquare } from '../components/Icons';
 import { artistsText, readFileAsDataUrl } from '../lib/util';
@@ -55,11 +55,8 @@ export function PlaylistDetail({ id }: { id: string }) {
   const canEdit = !!pl?.can_edit;
   const visible = q ? items.filter((i) => (i.name ?? '').toLowerCase().includes(q.toLowerCase()) || artistsText(i.artists).toLowerCase().includes(q.toLowerCase())) : items;
   const playFrom = (pos: number) => {
-    const valid = items.filter((x) => x.id && !x.is_local);
-    const idx = Math.max(0, valid.findIndex((x) => x.position === pos));
-    // Spotify erlaubt max. 50 Songs pro Wiedergabeliste: Fenster ab dem gewählten Song
-    const start = Math.max(0, Math.min(idx, valid.length - 50));
-    playTracks('own:' + id, valid.slice(start, start + 50).map((x) => x.id!), { title: data?.playlist.name ?? '', subtitle: data?.playlist.owner_name ?? '', image: data?.playlist.image_url ?? null }, idx - start);
+    // Ganze Playlist als Kontext: funktioniert auch bei sehr langen Playlists, Spotify spielt danach weiter
+    playPlaylist('own:' + id, id, { title: data?.playlist.name ?? '', subtitle: data?.playlist.owner_name ?? '', image: data?.playlist.image_url ?? null }, pos);
   };
   const selItems = items.filter((i) => selected.has(i.position!));
 

@@ -3,12 +3,12 @@ import { Layout } from '../components/Layout';
 import { api, ApiError, showError, uuid } from '../lib/api';
 import { t } from '../lib/i18n';
 import { toast } from '../lib/state';
-import { autoplay, now, playing, loadingKey, playTracks, togglePause } from '../lib/player';
+import { autoplay, now, playing, loadingKey, playTracks, togglePause, swipeStart, cycleSwipeStart } from '../lib/player';
 import { route } from '../lib/router';
 import type { Card, Playlist } from '../lib/types';
 import { CoverImg, EmptyState, ErrorState, Loading, Sheet, Spinner, TopBar, Field } from '../components/ui';
 import { PlaylistPicker } from '../components/PlaylistPicker';
-import { IHeartFill, IMusic, IPauseFill, IPlayFill, ISkip, IUndo, IX, IFilter, ISearch, IRefresh, ISwipe, IChevronDown } from '../components/Icons';
+import { IHeartFill, IMusic, IPauseFill, IPlayFill, ISkip, IUndo, IX, IFilter, ISearch, IRefresh, ISwipe, IChevronDown, IClock } from '../components/Icons';
 import { artistsText, prefersReducedMotion } from '../lib/util';
 import { SpotifyBanner } from './Overview';
 
@@ -72,12 +72,12 @@ export function Discover() {
   const cardMeta = (c: Card) => ({ title: c.name, subtitle: artistsText(c.artists), image: c.image_url });
   useEffect(() => {
     if (!current || !autoplay.value) return;
-    playTracks('swipe:' + current.id, [current.id], cardMeta(current));
+    playTracks('swipe:' + current.id, [current.id], cardMeta(current), 0, { positionMs: swipeStart.value * 1000, durationMs: current.duration_ms ?? 0 });
   }, [current?.id]);
   const listen = async () => {
     if (!current) return;
     if (autoplay.value && now.value?.key === 'swipe:' + current.id) { await togglePause(); return; }
-    const ok = await playTracks('swipe:' + current.id, [current.id], cardMeta(current));
+    const ok = await playTracks('swipe:' + current.id, [current.id], cardMeta(current), 0, { positionMs: swipeStart.value * 1000, durationMs: current.duration_ms ?? 0 });
     autoplay.value = ok;
   };
   const isPlaying = !!current && now.value?.key === 'swipe:' + current.id && playing.value;
@@ -192,7 +192,10 @@ export function Discover() {
             <button class="round big yes" aria-label={t('swipe.add')} disabled={!current} onClick={() => act('add')}><IHeartFill /></button>
             <button class="round" aria-label={isPlaying ? t('player.pause') : t('swipe.listen')} aria-pressed={isPlaying} disabled={!current} onClick={listen}>{loadingKey.value?.startsWith('swipe:') ? <Spinner small /> : isPlaying ? <IPauseFill /> : <IPlayFill />}</button>
           </div>
-          <button class="btn ghost sm" disabled={!current} onClick={() => act('skip')}><ISkip />{t('swipe.skip')}</button>
+          <div class="row gap-1">
+            <button class="btn ghost sm" disabled={!current} onClick={() => act('skip')}><ISkip />{t('swipe.skip')}</button>
+            <button class="btn ghost sm" onClick={cycleSwipeStart} aria-label={t('swipe.start_at_label')} title={t('swipe.start_at_label')}><IClock />{t('swipe.start_at', { t: swipeStart.value === 0 ? '0:00' : swipeStart.value === 30 ? '0:30' : '1:00' })}</button>
+          </div>
         </div>
       )}
       {pick && <PlaylistPicker title={t('discover.choose_target')} onClose={() => setPick(false)} onPick={(p) => { setTarget(p); localStorage.setItem('sg_target', p.id); setPick(false); }} />}

@@ -4,7 +4,7 @@ import { api, ApiError, showError } from '../lib/api';
 import { t, timeAgo, fmtDuration } from '../lib/i18n';
 import { toast, user } from '../lib/state';
 import { href, navigate } from '../lib/router';
-import { now, playTracks } from '../lib/player';
+import { now, playPlaylist, playTracks } from '../lib/player';
 import type { Comment, PublishedPlaylist as PP, UserCard } from '../lib/types';
 import { Avatar, Confirm, CoverImg, EmptyState, ErrorState, Loading, Menu, OwnerBadge, Sheet, Spinner, TopBar, UserRow, Field, phClass } from '../components/ui';
 import { IExternal, IFlag, IHeart, IHeartFill, IMore, ISend, ITrash, IEdit, ILink, IChat, IX, ISearch } from '../components/Icons';
@@ -92,7 +92,13 @@ export function PublishedPlaylist({ id }: { id: number }) {
   const key = 'pl:' + pl.id;
   const playFrom = (i: number) => {
     if (!requireLogin()) return;
-    playTracks(key, ids.filter(Boolean), { title: pl.name, subtitle: pl.owner.display_name, image: pl.image_url }, ids.slice(0, i).filter(Boolean).length);
+    const meta = { title: pl.name, subtitle: pl.owner.display_name, image: pl.image_url };
+    const valid = ids.filter(Boolean);
+    if (valid.length === 0) { playPlaylist(key, pl.spotify_playlist_id, meta, 0); return; }
+    // Fenster von max. 50 Songs ab dem gewählten Song
+    const idx = ids.slice(0, i).filter(Boolean).length;
+    const startAt = Math.max(0, Math.min(idx, valid.length - 50));
+    playTracks(key, valid.slice(startAt, startAt + 50), meta, idx - startAt);
   };
   return (
     <Layout>

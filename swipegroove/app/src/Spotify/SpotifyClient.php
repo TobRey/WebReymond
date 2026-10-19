@@ -446,7 +446,7 @@ final class SpotifyClient
     }
 
     /** @param string|list<string> $trackUris */
-    public function play(int $userId, string|array $trackUris, ?string $deviceId = null, int $offset = 0): void
+    public function play(int $userId, string|array $trackUris, ?string $deviceId = null, int $offset = 0, int $positionMs = 0): void
     {
         $uris = is_array($trackUris) ? array_values($trackUris) : [$trackUris];
         $query = $deviceId ? ['device_id' => $deviceId] : [];
@@ -454,7 +454,26 @@ final class SpotifyClient
         if ($offset > 0 && $offset < count($uris)) {
             $body['offset'] = ['position' => $offset];
         }
+        if ($positionMs > 0) {
+            $body['position_ms'] = $positionMs;
+        }
         $this->expect($this->request($userId, 'PUT', 'me/player/play', $query, $body));
+    }
+
+    /** Spielt eine ganze Playlist (Kontext) ab Position $offset. */
+    public function playContext(int $userId, string $contextUri, ?string $deviceId = null, int $offset = 0, int $positionMs = 0): void
+    {
+        $query = $deviceId ? ['device_id' => $deviceId] : [];
+        $body = ['context_uri' => $contextUri, 'offset' => ['position' => $offset]];
+        if ($positionMs > 0) {
+            $body['position_ms'] = $positionMs;
+        }
+        $this->expect($this->request($userId, 'PUT', 'me/player/play', $query, $body));
+    }
+
+    public function seek(int $userId, int $positionMs): void
+    {
+        $this->expect($this->request($userId, 'PUT', 'me/player/seek', ['position_ms' => $positionMs]));
     }
 
     public function resume(int $userId): void

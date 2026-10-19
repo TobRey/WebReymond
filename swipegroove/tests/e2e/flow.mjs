@@ -1,5 +1,6 @@
 import { browser, BASE, check, SHOTS } from './pw.mjs';
 import fs from 'node:fs';
+import { execSync } from 'node:child_process';
 fs.mkdirSync(SHOTS, { recursive: true });
 const b = await browser();
 const mobile = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: 'de-CH' };
@@ -322,6 +323,28 @@ await page.waitForTimeout(1500);
 const playsB = (await (await fetch('http://127.0.0.1:8090/__state')).json()).plays.length;
 check(playsB > playsA, 'Autoplay: nächste Karte spielt automatisch');
 check(!page.url().includes('open.spotify.com'), 'Spotify wurde nicht geöffnet');
+// Spulen: Leiste auf 1:30 ziehen, dann +15 s
+await page.waitForFunction(() => !document.querySelector('input.seek')?.disabled, null, { timeout: 15000 });
+await page.evaluate(() => { const el = document.querySelector('input.seek'); el.value = '90000'; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); });
+await page.waitForTimeout(800);
+let plays = (await (await fetch('http://127.0.0.1:8090/__state')).json()).plays;
+check(plays.some((x) => x.seek === 90000), 'Spulen auf 1:30 über die Leiste');
+await page.click('.player button[aria-label="15 Sekunden vor"]');
+await page.waitForTimeout(800);
+plays = (await (await fetch('http://127.0.0.1:8090/__state')).json()).plays;
+check(plays.some((x) => x.seek >= 104000 && x.seek <= 106000), '+15 Sekunden');
+check(await page.isVisible('.groove'), 'Groove-Modus aktiv während Musik läuft');
+await shot('96-player-seek');
+// Playlist ohne gespeicherte Songliste: Play startet die Playlist ab dem ersten Song
+execSync("mariadb swipegroove_e2e -e 'DELETE FROM published_playlist_tracks'");
+await page.goto(BASE + '/');
+await page.waitForSelector('.post .post-media .play');
+await page.click('.post .post-media .play');
+await page.waitForTimeout(1200);
+plays = (await (await fetch('http://127.0.0.1:8090/__state')).json()).plays;
+const lastCtx = plays.filter((x) => x.context_uri).pop();
+check(lastCtx && lastCtx.context_uri === 'spotify:playlist:pltest0000000000000001' && lastCtx.offset.position === 0, 'Playlist-Play ohne Songliste startet ersten Song (kein «Keine abspielbaren Songs»)');
+check(!(await page.isVisible('text=Keine abspielbaren Songs')), 'Keine Fehlermeldung beim Playlist-Play');
 await page.click('.player button[aria-label="Schliessen"]');
 
 // ---- 10. Rechtliche Seiten & Logout

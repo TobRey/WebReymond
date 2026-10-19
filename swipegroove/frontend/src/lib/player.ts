@@ -22,6 +22,7 @@ interface SdkPlayer {
   togglePlay(): Promise<void>;
   pause(): Promise<void>;
   resume(): Promise<void>;
+  seek(ms: number): Promise<void>;
   activateElement?(): Promise<void>;
 }
 declare global {
@@ -34,6 +35,31 @@ export const loadingKey = signal<string | null>(null);
 export const progress = signal<{ pos: number; dur: number }>({ pos: 0, dur: 0 });
 /** Swipe-Autoplay: nach dem ersten Tipp spielt jede neue Karte automatisch. */
 export const autoplay = signal(false);
+/** Startpunkt beim Swipen in Sekunden (0, 30, 60) – pro Gerät gemerkt. */
+function readStart(): number { try { return Number(localStorage.getItem('sg_start') || '0') || 0; } catch { return 0; } }
+export const swipeStart = signal<number>(readStart());
+export function cycleSwipeStart(): void {
+  const next = swipeStart.value === 0 ? 30 : swipeStart.value === 30 ? 60 : 0;
+  swipeStart.value = next;
+  try { localStorage.setItem('sg_start', String(next)); } catch { /* egal */ }
+}
+/** Groove-Modus: Tempo (BPM) für die Seitenanimation, per Tippen einstellbar. Keine Audioanalyse. */
+function readBpm(): number { try { return Number(localStorage.getItem('sg_bpm') || '0') || 112; } catch { return 112; } }
+export const bpm = signal<number>(readBpm());
+export const beatEpoch = signal(0);
+let taps: number[] = [];
+export function tapTempo(): void {
+  const t0 = performance.now();
+  taps = [...taps.filter((x) => t0 - x < 2500), t0].slice(-6);
+  beatEpoch.value++;
+  if (taps.length >= 3) {
+    const gaps = taps.slice(1).map((x, i) => x - taps[i]);
+    const avg = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+    const v = Math.round(Math.max(60, Math.min(200, 60000 / avg)));
+    bpm.value = v;
+    try { localStorage.setItem('sg_bpm', String(v)); } catch { /* egal */ }
+  }
+}
 
 export const playbackEnabled = computed(() => platform.value.playback_mode === 'connect');
 const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
@@ -86,10 +112,27 @@ function loadSdk(): Promise<string | null> {
   return sdkPromise;
 }
 
+const sdkMode = () => !!(sdkPlayer && deviceId && !isMobile);
+let polls = 0;
+
+/** Holt Titel/Position vom Server (Spotify Connect); im Browser-Player liefert das SDK die Daten selbst. */
+async function pollState(): Promise<void> {
+  if (!now.value || sdkMode() || document.visibilityState !== 'visible') return;
+  try {
+    const st = await api<{ active: boolean; is_playing?: boolean; progress_ms?: number; duration_ms?: number; name?: string; artists?: string[]; image_url?: string | null }>('/api/playback/state');
+    if (!st.active || !now.value) return;
+    playing.value = !!st.is_playing;
+    progress.value = { pos: st.progress_ms ?? 0, dur: st.duration_ms ?? 0 };
+    if (st.name) now.value = { ...now.value, title: st.name, subtitle: (st.artists ?? []).join(', '), image: st.image_url ?? now.value.image };
+  } catch { /* leise */ }
+}
+
 function startTicker() {
   window.clearInterval(tick);
+  polls = 0;
   tick = window.setInterval(() => {
     if (playing.value && progress.value.dur > 0) progress.value = { ...progress.value, pos: Math.min(progress.value.dur, progress.value.pos + 1000) };
+    if (!sdkMode() && (++polls === 2 || polls % 5 === 0)) pollState();
   }, 1000);
 }
 
@@ -109,12 +152,7 @@ async function ensureReady(): Promise<boolean> {
   return true;
 }
 
-/**
- * Spielt eine Liste von Spotify-Track-IDs ab (max. 50). Muss aus einem Tipp/Klick heraus aufgerufen werden.
- */
-export async function playTracks(key: string, trackIds: string[], meta: Omit<NowPlaying, 'key'>, offset = 0): Promise<boolean> {
-  const ids = trackIds.filter((x) => /^[A-Za-z0-9]{22}$/.test(x)).slice(0, 50);
-  if (ids.length === 0) { toast(t('player.nothing'), 'info'); return false; }
+async function start(key: string, meta: Omit<NowPlaying, 'key'>, body: Record<string, unknown>, dur = 0, posMs = 0): Promise<boolean> {
   if (!(await ensureReady())) return false;
   loadingKey.value = key;
   try {
@@ -123,10 +161,10 @@ export async function playTracks(key: string, trackIds: string[], meta: Omit<Now
       device = deviceId ?? (await loadSdk());
       try { await sdkPlayer?.activateElement?.(); } catch { /* optional */ }
     }
-    await api('/api/playback/play', { body: { track_ids: ids, offset, device_id: device ?? undefined } });
+    await api('/api/playback/play', { body: { ...body, position_ms: posMs || undefined, device_id: device ?? undefined } });
     now.value = { key, ...meta };
     playing.value = true;
-    progress.value = { pos: 0, dur: 0 };
+    progress.value = { pos: posMs, dur };
     startTicker();
     return true;
   } catch (e) {
@@ -137,6 +175,38 @@ export async function playTracks(key: string, trackIds: string[], meta: Omit<Now
   } finally {
     loadingKey.value = null;
   }
+}
+
+/**
+ * Spielt eine Liste von Spotify-Track-IDs ab (max. 50). Muss aus einem Tipp/Klick heraus aufgerufen werden.
+ */
+export async function playTracks(key: string, trackIds: string[], meta: Omit<NowPlaying, 'key'>, offset = 0, opts: { positionMs?: number; durationMs?: number } = {}): Promise<boolean> {
+  const ids = trackIds.filter((x) => /^[A-Za-z0-9]{22}$/.test(x)).slice(0, 50);
+  if (ids.length === 0) { toast(t('player.nothing'), 'info'); return false; }
+  const pos = opts.durationMs && opts.positionMs && opts.positionMs > opts.durationMs - 15000 ? 0 : (opts.positionMs ?? 0);
+  return start(key, meta, { track_ids: ids, offset }, opts.durationMs ?? 0, pos);
+}
+
+/** Spielt eine ganze Spotify-Playlist (beliebig lang) ab Song Nr. offset (0 = erster Song). */
+export async function playPlaylist(key: string, playlistId: string, meta: Omit<NowPlaying, 'key'>, offset = 0): Promise<boolean> {
+  if (!/^[A-Za-z0-9]{22}$/.test(playlistId)) { toast(t('player.nothing'), 'info'); return false; }
+  return start(key, meta, { playlist_id: playlistId, offset });
+}
+
+/** Springt an eine Stelle im aktuellen Song (Millisekunden). */
+export async function seekTo(ms: number): Promise<void> {
+  if (!now.value) return;
+  const dur = progress.value.dur;
+  const pos = Math.max(0, dur > 0 ? Math.min(dur - 500, ms) : ms);
+  progress.value = { ...progress.value, pos };
+  try {
+    if (sdkMode()) await sdkPlayer!.seek(pos);
+    else await api('/api/playback/seek', { body: { position_ms: Math.round(pos) } });
+  } catch (e) { if (e instanceof ApiError) toast(e.message, 'error'); }
+}
+
+export function skipBy(deltaMs: number): Promise<void> {
+  return seekTo(progress.value.pos + deltaMs);
 }
 
 export async function togglePause(): Promise<void> {

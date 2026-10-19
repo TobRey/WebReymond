@@ -40,12 +40,12 @@
     "src": "node_modules/@fontsource/sora/files/sora-latin-800-normal.woff2"
   },
   "src/main.tsx": {
-    "file": "app-Cd7ZiIFK.js",
+    "file": "app-B6omTO1k.js",
     "name": "main",
     "src": "src/main.tsx",
     "isEntry": true,
     "css": [
-      "main-OuAUqQgY.css"
+      "main-BzLiQ_dK.css"
     ],
     "assets": [
       "sora-latin-400-normal-DhRtpwiA.woff2",

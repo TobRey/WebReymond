@@ -67,7 +67,6 @@ export function Profile({ username, self }: { username: string; self: boolean })
         : <button class="btn icon outline" title={t('profile.add_friend')} aria-label={t('profile.add_friend')} disabled={busy || r.blocked} onClick={() => rel(u + '/friend-request')}><IUserPlus /></button>);
   return (
     <Layout>
-      {p.background_url && <div class="profile-bg" style={{ backgroundImage: `url("${p.background_url}")` }} aria-hidden="true" />}
       <TopBar back={back} title={'@' + p.username} right={self ? <>
         <a class="icon-btn hide-desktop" href={href('/notifications')} aria-label={t('nav.notifications')}><IBell />{me && me.unread_notifications + me.pending_friend_requests > 0 && <span class="dot" />}</a>
         <a class="icon-btn" href={href('/settings')} aria-label={t('nav.settings')}><ISettings /></a>
@@ -143,7 +142,7 @@ function EditProfile({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
   const [bio, setBio] = useState(me.bio ?? '');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const [img, setImg] = useState<{ kind: 'avatar' | 'banner' | 'background'; src: string; file: File } | null>(null);
+  const [img, setImg] = useState<{ kind: 'avatar' | 'banner'; src: string; file: File } | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0, w: 1, h: 1 });
   const save = async (e: Event) => {
     e.preventDefault();
@@ -172,11 +171,11 @@ function EditProfile({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
   const removeImg = async (kind: string) => {
     try { setUser(await api<Me>('/api/me/image/' + kind, { method: 'DELETE' })); } catch (e) { showError(e); }
   };
-  const pickFile = async (kind: 'avatar' | 'banner' | 'background', e: Event) => {
+  const pickFile = async (kind: 'avatar' | 'banner', e: Event) => {
     const f = (e.target as HTMLInputElement).files?.[0];
     if (f) setImg({ kind, file: f, src: await readFileAsDataUrl(f) });
   };
-  const aspect = img?.kind === 'avatar' ? 1 : img?.kind === 'banner' ? 3 : 1.6;
+  const aspect = img?.kind === 'avatar' ? 1 : 3;
   const cur = user.value!;
   return (
     <Sheet title={t('profile.edit')} onClose={onClose} wide>
@@ -187,7 +186,7 @@ function EditProfile({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
         </div>
       ) : (
         <form class="col" onSubmit={save}>
-          {(['avatar', 'banner', 'background'] as const).map((kind) => (
+          {(['avatar', 'banner'] as const).map((kind) => (
             <div key={kind} class="row between" style="padding:6px 0;border-bottom:1px solid var(--line)">
               <div class="row gap-1">
                 {kind === 'avatar' ? <Avatar user={cur} /> : cur[(kind + '_url') as 'banner_url'] ? <img src={cur[(kind + '_url') as 'banner_url']!} alt="" style="width:64px;height:40px;object-fit:cover;border-radius:6px" /> : <div style="width:64px;height:40px;border-radius:6px;background:var(--surface-2)" />}

@@ -4,7 +4,7 @@ import { api, showError } from '../lib/api';
 import { t, timeAgo } from '../lib/i18n';
 import { user, toast } from '../lib/state';
 import { href, navigate, route } from '../lib/router';
-import { now, playing, loadingKey, playTracks, togglePause } from '../lib/player';
+import { now, playing, loadingKey, playPlaylist, playTracks, togglePause } from '../lib/player';
 import type { PublishedPlaylist, UserCard } from '../lib/types';
 import { Avatar, CoverImg, EmptyState, Loading, Menu, OwnerBadge, Spinner } from '../components/ui';
 import { IBell, IChat, IExternal, IFlag, IHeart, IHeartFill, ILink, IMore, IPauseFill, IPlayFill, IPlus, ISearch, ISend, IUsers } from '../components/Icons';
@@ -27,7 +27,10 @@ export async function playPublished(p: PublishedPlaylist): Promise<void> {
     } catch (e) { showError(e); return; }
   }
   trackCache.set(p.id, ids);
-  await playTracks(key, ids, { title: p.name, subtitle: p.owner.display_name, image: p.image_url });
+  const meta = { title: p.name, subtitle: p.owner.display_name, image: p.image_url };
+  // Ohne gespeicherte Songliste: ganze Playlist direkt bei Spotify ab dem ersten Song abspielen
+  if (ids.length === 0) await playPlaylist(key, p.spotify_playlist_id, meta, 0);
+  else await playTracks(key, ids, meta);
 }
 
 export function PlayButton({ p, class: cls = 'play' }: { p: PublishedPlaylist; class?: string }) {

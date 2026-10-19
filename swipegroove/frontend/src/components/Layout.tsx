@@ -3,9 +3,9 @@ import { useState } from 'preact/hooks';
 import { route, href, navigate } from '../lib/router';
 import { t } from '../lib/i18n';
 import { user } from '../lib/state';
-import { now, playing, progress, togglePause, stop, loadingKey } from '../lib/player';
+import { now, playing, progress, togglePause, stop, loadingKey, seekTo, skipBy, tapTempo, bpm, beatEpoch } from '../lib/player';
 import { initials } from '../lib/util';
-import { IHome, IHomeFill, ISwipe, ISwipeFill, IChat, IChatFill, IPlus, ISearch, IBell, ILibrary, ISparkle, IStar, ISettings, IShield, IMerge, IPlayFill, IPauseFill, IX, ISpotify, IGlobe } from './Icons';
+import { IHome, IHomeFill, ISwipe, ISwipeFill, IChat, IChatFill, IPlus, ISearch, IBell, ILibrary, ISparkle, IStar, ISettings, IShield, IMerge, IPlayFill, IPauseFill, IX, IBack15, IFwd15, ISpotify, IGlobe } from './Icons';
 import { CoverImg, Sheet, Spinner, Toasts } from './ui';
 import { CreatePlaylist } from '../pages/Overview';
 
@@ -19,22 +19,50 @@ function Me() {
   return <span class="me">{u?.avatar_url ? <img src={u.avatar_url} alt="" /> : initials(u?.display_name ?? '?')}</span>;
 }
 
+function fmt(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+
 export function MiniPlayer() {
   const n = now.value;
+  const [drag, setDrag] = useState<number | null>(null);
   if (!n) return null;
-  const pct = progress.value.dur > 0 ? Math.min(100, (progress.value.pos / progress.value.dur) * 100) : 0;
+  const { pos, dur } = progress.value;
+  const shown = drag ?? pos;
   return (
     <div class="player" role="region" aria-label={t('player.label')}>
-      <span class="art"><CoverImg src={n.image} id={n.key} /></span>
-      <div class="grow">
-        <div class="t truncate">{n.title}</div>
-        <div class="a truncate">{n.subtitle}</div>
+      <div class="prow">
+        <button class="art" onClick={tapTempo} aria-label={t('player.tap_tempo', { bpm: bpm.value })} title={t('player.tap_tempo', { bpm: bpm.value })}>
+          <CoverImg src={n.image} id={n.key} />
+          {playing.value && <span class="eq" aria-hidden="true"><i /><i /><i /></span>}
+        </button>
+        <div class="grow" style="min-width:0">
+          <div class="t truncate">{n.title}</div>
+          <div class="a truncate">{n.subtitle}</div>
+        </div>
+        <button class="xbtn" onClick={() => skipBy(-15000)} aria-label={t('player.back15')}><IBack15 /></button>
+        <button class="pbtn" onClick={togglePause} aria-label={playing.value ? t('player.pause') : t('player.play')}>{loadingKey.value ? <Spinner small /> : playing.value ? <IPauseFill /> : <IPlayFill />}</button>
+        <button class="xbtn" onClick={() => skipBy(15000)} aria-label={t('player.fwd15')}><IFwd15 /></button>
+        <button class="xbtn" onClick={stop} aria-label={t('common.close')}><IX /></button>
       </div>
-      <button class="pbtn" onClick={togglePause} aria-label={playing.value ? t('player.pause') : t('player.play')}>{loadingKey.value ? <Spinner small /> : playing.value ? <IPauseFill /> : <IPlayFill />}</button>
-      <button class="xbtn" onClick={stop} aria-label={t('common.close')}><IX /></button>
-      <div class="bar" aria-hidden="true"><i style={{ width: pct + '%' }} /></div>
+      <div class="seekrow">
+        <span class="time">{fmt(shown)}</span>
+        <input type="range" class="seek" min={0} max={Math.max(1, dur)} step={1000} value={Math.min(shown, Math.max(1, dur))} disabled={dur <= 0}
+          aria-label={t('player.seek')} aria-valuetext={fmt(shown) + ' / ' + fmt(dur)}
+          style={{ '--p': (dur > 0 ? (shown / dur) * 100 : 0) + '%' }}
+          onInput={(e) => setDrag(Number((e.target as HTMLInputElement).value))}
+          onChange={(e) => { const v = Number((e.target as HTMLInputElement).value); setDrag(null); seekTo(v); }} />
+        <span class="time">{dur > 0 ? fmt(dur) : '–:––'}</span>
+      </div>
     </div>
   );
+}
+
+/** Animierter Hintergrund, der im eingestellten Tempo pulsiert, solange Musik läuft. */
+export function GrooveLayer() {
+  if (!now.value || !playing.value) return null;
+  return <div key={beatEpoch.value} class="groove" aria-hidden="true" style={{ '--beat': (60 / bpm.value).toFixed(3) + 's' }}><span /><span /><span /></div>;
 }
 
 export function CreateSheet({ onClose }: { onClose: () => void }) {
@@ -73,7 +101,8 @@ export function Layout({ children, width }: { children: ComponentChildren; width
   const chat = isActive('/messages');
   const prof = isActive('/profile') || (u ? isActive('/u/' + u.username) : false);
   return (
-    <div class="app">
+    <div class={'app' + (now.value && playing.value ? ' grooving' : '')} style={now.value && playing.value ? { '--beat': (60 / bpm.value).toFixed(3) + 's' } : undefined}>
+      <GrooveLayer />
       <nav class="rail" aria-label={t('nav.main')}>
         <a class="wordmark" href={href(u ? '/' : '/explore')}>swipe<b>groove</b></a>
         {u ? (<>

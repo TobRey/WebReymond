@@ -119,7 +119,22 @@ final class SwipeController
             }
             return ['ok' => true];
         }
-        // Einzelner Song oder Warteschlange (max. 50, z. B. die Songs einer Playlist)
+        $device = $r->str('device_id') ?: null;
+        if ($device !== null && !preg_match('/^[A-Za-z0-9]{10,80}$/', $device)) {
+            $device = null;
+        }
+        $positionMs = max(0, min(3600000, $r->int('position_ms')));
+        $client = $this->app->service(SpotifyClient::class);
+        $playlistId = $r->str('playlist_id');
+        if ($playlistId !== '') {
+            // Ganze Playlist als Kontext: Spotify spielt ab dem gewählten Song weiter (unabhängig von der Länge)
+            if (!preg_match('/^[A-Za-z0-9]{22}$/', $playlistId)) {
+                throw HttpException::badRequest('swipe.invalid_track');
+            }
+            $this->playGuarded(fn() => $client->playContext($r->userId(), 'spotify:playlist:' . $playlistId, $device, max(0, $r->int('offset')), $positionMs));
+            return ['ok' => true];
+        }
+        // Einzelner Song oder Warteschlange (max. 50)
         $ids = array_values(array_filter(array_map('strval', $r->arr('track_ids'))));
         if ($ids === []) {
             $ids = [$r->str('track_id')];
@@ -131,12 +146,14 @@ final class SwipeController
             }
         }
         $offset = max(0, min(count($ids) - 1, $r->int('offset')));
-        $device = $r->str('device_id') ?: null;
-        if ($device !== null && !preg_match('/^[A-Za-z0-9]{10,80}$/', $device)) {
-            $device = null;
-        }
+        $this->playGuarded(fn() => $client->play($r->userId(), array_map(static fn(string $id) => 'spotify:track:' . $id, $ids), $device, $offset, $positionMs));
+        return ['ok' => true];
+    }
+
+    private function playGuarded(callable $fn): void
+    {
         try {
-            $this->app->service(SpotifyClient::class)->play($r->userId(), array_map(static fn(string $id) => 'spotify:track:' . $id, $ids), $device, $offset);
+            $fn();
         } catch (SpotifyException $e) {
             if ($e->reason === SpotifyException::NOT_FOUND) {
                 throw new HttpException(404, 'playback.no_device');
@@ -146,7 +163,42 @@ final class SwipeController
             }
             throw new HttpException(502, $e->errorCode());
         }
+    }
+
+    /** Springt im laufenden Song an eine Stelle (Spotify Connect; der Browser-Player springt selbst). */
+    public function seek(Request $r): array
+    {
+        $this->assertPlayback($r);
+        $this->app->limiter()->enforce('seek:' . $r->userId(), 240, 600);
+        $pos = max(0, min(3600000, $r->int('position_ms')));
+        $this->playGuarded(fn() => $this->app->service(SpotifyClient::class)->seek($r->userId(), $pos));
         return ['ok' => true];
+    }
+
+    /** Aktueller Wiedergabestand (Titel, Position, Länge) – für die Anzeige auf dem Handy. */
+    public function state(Request $r): array
+    {
+        $this->assertPlayback($r);
+        $this->app->limiter()->enforce('pstate:' . $r->userId(), 400, 600);
+        try {
+            $st = $this->app->service(SpotifyClient::class)->playbackState($r->userId());
+        } catch (SpotifyException $e) {
+            throw new HttpException(502, $e->errorCode());
+        }
+        if (!$st || empty($st['item'])) {
+            return ['active' => false];
+        }
+        $it = $st['item'];
+        return [
+            'active' => true,
+            'is_playing' => (bool) ($st['is_playing'] ?? false),
+            'progress_ms' => (int) ($st['progress_ms'] ?? 0),
+            'duration_ms' => (int) ($it['duration_ms'] ?? 0),
+            'track_id' => $it['id'] ?? null,
+            'name' => (string) ($it['name'] ?? ''),
+            'artists' => array_map(static fn($a) => (string) ($a['name'] ?? ''), $it['artists'] ?? []),
+            'image_url' => $it['album']['images'][0]['url'] ?? null,
+        ];
     }
 
     /**

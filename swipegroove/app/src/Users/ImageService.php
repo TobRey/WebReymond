@@ -102,7 +102,8 @@ final class ImageService
      */
     public function storeUserImage(int $userId, string $kind, string $bytes, ?array $crop): string
     {
-        if (!isset(self::KINDS[$kind])) {
+        // Hintergrundbilder gibt es ab 1.2 nicht mehr (nur Profilbild und Banner); Löschen bleibt möglich
+        if (!isset(self::KINDS[$kind]) || $kind === 'background') {
             throw HttpException::badRequest('image.invalid_kind');
         }
         $spec = self::KINDS[$kind];
