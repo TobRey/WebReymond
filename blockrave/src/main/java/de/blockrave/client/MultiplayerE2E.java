@@ -175,9 +175,11 @@ public final class MultiplayerE2E {
             return true;
         }));
         p.add(new Phase("Buehne steht", 15_000, () -> waitFor(() -> st().stage().present())));
-        p.add(new Phase("Buehne pruefen", 5_000, () -> {
-            var level = mc().level;
-            boolean booth = level.getBlockState(booth()).is(de.blockrave.registry.ModBlocks.DJ_BOOTH.get());
+        p.add(new Phase("Buehne pruefen", 10_000, () -> {
+            // Die Buehnen-Info kann vor den Blockaenderungen ankommen: bis zu 4 s auf das Pult warten
+            boolean booth = mc().level.getBlockState(booth()).is(de.blockrave.registry.ModBlocks.DJ_BOOTH.get());
+            if (!booth && !sleep(4000)) return false;
+            if (booth) waitUntil = 0;
             ok(booth, "DJ-Pult in der Welt sichtbar bei " + booth().toShortString());
             return true;
         }));
