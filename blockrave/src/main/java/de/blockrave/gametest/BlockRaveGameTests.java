@@ -283,7 +283,7 @@ public final class BlockRaveGameTests {
         BlockPos booth = fp.boothPos();
 
         ServerPlayer a = playerAt(h, booth, 0, -3);     // DJ / Uploader
-        ServerPlayer b = playerAt(h, booth, 5, -20);    // Zuhoerer
+        ServerPlayer b = playerAt(h, booth, 2, -6);     // zweiter Spieler am Pult (ohne OP-Rechte)
         ServerPlayer far = playerAt(h, booth, 0, -200); // nur Lichtshow
         ServerPlayer gone = playerAt(h, booth, 0, -400); // gar nichts
         var pb = m.playback();
