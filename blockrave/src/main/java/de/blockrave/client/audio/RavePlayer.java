@@ -75,6 +75,13 @@ public final class RavePlayer {
     private double rate = 1.0;
     private float appliedGain;
     private int driftCounter;
+    /** Zuletzt gemessene Ausgabelatenz des Geraets (bleibt ueber Neustarts der Wiedergabe erhalten). */
+    private double outputLatencyMicros;
+    private double latencyUsedAtStart;
+    private boolean firstCheckAfterStart;
+    private long startedAtMicros;
+    /** Einschwingzeit nach dem Start, bevor Messungen zaehlen (Mischer-Perioden verfaelschen die ersten Werte). */
+    private static final long SETTLE_MICROS = 300_000;
 
     private record Chunk(int bufL, int bufR, int samples, double startPlayout, double step) {}
 
@@ -221,6 +228,7 @@ public final class RavePlayer {
             SOFTSourceLatency.alGetSourcedvSOFT(srcL, SOFTSourceLatency.AL_SEC_OFFSET_LATENCY_SOFT, v);
             offsetSamples = v[0] * AudioConstants.SAMPLE_RATE;
             latencySamples = v[1] * AudioConstants.SAMPLE_RATE;
+            outputLatencyMicros = v[1] * 1e6;
         } else {
             offsetSamples = AL10.alGetSourcei(srcL, org.lwjgl.openal.AL11.AL_SAMPLE_OFFSET);
         }
@@ -230,7 +238,17 @@ public final class RavePlayer {
     private void correctDrift(long now) {
         double heard = heardPlayout();
         if (Double.isNaN(heard)) return;
+        if (now - startedAtMicros < SETTLE_MICROS) return;
         lastErrorMicros = (long) (heard - now);
+        if (firstCheckAfterStart) {
+            firstCheckAfterStart = false;
+            // Die Geraetelatenz ist erst nach dem Start messbar. Wich sie deutlich von der beim Start
+            // angenommenen ab, einmal sofort neu ansetzen statt langsam per Tempo nachzuziehen.
+            if (Math.abs(lastErrorMicros) > 15_000 && Math.abs(outputLatencyMicros - latencyUsedAtStart) > 10_000) {
+                reset();
+                return;
+            }
+        }
         DriftController.Decision d = drift.update(lastErrorMicros);
         switch (d.action()) {
             case HARD -> reset();
@@ -314,13 +332,18 @@ public final class RavePlayer {
         drift.reset();
         decoder.reset();
         currentStream = f.streamId();
-        // Stille bis zum Abspielzeitpunkt des ersten Frames
-        long lead = Math.max(0, f.playoutMicros() - now - 20_000);
-        int silence = (int) Math.min(AudioConstants.FRAME_SAMPLES * 8L, lead / (long) MICROS_PER_SAMPLE);
+        // Stille bis zum Abspielzeitpunkt des ersten Frames; was jetzt eingereiht wird, ist erst nach
+        // der Ausgabelatenz des Geraets hoerbar.
+        latencyUsedAtStart = outputLatencyMicros;
+        long lead = Math.max(0, f.playoutMicros() - now - (long) outputLatencyMicros);
+        int silence = (int) Math.min(AudioConstants.FRAME_SAMPLES * 8L, (long) (lead / MICROS_PER_SAMPLE));
         double start = f.playoutMicros() - silence * MICROS_PER_SAMPLE;
-        if (silence > 0) {
-            java.util.Arrays.fill(out, 0, silence * 2, 0f);
-            queueChunk(out, silence, start, MICROS_PER_SAMPLE);
+        java.util.Arrays.fill(out, 0f);
+        while (silence > 0) {
+            int n = Math.min(silence, AudioConstants.FRAME_SAMPLES * 2);
+            queueChunk(out, n, start, MICROS_PER_SAMPLE);
+            start += n * MICROS_PER_SAMPLE;
+            silence -= n;
         }
         outPlayout = f.playoutMicros();
         nextInputPlayout = f.playoutMicros();
@@ -333,6 +356,9 @@ public final class RavePlayer {
         if (queue.isEmpty()) return false;
         AL10.alSourcePlayv(new int[]{srcL, srcR});
         playing = true;
+        firstCheckAfterStart = hasLatencyExt;
+        startedAtMicros = now;
+        driftCounter = 0;
         error = "";
         return true;
     }

@@ -254,7 +254,7 @@ public final class MultiplayerE2E {
                         }
                         if (!playing()) return false;
                         ok(true, "Status SPIELT: " + st().status().title());
-                        mc().setScreen(null);
+                        mc().player.closeContainer();
                         touch("playing");
                         return true;
                     }
@@ -324,7 +324,7 @@ public final class MultiplayerE2E {
                     if (lib == null) return false;
                     ok(!lib.tracks().isEmpty() && !lib.playlist().isEmpty(), "Hochgeladene MP3 und Playlist nach Neustart vorhanden ("
                             + lib.tracks().size() + " Titel)");
-                    mc().setScreen(null);
+                    mc().player.closeContainer();
                     cmd("give @s minecraft:diamond_pickaxe");
                     return true;
                 }));

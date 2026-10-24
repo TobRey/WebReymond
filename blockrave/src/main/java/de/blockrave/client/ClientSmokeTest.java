@@ -134,9 +134,14 @@ public final class ClientSmokeTest {
                     t.durationSamples = 4 * 48_000;
                     pb.library().lib().addTrack(t);
                     for (int i = 0; i < 6; i++) pb.library().lib().enqueue(id);
-                    sp.containerMenu = new DjBoothMenu(99, sp.getInventory(), fp.boothPos());
+                    // Bedienung nur direkt am Pult: kurz hinstellen, Start druecken, zurueck zum Zuschauerplatz
+                    BlockPos booth = fp.boothPos();
+                    sp.teleportTo(booth.getX() + 0.5, booth.getY(), booth.getZ() - 2.5);
+                    sp.containerMenu = new DjBoothMenu(99, sp.getInventory(), booth);
                     pb.handleCommand(sp, new Payloads.DjCommand(DjAction.PLAY, "", 0));
                     check(pb.state() == Payloads.RaveStatus.PLAYING, "Wiedergabe gestartet");
+                    sp.containerMenu = sp.inventoryMenu;
+                    sp.teleportTo(anchor.getX() + 0.5, anchor.getY() + 1, anchor.getZ() - 14.5);
                 } catch (Exception ex) {
                     check(false, "Aufbau/Start: " + ex);
                 }
@@ -183,6 +188,7 @@ public final class ClientSmokeTest {
                         .setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.STAGE_KIT.get())));
             }
             case 460 -> {
+                mc.player.setXRot(40); // auf den Boden vor der Spielfigur blicken
                 PlacementController.INSTANCE.onUse();
                 check(PlacementController.INSTANCE.isActive(), "Bauvorschau aktiv");
             }
