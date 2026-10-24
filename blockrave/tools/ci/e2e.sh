@@ -53,6 +53,7 @@ echo "Client A spielt (oder ist beendet) – starte Client B (spaeter Beitritt)"
 PID_B=$!
 wait $PID_B
 wait $PID_A
+pkill -f DevLaunch || true
 stop_server
 
 echo "=== Server-Neustart ==="
@@ -60,6 +61,8 @@ start_server "$ROOT/server_e2e_2.log"
 "${XVFB[@]}" ./gradlew runE2eClientA2 --no-daemon --console=plain -Pe2eDir="$E2E" > clientA2.log 2>&1
 stop_server
 
+pkill -f DevLaunch || true
+pkill -f Xvfb || true
 status=0
 for f in clientA.log clientB.log clientA2.log; do
   echo "=== $f ==="

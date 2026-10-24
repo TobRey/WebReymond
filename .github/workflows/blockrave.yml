@@ -104,9 +104,12 @@ jobs:
       - name: Client-Rauchtest (echter Client, Xvfb, Software-OpenGL)
         if: always()
         run: |
-          set -o pipefail
           tools/ci/client_options.sh runs/clientSmokeTest
-          timeout --kill-after=20 400 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClientSmokeTest --no-daemon --console=plain 2>&1 | tee client.log
+          rc=0
+          timeout --kill-after=20 400 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClientSmokeTest --no-daemon --console=plain > client.log 2>&1 || rc=$?
+          pkill -f DevLaunch || true; pkill -f Xvfb || true
+          grep -q "BlockRave-Smoke: ERGEBNIS: alle Pruefungen bestanden" client.log || rc=1
+          exit $rc
 
       - name: Mehrspieler-E2E (echter Server + zwei echte Clients)
         if: always()
