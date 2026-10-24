@@ -1,0 +1,70 @@
+name: BlockRave (Minecraft-Mod)
+
+# Baut die NeoForge-Mod, fuehrt die Kern-Unit-Tests aus und startet einen echten dedizierten
+# GameTest-Server (ohne Grafik/Audio), der die Buehnen-Tests ausfuehrt.
+on:
+  push:
+    paths:
+      - 'blockrave/**'
+      - '.github/workflows/blockrave.yml'
+  pull_request:
+    paths:
+      - 'blockrave/**'
+      - '.github/workflows/blockrave.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, Tests, dedizierter Server
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: blockrave
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v5
+
+      - name: Java 21 einrichten
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Gradle einrichten
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Kern-Tests (ohne Minecraft)
+        run: ./gradlew -p core-check test --no-daemon --console=plain
+
+      - name: Mod bauen und testen
+        run: ./gradlew build --no-daemon --console=plain
+
+      - name: Dedizierter GameTest-Server
+        run: ./gradlew runGameTestServer --no-daemon --console=plain
+
+      - name: Mod-JAR hochladen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blockrave-mod
+          path: blockrave/build/libs/*.jar
+          if-no-files-found: warn
+
+      - name: Testberichte hochladen
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blockrave-reports
+          path: |
+            blockrave/build/reports/
+            blockrave/core-check/build/reports/
+            blockrave/runs/gameTestServer/logs/
+          if-no-files-found: ignore

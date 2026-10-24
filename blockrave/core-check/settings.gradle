@@ -1,0 +1,4 @@
+// Eigenstaendiger Build NUR fuer den Minecraft-unabhaengigen Kern (de.blockrave.core).
+// Er nutzt dieselben Quelldateien wie die Mod und laesst sich ohne NeoForge-/Mojang-Server
+// bauen und testen:  ./gradlew -p core-check test
+rootProject.name = 'blockrave-core-check'

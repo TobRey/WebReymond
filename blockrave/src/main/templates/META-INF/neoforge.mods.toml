@@ -1,0 +1,30 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+issueTrackerURL="https://github.com/tobrey/webreymond/issues"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="BlockRave-Team"
+description='''
+Festivalbuehne mit DJ-Pult fuer Multiplayer-Raves: hochgeladene MP3-Playlists oder Live-Mix
+(Windows-Loopback, z.B. Rekordbox), synchron fuer alle Spieler mit raeumlichem Klang bis 128 Bloecke
+und automatischer, musikgesteuerter Lichtshow ohne Shader.
+Muss auf Server UND Clients installiert sein.
+'''
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
