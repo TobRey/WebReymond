@@ -31,7 +31,7 @@ public final class ClientRaveState {
     public final ClientUploader uploads = new ClientUploader();
     public final LiveSender live = new LiveSender();
 
-    private volatile Payloads.StageInfo stage = new Payloads.StageInfo(false, "", net.minecraft.core.BlockPos.ZERO, 0, 128);
+    private volatile Payloads.StageInfo stage = new Payloads.StageInfo(false, "", net.minecraft.core.BlockPos.ZERO, 0, 128, "");
     private volatile StageTransform transform;
     private volatile Payloads.RaveStatus status;
     private volatile Payloads.Library library;
@@ -134,7 +134,11 @@ public final class ClientRaveState {
 
     // ------------------------------------------------------------------ Netzwerk-Thread
 
+    /** Anzahl empfangener Audio-/Lichtpakete (Diagnose). */
+    public final java.util.concurrent.atomic.AtomicLong packetsReceived = new java.util.concurrent.atomic.AtomicLong();
+
     public void onFrames(Payloads.AudioFrames f) {
+        packetsReceived.incrementAndGet();
         boolean playAudio = f.audio() && !suppressOwnAudio();
         long nowServer = serverNow();
         for (int i = 0; i < f.analysis().length; i++) {

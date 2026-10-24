@@ -5,6 +5,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import de.blockrave.BlockRaveConfig;
 import de.blockrave.client.ClientRaveState;
 import de.blockrave.core.analysis.AnalysisFrame;
+import de.blockrave.core.show.PixelFont;
 import de.blockrave.core.show.ShowInput;
 import de.blockrave.core.show.ShowPalette;
 import de.blockrave.core.show.ShowProgram;
@@ -88,6 +89,8 @@ public final class StageEffectsRenderer {
         BlockRaveConfig.Quality q = BlockRaveConfig.EFFECT_QUALITY.get();
         BlockRaveConfig.StrobeMode strobeMode = BlockRaveConfig.STROBE_MODE.get();
         updatePresence(level, t, (int) level.getGameTime());
+        flash = effectiveFlash(strobeMode);
+        applyFlashToHeads();
 
         Matrix4f m = pose.last().pose();
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
@@ -95,6 +98,7 @@ public final class StageEffectsRenderer {
         // 1) Leuchtende Flaechen
         VertexConsumer em = buffers.getBuffer(RaveRenderTypes.EMISSIVE);
         renderSurfaces(em, m, cam, t, q);
+        renderStageText(em, m, cam, t);
         buffers.endBatch(RaveRenderTypes.EMISSIVE);
 
         // 2) Strahlen (additiv)
@@ -102,6 +106,7 @@ public final class StageEffectsRenderer {
         renderHeads(beam, m, cam, t, level, q, dt);
         renderLasers(beam, m, cam, t, level, q);
         renderStrobes(beam, m, cam, t, strobeMode);
+        renderBlinders(beam, m, cam, t);
         buffers.endBatch(RaveRenderTypes.LIGHT_BEAM);
 
         // 3) Nebel
@@ -181,7 +186,7 @@ public final class StageEffectsRenderer {
                 for (int b = 0; b < sub; b++) {
                     double u = u0 + du * (a + 0.5) / sub;
                     double v = v0 + dv * (b + 0.5) / sub;
-                    int col = program.ledColor(wall, u, v);
+                    int col = flashed(program.ledColor(wall, u, v));
                     double x0 = p.x() + (double) a / sub, x1 = p.x() + (double) (a + 1) / sub;
                     double y0 = p.y() + (double) b / sub, y1 = p.y() + (double) (b + 1) / sub;
                     double gap = sub > 1 ? 0.02 : 0.04; // sichtbares LED-Raster
@@ -192,11 +197,11 @@ public final class StageEffectsRenderer {
         // Tanzflaeche (Oberseite)
         for (StagePart p : fx.floorTiles()) {
             if (!present(p)) continue;
-            int col = program.floorColor(p.x(), p.z());
+            int col = flashed(program.floorColor(p.x(), p.z()));
             topLocal(vc, m, cam, t, p.x() + 0.06, p.z() + 0.06, p.x() + 0.94, p.z() + 0.94, 1.004, col);
         }
         // Leuchtende Bühnenfront
-        int front = ShowPalette.scale(out.frontColor, out.frontBrightness);
+        int front = flashed(ShowPalette.scale(out.frontColor, out.frontBrightness));
         for (StagePart p : fx.frontPanels()) {
             if (!present(p)) continue;
             quadLocal(vc, m, cam, t, p.x() + 0.05, 0.1, p.x() + 0.95, 1.9, p.z() - 0.004, front);
@@ -235,6 +240,112 @@ public final class StageEffectsRenderer {
     }
 
     // ------------------------------------------------------------------ Moving Heads
+
+    // ------------------------------------------------------------------ Blitzlicht bei Drops
+
+    /** Aktueller Blitzwert nach Stroboskop-Einstellung (Aus: kein Blitz, Reduziert: nur schwach auf jedem 4. Beat). */
+    private float flash;
+
+    private float effectiveFlash(BlockRaveConfig.StrobeMode mode) {
+        return switch (mode) {
+            case AUS -> 0f;
+            case REDUZIERT -> input.frame.dropActive() && Math.floorMod(input.frame.beatIndex(), 4) == 0
+                    ? 0.3f * ShowProgram.pulse(input.sinceBeatMicros, 170) : 0f;
+            default -> out.flash;
+        };
+    }
+
+    private int flashed(int rgb) {
+        return flash <= 0.01f ? rgb : ShowPalette.mix(rgb, ShowPalette.WHITE, flash * 0.85f);
+    }
+
+    private void applyFlashToHeads() {
+        if (flash <= 0.01f) return;
+        for (ShowProgram.Head h : out.heads) {
+            h.color = ShowPalette.mix(h.color, ShowPalette.WHITE, flash);
+            h.intensity = Math.max(h.intensity, flash);
+            h.width = h.width + 0.06f * flash; // breiterer, "aufreissender" Strahl
+        }
+    }
+
+    /** Blinder: grelle weisse Lichtflaechen an Stroboskopen, Lautsprechertuermen und ueber der Buehne. */
+    private void renderBlinders(VertexConsumer vc, Matrix4f m, Vec3 cam, StageTransform t) {
+        if (flash <= 0.02f) return;
+        for (StagePart p : fx.strobes()) {
+            if (!present(p)) continue;
+            double[] o = t.toWorld(p.x() + 0.5, p.y() + 0.5, p.z() - 0.1);
+            billboard(vc, m, cam, o[0], o[1], o[2], 2.2, ShowPalette.WHITE, flash);
+            billboard(vc, m, cam, o[0], o[1], o[2], 6.0, ShowPalette.WHITE, flash * 0.3f);
+        }
+        for (double[] s : new double[][]{fx.speakerLeft(), fx.speakerRight()}) {
+            double[] o = t.toWorld(s[0], s[1] + 3, s[2] - 0.6);
+            billboard(vc, m, cam, o[0], o[1], o[2], 3.0, ShowPalette.WHITE, flash * 0.7f);
+        }
+        double[] c = fx.center();
+        double[] o = t.toWorld(c[0], c[1] + 9, c[2]);
+        billboard(vc, m, cam, o[0], o[1], o[2], 16.0, ShowPalette.WHITE, flash * 0.22f);
+    }
+
+    // ------------------------------------------------------------------ Schriftzug auf der LED-Wand
+
+    private String textCache = null;
+    private boolean[][] textMask = new boolean[0][0];
+
+    /** Schriftzug (z.B. "DJ TOBI") oben auf der grossen LED-Wand, mit dunklem Rand fuer Lesbarkeit. */
+    private void renderStageText(VertexConsumer vc, Matrix4f m, Vec3 cam, StageTransform t) {
+        ClientRaveState state = ClientRaveState.get();
+        String text = state == null ? null : state.stage().stageText();
+        if (text == null || text.isEmpty()) return;
+        if (!text.equals(textCache)) {
+            textCache = text;
+            textMask = PixelFont.render(text);
+        }
+        int w = textMask.length == 0 ? 0 : textMask[0].length;
+        if (w == 0) return;
+        // Wand: x 8..27, y 2..14 (lokal); Text oben mittig, max. 17 Bloecke breit
+        double px = Math.min(1 / 3.0, 17.0 / (w + 2));
+        double width = (w + 2) * px;
+        double left = 8 + (19 - width) / 2;
+        double top = 13.7;
+        double z = StageLayout.DECK_Z1 - 1 - 0.03;
+        // Nur zeichnen, solange die LED-Wand steht
+        boolean any = false;
+        for (StagePart p : fx.ledPanels()) {
+            if (p.z() == StageLayout.DECK_Z1 - 1 && present(p)) { any = true; break; }
+        }
+        if (!any) return;
+        int color = textColor();
+        int h = PixelFont.GLYPH_H;
+        for (int y = -1; y <= h; y++) {
+            for (int x = -1; x <= w; x++) {
+                boolean on = y >= 0 && y < h && x >= 0 && x < w && textMask[y][x];
+                boolean edge = !on && near(x, y, w, h);
+                if (!on && !edge) continue;
+                double x0 = left + (x + 1) * px;
+                double yTop = top - (y + 1) * px;
+                double inset = on ? px * 0.08 : 0;
+                quadLocal(vc, m, cam, t, x0 + inset, yTop - px + inset, x0 + px - inset, yTop - inset, z, on ? color : 0x050208);
+            }
+        }
+    }
+
+    private boolean near(int x, int y, int w, int h) {
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                int xx = x + dx, yy = y + dy;
+                if (yy >= 0 && yy < h && xx >= 0 && xx < w && textMask[yy][xx]) return true;
+            }
+        }
+        return false;
+    }
+
+    /** Ruhig weiss-pink; bei Musik im Takt in der Palette, beim Blitz weiss. */
+    private int textColor() {
+        if (!input.active || input.frame.has(AnalysisFrame.SILENT)) return ShowPalette.scale(ShowPalette.PINK, 0.85f);
+        float bass = ShowProgram.pulse(input.sinceBassMicros, 220);
+        int c = ShowPalette.mix(ShowPalette.color(input.frame.beatIndex() / 4), ShowPalette.WHITE, 0.35f);
+        return flashed(ShowPalette.scale(c, 0.7f + 0.3f * bass));
+    }
 
     private void renderHeads(VertexConsumer vc, Matrix4f m, Vec3 cam, StageTransform t, ClientLevel level,
                              BlockRaveConfig.Quality q, float dt) {

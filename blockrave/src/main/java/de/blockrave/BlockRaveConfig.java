@@ -18,6 +18,7 @@ public final class BlockRaveConfig {
     public static final ModConfigSpec.IntValue MAX_PARALLEL_UPLOADS;
     public static final ModConfigSpec.IntValue UPLOAD_RATE_KBPS;
     public static final ModConfigSpec.IntValue HEARING_RANGE;
+    public static final ModConfigSpec.ConfigValue<String> STAGE_TEXT;
     public static final ModConfigSpec.IntValue SHOW_RANGE;
     public static final ModConfigSpec.IntValue MP3_BUFFER_MS;
     public static final ModConfigSpec.IntValue LIVE_DELAY_MS;
@@ -47,13 +48,13 @@ public final class BlockRaveConfig {
         ALLOW_UPLOADS = b.comment("Duerfen alle Spieler MP3-Dateien hochladen?")
                 .translation("blockrave.config.allowUploads").define("allowUploads", true);
         MAX_UPLOAD_MB = b.comment("Maximale Groesse einer MP3-Datei in MiB.")
-                .translation("blockrave.config.maxUploadMb").defineInRange("maxUploadMb", 50, 1, 500);
+                .translation("blockrave.config.maxUploadMb").defineInRange("maxUploadMb", 200, 1, 1000);
         MAX_STORAGE_MB = b.comment("Maximaler Speicherplatz aller hochgeladenen Titel zusammen in MiB.")
                 .translation("blockrave.config.maxStorageMb").defineInRange("maxStorageMb", 2048, 16, 100_000);
         MAX_TRACKS = b.comment("Maximale Anzahl Titel in der Bibliothek.")
                 .translation("blockrave.config.maxTracks").defineInRange("maxTracks", 500, 1, 10_000);
         MAX_TRACK_MINUTES = b.comment("Maximale Laenge eines Titels in Minuten.")
-                .translation("blockrave.config.maxTrackMinutes").defineInRange("maxTrackMinutes", 90, 1, 600);
+                .translation("blockrave.config.maxTrackMinutes").defineInRange("maxTrackMinutes", 180, 1, 600);
         MAX_PARALLEL_UPLOADS = b.comment("Gleichzeitige Uploads pro Spieler.")
                 .translation("blockrave.config.maxParallelUploads").defineInRange("maxParallelUploads", 2, 1, 8);
         UPLOAD_RATE_KBPS = b.comment("Maximale Uploadrate pro Spieler in KiB/s (schont Server und Netzwerk).")
@@ -61,6 +62,8 @@ public final class BlockRaveConfig {
         b.pop();
 
         b.comment("Wiedergabe").push("playback");
+        STAGE_TEXT = b.comment("Schriftzug auf der grossen LED-Wand hinter dem DJ (max. 16 Zeichen, A-Z, 0-9, Leerzeichen, - . ! &). Leer = kein Schriftzug.")
+                .translation("blockrave.config.stageText").define("stageText", "DJ TOBI");
         HEARING_RANGE = b.comment("Hoerreichweite in Bloecken (ab Buehnenmitte). Ausserhalb ist es still.")
                 .translation("blockrave.config.hearingRange").defineInRange("hearingRange", 128, 16, 256);
         SHOW_RANGE = b.comment("Reichweite, in der Spieler Lichtshow-Daten (ohne Audio) erhalten.")

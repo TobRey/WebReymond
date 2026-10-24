@@ -11,12 +11,13 @@ Pro Welt. Änderungen an Puffer/Bitrate werden beim Neuladen der Konfiguration �
 | Schlüssel | Standard | Bereich | Bedeutung |
 |---|---|---|---|
 | `uploads.allowUploads` | `true` | – | Dürfen alle Spieler MP3s hochladen? |
-| `uploads.maxUploadMb` | `50` | 1–500 | Maximale Größe einer MP3-Datei (MiB) |
+| `uploads.maxUploadMb` | `200` | 1–1000 | Maximale Größe einer MP3-Datei (MiB) |
 | `uploads.maxStorageMb` | `2048` | 16–100000 | Maximaler Speicher aller Titel zusammen (MiB) |
 | `uploads.maxTracks` | `500` | 1–10000 | Maximale Anzahl Titel in der Bibliothek |
-| `uploads.maxTrackMinutes` | `90` | 1–600 | Maximale Titellänge (Minuten) |
+| `uploads.maxTrackMinutes` | `180` | 1–600 | Maximale Titellänge (Minuten) |
 | `uploads.maxParallelUploads` | `2` | 1–8 | Gleichzeitige Uploads pro Spieler |
 | `uploads.uploadRateKbps` | `1024` | 64–65536 | Uploadrate pro Spieler in KiB/s (Drosselung über verzögerte Bestätigungen) |
+| `playback.stageText` | `DJ TOBI` | max. 16 Zeichen | Schriftzug auf der großen LED-Wand hinter dem DJ (A–Z, 0–9, Leerzeichen, `- . ! &`; Kleinbuchstaben werden groß, Umlaute zu A/O/U). Leer = kein Schriftzug. Änderung wirkt sofort (Konfiguration neu laden oder Server-Neustart). |
 | `playback.hearingRange` | `128` | 16–256 | Hörreichweite ab Bühnenmitte (Blöcke). Bis 16 Blöcke volle Lautstärke, danach sanft (Kosinuskurve) bis 0 am Rand, außerhalb stumm. Audio wird bis Reichweite+16 gesendet. |
 | `playback.showRange` | `256` | 32–512 | Spieler bis zu dieser Entfernung erhalten nur Lichtshow-Daten (ohne Audio, ca. 0,4 KB/s) |
 | `playback.mp3BufferMs` | `1000` | 300–5000 | Vorlauf der MP3-Wiedergabe (Netzwerkpuffer) |

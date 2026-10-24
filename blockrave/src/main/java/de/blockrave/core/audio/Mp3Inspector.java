@@ -82,18 +82,65 @@ public final class Mp3Inspector {
             title = ta[0];
             artist = ta[1];
         }
-        int searchStart = Math.min(id3, len);
-        int searchEnd = Math.min(len, searchStart + 64 * 1024);
-        for (int i = searchStart; i < searchEnd - 4; i++) {
-            if ((head[i] & 0xFF) != 0xFF) continue;
-            FrameHeader first = parseHeader(head, i, len);
-            if (first == null) continue;
-            if (chainValid(head, len, i, first)) {
-                return new Result(true, null, id3, first, title, artist);
-            }
+        if (id3 >= len && len >= 4096) {
+            return Result.invalid("ID3-Tag (z.B. Cover-Bild) groesser als der gepruefte Dateianfang.");
         }
+        FrameHeader first = findFrames(head, Math.min(id3, len), len);
+        if (first != null) return new Result(true, null, id3, first, title, artist);
         if (len < 4096) return Result.invalid("Datei ist zu kurz fuer eine MP3-Datei.");
         return Result.invalid("Keine gueltigen MP3-Audioframes (MPEG Layer III) gefunden.");
+    }
+
+    /**
+     * Untersucht eine ganze Datei als Datenstrom. Anders als {@link #inspect(byte[], int)} funktioniert das auch
+     * bei beliebig grossen ID3v2-Tags am Anfang (eingebettete Cover-Bilder sind oft mehrere MiB gross): Der Tag
+     * wird fuer Titel/Interpret nur bis 1 MiB gelesen und danach uebersprungen, gesucht wird dahinter.
+     */
+    public static Result inspect(InputStream in) throws IOException {
+        byte[] start = new byte[10];
+        int n = readUpTo(in, start, 10);
+        int id3 = id3v2Size(start, n);
+        String title = null;
+        String artist = null;
+        byte[] audio = new byte[256 * 1024];
+        int audioLen;
+        if (id3 > 0) {
+            int textLen = Math.min(id3, 1024 * 1024);
+            byte[] tag = new byte[textLen];
+            System.arraycopy(start, 0, tag, 0, 10);
+            int got = 10 + readUpTo(in, tag, 10, textLen - 10);
+            String[] ta = readId3Text(tag, got);
+            title = ta[0];
+            artist = ta[1];
+            long skip = id3 - (long) got;
+            while (skip > 0) {
+                long k = in.skip(skip);
+                if (k <= 0) {
+                    if (in.read() < 0) return Result.invalid("Datei endet innerhalb des ID3-Tags.");
+                    k = 1;
+                }
+                skip -= k;
+            }
+            audioLen = readUpTo(in, audio, 0, audio.length);
+        } else {
+            System.arraycopy(start, 0, audio, 0, n);
+            audioLen = n + readUpTo(in, audio, n, audio.length - n);
+        }
+        FrameHeader first = findFrames(audio, 0, audioLen);
+        if (first != null) return new Result(true, null, id3, first, title, artist);
+        if (audioLen < 4096) return Result.invalid("Datei ist zu kurz fuer eine MP3-Datei.");
+        return Result.invalid("Keine gueltigen MP3-Audioframes (MPEG Layer III) gefunden.");
+    }
+
+    /** Sucht ab {@code from} (in den naechsten 128 KiB) den Beginn einer gueltigen Frame-Kette. */
+    private static FrameHeader findFrames(byte[] b, int from, int len) {
+        int end = Math.min(len, from + 128 * 1024);
+        for (int i = from; i < end - 4; i++) {
+            if ((b[i] & 0xFF) != 0xFF) continue;
+            FrameHeader first = parseHeader(b, i, len);
+            if (first != null && chainValid(b, len, i, first)) return first;
+        }
+        return null;
     }
 
     private static boolean chainValid(byte[] b, int len, int start, FrameHeader first) {
@@ -180,9 +227,14 @@ public final class Mp3Inspector {
 
     /** Liest bis zu {@code max} Bytes vom Stream. */
     public static int readUpTo(InputStream in, byte[] buf, int max) throws IOException {
+        return readUpTo(in, buf, 0, max);
+    }
+
+    /** Liest bis zu {@code max} Bytes ab {@code off}; liefert die Anzahl gelesener Bytes. */
+    public static int readUpTo(InputStream in, byte[] buf, int off, int max) throws IOException {
         int total = 0;
         while (total < max) {
-            int r = in.read(buf, total, max - total);
+            int r = in.read(buf, off + total, max - total);
             if (r < 0) break;
             total += r;
         }

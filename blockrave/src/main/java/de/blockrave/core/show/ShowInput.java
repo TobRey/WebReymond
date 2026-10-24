@@ -21,4 +21,6 @@ public final class ShowInput {
     public long sinceBassMicros = NEVER;
     public long sinceOnsetMicros = NEVER;
     public long sincePeakMicros = NEVER;
+    /** Zeit seit Beginn des aktuellen Drops (NEVER, wenn kein Drop laeuft oder er laenger als 3 s her ist). */
+    public long sinceDropStartMicros = NEVER;
 }

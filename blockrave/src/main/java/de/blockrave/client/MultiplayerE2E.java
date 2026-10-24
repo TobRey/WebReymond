@@ -130,9 +130,10 @@ public final class MultiplayerE2E {
             ClientRaveState s = st();
             long err = s.player.syncErrorMicros();
             if (s.player.isPlaying()) syncErrors.add(err);
-            log(String.format("SYNC t=%d pos=%.2fs fehler=%+.1fms rate=%.4f spielt=%s puffer=%dms ping=%dms", s.serverNow() / 1000,
-                    positionSec(), err / 1000.0, s.player.playbackRate(), s.player.isPlaying(), s.player.bufferedMicros() / 1000,
-                    s.clock.lastRttMicros() / 1000));
+            log(String.format("SYNC t=%d pos=%.2fs fehler=%+.1fms rate=%.4f spielt=%s puffer=%dms ping=%dms pakete=%d tot=%s",
+                    s.serverNow() / 1000, positionSec(), err / 1000.0, s.player.playbackRate(), s.player.isPlaying(),
+                    s.player.bufferedMicros() / 1000, s.clock.lastRttMicros() / 1000, s.packetsReceived.get(),
+                    mc().player.isDeadOrDying()));
             return syncErrors.size() >= seconds;
         };
     }

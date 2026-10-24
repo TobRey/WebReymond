@@ -145,9 +145,10 @@ public final class StageManager {
 
     public Payloads.StageInfo stageInfo() {
         int range = de.blockrave.BlockRaveConfig.HEARING_RANGE.get();
-        if (state == null) return new Payloads.StageInfo(false, "", BlockPos.ZERO, 0, range);
+        String text = de.blockrave.core.show.PixelFont.sanitize(de.blockrave.BlockRaveConfig.STAGE_TEXT.get());
+        if (state == null) return new Payloads.StageInfo(false, "", BlockPos.ZERO, 0, range, text);
         return new Payloads.StageInfo(true, state.dimension, new BlockPos(state.anchorX, state.anchorY, state.anchorZ),
-                state.rotation, range);
+                state.rotation, range, text);
     }
 
     public void sendStageInfo(ServerPlayer player) {

@@ -66,7 +66,7 @@ pkill -f Xvfb || true
 status=0
 for f in clientA.log clientB.log clientA2.log; do
   echo "=== $f ==="
-  grep -aE "BlockRave-E2E|BlockRave:|Exception|FATAL" "$f" | grep -avE "DEBUG|flite|Narrator|resource path" | tail -45
+  grep -aE "BlockRave-E2E|BlockRave:|Exception|FATAL" "$f" | grep -avE "DEBUG|flite|Narrator|resource path" | tail -80
   grep -aq "ERGEBNIS: alle Pruefungen bestanden" "$f" || status=1
 done
 echo "=== Server ==="

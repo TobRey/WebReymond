@@ -69,4 +69,58 @@ class ShowTest {
         for (float s : o.strobes) assertEquals(0f, s);
         for (float f : o.fogRates) assertEquals(0f, f);
     }
+
+    private static ShowInput dropInput(double beatPos, long sinceBeat, long sinceDropStart) {
+        ShowInput in = new ShowInput();
+        in.active = true;
+        in.timeMicros = 9_000_000;
+        in.beatPos = beatPos;
+        in.frame = new AnalysisFrame(AnalysisFrame.TEMPO_LOCKED, (int) beatPos, 0, 1280, 240, 240, 200,
+                new byte[]{(byte) 230, (byte) 150, 100, 80}, 1 | (2 << 4) | 0x40);
+        in.sinceBassMicros = sinceBeat;
+        in.sinceBeatMicros = sinceBeat;
+        in.sinceDropStartMicros = sinceDropStart;
+        return in;
+    }
+
+    @Test
+    void dropsBlitzenAufDemBeatUndBeimEinschlag() {
+        var fx = StageLayout.get().fixtures();
+        ShowProgram p = new ShowProgram(fx);
+        var o = new ShowProgram.Output(fx);
+        // ohne Drop: kein Blitz
+        p.evaluate(input(2, 240, 8.02), o);
+        assertEquals(0f, o.flash);
+        // Drop laeuft schon laenger: direkt auf dem Downbeat voller Blitz, kurz danach abgeklungen
+        p.evaluate(dropInput(8.02, 5_000, ShowInput.NEVER), o);
+        assertTrue(o.flash > 0.9f, "Blitz auf dem Downbeat: " + o.flash);
+        assertFalse(o.dropHit);
+        p.evaluate(dropInput(8.45, 220_000, ShowInput.NEVER), o);
+        assertTrue(o.flash < 0.35f, "Blitz klingt ab: " + o.flash);
+        // Drop-Einschlag: auch auf der Achtel dazwischen voller Blitz und alle Stroboskope an
+        p.evaluate(dropInput(9.52, 240_000, 400_000), o);
+        assertTrue(o.dropHit);
+        assertEquals(1f, o.flash);
+        for (float s : o.strobes) assertEquals(1f, s);
+        // nach dem Einschlag wieder nur auf dem Beat
+        p.evaluate(dropInput(9.52, 240_000, 2_000_000), o);
+        assertFalse(o.dropHit);
+        assertTrue(o.flash < 0.35f);
+    }
+
+    @Test
+    void pixelschriftDjTobi() {
+        String t = de.blockrave.core.show.PixelFont.sanitize("dj tobi");
+        assertEquals("DJ TOBI", t);
+        boolean[][] m = de.blockrave.core.show.PixelFont.render(t);
+        assertEquals(7, m.length);
+        assertEquals(41, m[0].length);
+        int on = 0;
+        for (boolean[] row : m) for (boolean b : row) if (b) on++;
+        assertTrue(on > 60 && on < 200, "Pixel gesetzt: " + on);
+        // Leerzeichen-Spalte zwischen "DJ" und "TOBI" ist leer
+        for (boolean[] row : m) for (int x = 12; x < 17; x++) assertFalse(row[x]);
+        assertEquals("ABC 1", de.blockrave.core.show.PixelFont.sanitize("  abc#1 "));
+        assertEquals(16, de.blockrave.core.show.PixelFont.sanitize("x".repeat(40)).length());
+    }
 }

@@ -456,6 +456,11 @@ public final class PlaybackController implements AudioEngine.Callbacks {
         audio.forEach(p -> newAudio.add(p.getUUID()));
         show.forEach(p -> newShow.add(p.getUUID()));
         engine.setListeners(audio, show);
+        if (!newAudio.equals(audioListeners) || !newShow.equals(showListeners)) {
+            BlockRave.LOG.info("BlockRave: Empfaenger Audio [{}], nur Licht [{}]",
+                    String.join(", ", audio.stream().map(p -> p.getGameProfile().getName()).toList()),
+                    String.join(", ", show.stream().map(p -> p.getGameProfile().getName()).toList()));
+        }
         for (ServerPlayer p : audio) if (!audioListeners.contains(p.getUUID())) engine.catchUp(p, true);
         for (ServerPlayer p : show) if (!showListeners.contains(p.getUUID()) && !audioListeners.contains(p.getUUID())) engine.catchUp(p, false);
         audioListeners.clear();

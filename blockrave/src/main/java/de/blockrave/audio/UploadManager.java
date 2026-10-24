@@ -209,12 +209,9 @@ public final class UploadManager {
         Mp3Inspector.Result info = null;
         long samples = 0;
         try {
-            byte[] head = new byte[256 * 1024];
-            int len;
-            try (InputStream in = Files.newInputStream(file)) {
-                len = Mp3Inspector.readUpTo(in, head, head.length);
+            try (InputStream in = new java.io.BufferedInputStream(Files.newInputStream(file))) {
+                info = Mp3Inspector.inspect(in);
             }
-            info = Mp3Inspector.inspect(head, len);
             if (!info.valid()) {
                 error = Component.translatable("blockrave.upload.not_mp3", info.error());
             } else {

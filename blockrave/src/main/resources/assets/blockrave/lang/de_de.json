@@ -186,6 +186,7 @@
   "blockrave.config.showRange": "Show-Reichweite (Blöcke)",
   "blockrave.config.mp3BufferMs": "MP3-Puffer (ms)",
   "blockrave.config.liveBufferMs": "Live-Puffer (ms)",
+  "blockrave.config.stageText": "Schriftzug auf der LED-Wand",
   "blockrave.config.opusBitrate": "Opus-Bitrate (Bit/s)",
   "blockrave.config.allowLive": "Live-Senden für alle erlauben",
   "blockrave.config.localVolume": "Lokale Lautstärke (%)",

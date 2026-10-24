@@ -151,13 +151,13 @@ public final class Payloads {
 
     // =====================================================================  Server -> Client
 
-    public record StageInfo(boolean present, String dimension, BlockPos anchor, int rotation, int hearingRange)
+    public record StageInfo(boolean present, String dimension, BlockPos anchor, int rotation, int hearingRange, String stageText)
             implements CustomPacketPayload {
         public static final Type<StageInfo> TYPE = payloadType("stage_info");
         public static final StreamCodec<FriendlyByteBuf, StageInfo> CODEC = StreamCodec.of(
                 (b, p) -> { b.writeBoolean(p.present); b.writeUtf(p.dimension, 256); b.writeBlockPos(p.anchor); b.writeByte(p.rotation);
-                    b.writeVarInt(p.hearingRange); },
-                b -> new StageInfo(b.readBoolean(), b.readUtf(256), b.readBlockPos(), b.readByte(), b.readVarInt()));
+                    b.writeVarInt(p.hearingRange); b.writeUtf(p.stageText, 64); },
+                b -> new StageInfo(b.readBoolean(), b.readUtf(256), b.readBlockPos(), b.readByte(), b.readVarInt(), b.readUtf(64)));
 
         @Override
         public Type<StageInfo> type() { return TYPE; }

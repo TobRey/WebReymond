@@ -41,7 +41,7 @@ public final class ShowTimeline {
         if (cur == null || now - cur.getKey() > FRAME * 3) {
             in.active = false;
             in.frame = AnalysisFrame.SILENCE;
-            in.sinceBeatMicros = in.sinceBassMicros = in.sinceOnsetMicros = in.sincePeakMicros = ShowInput.NEVER;
+            in.sinceBeatMicros = in.sinceBassMicros = in.sinceOnsetMicros = in.sincePeakMicros = in.sinceDropStartMicros = ShowInput.NEVER;
             return;
         }
         in.active = true;
@@ -58,7 +58,7 @@ public final class ShowTimeline {
         }
         double frac = Math.min(1.0, Math.max(0.0, (now - cur.getKey()) / (double) FRAME));
         in.beatPos = start + (end - start) * frac;
-        in.sinceBeatMicros = in.sinceBassMicros = in.sinceOnsetMicros = in.sincePeakMicros = ShowInput.NEVER;
+        in.sinceBeatMicros = in.sinceBassMicros = in.sinceOnsetMicros = in.sincePeakMicros = in.sinceDropStartMicros = ShowInput.NEVER;
         int found = 0;
         for (Map.Entry<Long, Entry> e : frames.headMap(now, true).descendingMap().entrySet()) {
             long since = now - e.getKey();
@@ -68,6 +68,16 @@ public final class ShowTimeline {
             if ((found & 2) == 0 && a.has(AnalysisFrame.BASS_HIT)) { in.sinceBassMicros = since; found |= 2; }
             if ((found & 4) == 0 && a.has(AnalysisFrame.ONSET)) { in.sinceOnsetMicros = since; found |= 4; }
             if ((found & 8) == 0 && a.has(AnalysisFrame.PEAK)) { in.sincePeakMicros = since; found |= 8; }
+        }
+        if (f.dropActive()) {
+            // Beginn des Drops: letzter Frame davor ohne Drop-Kennung (nur die letzten 3 s)
+            long dropStart = cur.getKey();
+            for (Map.Entry<Long, Entry> e : frames.headMap(cur.getKey(), false).descendingMap().entrySet()) {
+                if (now - e.getKey() > 3_000_000) { dropStart = Long.MIN_VALUE; break; }
+                if (!e.getValue().frame().dropActive()) break;
+                dropStart = e.getKey();
+            }
+            if (dropStart != Long.MIN_VALUE) in.sinceDropStartMicros = now - dropStart;
         }
     }
 

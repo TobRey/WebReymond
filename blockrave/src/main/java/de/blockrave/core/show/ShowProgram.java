@@ -41,6 +41,10 @@ public final class ShowProgram {
         public float frontBrightness;
         public int frontColor;
         public float masterLevel;
+        /** Blitzlicht (Blinder) 0..1: bei Drops auf jedem Beat, beim Drop-Einschlag in Achteln. */
+        public float flash;
+        /** Erste ~1,2 s eines Drops (Einschlag). */
+        public boolean dropHit;
 
         public Output(StageLayout.Fixtures fx) {
             heads = new Head[fx.movingHeads().size()];
@@ -159,12 +163,26 @@ public final class ShowProgram {
             l.intensity = !lasersOn ? 0f : (ec == 2 && frac > 0.75) ? 0.25f : 0.8f + 0.2f * bass;
         }
 
+        // --- Blitzlicht bei Drops ---
+        out.dropHit = active && drop && input.sinceDropStartMicros < 1_200_000;
+        float flash = 0f;
+        if (active && drop) {
+            boolean downbeat = Math.floorMod(beat, 4) == 0;
+            flash = downbeat ? pulse(input.sinceBeatMicros, 170) : 0.75f * pulse(input.sinceBeatMicros, 90);
+            if (out.dropHit) {
+                double eighth = input.beatPos * 2 - Math.floor(input.beatPos * 2);
+                if (eighth < 0.2) flash = 1f;
+            }
+        }
+        out.flash = flash;
+
         // --- Stroboskope ---
         double frac = input.beatPos - Math.floor(input.beatPos);
         for (int i = 0; i < out.strobes.length; i++) {
             float s = 0f;
             if (active && drop && input.sinceBeatMicros < 45_000) s = 1f;
             if (active && ec == 2 && drop && Math.abs(frac - 0.5) < 0.04) s = 1f;
+            if (out.dropHit && flash >= 1f) s = 1f;
             if (active && ec == 2 && f.band(3) > 0.75f && input.sinceOnsetMicros < 35_000 && (i % 2) == (beat % 2)) s = Math.max(s, 0.8f);
             out.strobes[i] = s;
         }

@@ -36,7 +36,10 @@ public final class BlockRave {
         modBus.addListener(ModConfigEvent.Reloading.class, e -> {
             if (e.getConfig().getSpec() == BlockRaveConfig.SERVER_SPEC) {
                 var m = de.blockrave.stage.StageManager.getOrNull();
-                if (m != null) m.server().execute(() -> m.playback().applyConfig());
+                if (m != null) m.server().execute(() -> {
+                    m.playback().applyConfig();
+                    m.broadcastStageInfo(); // z.B. geaenderter Schriftzug
+                });
             }
         });
     }
