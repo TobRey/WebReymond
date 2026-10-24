@@ -232,14 +232,7 @@ public final class PlaybackController implements AudioEngine.Callbacks {
     private void startTrack(String id, long startMicros) {
         var t = library.lib().find(id);
         if (t.isEmpty()) return;
-        try {
-            engine.startTrack(id, library.trackFile(id), startMicros);
-        } catch (IOException e) {
-            BlockRave.LOG.warn("BlockRave: Titel {} konnte nicht geoeffnet werden: {}", id, e.getMessage());
-            message(Component.translatable("blockrave.status.track_error", t.get().displayName()));
-            state = Payloads.RaveStatus.STOPPED;
-            return;
-        }
+        engine.startTrack(id, library.trackFile(id), startMicros);
         currentStreamToken++;
         trackId = id;
         title = t.get().displayName();
@@ -325,7 +318,15 @@ public final class PlaybackController implements AudioEngine.Callbacks {
     public void onTrackFailed(String failedTrack, String msg) {
         server.execute(() -> {
             if (!failedTrack.equals(trackId)) return;
-            stop(Component.translatable("blockrave.status.track_error", title));
+            String failedTitle = title;
+            // Defekten Titel ueberspringen, naechsten versuchen (hoechstens einmal pro Befehl)
+            var next = library.lib().takeNext();
+            if (next.isPresent() && !next.get().equals(failedTrack)) {
+                startTrack(next.get(), ServerClock.nowMicros() + 300_000);
+            } else {
+                stop(Component.translatable("blockrave.status.track_error", failedTitle));
+            }
+            message(Component.translatable("blockrave.status.track_error", failedTitle));
             changed();
         });
     }

@@ -123,12 +123,10 @@ public final class AudioEngine {
      * Startet einen Titel. {@code startMicros} ist der Abspielzeitpunkt des Titelanfangs.
      * Ein laufender MP3-Titel wird vorher ab {@code startMicros} abgeschnitten.
      */
-    public void startTrack(String trackId, Path file, long startMicros) throws IOException {
-        Mp3PcmSource src = new Mp3PcmSource(file); // Fehler hier -> Aufrufer meldet
+    public void startTrack(String trackId, Path file, long startMicros) {
         synchronized (lock) {
             stopMp3Locked(startMicros);
-            Mp3Job job = new Mp3Job(trackId, file);
-            job.source = src;
+            Mp3Job job = new Mp3Job(trackId, file); // Datei wird erst auf dem Audio-Thread geoeffnet
             job.streamId = nextStreamId++;
             job.encoder = new OpusFrameEncoder(opusBitrate, 5);
             job.nextPlayout = startMicros;
@@ -206,6 +204,17 @@ public final class AudioEngine {
     private void produceMp3(long now) {
         Mp3Job job = mp3;
         if (job == null || job.paused || job.finished) return;
+        if (job.source == null) {
+            try {
+                job.source = new Mp3PcmSource(job.file);
+            } catch (IOException e) {
+                BlockRave.LOG.warn("BlockRave: Titel {} konnte nicht geoeffnet werden: {}", job.trackId, e.getMessage());
+                job.finished = true;
+                mp3 = null;
+                callbacks.onTrackFailed(job.trackId, e.getMessage());
+                return;
+            }
+        }
         float[] buf = new float[AudioConstants.FRAME_SAMPLES * 2];
         int budget = 6; // max. Frames pro Durchlauf, Sperre kurz halten
         while (budget-- > 0 && job.nextPlayout < now + mp3LeadMicros) {

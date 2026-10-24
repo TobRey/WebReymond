@@ -11,6 +11,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.config.ModConfigEvent;
 import org.slf4j.Logger;
 
 /**
@@ -32,6 +33,12 @@ public final class BlockRave {
         modBus.addListener(BlockRaveNetwork::register);
         container.registerConfig(ModConfig.Type.SERVER, BlockRaveConfig.SERVER_SPEC);
         container.registerConfig(ModConfig.Type.CLIENT, BlockRaveConfig.CLIENT_SPEC);
+        modBus.addListener(ModConfigEvent.Reloading.class, e -> {
+            if (e.getConfig().getSpec() == BlockRaveConfig.SERVER_SPEC) {
+                var m = de.blockrave.stage.StageManager.getOrNull();
+                if (m != null) m.server().execute(() -> m.playback().applyConfig());
+            }
+        });
     }
 
     public static ResourceLocation id(String path) {
