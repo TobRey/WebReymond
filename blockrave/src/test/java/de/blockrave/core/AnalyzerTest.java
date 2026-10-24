@@ -117,4 +117,27 @@ class AnalyzerTest {
         assertEquals(1, g.energyClass());
         assertTrue(g.dropActive());
     }
+
+    /** Kicks mit digitaler Stille dazwischen (sparsame Intros, Live-Loopback): darf nicht als "still" gelten. */
+    @Test
+    void kicksMitEchterStilleDazwischen() {
+        de.blockrave.core.analysis.AnalysisPipeline p = new de.blockrave.core.analysis.AnalysisPipeline();
+        double beat = 48000 * 60.0 / 128.0;
+        long sample = 0;
+        de.blockrave.core.analysis.AnalysisFrame last = null;
+        for (int k = 0; k < 50 * 10; k++) {
+            float[] f = new float[1920];
+            for (int i = 0; i < 960; i++, sample++) {
+                double t = (sample % beat) / 48000;
+                double kick = t < 0.12 ? Math.sin(2 * Math.PI * (50 + 90 * Math.exp(-t * 30)) * t) * Math.exp(-t * 18) : 0;
+                f[2 * i] = (float) (0.7 * kick);
+                f[2 * i + 1] = f[2 * i];
+            }
+            last = p.process(f).analysis();
+        }
+        assertFalse(last.has(de.blockrave.core.analysis.AnalysisFrame.SILENT), "Kick-Muster gilt faelschlich als Stille");
+        assertTrue(last.has(de.blockrave.core.analysis.AnalysisFrame.TEMPO_LOCKED), "Tempo nicht eingerastet");
+        assertEquals(128.0, last.bpmTenths() / 10.0, 1.0);
+        assertTrue(last.energyF() > 0.5f, "Energie: " + last.energyF());
+    }
 }

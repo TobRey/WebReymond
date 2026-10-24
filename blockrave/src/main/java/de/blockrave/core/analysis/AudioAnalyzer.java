@@ -51,6 +51,7 @@ public final class AudioAnalyzer {
 
     // Lautheit
     private double shortDb = -90, mediumDb = -90, refMax = -20;
+    private double shortPow, mediumPow;
     private final double[] mediumHist = new double[ENV_LEN];
     private final double[] bandRef = {-30, -30, -30, -30};
     private final double[] bandDbNow = new double[4];
@@ -190,9 +191,11 @@ public final class AudioAnalyzer {
             ringPos = (ringPos + 1) % N;
         }
         ms /= HOP;
-        double db = 10 * Math.log10(ms + 1e-12) + 3.01; // Vollaussteuerungs-Sinus = 0 dB
-        shortDb += (db - shortDb) / 25.0;
-        mediumDb += (db - mediumDb) / 100.0;
+        // Leistung mitteln (nicht dB): sonst ziehen stille Luecken zwischen Kicks den Pegel gegen -120 dB
+        shortPow += (ms - shortPow) / 25.0;
+        mediumPow += (ms - mediumPow) / 100.0;
+        shortDb = 10 * Math.log10(shortPow + 1e-12) + 3.01; // Vollaussteuerungs-Sinus = 0 dB
+        mediumDb = 10 * Math.log10(mediumPow + 1e-12) + 3.01;
         if (shortDb > refMax) refMax = shortDb;
         else refMax = Math.max(-45, refMax - 0.002);
         if (shortDb < -55) {

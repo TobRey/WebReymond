@@ -377,7 +377,8 @@ public final class MultiplayerE2E {
                     evaluateSync();
                     ShowInput in = new ShowInput();
                     st().timeline.fill(st().serverNow(), in);
-                    ok(in.active, String.format("Lichtshow aus Live-Analyse (BPM %.1f, Test-Kick 128 BPM)", in.frame.bpmTenths() / 10.0));
+                    double bpm = in.frame.bpmTenths() / 10.0;
+                    ok(in.active && Math.abs(bpm - 128) < 3, String.format("Lichtshow aus Live-Analyse (BPM %.1f, Test-Kick 128 BPM)", bpm));
                     return true;
                 }));
                 PHASES.add(new Phase("Ende B", 2_000, () -> {
