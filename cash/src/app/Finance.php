@@ -78,6 +78,12 @@ final class Finance
         return $out;
     }
 
+    /** Sparkonten zählen standardmässig nicht zum frei verfügbaren Geld. */
+    public static function defaultAvailable(string $type): bool
+    {
+        return $type !== 'savings';
+    }
+
     public static function normalize(array &$d): void
     {
         $blank = self::blank();
@@ -89,6 +95,18 @@ final class Finance
                 $d[$k] = $v;
             }
         }
+        foreach ($d['accounts'] as &$a) {
+            if (!isset($a['available']) || !is_bool($a['available'])) {
+                $a['available'] = self::defaultAvailable($a['type'] ?? 'checking');
+            }
+        }
+        unset($a);
+        foreach ($d['goals'] as &$g) {
+            if (!isset($g['monthly']) || !is_int($g['monthly'])) {
+                $g['monthly'] = 0;
+            }
+        }
+        unset($g);
         $d['settings']['lastRates'] ??= [];
         $d['settings']['lastAccountId'] ??= null;
         $d['version'] = self::VERSION;
@@ -278,7 +296,8 @@ final class Finance
             }
             $opening = self::money($a['opening'], 'Anfangssaldo ' . $name, true, true);
             $type = in_array($a['type'] ?? '', self::ACCOUNT_TYPES, true) ? $a['type'] : 'checking';
-            $new[] = self::newAccount($name, $type, $opening, $today);
+            $available = isset($a['available']) ? (bool)$a['available'] : self::defaultAvailable($type);
+            $new[] = self::newAccount($name, $type, $opening, $today, $available);
         }
         $d['accounts'] = $new;
         $d['settings']['lastAccountId'] = $new[0]['id'];
@@ -303,12 +322,13 @@ final class Finance
         return ['message' => 'Einrichtung abgeschlossen.'];
     }
 
-    private static function newAccount(string $name, string $type, int $opening, string $today): array
+    private static function newAccount(string $name, string $type, int $opening, string $today, bool $available): array
     {
         return [
             'id' => cash_new_id(),
             'name' => $name,
             'type' => $type,
+            'available' => $available,
             'opening' => $opening,
             'openingDate' => $today,
             'archived' => false,
@@ -323,6 +343,7 @@ final class Finance
         $name = self::text($in['name'] ?? '', 'Kontoname', 60, true);
         $type = in_array($in['type'] ?? '', self::ACCOUNT_TYPES, true) ? $in['type'] : 'checking';
         $opening = self::money($in['opening'] ?? '0', 'Anfangssaldo', true, true);
+        $available = isset($in['available']) ? (bool)$in['available'] : self::defaultAvailable($type);
         foreach ($d['accounts'] as $a) {
             if (mb_strtolower($a['name']) === mb_strtolower($name) && $a['id'] !== ($in['id'] ?? null)) {
                 self::err('Ein Konto mit diesem Namen existiert bereits.', 409);
@@ -330,7 +351,7 @@ final class Finance
         }
         $id = self::idOf($in['id'] ?? null);
         if ($id === null) {
-            $a = self::newAccount($name, $type, $opening, $today);
+            $a = self::newAccount($name, $type, $opening, $today, $available);
             $d['accounts'][] = $a;
             return ['message' => 'Konto angelegt.', 'id' => $a['id']];
         }
@@ -338,6 +359,7 @@ final class Finance
         $d['accounts'][$i]['name'] = $name;
         $d['accounts'][$i]['type'] = $type;
         $d['accounts'][$i]['opening'] = $opening;
+        $d['accounts'][$i]['available'] = $available;
         return ['message' => 'Konto gespeichert.'];
     }
 
@@ -369,7 +391,7 @@ final class Finance
         }
         foreach ($d['bills'] as $b) {
             if (($b['accountId'] ?? null) === $id) {
-                self::err('Das Konto wird von einer Rechnung verwendet. Bitte zuerst dort ändern.', 409);
+                self::err('Das Konto wird von Fixkosten verwendet. Bitte zuerst dort ändern.', 409);
             }
         }
         foreach ($d['debts'] as $b) {
@@ -434,7 +456,7 @@ final class Finance
         }
         foreach (array_merge($d['budgets'], $d['bills']) as $x) {
             if (($x['categoryId'] ?? null) === $id) {
-                self::err('Die Kategorie wird von einem Budget oder einer Rechnung verwendet.', 409);
+                self::err('Die Kategorie wird von einem Budget oder von Fixkosten verwendet.', 409);
             }
         }
         array_splice($d['categories'], $i, 1);
@@ -461,7 +483,10 @@ final class Finance
             self::err('Ungültiger Buchungstyp.');
         }
         if ($old && ($old['link']['kind'] ?? null) === 'bill' && $type !== 'expense') {
-            self::err('Eine bezahlte Rechnung bleibt eine Ausgabe.');
+            self::err('Eine bezahlte Fixkosten-Zahlung bleibt eine Ausgabe.');
+        }
+        if ($old && ($old['link']['kind'] ?? null) === 'goal' && $type !== 'transfer') {
+            self::err('Eine Spar-Umbuchung bleibt eine Umbuchung.');
         }
         $date = self::date($in['date'] ?? null, 'Datum');
         $accountId = self::account($d, self::idOf($in['accountId'] ?? null), $type === 'transfer' ? 'Von Konto' : 'Konto', $old['accountId'] ?? null);
@@ -531,10 +556,23 @@ final class Finance
             'created' => $old['created'] ?? date('c'),
             'updated' => date('c'),
         ];
+        $recurring = $idx === null && $type === 'expense' && !empty($in['recurring']);
+        if ($recurring) {
+            $tx['link'] = self::makeRecurring($d, $tx, $in, $today);
+        }
         if ($idx === null) {
             $d['transactions'][] = $tx;
         } else {
             $d['transactions'][$idx] = $tx;
+        }
+        // Verknüpfte Sparziel-Zuweisung konsistent halten.
+        if (($tx['link']['kind'] ?? null) === 'goal') {
+            $gi = self::find($d['goals'], $tx['link']['goalId']);
+            $ai = $gi === null ? null : self::find($d['goals'][$gi]['allocations'], $tx['link']['allocationId']);
+            if ($ai !== null) {
+                $d['goals'][$gi]['allocations'][$ai]['amount'] = $amount;
+                $d['goals'][$gi]['allocations'][$ai]['date'] = $date;
+            }
         }
         // Verknüpfte Rechnung konsistent halten.
         if (($tx['link']['kind'] ?? null) === 'bill') {
@@ -546,7 +584,39 @@ final class Finance
             }
         }
         $d['settings']['lastAccountId'] = $accountId;
-        return ['message' => $id ? 'Buchung gespeichert.' : 'Buchung erfasst.', 'id' => $tx['id']];
+        return ['message' => $id ? 'Buchung gespeichert.' : ($recurring ? 'Ausgabe erfasst – wiederholt sich automatisch.' : 'Buchung erfasst.'), 'id' => $tx['id']];
+    }
+
+    /**
+     * Macht aus einer neuen Ausgabe eine wiederkehrende Fixkosten-Position.
+     * Die erfasste Ausgabe gilt als bezahlte erste Fälligkeit; verpasste Termine
+     * zwischen Buchungsdatum und heute werden nicht nachträglich als offen erzeugt.
+     */
+    private static function makeRecurring(array &$d, array $tx, array $in, string $today): array
+    {
+        $interval = in_array($in['interval'] ?? 'monthly', ['monthly', 'quarterly', 'yearly'], true) ? ($in['interval'] ?? 'monthly') : 'monthly';
+        $catName = $d['categories'][self::find($d['categories'], $tx['categoryId'])]['name'] ?? 'Fixkosten';
+        $bill = [
+            'id' => cash_new_id(), 'name' => mb_substr($tx['description'] !== '' ? $tx['description'] : $catName, 0, 80),
+            'amount' => $tx['amount'], 'categoryId' => $tx['categoryId'], 'startDate' => $tx['date'], 'interval' => $interval,
+            'endDate' => null, 'accountId' => $tx['accountId'], 'note' => '', 'active' => true, 'generatedUntil' => $tx['date'],
+            'created' => date('c'),
+        ];
+        $limit = max($tx['date'], $today);
+        for ($n = 0; $n < 3000; $n++) {
+            $dt = self::nthDate($bill, $n);
+            if ($dt > $limit) {
+                break;
+            }
+            $bill['generatedUntil'] = $dt;
+        }
+        $occ = [
+            'id' => cash_new_id(), 'billId' => $bill['id'], 'dueDate' => $tx['date'], 'amount' => $tx['amount'],
+            'status' => 'paid', 'paidDate' => $tx['date'], 'paidAmount' => $tx['amount'], 'accountId' => $tx['accountId'], 'txId' => $tx['id'],
+        ];
+        $d['bills'][] = $bill;
+        $d['occurrences'][] = $occ;
+        return ['kind' => 'bill', 'billId' => $bill['id'], 'occurrenceId' => $occ['id']];
     }
 
     private static function txDelete(array &$d, array $in): array
@@ -563,8 +633,22 @@ final class Finance
                 self::reopenOccurrence($d['occurrences'][$oi]);
             }
         }
+        if ($kind === 'goal') {
+            $gi = self::find($d['goals'], $t['link']['goalId']);
+            $ai = $gi === null ? null : self::find($d['goals'][$gi]['allocations'], $t['link']['allocationId']);
+            if ($ai !== null) {
+                array_splice($d['goals'][$gi]['allocations'], $ai, 1);
+                if (array_sum(array_column($d['goals'][$gi]['allocations'], 'amount')) < 0) {
+                    self::err('Danach wäre der Sparbetrag negativ.');
+                }
+            }
+        }
         array_splice($d['transactions'], $i, 1);
-        return ['message' => $kind === 'bill' ? 'Buchung gelöscht – Rechnung ist wieder offen.' : 'Buchung gelöscht.'];
+        return ['message' => match ($kind) {
+            'bill' => 'Buchung gelöscht – Fixkosten sind wieder offen.',
+            'goal' => 'Spar-Umbuchung und Zuweisung gelöscht.',
+            default => 'Buchung gelöscht.',
+        }];
     }
 
     private static function rateSet(array &$d, array $in): array
@@ -764,7 +848,7 @@ final class Finance
         $amount = self::money($in['amount'] ?? '', 'Betrag');
         $old = null;
         if ($id !== null) {
-            $old = $d['bills'][self::mustFind($d['bills'], $id, 'Die Rechnung')];
+            $old = $d['bills'][self::mustFind($d['bills'], $id, 'Die Fixkosten-Position')];
         }
         $categoryId = self::category($d, self::idOf($in['categoryId'] ?? null), 'expense', $old['categoryId'] ?? null);
         $startDate = self::date($in['startDate'] ?? null, 'Fälligkeit');
@@ -790,7 +874,7 @@ final class Finance
                 'created' => date('c'),
             ];
             $d['bills'][] = $b;
-            return ['message' => 'Rechnung erfasst.', 'id' => $b['id']];
+            return ['message' => 'Fixkosten erfasst.', 'id' => $b['id']];
         }
         $i = self::find($d['bills'], $id);
         $scheduleChanged = $old['startDate'] !== $startDate || $old['interval'] !== $interval || ($old['endDate'] ?? null) !== $endDate;
@@ -816,19 +900,19 @@ final class Finance
             }
             $d['bills'][$i]['generatedUntil'] = $last;
         }
-        return ['message' => 'Rechnung gespeichert.'];
+        return ['message' => 'Fixkosten gespeichert.'];
     }
 
     private static function billActive(array &$d, array $in, string $today): array
     {
         $id = self::idOf($in['id'] ?? null);
-        $i = self::mustFind($d['bills'], $id, 'Die Rechnung');
+        $i = self::mustFind($d['bills'], $id, 'Die Fixkosten-Position');
         $active = !empty($in['active']);
         $d['bills'][$i]['active'] = $active;
         if (!$active) {
             $d['occurrences'] = array_values(array_filter($d['occurrences'],
                 fn($o) => !($o['billId'] === $id && $o['status'] === 'open' && $o['dueDate'] >= $today)));
-            return ['message' => 'Rechnung beendet. Es werden keine neuen Fälligkeiten erzeugt.'];
+            return ['message' => 'Fixkosten beendet. Es werden keine neuen Termine erzeugt.'];
         }
         $last = null;
         foreach ($d['occurrences'] as $o) {
@@ -838,13 +922,13 @@ final class Finance
         }
         // Beim Reaktivieren keine verpassten Fälligkeiten der Pause nachträglich erzeugen.
         $d['bills'][$i]['generatedUntil'] = max((string)$last, self::addDays($today, -1));
-        return ['message' => 'Rechnung wieder aktiv.'];
+        return ['message' => 'Fixkosten wieder aktiv.'];
     }
 
     private static function billDelete(array &$d, array $in): array
     {
         $id = self::idOf($in['id'] ?? null);
-        $i = self::mustFind($d['bills'], $id, 'Die Rechnung');
+        $i = self::mustFind($d['bills'], $id, 'Die Fixkosten-Position');
         $name = $d['bills'][$i]['name'];
         foreach ($d['transactions'] as &$t) {
             if (($t['link']['kind'] ?? null) === 'bill' && $t['link']['billId'] === $id) {
@@ -857,7 +941,7 @@ final class Finance
         unset($t);
         $d['occurrences'] = array_values(array_filter($d['occurrences'], fn($o) => $o['billId'] !== $id));
         array_splice($d['bills'], $i, 1);
-        return ['message' => 'Rechnung gelöscht. Bereits bezahlte Ausgaben bleiben erhalten.'];
+        return ['message' => 'Fixkosten gelöscht. Bereits bezahlte Ausgaben bleiben erhalten.'];
     }
 
     private static function reopenOccurrence(array &$o): void
@@ -874,12 +958,12 @@ final class Finance
         $oi = self::mustFind($d['occurrences'], self::idOf($in['id'] ?? null), 'Die Fälligkeit');
         $o = $d['occurrences'][$oi];
         if ($o['status'] === 'paid') {
-            self::err('Diese Rechnung ist bereits als bezahlt markiert.', 409);
+            self::err('Dieser Betrag ist bereits als bezahlt markiert.', 409);
         }
         if ($o['status'] !== 'open') {
             self::err('Diese Fälligkeit ist nicht offen.', 409);
         }
-        $bi = self::mustFind($d['bills'], $o['billId'], 'Die Rechnung');
+        $bi = self::mustFind($d['bills'], $o['billId'], 'Die Fixkosten-Position');
         $bill = $d['bills'][$bi];
         $date = self::date($in['date'] ?? null, 'Zahlungsdatum');
         $accountId = self::account($d, self::idOf($in['accountId'] ?? null), 'Konto');
@@ -906,7 +990,7 @@ final class Finance
         $d['occurrences'][$oi]['accountId'] = $accountId;
         $d['occurrences'][$oi]['txId'] = $txId;
         $d['settings']['lastAccountId'] = $accountId;
-        return ['message' => 'Als bezahlt markiert – Ausgabe erfasst.'];
+        return ['message' => 'Bezahlt – Ausgabe erfasst.'];
     }
 
     private static function occUnpay(array &$d, array $in): array
@@ -921,7 +1005,7 @@ final class Finance
             array_splice($d['transactions'], $ti, 1);
         }
         self::reopenOccurrence($d['occurrences'][$oi]);
-        return ['message' => 'Zahlung zurückgenommen – Ausgabe gelöscht.'];
+        return ['message' => 'Zahlung zurückgenommen – wieder offen.'];
     }
 
     private static function occSkip(array &$d, array $in, bool $skip): array
@@ -946,8 +1030,9 @@ final class Finance
         $name = self::text($in['name'] ?? '', 'Name', 60, true);
         $target = self::money($in['target'] ?? '', 'Zielbetrag');
         $targetDate = self::date($in['targetDate'] ?? null, 'Zieldatum', false);
+        $monthly = ($in['monthly'] ?? '') === '' || ($in['monthly'] ?? null) === null ? 0 : self::money($in['monthly'], 'Sparrate pro Monat', true);
         if ($id === null) {
-            $g = ['id' => cash_new_id(), 'name' => $name, 'target' => $target, 'targetDate' => $targetDate,
+            $g = ['id' => cash_new_id(), 'name' => $name, 'target' => $target, 'targetDate' => $targetDate, 'monthly' => $monthly,
                 'allocations' => [], 'archived' => false, 'created' => date('c')];
             $initial = $in['initial'] ?? '';
             if ($initial !== '' && $initial !== null) {
@@ -963,6 +1048,7 @@ final class Finance
         $d['goals'][$i]['name'] = $name;
         $d['goals'][$i]['target'] = $target;
         $d['goals'][$i]['targetDate'] = $targetDate;
+        $d['goals'][$i]['monthly'] = $monthly;
         if (isset($in['archived'])) {
             $d['goals'][$i]['archived'] = (bool)$in['archived'];
         }
@@ -972,6 +1058,13 @@ final class Finance
     private static function goalDelete(array &$d, array $in): array
     {
         $i = self::mustFind($d['goals'], self::idOf($in['id'] ?? null), 'Das Sparziel');
+        $gid = $d['goals'][$i]['id'];
+        foreach ($d['transactions'] as &$t) {
+            if (($t['link']['kind'] ?? null) === 'goal' && $t['link']['goalId'] === $gid) {
+                $t['link'] = null;   // echte Umbuchungen bleiben bestehen
+            }
+        }
+        unset($t);
         array_splice($d['goals'], $i, 1);
         return ['message' => 'Sparziel gelöscht (Kontostände unverändert).'];
     }
@@ -987,13 +1080,35 @@ final class Finance
         if ($saved + $amount < 0) {
             self::err('Es kann nicht mehr entnommen werden als zugewiesen ist (CHF ' . Money::format($saved) . ').');
         }
+        $date = self::date($in['date'] ?? $today, 'Datum');
+        $aid = cash_new_id();
+        $txId = null;
+        $from = self::idOf($in['fromAccountId'] ?? null);
+        $to = self::idOf($in['toAccountId'] ?? null);
+        if ($from !== null || $to !== null) {
+            // Echte Geldbewegung als Umbuchung (z. B. Privatkonto → Sparkonto).
+            self::account($d, $from, 'Von Konto');
+            self::account($d, $to, 'Auf Konto');
+            if ($from === $to) {
+                self::err('Bitte zwei verschiedene Konten wählen.');
+            }
+            $txId = cash_new_id();
+            $d['transactions'][] = [
+                'id' => $txId, 'type' => 'transfer', 'date' => $date, 'amount' => abs($amount), 'accountId' => $from,
+                'toAccountId' => $to, 'categoryId' => null, 'budgetId' => null,
+                'description' => 'Sparen: ' . $d['goals'][$i]['name'], 'fx' => null,
+                'link' => ['kind' => 'goal', 'goalId' => $d['goals'][$i]['id'], 'allocationId' => $aid],
+                'created' => date('c'), 'updated' => date('c'),
+            ];
+        }
         $d['goals'][$i]['allocations'][] = [
-            'id' => cash_new_id(),
-            'date' => self::date($in['date'] ?? $today, 'Datum'),
+            'id' => $aid,
+            'date' => $date,
             'amount' => $amount,
             'note' => self::text($in['note'] ?? '', 'Notiz', 120, false),
+            'txId' => $txId,
         ];
-        return ['message' => $amount > 0 ? 'Betrag zugewiesen.' : 'Betrag entnommen.'];
+        return ['message' => $amount > 0 ? ($txId ? 'Gespart – Umbuchung erfasst.' : 'Betrag zugewiesen.') : 'Betrag entnommen.'];
     }
 
     private static function goalAllocDelete(array &$d, array $in): array
@@ -1001,11 +1116,16 @@ final class Finance
         $i = self::mustFind($d['goals'], self::idOf($in['goalId'] ?? null), 'Das Sparziel');
         $ai = self::mustFind($d['goals'][$i]['allocations'], self::idOf($in['allocId'] ?? null), 'Die Zuweisung');
         $rest = $d['goals'][$i]['allocations'];
+        $txId = $rest[$ai]['txId'] ?? null;
         array_splice($rest, $ai, 1);
         if (array_sum(array_column($rest, 'amount')) < 0) {
             self::err('Danach wäre der Sparbetrag negativ.');
         }
         $d['goals'][$i]['allocations'] = $rest;
+        $ti = self::find($d['transactions'], $txId);
+        if ($ti !== null) {
+            array_splice($d['transactions'], $ti, 1);   // zugehörige Umbuchung ebenfalls entfernen
+        }
         return ['message' => 'Zuweisung entfernt.'];
     }
 
@@ -1323,11 +1443,21 @@ final class Finance
             $bills[] = $b;
         }
 
-        // Sparziele
+        // Sparziele inkl. Sparrate des laufenden Monats
+        $curMonth = substr($today, 0, 7);
         $goals = [];
+        $savingsDue = 0;
         foreach ($d['goals'] as $g) {
             $g['saved'] = array_sum(array_column($g['allocations'], 'amount'));
             $g['remaining'] = max(0, $g['target'] - $g['saved']);
+            $g['savedThisMonth'] = 0;
+            foreach ($g['allocations'] as $al) {
+                if ($al['amount'] > 0 && !empty($al['txId']) && str_starts_with($al['date'], $curMonth)) {
+                    $g['savedThisMonth'] += $al['amount'];
+                }
+            }
+            $g['dueThisMonth'] = $g['archived'] ? 0 : max(0, min($g['monthly'] - $g['savedThisMonth'], $g['remaining']));
+            $savingsDue += $g['dueThisMonth'];
             $goals[] = $g;
         }
 
@@ -1344,6 +1474,51 @@ final class Finance
                 $owedToMe += $x['remaining'];
             }
             $debts[] = $x;
+        }
+
+        // Hauptzahl: was nach allen Zahlungen dieses Monats frei bleibt.
+        [, $curEnd] = self::monthBounds($curMonth);
+        [$nextStart, $nextEnd] = self::monthBounds(substr(self::addMonths($curMonth . '-01', 1), 0, 7));
+        $available = 0;
+        foreach ($accounts as $a) {
+            if (!$a['archived'] && $a['available']) {
+                $available += $a['balance'];
+            }
+        }
+        $fixedOpen = 0;
+        $fixedOpenCount = 0;
+        $fixedNext = 0;
+        foreach ($d['occurrences'] as $o) {
+            if ($o['status'] !== 'open') {
+                continue;
+            }
+            if ($o['dueDate'] <= $curEnd) {
+                $fixedOpen += $o['amount'];
+                $fixedOpenCount++;
+            } elseif ($o['dueDate'] >= $nextStart && $o['dueDate'] <= $nextEnd) {
+                $fixedNext += $o['amount'];
+            }
+        }
+        $fixedPerMonth = 0;
+        foreach ($d['bills'] as $b) {
+            if ($b['active'] && $b['interval'] !== 'once') {
+                $fixedPerMonth += match ($b['interval']) {
+                    'weekly' => intdiv($b['amount'] * 52, 12),
+                    'biweekly' => intdiv($b['amount'] * 26, 12),
+                    'quarterly' => intdiv($b['amount'], 3),
+                    'semiannual' => intdiv($b['amount'], 6),
+                    'yearly' => intdiv($b['amount'], 12),
+                    default => $b['amount'],
+                };
+            }
+        }
+        $free = $available - $fixedOpen - $savingsDue;
+        $daysLeft = (int)substr($curEnd, 8, 2) - (int)substr($today, 8, 2) + 1;
+        $curExpense = 0;
+        foreach ($d['transactions'] as $t) {
+            if ($t['type'] === 'expense' && str_starts_with($t['date'], $curMonth)) {
+                $curExpense += $t['amount'];
+            }
         }
 
         $tx = $d['transactions'];
@@ -1366,6 +1541,19 @@ final class Finance
             'goals' => $goals,
             'debts' => $debts,
             'summary' => [
+                'free' => [
+                    'month' => $curMonth,
+                    'available' => $available,
+                    'fixedOpen' => $fixedOpen,
+                    'fixedOpenCount' => $fixedOpenCount,
+                    'savingsDue' => $savingsDue,
+                    'free' => $free,
+                    'daysLeft' => $daysLeft,
+                    'perDay' => $free > 0 ? intdiv($free, max(1, $daysLeft)) : 0,
+                    'fixedNextMonth' => $fixedNext,
+                    'fixedPerMonth' => $fixedPerMonth,
+                    'spentThisMonth' => $curExpense,
+                ],
                 'totalBalance' => $total,
                 'income' => $income,
                 'expense' => $expense,

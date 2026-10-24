@@ -16,8 +16,7 @@ Alle Daten liegen serverseitig in geschützten JSON-Dateien (Beträge intern als
 5. **https://reymond-tobias.ch/cash** öffnen und den eigenen Account einrichten
    (Name, Benutzername, Passwort mit mind. 10 Zeichen).
 6. Danach fragt CASH die **aktuellen Kontostände** von *Privatkonto* und *E-Jugendsparkonto* ab
-   (0 ist erlaubt) und bereitet das **Thailand-Budget** vor: CHF 315.00 verfügbares Restbudget ab heute,
-   Eingabewährung THB. Beim ersten THB-Betrag fragst du den Kurs «THB pro CHF» selbst ein.
+   (0 ist erlaubt). Das Privatkonto zählt als Alltagskonto, das Sparkonto nicht.
 
 Fertig. Auf dem iPhone in Safari **Teilen → «Zum Home-Bildschirm»** wählen – CASH öffnet sich dann wie eine App.
 
@@ -47,31 +46,37 @@ bleiben erhalten. Dateien der Hauptwebsite werden nie berührt (alles bleibt in 
 
 ## Funktionen
 
+Die Hauptzahl auf der Übersicht ist **«Frei für Freizeit»** – so viel Geld bleibt bis Ende Monat,
+wenn alle Fixkosten bezahlt und die Sparraten gespart sind:
+
+```
+  Guthaben auf Alltagskonten
+− noch offene Fixkosten bis Ende Monat
+− noch nicht gesparte Sparraten des Monats
+= Frei für Freizeit   (dazu: etwa CHF … pro Tag für die restlichen Tage)
+```
+
 | Bereich | Inhalt |
 |---|---|
-| **Übersicht** | Kontostand aller Konten, Einnahmen/Ausgaben des gewählten Monats, noch unbezahlte Rechnungen, ein Diagramm (kumulierter Monatsverlauf), aktive Budgets mit Restbetrag, Schnellknöpfe Einnahme/Ausgabe |
+| **Übersicht** | Frei für Freizeit mit Rechnung dazu, Ausgabe/Einnahme erfassen, «Noch zu bezahlen» mit Bezahlt-Knopf, Ausgaben im Monat, Fixkosten pro Monat, Konten |
 | **Buchungen** | Einnahmen, Ausgaben, Umbuchungen; Bearbeiten/Löschen; Suche; Filter nach Monat, Typ, Konto, Kategorie; CSV-Export |
-| **Budgets** | Monatsbudgets pro Kategorie, freie Budgets mit optionalem Zeitraum, Ferienbudgets mit Zusatzwährung (THB, EUR, USD, GBP) |
-| **Rechnungen** | einmalig oder wiederkehrend (wöchentlich … jährlich), Offen / Überfällig / Bezahlt, «Als bezahlt markieren» mit Datum und Konto, Zurücknehmen, Überspringen |
-| **Sparziele** | Zielbetrag, Zieldatum, Zuweisen/Entnehmen mit Verlauf, Fortschritt |
-| **Schulden** | «Ich schulde anderen» / «Andere schulden mir», Teilzahlungen, Restbetrag, Verlauf |
-| **Konten** | anlegen, bearbeiten, archivieren, löschen (nur ohne Buchungen) |
-| **Einstellungen** | Profil, Passwort, Kategorien, Wechselkurse, angemeldete Geräte, Registrierung, Backup/Wiederherstellung, CSV |
+| **Fixkosten** | wiederkehrende Ausgaben (monatlich, alle 3 Monate, jährlich oder einmalig), was im Monat offen bzw. bezahlt ist, Bearbeiten/Beenden |
+| **Sparziele** | Zielbetrag, optional Zieldatum und **Sparrate pro Monat**; «Gespart» verschiebt das Geld per Umbuchung aufs Sparkonto |
+| **Einstellungen** | Konten (inkl. «Alltagskonto»), Kategorien, Profil, Passwort, angemeldete Geräte, Backup/Wiederherstellung, CSV |
 
 ### Rechenregeln
 
-- **Kontostand** = Anfangssaldo + Einnahmen − Ausgaben ± Umbuchungen ± Darlehensbewegungen.
-- **Anfangssalden, Umbuchungen, Darlehen und Rückzahlungen** zählen nie als Einnahme oder Ausgabe.
-- **Budgets und Sparziele** verändern keine Kontostände. Eine Ausgabe einem Budget zuzuordnen erzeugt keine zweite Buchung.
-- **Monatsbudget** = Ausgaben der Kategorie im Monat (ohne Ausgaben, die einem anderen Budget zugeordnet sind).
-- **Fremdwährung**: CHF = Betrag ÷ Kurs (Fremdwährung pro CHF), kaufmännisch auf ganze Rappen gerundet.
-  Gespeichert werden Originalbetrag, Währung, Kurs und CHF-Betrag. Spätere Kursänderungen ändern alte Buchungen nicht.
-- **Wiederkehrende Rechnungen** erzeugen fehlende Fälligkeiten beim nächsten Öffnen nach (ohne Duplikate,
-  Monatsende korrekt, z. B. 31. → 28. Feb. → 31. März). Bezahlt wird nie automatisch.
-- **Als bezahlt markieren** erzeugt genau eine verknüpfte Ausgabe; Änderungen an dieser Ausgabe werden in die
-  Rechnung übernommen, Löschen oder «Zurücknehmen» setzt die Rechnung wieder auf offen.
-- **Schulden**: Ursprung und Zahlungen erzeugen nur dann eine Kontobewegung, wenn du ein Konto wählst
-  (z. B. «Nein» wenn jemand dein Essen bezahlt hat). Überzahlungen werden abgelehnt.
+- **Wiederkehrende Ausgabe**: Beim Erfassen «Wiederkehrend» einschalten. Die heutige Ausgabe gilt als bezahlt;
+  ab dem nächsten Termin erscheint der Betrag unter «Noch zu bezahlen» und wird vom freien Geld abgezogen,
+  bis du «Bezahlt» drückst. Bezahlt wird nie automatisch, und Termine werden nie doppelt erzeugt.
+- **Alltagskonto**: Nur diese Konten zählen zum freien Geld. Sparkonten sind standardmässig ausgeschlossen
+  (pro Konto umschaltbar unter Einstellungen → Konten).
+- **Sparrate**: wird jeden Monat reserviert. «Gespart» bucht eine Umbuchung (z. B. Privatkonto → Sparkonto);
+  das freie Geld bleibt dabei gleich, weil der Betrag schon reserviert war. Nie mehr als bis zum Ziel fehlt.
+- **Kontostand** = Anfangssaldo + Einnahmen − Ausgaben ± Umbuchungen. Anfangssalden und Umbuchungen
+  zählen nie als Einnahme oder Ausgabe.
+- Früher erfasste Budgets, Fremdwährungsbuchungen und Darlehen bleiben unverändert gespeichert
+  (Kontostände stimmen weiterhin), werden aber nicht mehr separat angezeigt.
 
 ## Sicherheit
 

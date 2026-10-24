@@ -78,6 +78,19 @@ Finance::apply('bill.save', ['name' => 'Vignette', 'amount' => '40', 'categoryId
 $v = array_filter($d['occurrences'], fn($o) => $o['billId'] === end($d['bills'])['id']);
 check(count($v) === 1 && array_values($v)[0]['dueDate'] === '2026-12-01', 'Jährlich: nächste Fälligkeit auch ausserhalb des Horizonts');
 
+echo "== Migration bestehender Daten (v1.0) ==\n";
+$old = Finance::blank();
+$old['accounts'] = [
+    ['id' => 'p1', 'name' => 'Privatkonto', 'type' => 'checking', 'opening' => 100000, 'openingDate' => '2026-10-04', 'archived' => false, 'created' => ''],
+    ['id' => 's1', 'name' => 'E-Jugendsparkonto', 'type' => 'savings', 'opening' => 50000, 'openingDate' => '2026-10-04', 'archived' => false, 'created' => ''],
+];
+$old['goals'] = [['id' => 'g1', 'name' => 'Velo', 'target' => 90000, 'targetDate' => null, 'allocations' => [], 'archived' => false, 'created' => '']];
+$st = Finance::state($old, '2026-10', '2026-10-24');
+check($st['accounts'][0]['available'] === true && $st['accounts'][1]['available'] === false, 'Privatkonto zählt, Sparkonto nicht');
+check($st['goals'][0]['monthly'] === 0 && $st['goals'][0]['dueThisMonth'] === 0, 'Bestehendes Sparziel ohne Sparrate');
+check($st['summary']['free']['free'] === 100000 && $st['summary']['free']['daysLeft'] === 8, 'Frei = 1000.00, 8 Tage übrig');
+check(is_array(Backup::validate(['format' => 'cash-backup', 'version' => 1, 'data' => $old])), 'Alte Sicherung bleibt gültig');
+
 echo "== Dateisperren: parallele Prozesse ==\n";
 $file = $tmp . '/counter.json.php';
 $procs = 12;

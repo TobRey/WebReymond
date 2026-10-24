@@ -527,5 +527,87 @@ curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => true])
 $resp = (string)curl_exec($ch);
 check((bool)preg_match('/Set-Cookie: CASHSID=[^\r\n]*path=\/cash\/[^\r\n]*HttpOnly[^\r\n]*SameSite=Lax/i', $resp), 'Session-Cookie: Pfad /cash/, HttpOnly, SameSite', null);
 
+// ------------------------------------------------------------------ Frei für Freizeit
+section('Frei für Freizeit, wiederkehrende Ausgaben, Sparrate');
+$st = state($owner);
+$F = fn($st) => $st['summary']['free'];
+$f0 = $F($st);
+check(accByName($st, 'Privatkonto')['available'] === true && accByName($st, 'E-Jugendsparkonto')['available'] === false, 'Bestehende Konten migriert: Privat zählt, Sparkonto nicht');
+check($f0['free'] === $f0['available'] - $f0['fixedOpen'] - $f0['savingsDue'], 'Frei = Alltagskonten − offene Fixkosten − Sparrate', $f0);
+check($f0['available'] === accByName($st, 'Privatkonto')['balance'], 'Nur Alltagskonten eingerechnet');
+
+$r = $owner->act('tx.save', ['type' => 'expense', 'amount' => '40', 'date' => $today, 'accountId' => $privat, 'categoryId' => $abo, 'description' => 'Netflix', 'recurring' => true, 'interval' => 'monthly']);
+check($r['status'] === 200, 'Wiederkehrende Ausgabe erfasst', $r['json']['error'] ?? null);
+$st = $r['json']['state'];
+$nb = array_values(array_filter($st['bills'], fn($b) => $b['name'] === 'Netflix'))[0] ?? null;
+check($nb && $nb['interval'] === 'monthly' && $nb['amount'] === 4000 && $nb['active'], 'Fixkosten «Netflix» automatisch angelegt');
+$nocc = array_values(array_filter($st['occurrences'], fn($o) => $o['billId'] === $nb['id']));
+$ntx = array_values(array_filter($st['transactions'], fn($t) => $t['description'] === 'Netflix'));
+check(count($ntx) === 1 && ($ntx[0]['link']['kind'] ?? '') === 'bill', 'Genau eine Ausgabe, mit Fixkosten verknüpft');
+check(count(array_filter($nocc, fn($o) => $o['dueDate'] === $today && $o['status'] === 'paid')) === 1, 'Heutiger Termin gilt als bezahlt');
+check(!array_filter($nocc, fn($o) => $o['status'] === 'open' && $o['dueDate'] <= date('Y-m-t')), 'Kein weiterer offener Termin in diesem Monat');
+check(count(array_filter($nocc, fn($o) => $o['dueDate'] === date('Y-m-d', strtotime($today . ' +1 month')) || substr($o['dueDate'], 0, 7) === date('Y-m', strtotime('first day of next month')))) <= 1, 'Nächster Monat höchstens einmal geplant');
+check($F($st)['free'] === $f0['free'] - 4000, 'Frei sinkt um die Ausgabe', [$f0['free'], $F($st)['free']]);
+check($F($st)['fixedPerMonth'] >= 4000, 'Fixkosten pro Monat enthalten Netflix');
+
+$past = date('Y-m-d', strtotime('-70 days'));
+$r = $owner->act('tx.save', ['type' => 'expense', 'amount' => '15', 'date' => $past, 'accountId' => $privat, 'categoryId' => $abo, 'description' => 'Spotify', 'recurring' => true]);
+$st = $r['json']['state'];
+$sb = array_values(array_filter($st['bills'], fn($b) => $b['name'] === 'Spotify'))[0];
+$late = array_filter($st['occurrences'], fn($o) => $o['billId'] === $sb['id'] && $o['status'] === 'open' && $o['dueDate'] < $today);
+check(count($late) === 0, 'Nachträglich erfasst: keine erfundenen überfälligen Termine');
+
+// Fixkosten fällig heute: zählen bis bezahlt
+$before = $F($st)['free'];
+$r = $owner->act('bill.save', ['name' => 'Miete Parkplatz', 'amount' => '100', 'categoryId' => $abo, 'startDate' => $today, 'interval' => 'monthly', 'accountId' => $privat]);
+$st = $r['json']['state'];
+check($F($st)['free'] === $before - 10000 && $F($st)['fixedOpen'] >= 10000, 'Offene Fixkosten werden abgezogen');
+$po = array_values(array_filter($st['occurrences'], fn($o) => $o['billId'] === $r['json']['id'] && $o['dueDate'] === $today))[0];
+$r = $owner->act('occ.pay', ['id' => $po['id'], 'date' => $today, 'accountId' => $privat]);
+check($F($r['json']['state'])['free'] === $before - 10000, 'Bezahlen ändert «frei» nicht mehr (nur Konto ↓, offen ↓)');
+
+// Sparrate
+$st = $r['json']['state'];
+$before = $F($st)['free'];
+$r = $owner->act('goal.save', ['name' => 'Ferien', 'target' => '1000', 'monthly' => '100']);
+$fg = $r['json']['id'];
+$st = $r['json']['state'];
+check($F($st)['savingsDue'] === $F(state($owner))['savingsDue'] && $F($st)['free'] === $before - 10000, 'Sparrate 100 wird vom freien Geld reserviert');
+$spBal = accByName($st, 'E-Jugendsparkonto')['balance'];
+$r = $owner->act('goal.allocate', ['goalId' => $fg, 'mode' => 'add', 'amount' => '60', 'date' => $today, 'fromAccountId' => $privat, 'toAccountId' => $spar]);
+$st = $r['json']['state'];
+$g = array_values(array_filter($st['goals'], fn($x) => $x['id'] === $fg))[0];
+check($g['saved'] === 6000 && $g['savedThisMonth'] === 6000 && $g['dueThisMonth'] === 4000, '60 gespart → noch 40 diesen Monat');
+check(accByName($st, 'E-Jugendsparkonto')['balance'] === $spBal + 6000, 'Umbuchung aufs Sparkonto erfasst');
+check($F($st)['free'] === $before - 10000, '«Gespart» verändert das freie Geld nicht (schon reserviert)');
+check($st['summary']['expense'] === state($owner)['summary']['expense'], 'Sparen zählt nicht als Ausgabe');
+$gtx = array_values(array_filter($st['transactions'], fn($t) => ($t['link']['kind'] ?? '') === 'goal'))[0];
+$r = $owner->act('tx.save', ['id' => $gtx['id'], 'type' => 'transfer', 'amount' => '70', 'date' => $today, 'accountId' => $privat, 'toAccountId' => $spar]);
+$g = array_values(array_filter($r['json']['state']['goals'], fn($x) => $x['id'] === $fg))[0];
+check($g['saved'] === 7000 && $g['dueThisMonth'] === 3000, 'Geänderte Spar-Umbuchung wird im Ziel übernommen');
+$r = $owner->act('tx.delete', ['id' => $gtx['id']]);
+$st = $r['json']['state'];
+$g = array_values(array_filter($st['goals'], fn($x) => $x['id'] === $fg))[0];
+check($g['saved'] === 0 && $g['dueThisMonth'] === 10000 && accByName($st, 'E-Jugendsparkonto')['balance'] === $spBal, 'Gelöschte Spar-Umbuchung entfernt auch die Zuweisung');
+$r = $owner->act('goal.save', ['id' => $fg, 'name' => 'Ferien', 'target' => '1000', 'monthly' => '950']);
+$g = array_values(array_filter($r['json']['state']['goals'], fn($x) => $x['id'] === $fg))[0];
+check($g['dueThisMonth'] === 95000, 'Sparrate änderbar');
+$r = $owner->act('goal.save', ['id' => $fg, 'name' => 'Ferien', 'target' => '50', 'monthly' => '950']);
+$g = array_values(array_filter($r['json']['state']['goals'], fn($x) => $x['id'] === $fg))[0];
+check($g['dueThisMonth'] === 5000, 'Nie mehr reservieren als bis zum Ziel fehlt');
+
+// Alltagskonto umschalten
+$st = $r['json']['state'];
+$a0 = $F($st)['available'];
+$r = $owner->act('account.save', ['id' => $spar, 'name' => 'E-Jugendsparkonto', 'type' => 'savings', 'opening' => '500', 'available' => true]);
+$st = $r['json']['state'];
+check($F($st)['available'] === $a0 + accByName($st, 'E-Jugendsparkonto')['balance'], 'Konto als Alltagskonto einrechnen');
+$owner->act('account.save', ['id' => $spar, 'name' => 'E-Jugendsparkonto', 'type' => 'savings', 'opening' => '500', 'available' => false]);
+
+// Backup mit neuen Feldern
+$x = $owner->get('backup.download');
+$r = $owner->post('backup.restore', ['backup' => json_decode((string)$x['raw'], true)]);
+check($r['status'] === 200, 'Backup mit Fixkosten, Sparraten und Spar-Umbuchungen gültig', $r['json']['error'] ?? null);
+
 echo "\n" . $passes . ' bestanden, ' . $fails . " fehlgeschlagen\n";
 exit($fails ? 1 : 0);

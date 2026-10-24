@@ -199,7 +199,7 @@
   const S = {
     status: null, user: null, st: null, month: null, csrf: '',
     tx: { q: '', month: null, type: '', account: '', category: '' },
-    billTab: 'open', debtTab: 'i_owe', catTab: 'expense', lastRoute: '',
+    catTab: 'expense', lastRoute: '',
   };
 
   class ApiFail extends Error { constructor(msg, status) { super(msg); this.status = status; } }
@@ -403,16 +403,6 @@
     return el;
   }
 
-  function monthBar(onChange) {
-    return h('div', { class: 'monthbar' },
-      h('button', { type: 'button', 'aria-label': 'Vorheriger Monat', onclick: () => onChange(addMonth(S.month, -1)) }, icon('chevL', 's')),
-      h('span', { text: monthLabel(S.month) }),
-      h('button', { type: 'button', 'aria-label': 'Nächster Monat', onclick: () => onChange(addMonth(S.month, 1)) }, icon('chevR', 's')));
-  }
-  async function changeMonth(m) {
-    try { await loadState(m); S.tx.month = m; render(); } catch (e) { toast(e.message, true); }
-  }
-
   function topbar(title, opts) {
     opts = opts || {};
     return h('div', { class: 'topbar' + (opts.wide ? ' wide' : '') },
@@ -428,13 +418,10 @@
   const NAV = [
     { r: 'uebersicht', label: 'Übersicht', icon: 'home' },
     { r: 'buchungen', label: 'Buchungen', icon: 'list' },
-    { r: 'budgets', label: 'Budgets', icon: 'pie' },
-    { r: 'mehr', label: 'Mehr', icon: 'grid' },
+    { r: 'fixkosten', label: 'Fixkosten', icon: 'repeat' },
+    { r: 'sparziele', label: 'Sparziele', icon: 'target' },
   ];
   const MORE = [
-    { r: 'rechnungen', label: 'Rechnungen', icon: 'receipt' },
-    { r: 'sparziele', label: 'Sparziele', icon: 'target' },
-    { r: 'schulden', label: 'Schulden', icon: 'users' },
     { r: 'konten', label: 'Konten', icon: 'wallet' },
     { r: 'einstellungen', label: 'Einstellungen', icon: 'settings' },
   ];
@@ -461,14 +448,11 @@
     }
     const nav = shell.querySelector('.nav');
     nav.textContent = '';
-    const parent = MORE.some((m) => m.r === r) ? 'mehr' : r;
     append(nav, [
       h('div', { class: 'brand' }, h('img', { src: 'assets/icon.svg', alt: '' }), 'CASH'),
-      NAV.map((n) => [
-        h('a', { href: '#/' + n.r, class: n.r === parent && !(n.r === 'mehr' && r !== 'mehr' && window.innerWidth >= 900) ? 'active' : '', 'aria-current': n.r === r ? 'page' : null },
-          h('span', { class: 'pill' }, icon(n.icon)), n.label),
-        n.r === 'mehr' ? MORE.map((m) => h('a', { href: '#/' + m.r, class: 'sub' + (m.r === r ? ' active' : '') }, h('span', { class: 'pill' }, icon(m.icon, 's')), m.label)) : null,
-      ]),
+      NAV.map((n) => h('a', { href: '#/' + n.r, class: n.r === r ? 'active' : '', 'aria-current': n.r === r ? 'page' : null },
+        h('span', { class: 'pill' }, icon(n.icon)), n.label)),
+      MORE.map((m) => h('a', { href: '#/' + m.r, class: 'sub' + (m.r === r ? ' active' : '') }, h('span', { class: 'pill' }, icon(m.icon, 's')), m.label)),
     ]);
     const main = shell.querySelector('.main');
     main.textContent = '';
@@ -561,8 +545,11 @@
       const o = moneyInput('', { 'aria-label': 'Aktueller Kontostand', placeholder: 'z. B. 1250.00' });
       o.inputMode = 'decimal';
       const t = selectInput(Object.entries(ACCOUNT_TYPES).map(([v, l]) => ({ value: v, label: l })), type);
-      const row = { n, o, t };
-      const box = h('div', { class: 'onb-acc' }, field('Kontoname', n), h('div', { class: 'row2' }, field('Aktueller Stand (CHF)', o), field('Art', t)));
+      const av = h('input', { type: 'checkbox', checked: type !== 'savings' });
+      t.addEventListener('change', () => { av.checked = t.value !== 'savings'; });
+      const row = { n, o, t, av };
+      const box = h('div', { class: 'onb-acc' }, field('Kontoname', n), h('div', { class: 'row2' }, field('Aktueller Stand (CHF)', o), field('Art', t)),
+        h('label', { class: 'check' }, av, h('span', { text: 'Alltagskonto – zählt zum frei verfügbaren Geld' })));
       if (rows.length >= 1) {
         box.appendChild(h('button', { type: 'button', class: 'btn ghost sm', onclick: () => { rows.splice(rows.indexOf(row), 1); box.remove(); } }, icon('trash', 's'), 'Entfernen'));
       }
@@ -571,27 +558,20 @@
     }
     addRow('Privatkonto', 'checking');
     addRow('E-Jugendsparkonto', 'savings');
-    const owner = S.user.role === 'owner';
-    const th = h('input', { type: 'checkbox', checked: owner });
-    const thAmount = moneyInput('315.00');
     const err = errBox();
     const btn = h('button', { class: 'btn mint block', type: 'submit' }, 'Einrichtung abschliessen');
     const form = h('form', { class: 'form' },
       note('Gib die heutigen Kontostände ein. Sie gelten als Anfangssaldo und zählen nicht als Einnahme. 0 ist erlaubt.', 'info', 'mint'),
       list,
       h('button', { type: 'button', class: 'btn light', onclick: () => addRow('', 'other') }, icon('plus', 's'), 'Weiteres Konto'),
-      h('div', { class: 'onb-acc' },
-        h('label', { class: 'check' }, th, h('span', null, h('b', { text: 'Ferienbudget Thailand vorbereiten' }), h('br'),
-          h('span', { class: 'muted small', text: 'Verfügbares Restbudget ab heute, Eingabewährung THB. Kein Kontostand und nicht das Gesamtbudget der Reise.' }))),
-        field('Restbudget (CHF)', thAmount)),
       err, btn);
     form.addEventListener('submit', runner(btn, err, async () => {
       const accounts = rows.map((r) => {
         if (!r.n.value.trim()) throw new Error('Bitte jedem Konto einen Namen geben.');
         if (r.o.value.trim() === '') throw new Error('Bitte für «' + r.n.value.trim() + '» den aktuellen Kontostand eingeben (0 ist erlaubt).');
-        return { name: r.n.value, opening: r.o.value, type: r.t.value };
+        return { name: r.n.value, opening: r.o.value, type: r.t.value, available: r.av.checked };
       });
-      await mutate('onboarding.complete', { accounts, thailand: { enabled: th.checked, amount: thAmount.value } });
+      await mutate('onboarding.complete', { accounts });
       location.hash = '#/uebersicht';
     }));
     authFrame('Konten einrichten', 'Hallo ' + S.user.name + '! Noch ein Schritt: deine Konten und Anfangssalden.', form);
@@ -606,151 +586,76 @@
   }
 
   // ================================================================ Übersicht
-  PAGES.uebersicht = (p) => {
-    const st = S.st;
-    const sum = st.summary;
-    const accs = activeAccounts();
-    append(p, [
-      topbar('Übersicht', { right: monthBar(changeMonth), wide: true }),
-      h('div', { class: 'quick' },
-        h('button', { class: 'btn mint', type: 'button', onclick: () => openTx({ type: 'income' }) }, icon('plus', 's'), 'Einnahme'),
-        h('button', { class: 'btn', type: 'button', onclick: () => openTx({ type: 'expense' }) }, icon('minus', 's'), 'Ausgabe')),
-      h('div', { class: 'grid g-dash' },
-        h('div', null,
-          h('div', { class: 'card hero' },
-            h('div', { class: 'label', text: 'Kontostand · alle Konten' }),
-            h('div', { class: 'big num' }, h('small', { text: 'CHF' }), fmt(sum.totalBalance)),
-            h('div', { class: 'acc-mini' }, accs.map((a) => h('div', { class: 'r' }, h('span', { text: a.name }), h('span', { class: 'num', text: fmt(a.balance) }))))),
-          h('div', { class: 'grid g2', style: { marginTop: '12px' } },
-            statCard('Einnahmen', 'in', 'mint', sum.income, monthLabel(st.month)),
-            statCard('Ausgaben', 'out', 'dark', sum.expense, monthLabel(st.month)))),
-        h('div', null,
-          billsCard(sum),
-          debtsMini(sum))),
-      chartCard(sum.chart),
-      budgetsCard(),
-    ]);
-  };
-
-  function statCard(label, ic, color, value, hint) {
-    return h('div', { class: 'card stat' },
+  function monthEnd(m) { return addDays(addMonth(m, 1) + '-01', -1); }
+  function statCard(label, ic, color, value, hint, href) {
+    return h(href ? 'a' : 'div', { class: 'card stat', href: href || null, style: href ? { display: 'block', color: 'inherit' } : null },
       h('div', { class: 'label' }, h('span', { class: 'dot ' + color }, icon(ic, 's')), label),
       h('div', { class: 'val num' }, h('small', { text: 'CHF' }), fmt(value)),
-      h('div', { class: 'hint', text: hint }));
+      hint ? h('div', { class: 'hint', text: hint }) : null);
+  }
+  function calcRow(label, value, hint) {
+    return h('div', { class: 'calc-r' },
+      h('span', null, label, hint ? h('small', { text: ' · ' + hint }) : null),
+      h('span', { class: 'num', text: (value < 0 ? MINUS + ' ' : value > 0 ? '+ ' : '') + fmt(Math.abs(value)) }));
+  }
+  function goalDueRow(g) {
+    return h('div', { class: 'row' },
+      h('span', { class: 'ic mint' }, icon('target', 's')),
+      h('span', { class: 'tx' }, h('div', { class: 't1', text: 'Sparrate ' + g.name }), h('div', { class: 't2', text: 'noch zu sparen im ' + MONTHS[Number(today().slice(5, 7)) - 1] })),
+      h('span', { class: 'end' }, h('div', { class: 'amt', text: fmt(g.dueThisMonth) }),
+        h('button', { class: 'btn mint sm', type: 'button', style: { marginTop: '4px' }, onclick: () => openSave(g) }, 'Gespart')));
   }
 
-  function billsCard(sum) {
-    const ob = sum.openBills;
-    const t = today();
-    const upcoming = S.st.occurrences.filter((o) => o.status === 'open').sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 3);
-    return h('a', { class: 'card stat', href: '#/rechnungen', style: { display: 'block', color: 'inherit' } },
-      h('div', { class: 'label' }, h('span', { class: 'dot amber' }, icon('receipt', 's')), 'Noch unbezahlte Rechnungen', h('span', { class: 'spacer' }), icon('chevR', 'xs')),
-      h('div', { class: 'val num' }, h('small', { text: 'CHF' }), fmt(ob.sum)),
-      h('div', { class: 'hint', text: ob.count === 0 ? 'Keine offenen Rechnungen bis Ende ' + monthLabel(S.month) : ob.count + ' offen bis Ende ' + monthLabel(S.month) }),
-      ob.overdueCount ? h('div', { class: 'badge red', style: { marginTop: '8px' } }, icon('alert', 'xs'), ob.overdueCount + ' überfällig · ' + chf(ob.overdueSum)) : null,
-      upcoming.length ? h('div', { class: 'mt' }, upcoming.map((o) => {
-        const b = bill(o.billId);
-        return h('div', { class: 'kv' }, h('span', { text: (b ? b.name : 'Rechnung') + ' · ' + (o.dueDate < t ? 'überfällig' : fmtDate(o.dueDate, false)) }), h('span', { text: fmt(o.amount) }));
-      })) : null);
-  }
+  PAGES.uebersicht = (p) => {
+    const st = S.st;
+    const f = st.summary.free;
+    const monthName = MONTHS[Number(f.month.slice(5, 7)) - 1];
+    const neg = f.free < 0;
+    const end = monthEnd(f.month);
+    const open = st.occurrences.filter((o) => o.status === 'open' && o.dueDate <= end).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    const goalsDue = st.goals.filter((g) => !g.archived && g.dueThisMonth > 0);
+    const hasRates = st.goals.some((g) => !g.archived && g.monthly > 0);
+    const accs = activeAccounts();
 
-  function debtsMini(sum) {
-    const d = sum.debts;
-    if (!d.iOwe && !d.owedToMe) return null;
-    return h('a', { class: 'card', href: '#/schulden', style: { display: 'block', color: 'inherit' } },
-      h('div', { class: 'card-h' }, h('h2', { text: 'Schulden' }), icon('chevR', 'xs')),
-      d.iOwe ? kv('Ich schulde', chf(d.iOwe)) : null,
-      d.owedToMe ? kv('Mir geschuldet', chf(d.owedToMe)) : null);
-  }
-
-  function budgetsCard() {
-    const list = S.st.budgets.filter((b) => b.activeInMonth);
-    const card = h('div', { class: 'card flush' },
-      h('div', { class: 'card-h' }, h('h2', { text: 'Aktive Budgets · Restbetrag' }), h('a', { class: 'link', href: '#/budgets', text: 'Alle' })));
-    if (!list.length) {
-      card.appendChild(empty('pie', 'Noch keine Budgets. Lege unter «Budgets» eines an.'));
-      return card;
+    const todo = h('div', { class: 'card flush' },
+      h('div', { class: 'card-h' }, h('h2', { text: 'Noch zu bezahlen im ' + monthName }), h('a', { class: 'link', href: '#/fixkosten', text: 'Fixkosten' })));
+    if (!open.length && !goalsDue.length) {
+      todo.appendChild(h('div', { class: 'empty' }, icon('check'), h('div', { text: st.bills.some((b) => b.active) ? 'Alles für ' + monthName + ' erledigt.' : 'Noch keine Fixkosten. Tipp: Beim Erfassen einer Ausgabe «Wiederkehrend» einschalten.' })));
     }
-    list.forEach((b) => card.appendChild(budgetItem(b)));
-    card.appendChild(h('div', { class: 'small muted', style: { padding: '4px 16px 10px' }, text: 'Budgetrest = noch verfügbares Budget, nicht Geld auf dem Konto.' }));
-    return card;
-  }
+    open.forEach((o) => todo.appendChild(occRow(o)));
+    goalsDue.forEach((g) => todo.appendChild(goalDueRow(g)));
 
-  // ================================================================ Diagramm
-  function niceMax(v) {
-    if (v <= 0) return 10000;
-    const exp = Math.pow(10, Math.floor(Math.log10(v)));
-    for (const m of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * exp >= v) return m * exp;
-    return 10 * exp;
-  }
-  function chartCard(c) {
-    const card = h('div', { class: 'card' },
-      h('div', { class: 'card-h' }, h('h2', { text: 'Einnahmen & Ausgaben · Monatsverlauf' })),
-      h('div', { class: 'legend' },
-        h('span', null, h('i', { style: { background: '#12A36D' } }), 'Einnahmen (kumuliert)'),
-        h('span', null, h('i', { style: { background: '#1C2B26' } }), 'Ausgaben (kumuliert)')));
-    if (c.lastDay === 0) {
-      card.appendChild(empty('trend', 'Dieser Monat liegt in der Zukunft.'));
-      return card;
-    }
-    // Breite an den Platz anpassen, damit Schrift und Höhe auf jedem Gerät stimmen.
-    const main = document.getElementById('main');
-    let avail = 340;
-    if (main) { const cs = getComputedStyle(main); avail = main.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 32; }
-    const W = Math.round(Math.max(260, Math.min(1100, avail))), H = W < 500 ? 190 : 230, L = 42, R = 10, T = 10, B = 24;
-    const n = c.days, last = c.lastDay;
-    const max = niceMax(Math.max(c.income[last - 1] || 0, c.expense[last - 1] || 0));
-    const x = (d) => L + (n === 1 ? 0 : (d - 1) / (n - 1)) * (W - L - R);
-    const y = (v) => T + (1 - v / max) * (H - T - B);
-    const svg = document.createElementNS(SVGNS, 'svg');
-    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    svg.setAttribute('role', 'img');
-    svg.setAttribute('aria-label', `Einnahmen ${chf(c.income[last - 1])}, Ausgaben ${chf(c.expense[last - 1])} bis Tag ${last}`);
-    const mk = (tag, attrs) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); svg.appendChild(e); return e; };
-    [0, 0.5, 1].forEach((f) => {
-      const yy = y(max * f);
-      mk('line', { x1: L, x2: W - R, y1: yy, y2: yy, class: 'grid-l' });
-      const t = mk('text', { x: L - 8, y: yy + 4, 'text-anchor': 'end', class: 'axis-t' }); t.textContent = fmtShort(max * f);
-    });
-    const ticks = [...new Set([1, 10, 20, n])];
-    ticks.forEach((d) => { const t = mk('text', { x: x(d), y: H - 6, 'text-anchor': d === 1 ? 'start' : d === n ? 'end' : 'middle', class: 'axis-t' }); t.textContent = d + '.'; });
-    const path = (arr) => arr.slice(0, last).map((v, i) => (i ? 'L' : 'M') + x(i + 1).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
-    mk('path', { d: path(c.expense), class: 'ln exp' });
-    mk('path', { d: path(c.income), class: 'ln inc' });
-    const cross = mk('line', { y1: T, y2: H - B, class: 'cross', opacity: 0 });
-    const mE = mk('circle', { r: 4.5, fill: '#1C2B26', class: 'mk', opacity: 0 });
-    const mI = mk('circle', { r: 4.5, fill: '#12A36D', class: 'mk', opacity: 0 });
-    const hit = mk('rect', { x: L, y: 0, width: W - L - R, height: H, fill: 'transparent' });
-    const tip = h('div', { class: 'tip', style: { opacity: '0' } });
-    const wrap = h('div', { class: 'chart' }, svg, tip);
-    const [ym] = [S.st.month];
-    function show(evt) {
-      const rect = svg.getBoundingClientRect();
-      const px = (evt.clientX - rect.left) / rect.width * W;
-      let d = Math.round((px - L) / (W - L - R) * (n - 1)) + 1;
-      d = Math.max(1, Math.min(last, d));
-      const xx = x(d);
-      cross.setAttribute('x1', xx); cross.setAttribute('x2', xx); cross.setAttribute('opacity', 1);
-      mI.setAttribute('cx', xx); mI.setAttribute('cy', y(c.income[d - 1])); mI.setAttribute('opacity', 1);
-      mE.setAttribute('cx', xx); mE.setAttribute('cy', y(c.expense[d - 1])); mE.setAttribute('opacity', 1);
-      tip.textContent = '';
-      append(tip, [h('b', { text: fmtDate(ym + '-' + String(d).padStart(2, '0'), false) }), h('br'),
-        'Einnahmen ' + fmt(c.income[d - 1]), h('br'), 'Ausgaben ' + fmt(c.expense[d - 1])]);
-      const left = Math.min(Math.max(xx / W * rect.width, 70), rect.width - 70);
-      tip.style.left = left + 'px';
-      tip.style.top = '-8px';
-      tip.style.opacity = '1';
-    }
-    function hide() { [cross, mI, mE].forEach((e) => e.setAttribute('opacity', 0)); tip.style.opacity = '0'; }
-    hit.addEventListener('pointermove', show);
-    hit.addEventListener('pointerdown', show);
-    hit.addEventListener('pointerleave', hide);
-    card.appendChild(wrap);
-    card.appendChild(h('div', { class: 'chart-foot' },
-      h('div', { class: 'small' }, h('span', { class: 'muted', text: 'Saldo Monat ' }), h('b', { class: 'num', text: chf(S.st.summary.net) })),
-      h('div', { class: 'small muted', text: 'ohne Umbuchungen & Darlehen' })));
-    return card;
-  }
+    append(p, [
+      topbar('Übersicht', { right: h('a', { class: 'icon-btn', href: '#/einstellungen', 'aria-label': 'Einstellungen' }, icon('settings', 's')) }),
+      h('div', { class: 'grid g-dash' },
+        h('div', null,
+          h('div', { class: 'card hero free' + (neg ? ' neg' : '') },
+            h('div', { class: 'label', text: neg ? 'Es fehlen bis Ende ' + monthName : 'Frei für Freizeit bis Ende ' + monthName }),
+            h('div', { class: 'big num' }, h('small', { text: 'CHF' }), fmt(Math.abs(f.free))),
+            h('div', { class: 'hero-sub', text: neg ? 'Nach allen Fixkosten' + (hasRates ? ' und Sparraten' : '') + ' reicht das Geld diesen Monat nicht.'
+              : f.daysLeft > 1 ? 'Etwa ' + chf(f.perDay) + ' pro Tag für die restlichen ' + f.daysLeft + ' Tage.' : 'Heute ist der letzte Tag des Monats.' }),
+            h('div', { class: 'calc' },
+              calcRow('Auf Alltagskonten', f.available),
+              calcRow('Offene Fixkosten', -f.fixedOpen, f.fixedOpenCount ? f.fixedOpenCount + ' offen' : 'alles bezahlt'),
+              hasRates || f.savingsDue ? calcRow('Noch zu sparen', -f.savingsDue) : null,
+              h('div', { class: 'calc-r total' }, h('span', { text: 'Bleibt frei' }), h('span', { class: 'num', text: (neg ? MINUS + ' ' : '') + fmt(Math.abs(f.free)) })))),
+          h('div', { class: 'quick' },
+            h('button', { class: 'btn mint', type: 'button', onclick: () => openTx({ type: 'expense' }) }, icon('minus', 's'), 'Ausgabe'),
+            h('button', { class: 'btn out', type: 'button', onclick: () => openTx({ type: 'income' }) }, icon('plus', 's'), 'Einnahme'))),
+        h('div', null,
+          todo,
+          h('div', { class: 'grid g2' },
+            statCard('Ausgegeben', 'out', 'dark', f.spentThisMonth, 'im ' + monthName, '#/buchungen'),
+            statCard('Fixkosten', 'repeat', 'amber', f.fixedPerMonth, 'pro Monat', '#/fixkosten')))),
+      h('div', { class: 'card flush mt' },
+        h('div', { class: 'card-h' }, h('h2', { text: 'Konten' }), h('a', { class: 'link', href: '#/konten', text: 'Verwalten' })),
+        accs.map((a) => h('a', { class: 'row', href: '#/konten', style: { color: 'inherit' } },
+          h('span', { class: 'ic ' + (a.available ? 'mint' : '') }, icon(ACCOUNT_ICONS[a.type] || 'bank', 's')),
+          h('span', { class: 'tx' }, h('div', { class: 't1', text: a.name }), h('div', { class: 't2', text: a.available ? 'zählt zum freien Geld' : 'nicht eingerechnet' })),
+          h('span', { class: 'amt num' + (a.balance < 0 ? ' neg' : ''), text: fmt(a.balance) })))),
+      f.fixedNextMonth ? h('div', { class: 'small muted', style: { textAlign: 'center', margin: '4px 0 12px' }, text: 'Fixkosten im ' + MONTHS[Number(addMonth(f.month, 1).slice(5, 7)) - 1] + ': ' + chf(f.fixedNextMonth) }) : null,
+    ]);
+  };
 
   // ================================================================ Buchungen
   const TYPE_LABEL = { income: 'Einnahme', expense: 'Ausgabe', transfer: 'Umbuchung', debt_in: 'Darlehen / Rückzahlung erhalten', debt_out: 'Darlehen / Rückzahlung bezahlt' };
@@ -766,10 +671,10 @@
     } else if (t.type === 'debt_in' || t.type === 'debt_out') {
       ic = 'users'; icCls = 'amber';
       title = t.description || TYPE_LABEL[t.type];
-      sub = 'Schulden · ' + (a ? a.name : '');
+      sub = 'Darlehen · ' + (a ? a.name : '');
     } else {
       title = t.description || (c ? c.name : TYPE_LABEL[t.type]);
-      sub = [t.description ? (c ? c.name : '') : null, a ? a.name : null, t.link && t.link.kind === 'bill' ? 'Rechnung' : null].filter(Boolean).join(' · ');
+      sub = [t.description ? (c ? c.name : '') : null, a ? a.name : null, t.link && t.link.kind === 'bill' ? 'Fixkosten' : null].filter(Boolean).join(' · ');
     }
     const b = t.budgetId ? bud(t.budgetId) : null;
     const cls = t.type === 'income' ? 'pos' : t.type === 'expense' ? 'neg' : 'neu';
@@ -810,7 +715,7 @@
       { group: 'Einnahmen', options: S.st.categories.filter((c) => c.type === 'income').map((c) => ({ value: c.id, label: c.name })) }], f.category, { 'aria-label': 'Kategorie' });
     const search = textInput(f.q, { type: 'search', placeholder: 'Suchen …', 'aria-label': 'Buchungen durchsuchen', enterkeyhint: 'search' });
     const listBox = h('div');
-    const typeSeg = h('div', { class: 'chips' }, [['', 'Alle'], ['expense', 'Ausgaben'], ['income', 'Einnahmen'], ['transfer', 'Umbuchungen'], ['debt', 'Darlehen']].map(([v, l]) =>
+    const typeSeg = h('div', { class: 'chips' }, [['', 'Alle'], ['expense', 'Ausgaben'], ['income', 'Einnahmen'], ['transfer', 'Umbuchungen']].concat(S.st.transactions.some((t) => t.type.startsWith('debt')) ? [['debt', 'Darlehen']] : []).map(([v, l]) =>
       h('button', { type: 'button', class: 'chip' + (f.type === v ? ' on' : ''), onclick: (e) => { f.type = v; [...typeSeg.children].forEach((x) => x.classList.remove('on')); e.currentTarget.classList.add('on'); drawList(); } }, l)));
     monthSel.addEventListener('change', () => { f.month = monthSel.value; drawList(); });
     accSel.addEventListener('change', () => { f.account = accSel.value; drawList(); });
@@ -875,8 +780,7 @@
       const rateInp = moneyInput('', { placeholder: 'z. B. 38.50', 'aria-label': 'Wechselkurs' });
       const preview = h('div', { class: 'preview', 'aria-live': 'polite' });
       const previewBox = h('div');   // Kurs steht vor dem Betrag, Vorschau danach
-      const preBudget = !tx && opts.budgetId ? bud(opts.budgetId) : null;
-      let currency = tx && tx.fx ? tx.fx.currency : (preBudget && preBudget.inputCurrency) || 'CHF';
+      let currency = tx && tx.fx ? tx.fx.currency : 'CHF';
       if (tx && tx.fx) { amt.input.value = toInput(tx.fx.original); rateInp.value = tx.fx.rate; }
 
       const date = dateInput(tx ? tx.date : today(), { required: true });
@@ -885,18 +789,18 @@
       const desc = textInput(tx ? tx.description : '', { maxlength: '200', placeholder: type === 'transfer' ? 'z. B. Sparen' : 'z. B. Migros' });
       let catPick = null;
       const catBox = h('div');
-      const budgetOptions = () => [{ value: '', label: 'Kein Budget' }].concat(st.budgets.filter((x) => !x.archived || (tx && x.id === tx.budgetId))
-        .map((x) => ({ value: x.id, label: x.name + (x.inputCurrency ? ' (' + x.inputCurrency + ')' : '') + (x.kind === 'monthly' ? ' · Monatsbudget' : '') })));
-      const budSel = selectInput(budgetOptions(), tx ? (tx.budgetId || '') : (opts.budgetId || ''));
-      const budField = field('Budget', budSel, true);
+      const rec = h('input', { type: 'checkbox' });
+      const recInterval = selectInput([{ value: 'monthly', label: 'Jeden Monat' }, { value: 'quarterly', label: 'Alle 3 Monate' }, { value: 'yearly', label: 'Jedes Jahr' }], 'monthly', { 'aria-label': 'Wiederholung' });
+      const recBox = h('div', { class: 'rec-box' },
+        h('label', { class: 'check' }, rec, h('span', null, h('b', { text: 'Wiederkehrend' }), h('br'), h('span', { class: 'small muted', text: 'Wird als Fixkosten geführt und vom freien Geld abgezogen, bis bezahlt.' }))),
+        recInterval);
+      const syncRec = () => recInterval.classList.toggle('hidden', !rec.checked);
+      rec.addEventListener('change', syncRec);
       const err = errBox();
       const save = h('button', { class: 'btn mint block', type: 'submit' }, tx ? 'Speichern' : 'Erfassen');
 
       function foreignCurrency() {
-        const bb = bud(budSel.value);
-        if (bb && bb.inputCurrency) return bb.inputCurrency;
-        if (tx && tx.fx) return tx.fx.currency;
-        return null;
+        return tx && tx.fx ? tx.fx.currency : null;   // Fremdwährung nur noch für bestehende Buchungen
       }
       function drawCurrency() {
         curSegBox.textContent = '';
@@ -927,7 +831,6 @@
       }
       amt.input.addEventListener('input', updatePreview);
       rateInp.addEventListener('input', updatePreview);
-      budSel.addEventListener('change', () => { currency = foreignCurrency() || 'CHF'; drawCurrency(); });
 
       function drawCats() {
         catBox.textContent = '';
@@ -949,7 +852,7 @@
         accLabel.textContent = type === 'transfer' ? 'Von Konto' : 'Konto';
         toField.classList.toggle('hidden', type !== 'transfer');
         transferNote.classList.toggle('hidden', type !== 'transfer');
-        budField.classList.toggle('hidden', type !== 'expense');
+        recBox.classList.toggle('hidden', !!tx || type !== 'expense');
         desc.placeholder = type === 'transfer' ? 'z. B. Sparen' : type === 'income' ? 'z. B. Lohn Oktober' : 'z. B. Migros';
         drawCats();
         drawCurrency();
@@ -957,17 +860,18 @@
 
       const form = h('form', { class: 'form' },
         typeSeg,
-        isBill ? note('Verknüpft mit einer Rechnung. Änderungen werden dort übernommen; Löschen setzt die Rechnung wieder auf «offen».', 'receipt', 'amber') : null,
+        isBill ? note('Gehört zu wiederkehrenden Fixkosten. Änderungen werden dort übernommen; Löschen setzt den Termin wieder auf «offen».', 'repeat', 'amber') : null,
+        tx && tx.link && tx.link.kind === 'goal' ? note('Spar-Umbuchung für ein Sparziel. Änderungen werden im Sparziel übernommen.', 'target', 'mint') : null,
         curSegBox, fxBox, amt.wrap, previewBox,
         catBox,
         h('div', { class: 'row2' }, field('Datum', date), accField),
         toField, transferNote,
-        budField,
         field('Beschreibung', desc, true),
+        recBox,
         err,
         h('div', { class: 'btn-row' },
           tx ? h('button', { class: 'btn danger', type: 'button', onclick: async () => {
-            if (!(await confirmBox('Buchung löschen?', isBill ? 'Die Rechnung wird wieder als offen geführt.' : 'Die Buchung wird endgültig gelöscht.', 'Löschen', true))) return;
+            if (!(await confirmBox('Buchung löschen?', isBill ? 'Der Fixkosten-Termin wird wieder als offen geführt.' : 'Die Buchung wird endgültig gelöscht.', 'Löschen', true))) return;
             try { await mutate('tx.delete', { id: tx.id }); ctl.close(); } catch (e) { err.textContent = e.message; }
           } }, icon('trash', 's'), 'Löschen') : null,
           save));
@@ -980,7 +884,8 @@
           if (!catPick.value) throw new Error('Bitte eine Kategorie wählen.');
           payload.categoryId = catPick.value;
         }
-        if (type === 'expense') payload.budgetId = budSel.value || null;
+        if (type === 'expense') payload.budgetId = tx ? (tx.budgetId || null) : null;
+        if (!tx && type === 'expense' && rec.checked) { payload.recurring = true; payload.interval = recInterval.value; }
         if (type === 'expense' && currency !== 'CHF') {
           if (!parseRate(rateInp.value)) { rateInp.focus(); throw new Error('Bitte zuerst den Wechselkurs «' + currency + ' pro CHF» eingeben.'); }
           payload.currency = currency; payload.originalAmount = amt.input.value; payload.rate = rateInp.value;
@@ -993,6 +898,7 @@
       }));
       b.appendChild(form);
       layout();
+      syncRec();
       if (!tx) setTimeout(() => (currency !== 'CHF' && !rateInp.value ? rateInp : amt.input).focus(), 60);
     });
   }
@@ -1003,133 +909,8 @@
       append(b, [
         h('div', { class: 'detail-head' }, h('div', { class: 'big num', text: signed(tx.amount, tx.type) }), h('div', { class: 'sub', text: tx.description })),
         h('div', { class: 'card' }, kv('Datum', fmtDate(tx.date)), kv('Konto', a ? a.name : '–'), kv('Art', TYPE_LABEL[tx.type])),
-        note('Diese Kontobewegung gehört zu einer Schuld und zählt nicht als Einnahme oder Ausgabe. Bearbeiten und Löschen im Bereich «Schulden».', 'users'),
-        h('a', { class: 'btn block mt', href: '#/schulden', onclick: () => { S.debtTab = (byId(S.st.debts, tx.link.debtId) || {}).direction || S.debtTab; ctl.close(); } }, 'Zu den Schulden'),
+        note('Diese Kontobewegung stammt aus einem früher erfassten Darlehen. Sie zählt nicht als Einnahme oder Ausgabe und bleibt unverändert.', 'users'),
       ]);
-    });
-  }
-
-  // ================================================================ Budgets
-  function budgetIcon(b) {
-    if (b.inputCurrency) return 'plane';
-    const c = cat(b.categoryId);
-    return c ? c.icon : 'pie';
-  }
-  function budgetItem(b) {
-    const over = b.remaining < 0;
-    return h('button', { class: 'budget-item', type: 'button', onclick: () => openBudget(b.id) },
-      h('div', { class: 'top' },
-        h('span', { class: 'dot ' + (b.inputCurrency ? 'blue' : 'mint') }, icon(budgetIcon(b), 's')),
-        h('span', { class: 'tx' }, h('div', { class: 't1', style: { fontWeight: 650 }, text: b.name })),
-        h('span', { class: 'rest', style: { color: over ? 'var(--red)' : 'var(--ink)' }, text: (over ? 'Überzogen ' : 'Rest ') + chf(Math.abs(b.remaining)) })),
-      progress(b.spent, b.amount),
-      h('div', { class: 'meta' },
-        h('span', { text: fmt(b.spent) + ' von ' + fmt(b.amount) + ' ausgegeben' }),
-        h('span', { text: b.kind === 'monthly' ? monthLabel(S.month) : b.inputCurrency ? 'Eingabe in ' + b.inputCurrency : (b.endDate ? 'bis ' + fmtDate(b.endDate) : 'ohne Enddatum') })));
-  }
-
-  PAGES.budgets = (p) => {
-    const bs = S.st.budgets;
-    const monthly = bs.filter((b) => b.kind === 'monthly' && !b.archived);
-    const custom = bs.filter((b) => b.kind === 'custom' && !b.archived);
-    const archived = bs.filter((b) => b.archived);
-    const mCard = h('div', { class: 'card flush' });
-    if (monthly.length) monthly.forEach((b) => mCard.appendChild(budgetItem(b)));
-    else mCard.appendChild(empty('pie', 'Noch keine Monatsbudgets. Beispiel: Lebensmittel CHF 400 pro Monat.'));
-    const cCard = h('div', { class: 'card flush' });
-    if (custom.length) custom.forEach((b) => cCard.appendChild(budgetItem(b)));
-    else cCard.appendChild(empty('plane', 'Noch keine freien Budgets (z. B. Ferien).'));
-    const sumAmt = monthly.reduce((s, b) => s + b.amount, 0);
-    const sumSpent = monthly.reduce((s, b) => s + b.spent, 0);
-    append(p, [
-      topbar('Budgets', { wide: true, right: h('div', { class: 'flex tb-right' }, monthBar(changeMonth), h('button', { class: 'icon-btn mint', type: 'button', 'aria-label': 'Neues Budget', onclick: () => openBudgetForm() }, icon('plus'))) }),
-      monthly.length ? h('div', { class: 'card stat' },
-        h('div', { class: 'label' }, h('span', { class: 'dot mint' }, icon('pie', 's')), 'Monatsbudgets ' + monthLabel(S.month)),
-        h('div', { class: 'val num' }, h('small', { text: 'Rest CHF' }), fmt(sumAmt - sumSpent)),
-        progress(sumSpent, sumAmt),
-        h('div', { class: 'hint', text: fmt(sumSpent) + ' von ' + fmt(sumAmt) + ' ausgegeben · Budgetrest ist kein Kontostand' })) : null,
-      h('div', { class: 'cols' },
-        h('div', null, h('span', { class: 'section-t', text: 'Monatsbudgets pro Kategorie' }), mCard),
-        h('div', null, h('span', { class: 'section-t', text: 'Freie Budgets & Ferien' }), cCard)),
-      archived.length ? h('details', { class: 'mt' }, h('summary', { class: 'section-t', style: { cursor: 'pointer' }, text: 'Archiviert (' + archived.length + ')' }),
-        h('div', { class: 'card flush' }, archived.map(budgetItem))) : null,
-    ]);
-  };
-
-  function openBudget(id) {
-    const b0 = bud(id);
-    if (!b0) return;
-    sheet(b0.name, (body, ctl) => {
-      const draw = () => {
-        const b = bud(id);
-        if (!b) { ctl.close(); return; }
-        body.textContent = '';
-        const [ms, me] = [S.month + '-01', S.month + '-31'];
-        const tx = S.st.transactions.filter((t) => t.type === 'expense' && (b.kind === 'monthly'
-          ? t.date >= ms && t.date <= me && (t.budgetId === b.id || (!t.budgetId && t.categoryId === b.categoryId))
-          : t.budgetId === b.id));
-        const c = cat(b.categoryId);
-        append(body, [
-          h('div', { class: 'detail-head' },
-            h('div', { class: 'sub', text: b.remaining < 0 ? 'Überzogen um' : 'Noch verfügbar' }),
-            h('div', { class: 'big num', style: { color: b.remaining < 0 ? 'var(--red)' : 'var(--ink)' }, text: chf(Math.abs(b.remaining)) }),
-            progress(b.spent, b.amount)),
-          h('div', { class: 'card' },
-            kv(b.kind === 'monthly' ? 'Budget pro Monat' : 'Budget', chf(b.amount)),
-            kv(b.kind === 'monthly' ? 'Ausgegeben ' + monthLabel(S.month) : 'Bereits ausgegeben', chf(b.spent)),
-            kv('Restbetrag', chf(b.remaining)),
-            b.kind === 'monthly' ? kv('Kategorie', c ? c.name : '–') : kv('Zeitraum', b.startDate || b.endDate ? (b.startDate ? fmtDate(b.startDate) : '…') + ' – ' + (b.endDate ? fmtDate(b.endDate) : 'offen') : 'ohne Zeitraum'),
-            b.inputCurrency ? kv('Eingabewährung', b.inputCurrency + ' (Kurs: ' + (S.st.settings.lastRates[b.inputCurrency] ? S.st.settings.lastRates[b.inputCurrency] + ' ' + b.inputCurrency + '/CHF' : 'noch nicht erfasst') + ')') : null,
-            b.archived ? kv('Status', 'Archiviert') : null),
-          b.note ? note(b.note, 'info') : null,
-          h('div', { class: 'stack mt' },
-            !b.archived ? h('button', { class: 'btn mint block', type: 'button', onclick: () => openTx({ type: 'expense', budgetId: b.id, categoryId: b.categoryId }) }, icon('minus', 's'), 'Ausgabe erfassen' + (b.inputCurrency ? ' (' + b.inputCurrency + ')' : '')) : null,
-            h('div', { class: 'btn-row' },
-              h('button', { class: 'btn light', type: 'button', onclick: () => openBudgetForm(b) }, icon('edit', 's'), 'Bearbeiten'),
-              h('button', { class: 'btn light', type: 'button', onclick: async () => {
-                try { await mutate('budget.archive', { id: b.id, archived: !b.archived }); draw(); } catch (e) { toast(e.message, true); }
-              } }, icon('archive', 's'), b.archived ? 'Aktivieren' : 'Archivieren')),
-            h('button', { class: 'btn danger block', type: 'button', onclick: async () => {
-              if (!(await confirmBox('Budget löschen?', 'Zugeordnete Ausgaben bleiben als normale Buchungen erhalten.', 'Löschen', true))) return;
-              try { await mutate('budget.delete', { id: b.id }); ctl.close(); } catch (e) { toast(e.message, true); }
-            } }, icon('trash', 's'), 'Löschen')),
-          h('span', { class: 'section-t', text: 'Zugeordnete Ausgaben (' + tx.length + ')' }),
-          h('div', { class: 'card flush' }, tx.length ? tx.map(txRow) : empty('list', 'Noch keine Ausgaben.')),
-        ]);
-      };
-      draw();
-      const unsub = onRender(draw);
-      ctl.onClose = unsub;
-    });
-  }
-
-  function openBudgetForm(b) {
-    const requestId = uid();
-    sheet(b ? 'Budget bearbeiten' : 'Neues Budget', (body, ctl) => {
-      let kind = b ? b.kind : 'monthly';
-      const amt = amountField(b ? toInput(b.amount) : '');
-      const name = textInput(b ? b.name : '', { maxlength: '60', placeholder: 'z. B. Ferien Thailand' });
-      const catSel = selectInput(S.st.categories.filter((c) => c.type === 'expense' && (!c.archived || (b && c.id === b.categoryId))).map((c) => ({ value: c.id, label: c.name })), b ? b.categoryId : '');
-      const start = dateInput(b ? b.startDate : '');
-      const end = dateInput(b ? b.endDate : '');
-      const cur = selectInput([{ value: '', label: 'Nur CHF' }].concat(S.st.settings.currencies.map((c) => ({ value: c, label: c + ' (zusätzlich zu CHF)' }))), b ? (b.inputCurrency || '') : '');
-      const noteInp = textInput(b ? b.note : '', { maxlength: '200' });
-      const err = errBox();
-      const save = h('button', { class: 'btn mint block', type: 'submit' }, b ? 'Speichern' : 'Budget erstellen');
-      const mBox = h('div', { class: 'stack' }, field('Kategorie', catSel), note('Alle Ausgaben dieser Kategorie im jeweiligen Monat zählen automatisch zum Budget.', 'info'));
-      const cBox = h('div', { class: 'stack' }, field('Name', name), h('div', { class: 'row2' }, field('Von', start, true), field('Bis', end, true)),
-        field('Zusätzliche Eingabewährung (Ferien)', cur), note('Ausgaben werden einem freien Budget beim Erfassen zugeordnet. Das erzeugt keine zweite Buchung.', 'info'));
-      const layout = () => { mBox.classList.toggle('hidden', kind !== 'monthly'); cBox.classList.toggle('hidden', kind === 'monthly'); };
-      const form = h('form', { class: 'form' },
-        b ? null : seg([{ value: 'monthly', label: 'Monatsbudget' }, { value: 'custom', label: 'Freies Budget' }], kind, (v) => { kind = v; layout(); }),
-        amt.wrap, mBox, cBox, field('Notiz', noteInp, true), err, save);
-      form.addEventListener('submit', runner(save, err, async () => {
-        await mutate('budget.save', { id: b ? b.id : undefined, kind, amount: amt.input.value, name: name.value, categoryId: catSel.value,
-          startDate: start.value || null, endDate: end.value || null, inputCurrency: cur.value || null, note: noteInp.value, startMonth: S.month }, requestId);
-        ctl.close();
-      }));
-      body.appendChild(form);
-      layout();
     });
   }
 
@@ -1137,47 +918,21 @@
   const renderHooks = new Set();
   function onRender(fn) { renderHooks.add(fn); return () => renderHooks.delete(fn); }
 
-  // ================================================================ Mehr
-  PAGES.mehr = (p) => {
-    const st = S.st;
-    const t = today();
-    const open = st.occurrences.filter((o) => o.status === 'open');
-    const overdue = open.filter((o) => o.dueDate < t).length;
-    const goals = st.goals.filter((g) => !g.archived);
-    const sub = {
-      rechnungen: open.length ? open.length + ' offen' + (overdue ? ' · ' + overdue + ' überfällig' : '') : 'Alles bezahlt',
-      sparziele: goals.length ? goals.length + (goals.length === 1 ? ' Ziel · ' : ' Ziele · ') + chf(goals.reduce((s, g) => s + g.saved, 0)) : 'Noch keine Ziele',
-      schulden: st.summary.debts.iOwe || st.summary.debts.owedToMe ? 'Ich: ' + fmt(st.summary.debts.iOwe) + ' · Mir: ' + fmt(st.summary.debts.owedToMe) : 'Keine offenen Schulden',
-      konten: activeAccounts().length + ' aktiv · ' + chf(st.summary.totalBalance),
-      einstellungen: 'Profil, Kategorien, Backup',
-    };
-    append(p, [
-      topbar('Mehr'),
-      h('div', { class: 'tiles' }, MORE.map((m) => h('a', { class: 'tile', href: '#/' + m.r },
-        h('span', { class: 'dot ' + (m.r === 'rechnungen' && overdue ? 'red' : 'mint') }, icon(m.icon, 's')),
-        h('span', { class: 't', text: m.label }), h('span', { class: 's', text: sub[m.r] })))),
-      h('div', { class: 'card flush mt' },
-        h('button', { class: 'row', type: 'button', onclick: logout }, h('span', { class: 'ic' }, icon('logout', 's')), h('span', { class: 'tx' }, h('div', { class: 't1', text: 'Abmelden' }), h('div', { class: 't2', text: 'Angemeldet als ' + S.user.username }))),
-      ),
-    ]);
-  };
-
-  // ================================================================ Rechnungen
+  // ================================================================ Fixkosten
+  const INTERVAL_CHOICES = ['monthly', 'quarterly', 'yearly', 'once'];
   function occRow(o) {
     const b = bill(o.billId);
     const c = b ? cat(b.categoryId) : null;
     const t = today();
     let badge;
-    if (o.status === 'paid') badge = h('span', { class: 'badge mint' }, icon('check', 'xs'), 'bezahlt ' + fmtDate(o.paidDate, false));
+    if (o.status === 'paid') badge = h('span', { class: 'badge mint' }, icon('check', 'xs'), 'bezahlt');
     else if (o.status === 'skipped') badge = h('span', { class: 'badge' }, 'übersprungen');
-    else if (o.dueDate < t) badge = h('span', { class: 'badge red' }, icon('alert', 'xs'), 'überfällig');
-    else if (o.dueDate <= addDays(t, 7)) badge = h('span', { class: 'badge amber' }, 'bald fällig');
-    else badge = h('span', { class: 'badge' }, 'offen');
+    const late = o.status === 'open' && o.dueDate < t;
     return h('div', { class: 'row', style: { cursor: 'pointer' }, role: 'button', tabindex: '0', onclick: () => openOcc(o.id), onkeydown: (e) => { if (e.key === 'Enter') openOcc(o.id); } },
-      h('span', { class: 'ic ' + (o.status === 'paid' ? 'mint' : o.dueDate < t && o.status === 'open' ? 'red' : 'amber') }, icon(c ? c.icon : 'receipt', 's')),
+      h('span', { class: 'ic ' + (o.status === 'paid' ? 'mint' : late ? 'red' : 'amber') }, icon(c ? c.icon : 'receipt', 's')),
       h('span', { class: 'tx' },
-        h('div', { class: 't1', text: b ? b.name : 'Rechnung' }),
-        h('div', { class: 't2' }, 'Fällig ' + fmtDate(o.dueDate, o.dueDate.slice(0, 4) !== t.slice(0, 4)) + (b && b.interval !== 'once' ? ' · ' + INTERVALS[b.interval] : ''))),
+        h('div', { class: 't1', text: b ? b.name : 'Fixkosten' }),
+        h('div', { class: 't2', text: (o.status === 'paid' ? 'bezahlt ' + fmtDate(o.paidDate, false) : late ? 'überfällig seit ' + fmtDate(o.dueDate, false) : 'fällig ' + fmtDate(o.dueDate, o.dueDate.slice(0, 4) !== t.slice(0, 4))) })),
       h('span', { class: 'end' },
         h('div', { class: 'amt', text: fmt(o.status === 'paid' ? o.paidAmount : o.amount) }),
         o.status === 'open'
@@ -1185,58 +940,45 @@
           : badge));
   }
 
-  PAGES.rechnungen = (p) => {
+  PAGES.fixkosten = (p) => {
     const st = S.st;
+    const f = st.summary.free;
     const t = today();
-    const occ = st.occurrences;
-    const open = occ.filter((o) => o.status === 'open' && o.dueDate >= t).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-    const overdue = occ.filter((o) => o.status === 'open' && o.dueDate < t).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-    const done = occ.filter((o) => o.status !== 'open').sort((a, b) => b.dueDate.localeCompare(a.dueDate));
-    const box = h('div');
-    const tabs = { open: ['Offen', open], overdue: ['Überfällig', overdue], paid: ['Bezahlt', done], all: ['Vorlagen', null] };
-    function draw() {
-      box.textContent = '';
-      if (S.billTab === 'all') {
-        const card = h('div', { class: 'card flush' });
-        if (!st.bills.length) card.appendChild(empty('receipt', 'Noch keine Rechnungen erfasst.'));
-        st.bills.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach((b) => {
-          const c = cat(b.categoryId);
-          card.appendChild(h('button', { class: 'row', type: 'button', onclick: () => openBillForm(b) },
-            h('span', { class: 'ic ' + (b.active ? 'amber' : '') }, icon(b.interval === 'once' ? (c ? c.icon : 'receipt') : 'repeat', 's')),
-            h('span', { class: 'tx' }, h('div', { class: 't1', text: b.name }),
-              h('div', { class: 't2', text: INTERVALS[b.interval] + (b.active ? (b.nextDue ? ' · nächste ' + fmtDate(b.nextDue) : '') : ' · beendet') + (b.accountId && acc(b.accountId) ? ' · ' + acc(b.accountId).name : '') })),
-            h('span', { class: 'end' }, h('div', { class: 'amt', text: fmt(b.amount) }), !b.active ? h('span', { class: 'badge' }, 'beendet') : null)));
-        });
-        box.appendChild(card);
-        return;
-      }
-      const [, list] = tabs[S.billTab];
-      const card = h('div', { class: 'card flush' });
-      if (!list.length) card.appendChild(empty(S.billTab === 'overdue' ? 'check' : 'receipt', S.billTab === 'overdue' ? 'Nichts überfällig.' : S.billTab === 'paid' ? 'Noch keine bezahlten Rechnungen.' : 'Keine offenen Rechnungen.'));
-      list.slice(0, 300).forEach((o) => card.appendChild(occRow(o)));
-      box.appendChild(card);
-      if (S.billTab !== 'paid' && list.length) {
-        box.appendChild(h('div', { class: 'small muted', style: { padding: '0 4px' }, text: 'Summe: ' + chf(list.reduce((s, o) => s + o.amount, 0)) + ' · CASH bucht nichts automatisch – erst «Bezahlt» erzeugt die Ausgabe.' }));
-      }
-    }
+    const end = monthEnd(f.month);
+    const monthName = MONTHS[Number(f.month.slice(5, 7)) - 1];
+    const thisMonth = st.occurrences.filter((o) => (o.dueDate.startsWith(f.month) || (o.status === 'open' && o.dueDate < t)) && o.dueDate <= end)
+      .sort((a, b) => (a.status === 'open' ? 0 : 1) - (b.status === 'open' ? 0 : 1) || a.dueDate.localeCompare(b.dueDate));
+    const active = st.bills.filter((b) => b.active).sort((a, b) => (a.nextDue || '9').localeCompare(b.nextDue || '9'));
+    const ended = st.bills.filter((b) => !b.active);
+    const billRow = (b) => {
+      const c = cat(b.categoryId);
+      return h('button', { class: 'row', type: 'button', onclick: () => openBillForm(b) },
+        h('span', { class: 'ic ' + (b.active ? 'amber' : '') }, icon(c ? c.icon : 'repeat', 's')),
+        h('span', { class: 'tx' }, h('div', { class: 't1', text: b.name }),
+          h('div', { class: 't2', text: INTERVALS[b.interval] + (b.active ? (b.nextDue ? ' · nächste ' + fmtDate(b.nextDue, false) : '') : ' · beendet') })),
+        h('span', { class: 'end' }, h('div', { class: 'amt', text: fmt(b.amount) })));
+    };
     append(p, [
-      topbar('Rechnungen', { back: 'mehr', right: h('button', { class: 'icon-btn mint', type: 'button', 'aria-label': 'Neue Rechnung', onclick: () => openBillForm() }, icon('plus')) }),
+      topbar('Fixkosten', { right: h('button', { class: 'icon-btn mint', type: 'button', 'aria-label': 'Neue Fixkosten', onclick: () => openBillForm() }, icon('plus')) }),
       h('div', { class: 'grid g2', style: { marginBottom: '12px' } },
-        statCard('Offen', 'clock', 'amber', open.reduce((s, o) => s + o.amount, 0), open.length + ' Fälligkeiten'),
-        statCard('Überfällig', 'alert', overdue.length ? 'red' : 'dark', overdue.reduce((s, o) => s + o.amount, 0), overdue.length + ' Fälligkeiten')),
-      h('div', { style: { marginBottom: '12px' } }, seg(Object.entries(tabs).map(([v, [l, list]]) => ({ value: v, label: l + (list && list.length && v !== 'paid' ? ' ' + list.length : '') })), S.billTab, (v) => { S.billTab = v; draw(); }, 'sm')),
-      box,
+        statCard('Noch offen', 'clock', 'amber', f.fixedOpen, 'bis Ende ' + monthName),
+        statCard('Pro Monat', 'repeat', 'dark', f.fixedPerMonth, active.length + (active.length === 1 ? ' Position' : ' Positionen'))),
+      h('span', { class: 'section-t', text: 'Im ' + monthName }),
+      h('div', { class: 'card flush' }, thisMonth.length ? thisMonth.map(occRow) : empty('check', 'Im ' + monthName + ' ist nichts fällig.')),
+      h('span', { class: 'section-t', text: 'Alle Fixkosten' }),
+      h('div', { class: 'card flush' }, active.length ? active.map(billRow) : empty('repeat', 'Noch keine Fixkosten. Tipp: Beim Erfassen einer Ausgabe «Wiederkehrend» einschalten.')),
+      ended.length ? h('details', null, h('summary', { class: 'section-t', style: { cursor: 'pointer' }, text: 'Beendet (' + ended.length + ')' }), h('div', { class: 'card flush' }, ended.map(billRow))) : null,
+      note('Offene Fixkosten werden vom freien Geld abgezogen, bis du sie als bezahlt markierst. Bezahlt wird nie automatisch.', 'info'),
     ]);
-    draw();
   };
 
   function openOcc(id) {
-    sheet('Rechnung', (body, ctl) => {
+    sheet('Fixkosten', (body, ctl) => {
       const draw = () => {
         const o = byId(S.st.occurrences, id);
         if (!o) { ctl.close(); return; }
         const b = bill(o.billId);
-        ctl.setTitle(b ? b.name : 'Rechnung');
+        ctl.setTitle(b ? b.name : 'Fixkosten');
         body.textContent = '';
         const t = today();
         const status = o.status === 'paid' ? 'Bezahlt' : o.status === 'skipped' ? 'Übersprungen' : o.dueDate < t ? 'Überfällig' : 'Offen';
@@ -1247,19 +989,17 @@
             b ? kv('Wiederholung', INTERVALS[b.interval]) : null,
             b ? kv('Kategorie', (cat(b.categoryId) || {}).name || '–') : null,
             o.status === 'paid' ? kv('Bezahlt am', fmtDate(o.paidDate)) : null,
-            o.status === 'paid' ? kv('Konto', (acc(o.accountId) || {}).name || '–') : null,
-            b && b.note ? kv('Notiz', b.note) : null),
+            o.status === 'paid' ? kv('Konto', (acc(o.accountId) || {}).name || '–') : null),
           h('div', { class: 'stack mt' },
             o.status === 'open' ? h('button', { class: 'btn mint block', type: 'button', onclick: () => openPay(o.id) }, icon('check', 's'), 'Als bezahlt markieren') : null,
             o.status === 'paid' ? h('button', { class: 'btn light block', type: 'button', onclick: async (e) => {
               const btn = e.currentTarget;
-              if (!(await confirmBox('Zahlung zurücknehmen?', 'Die verknüpfte Ausgabe wird gelöscht und die Rechnung ist wieder offen.', 'Zurücknehmen', true))) return;
+              if (!(await confirmBox('Zahlung zurücknehmen?', 'Die verknüpfte Ausgabe wird gelöscht und der Betrag ist wieder offen.', 'Zurücknehmen', true))) return;
               busy(btn, 'occ.unpay', { id: o.id });
             } }, icon('undo', 's'), 'Zahlung zurücknehmen') : null,
-            o.status === 'paid' && o.txId ? h('button', { class: 'btn light block', type: 'button', onclick: () => { const tx = byId(S.st.transactions, o.txId); if (tx) openTx({ tx }); } }, icon('edit', 's'), 'Zahlung bearbeiten') : null,
-            o.status === 'open' ? h('button', { class: 'btn light block', type: 'button', onclick: (e) => busy(e.currentTarget, 'occ.skip', { id: o.id }) }, icon('skip', 's'), 'Überspringen (ohne Zahlung)') : null,
+            o.status === 'open' ? h('button', { class: 'btn light block', type: 'button', onclick: (e) => busy(e.currentTarget, 'occ.skip', { id: o.id }) }, icon('skip', 's'), 'Diesmal nicht fällig (überspringen)') : null,
             o.status === 'skipped' ? h('button', { class: 'btn light block', type: 'button', onclick: (e) => busy(e.currentTarget, 'occ.unskip', { id: o.id }) }, icon('undo', 's'), 'Wieder öffnen') : null,
-            b ? h('button', { class: 'btn ghost block', type: 'button', onclick: () => openBillForm(b) }, icon('repeat', 's'), 'Rechnung / Wiederholung bearbeiten') : null),
+            b ? h('button', { class: 'btn ghost block', type: 'button', onclick: () => openBillForm(b) }, icon('edit', 's'), 'Fixkosten bearbeiten') : null),
         ]);
       };
       draw();
@@ -1272,17 +1012,16 @@
     if (!o || o.status !== 'open') return;
     const b = bill(o.billId);
     const requestId = uid();   // gleiche ID bei Doppelklick → keine doppelte Ausgabe
-    sheet('Als bezahlt markieren', (body, ctl) => {
+    sheet('Bezahlt', (body, ctl) => {
       const date = dateInput(today());
       const accSel = selectInput(accountOptions(null), b && b.accountId && acc(b.accountId) && !acc(b.accountId).archived ? b.accountId : defaultAccountId());
       const amt = moneyInput(toInput(o.amount));
       const err = errBox();
-      const save = h('button', { class: 'btn mint block', type: 'submit' }, icon('check', 's'), 'Bezahlt – Ausgabe erfassen');
+      const save = h('button', { class: 'btn mint block', type: 'submit' }, icon('check', 's'), 'Als bezahlt markieren');
       const form = h('form', { class: 'form' },
         h('div', { class: 'detail-head' }, h('div', { class: 'big num', text: chf(o.amount) }), h('div', { class: 'sub', text: (b ? b.name : '') + ' · fällig ' + fmtDate(o.dueDate) })),
-        h('div', { class: 'row2' }, field('Zahlungsdatum', date), field('Konto', accSel)),
-        field('Bezahlter Betrag (CHF)', amt),
-        note('Es wird genau eine verknüpfte Ausgabe erfasst.', 'info'),
+        h('div', { class: 'row2' }, field('Bezahlt am', date), field('Konto', accSel)),
+        field('Betrag (CHF)', amt),
         err, save);
       form.addEventListener('submit', runner(save, err, async () => {
         await mutate('occ.pay', { id: o.id, date: date.value, accountId: accSel.value, amount: amt.value }, requestId);
@@ -1294,44 +1033,36 @@
 
   function openBillForm(b) {
     const requestId = uid();
-    sheet(b ? 'Rechnung bearbeiten' : 'Neue Rechnung', (body, ctl) => {
+    sheet(b ? 'Fixkosten bearbeiten' : 'Neue Fixkosten', (body, ctl) => {
       const name = textInput(b ? b.name : '', { maxlength: '80', placeholder: 'z. B. Handy-Abo' });
       const amt = amountField(b ? toInput(b.amount) : '');
       const catSel = selectInput(S.st.categories.filter((c) => c.type === 'expense' && (!c.archived || (b && c.id === b.categoryId))).map((c) => ({ value: c.id, label: c.name })), b ? b.categoryId : (S.st.categories.find((c) => c.type === 'expense' && c.name.startsWith('Abos')) || {}).id);
       const start = dateInput(b ? b.startDate : today());
-      const interval = selectInput(Object.entries(INTERVALS).map(([v, l]) => ({ value: v, label: l })), b ? b.interval : 'monthly');
-      const end = dateInput(b ? b.endDate : '');
-      const accSel = selectInput(accountOptions(b ? b.accountId : null, 'Kein Standardkonto'), b ? (b.accountId || '') : '');
-      const noteInp = textInput(b ? b.note : '', { maxlength: '200' });
+      const choices = INTERVAL_CHOICES.concat(b && !INTERVAL_CHOICES.includes(b.interval) ? [b.interval] : []);
+      const interval = selectInput(choices.map((v) => ({ value: v, label: INTERVALS[v] })), b ? b.interval : 'monthly');
+      const accSel = selectInput(accountOptions(b ? b.accountId : null, 'Zuletzt verwendetes'), b ? (b.accountId || '') : defaultAccountId());
       const err = errBox();
-      const save = h('button', { class: 'btn mint block', type: 'submit' }, b ? 'Speichern' : 'Rechnung erfassen');
-      const endField = field('Endet am', end, true);
-      const sync = () => endField.classList.toggle('hidden', interval.value === 'once');
-      interval.addEventListener('change', sync);
+      const save = h('button', { class: 'btn mint block', type: 'submit' }, b ? 'Speichern' : 'Fixkosten erfassen');
       const form = h('form', { class: 'form' },
         field('Name', name), amt.wrap,
         h('div', { class: 'row2' }, field(b ? 'Erste Fälligkeit' : 'Nächste Fälligkeit', start), field('Wiederholung', interval)),
-        endField,
         h('div', { class: 'row2' }, field('Kategorie', catSel), field('Konto', accSel, true)),
-        field('Notiz', noteInp, true),
-        b ? note('Änderungen an Datum oder Intervall planen offene Fälligkeiten neu. Bezahlte bleiben unverändert.', 'info') : note('Wiederkehrende Fälligkeiten werden automatisch angelegt – bezahlt wird aber nichts automatisch.', 'info'),
-        err,
-        save,
+        b ? note('Wenn du Datum oder Wiederholung änderst, werden offene Termine neu geplant. Bezahlte bleiben.', 'info') : null,
+        err, save,
         b ? h('div', { class: 'btn-row' },
           h('button', { class: 'btn light', type: 'button', onclick: async () => {
             try { await mutate('bill.active', { id: b.id, active: !b.active }); ctl.close(); } catch (e) { err.textContent = e.message; }
-          } }, icon(b.active ? 'archive' : 'repeat', 's'), b.active ? 'Beenden' : 'Reaktivieren'),
+          } }, icon(b.active ? 'archive' : 'repeat', 's'), b.active ? 'Beenden' : 'Wieder aktiv'),
           h('button', { class: 'btn danger', type: 'button', onclick: async () => {
-            if (!(await confirmBox('Rechnung löschen?', 'Offene Fälligkeiten werden entfernt. Bereits bezahlte Ausgaben bleiben als Buchungen erhalten.', 'Löschen', true))) return;
+            if (!(await confirmBox('Fixkosten löschen?', 'Offene Termine werden entfernt. Bereits bezahlte Ausgaben bleiben als Buchungen erhalten.', 'Löschen', true))) return;
             try { await mutate('bill.delete', { id: b.id }); ctl.close(); } catch (e) { err.textContent = e.message; }
           } }, icon('trash', 's'), 'Löschen')) : null);
       form.addEventListener('submit', runner(save, err, async () => {
         await mutate('bill.save', { id: b ? b.id : undefined, name: name.value, amount: amt.input.value, categoryId: catSel.value, startDate: start.value,
-          interval: interval.value, endDate: interval.value === 'once' ? null : (end.value || null), accountId: accSel.value || null, note: noteInp.value }, requestId);
+          interval: interval.value, endDate: b ? b.endDate : null, accountId: accSel.value || null, note: b ? b.note : '' }, requestId);
         ctl.close();
       }));
       body.appendChild(form);
-      sync();
     });
   }
 
@@ -1340,17 +1071,22 @@
     const goals = S.st.goals;
     const active = goals.filter((g) => !g.archived);
     const arch = goals.filter((g) => g.archived);
-    const card = (g) => h('button', { class: 'card budget-item', type: 'button', style: { marginBottom: '12px' }, onclick: () => openGoal(g.id) },
+    const monthName = MONTHS[Number(today().slice(5, 7)) - 1];
+    const card = (g) => h('div', { class: 'card budget-item', style: { marginBottom: '12px', cursor: 'pointer' }, role: 'button', tabindex: '0', onclick: () => openGoal(g.id), onkeydown: (e) => { if (e.key === 'Enter') openGoal(g.id); } },
       h('div', { class: 'top' },
         h('span', { class: 'dot mint' }, icon('target', 's')),
         h('span', { class: 'tx' }, h('div', { class: 't1', style: { fontWeight: 680 }, text: g.name }),
-          h('div', { class: 't2', text: g.targetDate ? 'Ziel bis ' + fmtDate(g.targetDate) : 'ohne Zieldatum' })),
+          h('div', { class: 't2', text: (g.monthly ? chf(g.monthly) + ' pro Monat' : 'ohne feste Sparrate') + (g.targetDate ? ' · bis ' + fmtDate(g.targetDate) : '') })),
         h('span', { class: 'rest', text: Math.min(100, Math.round(g.target ? g.saved / g.target * 100 : 0)) + ' %' })),
       progress(g.saved, g.target),
-      h('div', { class: 'meta' }, h('span', { text: chf(g.saved) + ' von ' + chf(g.target) }), h('span', { text: g.remaining ? 'noch ' + chf(g.remaining) : 'Ziel erreicht' })));
+      h('div', { class: 'meta' }, h('span', { text: chf(g.saved) + ' von ' + chf(g.target) }), h('span', { text: g.remaining ? 'noch ' + chf(g.remaining) : 'Ziel erreicht' })),
+      g.dueThisMonth > 0 ? h('div', { class: 'goal-due' },
+        h('span', { text: 'Im ' + monthName + ' noch ' + chf(g.dueThisMonth) + ' zu sparen' }),
+        h('button', { class: 'btn mint sm', type: 'button', onclick: (e) => { e.stopPropagation(); openSave(g); } }, 'Gespart'))
+        : g.monthly > 0 && g.remaining > 0 ? h('div', { class: 'goal-due done' }, icon('check', 'xs'), 'Sparrate für ' + monthName + ' erledigt') : null);
     append(p, [
-      topbar('Sparziele', { back: 'mehr', right: h('button', { class: 'icon-btn mint', type: 'button', 'aria-label': 'Neues Sparziel', onclick: () => openGoalForm() }, icon('plus')) }),
-      note('Sparziele sind eine Zuweisung deines Geldes und verändern keine Kontostände. Echtes Geld verschiebst du mit einer Umbuchung.', 'info', 'mint'),
+      topbar('Sparziele', { right: h('button', { class: 'icon-btn mint', type: 'button', 'aria-label': 'Neues Sparziel', onclick: () => openGoalForm() }, icon('plus')) }),
+      note('Mit einer Sparrate pro Monat reserviert CASH das Geld automatisch – es wird vom freien Geld abgezogen, bis du «Gespart» drückst. Das verschiebt das Geld per Umbuchung auf dein Sparkonto.', 'info', 'mint'),
       h('div', { class: 'mt' }),
       active.length ? h('div', { class: 'cols' }, active.map((g) => h('div', null, card(g)))) : h('div', { class: 'card' }, empty('target', 'Noch keine Sparziele.')),
       arch.length ? h('details', null, h('summary', { class: 'section-t', style: { cursor: 'pointer' }, text: 'Archiviert (' + arch.length + ')' }), arch.map(card)) : null,
@@ -1365,23 +1101,24 @@
         ctl.setTitle(g.name);
         body.textContent = '';
         append(body, [
-          h('div', { class: 'detail-head' }, h('div', { class: 'sub', text: 'Zugewiesen' }), h('div', { class: 'big num', text: chf(g.saved) }), progress(g.saved, g.target)),
-          h('div', { class: 'card' }, kv('Zielbetrag', chf(g.target)), kv('Restbetrag', chf(g.remaining)), kv('Zieldatum', g.targetDate ? fmtDate(g.targetDate) : '–')),
-          h('div', { class: 'btn-row' },
-            h('button', { class: 'btn mint', type: 'button', onclick: () => openAlloc(g, 'add') }, icon('plus', 's'), 'Zuweisen'),
-            h('button', { class: 'btn light', type: 'button', onclick: () => openAlloc(g, 'remove') }, icon('minus', 's'), 'Entnehmen')),
+          h('div', { class: 'detail-head' }, h('div', { class: 'sub', text: 'Gespart' }), h('div', { class: 'big num', text: chf(g.saved) }), progress(g.saved, g.target)),
+          h('div', { class: 'card' }, kv('Zielbetrag', chf(g.target)), kv('Fehlt noch', chf(g.remaining)),
+            kv('Sparrate', g.monthly ? chf(g.monthly) + ' / Monat' : '–'), g.monthly ? kv('Diesen Monat gespart', chf(g.savedThisMonth)) : null,
+            kv('Zieldatum', g.targetDate ? fmtDate(g.targetDate) : '–')),
+          h('button', { class: 'btn mint block', type: 'button', onclick: () => openSave(g) }, icon('plus', 's'), 'Gespart'),
           h('div', { class: 'btn-row mt' },
-            h('button', { class: 'btn light', type: 'button', onclick: () => openTx({ type: 'transfer' }) }, icon('transfer', 's'), 'Umbuchung'),
+            h('button', { class: 'btn light', type: 'button', onclick: () => openSave(g, 'remove') }, icon('minus', 's'), 'Entnehmen'),
             h('button', { class: 'btn light', type: 'button', onclick: () => openGoalForm(g) }, icon('edit', 's'), 'Bearbeiten')),
           h('span', { class: 'section-t', text: 'Verlauf' }),
           h('div', { class: 'card flush' }, g.allocations.length ? g.allocations.slice().reverse().map((a) => h('div', { class: 'row' },
-            h('span', { class: 'ic ' + (a.amount > 0 ? 'mint' : '') }, icon(a.amount > 0 ? 'plus' : 'minus', 's')),
-            h('span', { class: 'tx' }, h('div', { class: 't1', text: a.note || (a.amount > 0 ? 'Zuweisung' : 'Entnahme') }), h('div', { class: 't2', text: fmtDate(a.date) })),
+            h('span', { class: 'ic ' + (a.amount > 0 ? 'mint' : '') }, icon(a.txId ? 'transfer' : a.amount > 0 ? 'plus' : 'minus', 's')),
+            h('span', { class: 'tx' }, h('div', { class: 't1', text: a.note || (a.amount > 0 ? 'Gespart' : 'Entnommen') }),
+              h('div', { class: 't2', text: fmtDate(a.date) + (a.txId ? ' · mit Umbuchung' : ' · nur zugewiesen') })),
             h('span', { class: 'amt', text: (a.amount > 0 ? '+ ' : '') + fmt(a.amount) }),
             h('button', { class: 'icon-btn flat', type: 'button', 'aria-label': 'Eintrag löschen', onclick: async () => {
-              if (!(await confirmBox('Eintrag löschen?', 'Die Zuweisung wird entfernt (keine Auswirkung auf Konten).', 'Löschen', true))) return;
+              if (!(await confirmBox('Eintrag löschen?', a.txId ? 'Die Zuweisung und die zugehörige Umbuchung werden gelöscht.' : 'Die Zuweisung wird entfernt.', 'Löschen', true))) return;
               try { await mutate('goal.allocDelete', { goalId: g.id, allocId: a.id }); } catch (e) { toast(e.message, true); }
-            } }, icon('trash', 's')))) : empty('target', 'Noch keine Zuweisungen.')),
+            } }, icon('trash', 's')))) : empty('target', 'Noch nichts gespart.')),
         ]);
       };
       draw();
@@ -1389,22 +1126,37 @@
     });
   }
 
-  function openAlloc(g, mode) {
+  /** «Gespart»: Betrag dem Ziel zuweisen und (optional) per Umbuchung aufs Sparkonto verschieben. */
+  function openSave(g, mode) {
+    mode = mode || 'add';
     const requestId = uid();
-    sheet(mode === 'add' ? 'Betrag zuweisen' : 'Betrag entnehmen', (body, ctl) => {
-      const amt = amountField('');
+    sheet(mode === 'add' ? 'Gespart für ' + g.name : 'Entnehmen aus ' + g.name, (body, ctl) => {
+      const amt = amountField(mode === 'add' && (g.dueThisMonth || g.monthly) ? toInput(g.dueThisMonth || g.monthly) : '');
       const date = dateInput(today());
-      const n = textInput('', { maxlength: '120' });
+      const accs = activeAccounts();
+      const savingsAcc = accs.find((a) => !a.available);
+      const spendAcc = acc(defaultAccountId());
+      const [defFrom, defTo] = mode === 'add' ? [spendAcc, savingsAcc] : [savingsAcc, spendAcc];
+      const fromSel = selectInput(accountOptions(null), defFrom ? defFrom.id : defaultAccountId());
+      const toSel = selectInput(accountOptions(null, 'Keine Umbuchung (nur zuweisen)'), defTo && defFrom && defTo.id !== defFrom.id ? defTo.id : '');
+      const fromField = field('Von Konto', fromSel);
+      const sync = () => fromField.classList.toggle('hidden', !toSel.value);
+      toSel.addEventListener('change', sync);
       const err = errBox();
-      const save = h('button', { class: 'btn mint block', type: 'submit' }, mode === 'add' ? 'Zuweisen' : 'Entnehmen');
-      const form = h('form', { class: 'form' }, amt.wrap, field('Datum', date), field('Notiz', n, true),
-        note('Verändert keinen Kontostand.', 'info'), err, save);
+      const save = h('button', { class: 'btn mint block', type: 'submit' }, mode === 'add' ? 'Gespart' : 'Entnehmen');
+      const form = h('form', { class: 'form' }, amt.wrap,
+        h('div', { class: 'row2' }, fromField, field('Auf Konto', toSel)),
+        field('Datum', date),
+        note(mode === 'add' ? 'Die Umbuchung verschiebt echtes Geld und zählt nicht als Ausgabe.' : 'Verringert den gesparten Betrag des Ziels.', 'transfer'),
+        err, save);
       form.addEventListener('submit', runner(save, err, async () => {
-        await mutate('goal.allocate', { goalId: g.id, mode, amount: amt.input.value, date: date.value, note: n.value }, requestId);
+        const payload = { goalId: g.id, mode, amount: amt.input.value, date: date.value };
+        if (toSel.value) { payload.fromAccountId = fromSel.value; payload.toAccountId = toSel.value; }
+        await mutate('goal.allocate', payload, requestId);
         ctl.close();
       }));
       body.appendChild(form);
-      setTimeout(() => amt.input.focus(), 60);
+      sync();
     });
   }
 
@@ -1413,152 +1165,25 @@
     sheet(g ? 'Sparziel bearbeiten' : 'Neues Sparziel', (body, ctl) => {
       const name = textInput(g ? g.name : '', { maxlength: '60', placeholder: 'z. B. Neues Velo' });
       const target = amountField(g ? toInput(g.target) : '');
+      const monthly = moneyInput(g && g.monthly ? toInput(g.monthly) : '', { placeholder: 'z. B. 50.00' });
       const date = dateInput(g ? g.targetDate : '');
       const initial = moneyInput('');
       const err = errBox();
       const save = h('button', { class: 'btn mint block', type: 'submit' }, g ? 'Speichern' : 'Sparziel erstellen');
       const form = h('form', { class: 'form' }, field('Name', name), h('div', { class: 'field' }, h('span', { text: 'Zielbetrag' }), target.wrap),
-        field('Zieldatum', date, true), g ? null : field('Bereits zugewiesen (CHF)', initial, true), err, save,
+        h('div', { class: 'row2' }, field('Sparrate pro Monat', monthly, true), field('Zieldatum', date, true)),
+        g ? null : field('Schon gespart (CHF)', initial, true), err, save,
         g ? h('div', { class: 'btn-row' },
-          h('button', { class: 'btn light', type: 'button', onclick: async () => { try { await mutate('goal.save', { id: g.id, name: g.name, target: toInput(g.target), targetDate: g.targetDate, archived: !g.archived }); ctl.close(); } catch (e) { err.textContent = e.message; } } }, icon('archive', 's'), g.archived ? 'Aktivieren' : 'Archivieren'),
+          h('button', { class: 'btn light', type: 'button', onclick: async () => { try { await mutate('goal.save', { id: g.id, name: g.name, target: toInput(g.target), monthly: toInput(g.monthly), targetDate: g.targetDate, archived: !g.archived }); ctl.close(); } catch (e) { err.textContent = e.message; } } }, icon('archive', 's'), g.archived ? 'Aktivieren' : 'Archivieren'),
           h('button', { class: 'btn danger', type: 'button', onclick: async () => {
-            if (!(await confirmBox('Sparziel löschen?', 'Kontostände bleiben unverändert.', 'Löschen', true))) return;
-            try { await mutate('goal.delete', { id: g.id }); ctl.close(); closeAllSheets(); } catch (e) { err.textContent = e.message; }
+            if (!(await confirmBox('Sparziel löschen?', 'Kontostände bleiben unverändert; bereits erfasste Umbuchungen bleiben bestehen.', 'Löschen', true))) return;
+            try { await mutate('goal.delete', { id: g.id }); closeAllSheets(); } catch (e) { err.textContent = e.message; }
           } }, icon('trash', 's'), 'Löschen')) : null);
       form.addEventListener('submit', runner(save, err, async () => {
-        await mutate('goal.save', { id: g ? g.id : undefined, name: name.value, target: target.input.value, targetDate: date.value || null, initial: initial.value }, requestId);
+        await mutate('goal.save', { id: g ? g.id : undefined, name: name.value, target: target.input.value, monthly: monthly.value, targetDate: date.value || null, initial: initial.value }, requestId);
         ctl.close();
       }));
       body.appendChild(form);
-    });
-  }
-
-  // ================================================================ Schulden
-  const DEBT_TABS = { i_owe: 'Ich schulde anderen', owed_to_me: 'Andere schulden mir' };
-  PAGES.schulden = (p) => {
-    const box = h('div');
-    function draw() {
-      box.textContent = '';
-      const list = S.st.debts.filter((d) => d.direction === S.debtTab).sort((a, b) => (a.remaining === 0) - (b.remaining === 0) || b.date.localeCompare(a.date));
-      const openSum = list.reduce((s, d) => s + d.remaining, 0);
-      box.appendChild(statCard(S.debtTab === 'i_owe' ? 'Ich schulde noch' : 'Mir wird noch geschuldet', 'users', S.debtTab === 'i_owe' ? 'amber' : 'blue', openSum, list.filter((d) => d.remaining > 0).length + ' offen'));
-      const card = h('div', { class: 'card flush' });
-      if (!list.length) card.appendChild(empty('users', 'Keine Einträge.'));
-      const t = today();
-      list.forEach((d) => card.appendChild(h('button', { class: 'budget-item', type: 'button', onclick: () => openDebt(d.id) },
-        h('div', { class: 'top' },
-          h('span', { class: 'dot ' + (d.remaining === 0 ? 'mint' : d.direction === 'i_owe' ? 'amber' : 'blue') }, icon(d.remaining === 0 ? 'check' : 'user', 's')),
-          h('span', { class: 'tx' }, h('div', { class: 't1', style: { fontWeight: 650 }, text: d.person }),
-            h('div', { class: 't2', text: fmtDate(d.date) + (d.dueDate ? ' · fällig ' + fmtDate(d.dueDate) : '') + (d.note ? ' · ' + d.note : '') })),
-          h('span', { class: 'rest', text: d.remaining === 0 ? 'beglichen' : chf(d.remaining) })),
-        progress(d.paid, d.amount),
-        h('div', { class: 'meta' }, h('span', { text: fmt(d.paid) + ' von ' + fmt(d.amount) + ' zurückbezahlt' }),
-          d.remaining > 0 && d.dueDate && d.dueDate < t ? h('span', { class: 'badge red', text: 'überfällig' }) : h('span')))));
-      box.appendChild(card);
-    }
-    append(p, [
-      topbar('Schulden', { back: 'mehr', right: h('button', { class: 'icon-btn mint', type: 'button', 'aria-label': 'Neuer Eintrag', onclick: () => openDebtForm() }, icon('plus')) }),
-      h('div', { style: { marginBottom: '12px' } }, seg(Object.entries(DEBT_TABS).map(([v, l]) => ({ value: v, label: l })), S.debtTab, (v) => { S.debtTab = v; draw(); }, 'sm')),
-      box,
-      note('Darlehen und Rückzahlungen verändern nur die Kontostände – sie zählen nie als Einnahme oder Ausgabe.', 'info'),
-    ]);
-    draw();
-  };
-
-  function openDebt(id) {
-    sheet('Schuld', (body, ctl) => {
-      const draw = () => {
-        const d = byId(S.st.debts, id);
-        if (!d) { ctl.close(); return; }
-        ctl.setTitle(d.person);
-        body.textContent = '';
-        const hist = [{ date: d.date, label: d.direction === 'i_owe' ? 'Geliehen von ' + d.person : 'Ausgeliehen an ' + d.person, amount: d.amount, account: d.originAccountId, origin: true }]
-          .concat(d.payments.map((p) => ({ date: p.date, label: (d.direction === 'i_owe' ? 'Rückzahlung an ' : 'Rückzahlung von ') + d.person + (p.note ? ' · ' + p.note : ''), amount: -p.amount, account: p.accountId, id: p.id })));
-        append(body, [
-          h('div', { class: 'detail-head' }, h('div', { class: 'sub', text: DEBT_TABS[d.direction] + ' · Restbetrag' }), h('div', { class: 'big num', text: chf(d.remaining) }), progress(d.paid, d.amount)),
-          h('div', { class: 'card' }, kv('Ursprünglicher Betrag', chf(d.amount)), kv('Bereits zurückbezahlt', chf(d.paid)), kv('Datum', fmtDate(d.date)),
-            d.dueDate ? kv('Fällig bis', fmtDate(d.dueDate)) : null, d.note ? kv('Notiz', d.note) : null),
-          d.remaining > 0 ? h('button', { class: 'btn mint block', type: 'button', onclick: () => openDebtPay(d) }, icon('plus', 's'), 'Zahlung erfassen') : note('Vollständig beglichen.', 'check', 'mint'),
-          h('span', { class: 'section-t', text: 'Verlauf' }),
-          h('div', { class: 'card flush' }, hist.map((x) => h('div', { class: 'row' },
-            h('span', { class: 'ic ' + (x.origin ? 'amber' : 'mint') }, icon(x.origin ? 'users' : 'check', 's')),
-            h('span', { class: 'tx' }, h('div', { class: 't1', text: x.label }), h('div', { class: 't2', text: fmtDate(x.date) + ' · ' + (x.account && acc(x.account) ? acc(x.account).name : 'ohne Kontobewegung') })),
-            h('span', { class: 'amt', text: fmt(Math.abs(x.amount)) }),
-            x.id ? h('button', { class: 'icon-btn flat', type: 'button', 'aria-label': 'Zahlung löschen', onclick: async () => {
-              if (!(await confirmBox('Zahlung löschen?', 'Die Zahlung und ihre Kontobewegung werden entfernt.', 'Löschen', true))) return;
-              try { await mutate('debt.payDelete', { debtId: d.id, paymentId: x.id }); } catch (e) { toast(e.message, true); }
-            } }, icon('trash', 's')) : null))),
-          h('div', { class: 'btn-row mt' },
-            h('button', { class: 'btn light', type: 'button', onclick: () => openDebtForm(d) }, icon('edit', 's'), 'Bearbeiten'),
-            h('button', { class: 'btn danger', type: 'button', onclick: async () => {
-              if (!(await confirmBox('Eintrag löschen?', 'Die Schuld, alle Zahlungen und die verknüpften Kontobewegungen werden gelöscht.', 'Löschen', true))) return;
-              try { await mutate('debt.delete', { id: d.id }); ctl.close(); } catch (e) { toast(e.message, true); }
-            } }, icon('trash', 's'), 'Löschen')),
-        ]);
-      };
-      draw();
-      ctl.onClose = onRender(draw);
-    });
-  }
-
-  function openDebtPay(d) {
-    const requestId = uid();
-    sheet(d.direction === 'i_owe' ? 'Rückzahlung an ' + d.person : 'Rückzahlung von ' + d.person, (body, ctl) => {
-      const amt = amountField(toInput(d.remaining));
-      const date = dateInput(today());
-      const accSel = selectInput(accountOptions(null, 'Ohne Kontobewegung (z. B. verrechnet)'), defaultAccountId());
-      const n = textInput('', { maxlength: '120' });
-      const err = errBox();
-      const save = h('button', { class: 'btn mint block', type: 'submit' }, 'Zahlung speichern');
-      const form = h('form', { class: 'form' }, amt.wrap,
-        h('div', { class: 'small muted', text: 'Restbetrag: ' + chf(d.remaining) + ' – Teilzahlungen sind möglich.' }),
-        h('div', { class: 'row2' }, field('Datum', date), field(d.direction === 'i_owe' ? 'Bezahlt von Konto' : 'Erhalten auf Konto', accSel)),
-        field('Notiz', n, true),
-        note('Bei einer echten Zahlung verändert sich der Kontostand. Es entsteht keine Einnahme oder Ausgabe.', 'info'),
-        err, save);
-      form.addEventListener('submit', runner(save, err, async () => {
-        await mutate('debt.pay', { debtId: d.id, amount: amt.input.value, date: date.value, accountId: accSel.value || null, note: n.value }, requestId);
-        ctl.close();
-      }));
-      body.appendChild(form);
-    });
-  }
-
-  function openDebtForm(d) {
-    const requestId = uid();
-    sheet(d ? 'Eintrag bearbeiten' : 'Neuer Eintrag', (body, ctl) => {
-      let dir = d ? d.direction : S.debtTab;
-      const person = textInput(d ? d.person : '', { maxlength: '60', placeholder: 'Name' });
-      const amt = amountField(d ? toInput(d.amount) : '');
-      const date = dateInput(d ? d.date : today());
-      const due = dateInput(d ? d.dueDate : '');
-      const accSel = selectInput(accountOptions(d ? d.originAccountId : null, 'Nein – kein Geld über mein Konto'), d ? (d.originAccountId || '') : '');
-      const n = textInput(d ? d.note : '', { maxlength: '300' });
-      const err = errBox();
-      const hint = h('div');
-      const accLabel = h('span');
-      const sync = () => {
-        accLabel.textContent = dir === 'i_owe' ? 'Geld auf mein Konto erhalten?' : 'Geld von meinem Konto gegeben?';
-        hint.textContent = '';
-        hint.appendChild(note(dir === 'i_owe'
-          ? 'Hat jemand für dich bezahlt (z. B. Essen), wähle «Nein». Hast du Geld überwiesen bekommen, wähle das Konto – es wird erhöht, ohne Einnahme.'
-          : 'Hast du Geld überwiesen oder bar gegeben, wähle das Konto – es wird verringert, ohne Ausgabe.', 'info'));
-      };
-      const save = h('button', { class: 'btn mint block', type: 'submit' }, d ? 'Speichern' : 'Erfassen');
-      const form = h('form', { class: 'form' },
-        d ? null : seg(Object.entries(DEBT_TABS).map(([v, l]) => ({ value: v, label: l })), dir, (v) => { dir = v; sync(); }, 'sm'),
-        field('Person', person), amt.wrap,
-        h('div', { class: 'row2' }, field('Datum', date), field('Fällig bis', due, true)),
-        h('label', { class: 'field' }, accLabel, accSel), hint,
-        field('Notiz', n, true), err, save);
-      form.addEventListener('submit', runner(save, err, async () => {
-        await mutate('debt.save', { id: d ? d.id : undefined, direction: dir, person: person.value, amount: amt.input.value, date: date.value,
-          dueDate: due.value || null, originAccountId: accSel.value || null, note: n.value }, requestId);
-        if (!d) S.debtTab = dir;
-        ctl.close();
-      }));
-      body.appendChild(form);
-      sync();
     });
   }
 
@@ -1568,15 +1193,15 @@
     const arch = S.st.accounts.filter((a) => a.archived);
     const row = (a) => h('button', { class: 'row', type: 'button', onclick: () => openAccountForm(a) },
       h('span', { class: 'ic ' + (a.archived ? '' : 'mint') }, icon(ACCOUNT_ICONS[a.type] || 'bank', 's')),
-      h('span', { class: 'tx' }, h('div', { class: 't1', text: a.name }), h('div', { class: 't2', text: ACCOUNT_TYPES[a.type] + ' · Anfangssaldo ' + fmt(a.opening) })),
+      h('span', { class: 'tx' }, h('div', { class: 't1', text: a.name }), h('div', { class: 't2', text: ACCOUNT_TYPES[a.type] + (a.available ? ' · zählt zum freien Geld' : ' · nicht eingerechnet') })),
       h('span', { class: 'end' }, h('div', { class: 'amt ' + (a.balance < 0 ? 'neg' : ''), text: chf(a.balance) })));
     append(p, [
-      topbar('Konten', { back: 'mehr', right: h('button', { class: 'icon-btn mint', type: 'button', 'aria-label': 'Neues Konto', onclick: () => openAccountForm() }, icon('plus')) }),
+      topbar('Konten', { back: 'uebersicht', right: h('button', { class: 'icon-btn mint', type: 'button', 'aria-label': 'Neues Konto', onclick: () => openAccountForm() }, icon('plus')) }),
       h('div', { class: 'card hero' }, h('div', { class: 'label', text: 'Kontostand · aktive Konten' }), h('div', { class: 'big num' }, h('small', { text: 'CHF' }), fmt(S.st.summary.totalBalance))),
       h('div', { class: 'card flush' }, active.map(row)),
       h('button', { class: 'btn light block', type: 'button', onclick: () => openTx({ type: 'transfer' }) }, icon('transfer', 's'), 'Umbuchung zwischen Konten'),
       arch.length ? [h('span', { class: 'section-t', text: 'Archiviert' }), h('div', { class: 'card flush' }, arch.map(row))] : null,
-      h('div', { class: 'mt' }), note('Kontostand = Anfangssaldo + Einnahmen − Ausgaben ± Umbuchungen ± Darlehen. Budgets und Sparziele verändern Kontostände nicht.', 'info'),
+      h('div', { class: 'mt' }), note('«Frei für Freizeit» rechnet mit den Alltagskonten. Sparkonten zählen nicht dazu – Geld dorthin verschiebst du mit einer Umbuchung oder «Gespart».', 'info'),
     ]);
   };
 
@@ -1586,11 +1211,14 @@
       const name = textInput(a ? a.name : '', { maxlength: '60' });
       const type = selectInput(Object.entries(ACCOUNT_TYPES).map(([v, l]) => ({ value: v, label: l })), a ? a.type : 'checking');
       const opening = moneyInput(a ? toInput(a.opening) : '', { placeholder: 'Aktueller Stand bei Einrichtung' });
+      const av = h('input', { type: 'checkbox', checked: a ? a.available : true });
+      if (!a) type.addEventListener('change', () => { av.checked = type.value !== 'savings'; });
       const err = errBox();
       const save = h('button', { class: 'btn mint block', type: 'submit' }, a ? 'Speichern' : 'Konto anlegen');
       const form = h('form', { class: 'form' },
         a ? h('div', { class: 'detail-head' }, h('div', { class: 'sub', text: 'Aktueller Kontostand' }), h('div', { class: 'big num', text: chf(a.balance) })) : null,
         field('Name', name), h('div', { class: 'row2' }, field('Art', type), field('Anfangssaldo (CHF)', opening)),
+        h('label', { class: 'check' }, av, h('span', null, 'Alltagskonto', h('br'), h('span', { class: 'small muted', text: 'Guthaben zählt zu «Frei für Freizeit». Für Sparkonten ausschalten.' }))),
         note(a ? 'Der Anfangssaldo ist der Stand bei der Einrichtung und zählt nicht als Einnahme. Eine Änderung wirkt sich auf den Kontostand aus.' : 'Gib den heutigen Kontostand ein. Er zählt nicht als Einnahme.', 'info'),
         err, save,
         a ? h('div', { class: 'btn-row' },
@@ -1604,7 +1232,7 @@
           } }, icon('trash', 's'), 'Löschen')) : null);
       form.addEventListener('submit', runner(save, err, async () => {
         if (opening.value.trim() === '') throw new Error('Bitte den Anfangssaldo eingeben (0 ist erlaubt).');
-        await mutate('account.save', { id: a ? a.id : undefined, name: name.value, type: type.value, opening: opening.value.replace(/^−/, '-') }, requestId);
+        await mutate('account.save', { id: a ? a.id : undefined, name: name.value, type: type.value, opening: opening.value.replace(/^\u2212/, '-'), available: av.checked }, requestId);
         ctl.close();
       }));
       body.appendChild(form);
@@ -1711,7 +1339,7 @@
     });
 
     append(p, [
-      topbar('Einstellungen', { back: 'mehr' }),
+      topbar('Einstellungen', { back: 'uebersicht' }),
       h('div', { class: 'cols' },
         h('div', null,
           h('div', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: 'Profil' })), pForm),

@@ -9,7 +9,7 @@ if (!defined('CASH_ENTRY')) {
     exit;
 }
 
-const CASH_VERSION = '1.0.0';
+const CASH_VERSION = '1.1.0';
 
 date_default_timezone_set('Europe/Zurich');
 mb_internal_encoding('UTF-8');

@@ -131,7 +131,8 @@ final class Backup
         $acc = $ids($d['accounts'], 'Konto');
         foreach ($d['accounts'] as $a) {
             if (!$isStr($a['name'] ?? null, 60) || $a['name'] === '' || !in_array($a['type'] ?? '', Finance::ACCOUNT_TYPES, true)
-                || !$isAmt($a['opening'] ?? null, true) || !is_bool($a['archived'] ?? null) || !$optDate($a['openingDate'] ?? null)) {
+                || !$isAmt($a['opening'] ?? null, true) || !is_bool($a['archived'] ?? null) || !$optDate($a['openingDate'] ?? null)
+                || (isset($a['available']) && !is_bool($a['available']))) {
                 $fail('Konto «' . (is_string($a['name'] ?? null) ? $a['name'] : '?') . '»');
             }
         }
@@ -197,6 +198,10 @@ final class Backup
                     if ($type !== 'expense' || !isset($bills[$link['billId'] ?? '']) || !isset($occ[$link['occurrenceId'] ?? ''])) {
                         $fail($where . ' (Rechnung)');
                     }
+                } elseif ($kind === 'goal') {
+                    if ($type !== 'transfer' || !in_array($link['goalId'] ?? null, array_column($d['goals'], 'id'), true)) {
+                        $fail($where . ' (Sparziel)');
+                    }
                 } elseif ($kind === 'debt') {
                     if (!in_array($type, ['debt_in', 'debt_out'], true) || !isset($debts[$link['debtId'] ?? ''])) {
                         $fail($where . ' (Schuld)');
@@ -226,13 +231,15 @@ final class Backup
         $ids($d['goals'], 'Sparziel');
         foreach ($d['goals'] as $g) {
             if (!$isStr($g['name'] ?? null, 60) || !$isAmt($g['target'] ?? null) || !$optDate($g['targetDate'] ?? null)
+                || (isset($g['monthly']) && !$isAmt($g['monthly']))
                 || !is_array($g['allocations'] ?? null) || !array_is_list($g['allocations'])) {
                 $fail('Sparziel');
             }
             $ids($g['allocations'], 'Sparzuweisung');
             $sum = 0;
             foreach ($g['allocations'] as $al) {
-                if (!$isAmt($al['amount'] ?? null, true) || !$isDate($al['date'] ?? null) || !$isStr($al['note'] ?? '', 120)) {
+                if (!$isAmt($al['amount'] ?? null, true) || !$isDate($al['date'] ?? null) || !$isStr($al['note'] ?? '', 120)
+                    || (($al['txId'] ?? null) !== null && !isset($tx[$al['txId']]))) {
                     $fail('Sparzuweisung');
                 }
                 $sum += $al['amount'];

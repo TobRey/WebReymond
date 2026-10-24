@@ -31,7 +31,8 @@
 }
 
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-padding-bottom: calc(var(--nav-h) + var(--safe-b) + 24px); scroll-padding-top: 16px; }
+@media (min-width: 900px) { html { scroll-padding-bottom: 24px; } }
 body {
   margin: 0;
   background: var(--bg);
@@ -163,6 +164,7 @@ svg.i.xs { width: 15px; height: 15px; }
 
 .grid { display: grid; gap: 12px; }
 .grid > .card { margin: 0; }
+.grid > * { min-width: 0; }
 .g2 { grid-template-columns: 1fr 1fr; }
 @media (min-width: 700px) { .g-dash { grid-template-columns: 1.3fr 1fr; } .g3 { grid-template-columns: repeat(3, 1fr); } }
 @media (min-width: 900px) { .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; } .cols > div > .card:last-child { margin-bottom: 0; } }
@@ -407,3 +409,18 @@ input[type="date"].inp::-webkit-date-and-time-value { text-align: left; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* ---------- Frei für Freizeit ---------- */
+.hero.free .big { font-size: 40px; margin-bottom: 4px; }
+.hero.free.neg .big { color: #FF9A9A; }
+.hero .hero-sub { position: relative; z-index: 1; font-size: 14px; color: rgba(255, 255, 255, .78); margin-bottom: 14px; }
+.calc { position: relative; z-index: 1; border-top: 1px solid rgba(255, 255, 255, .14); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.calc-r { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: rgba(255, 255, 255, .8); }
+.calc-r small { color: rgba(255, 255, 255, .5); font-size: 12.5px; }
+.calc-r .num { white-space: nowrap; }
+.calc-r.total { color: #fff; font-weight: 700; border-top: 1px dashed rgba(255, 255, 255, .18); padding-top: 8px; margin-top: 2px; }
+.hero.free:not(.neg) .calc-r.total .num { color: var(--mint); }
+.goal-due { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding: 8px 8px 8px 12px; border-radius: 12px; background: var(--mint-softer); font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+.goal-due.done { justify-content: flex-start; gap: 6px; color: var(--mint-ink); padding: 8px 12px; }
+.rec-box { display: flex; flex-direction: column; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+.row .amt.neg { color: var(--red); }
