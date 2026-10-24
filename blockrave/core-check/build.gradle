@@ -60,3 +60,41 @@ test {
 }
 
 tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+
+// ---------------------------------------------------------------------------
+// Headless-Pruefstand fuer die Client-Audiowiedergabe (RavePlayer mit echtem OpenAL Soft,
+// Ausgabe ueber dessen "wave"-Backend in eine Datei). Nur mit -PofflineLibs=<Ordner> nutzbar,
+// der zusaetzlich lwjgl, lwjgl-openal (jeweils + natives-linux) und slf4j-api enthaelt.
+if (offline) {
+    sourceSets {
+        harness {
+            java {
+                srcDir '../src/main/java'
+                include 'de/blockrave/client/audio/RavePlayer.java', 'de/blockrave/harness/**'
+                srcDir '../tools/harness'
+            }
+            compileClasspath += sourceSets.main.output + configurations.compileClasspath
+            runtimeClasspath += sourceSets.main.output + configurations.runtimeClasspath
+        }
+    }
+    dependencies {
+        harnessImplementation name: 'lwjgl-3.3.3'
+        harnessImplementation name: 'lwjgl-openal-3.3.3'
+        harnessImplementation name: 'slf4j-api-2.0.9'
+        harnessRuntimeOnly name: 'lwjgl-3.3.3-natives-linux'
+        harnessRuntimeOnly name: 'lwjgl-openal-3.3.3-natives-linux'
+    }
+    tasks.register('runAudioHarness', JavaExec) {
+        classpath = sourceSets.harness.runtimeClasspath
+        mainClass = 'de.blockrave.harness.AudioSyncHarness'
+        def out = layout.buildDirectory.file('harness/out.wav').get().asFile
+        def conf = layout.buildDirectory.file('harness/alsoft.ini').get().asFile
+        args out.absolutePath
+        environment 'ALSOFT_CONF', conf.absolutePath
+        doFirst {
+            conf.parentFile.mkdirs()
+            out.delete()
+            conf.text = "[general]\ndrivers=wave\nfrequency=48000\nchannels=stereo\nsample-type=int16\nperiod_size=480\n[wave]\nfile=${out.absolutePath}\n"
+        }
+    }
+}

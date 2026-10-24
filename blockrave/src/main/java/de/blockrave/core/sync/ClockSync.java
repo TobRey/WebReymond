@@ -32,8 +32,12 @@ public final class ClockSync {
         next = (next + 1) % WINDOW;
         if (count < WINDOW) count++;
         lastRtt = r;
-        int best = 0;
-        for (int i = 1; i < count; i++) if (rtt[i] < rtt[best]) best = i;
+        // kuerzeste Laufzeit gewinnt; bei Gleichstand die neueste Messung
+        int best = -1;
+        for (int k = 0; k < count; k++) {
+            int i = Math.floorMod(next - 1 - k, WINDOW);
+            if (best < 0 || rtt[i] < rtt[best]) best = i;
+        }
         long target = offsets[best];
         if (!valid || Math.abs(target - offsetMicros) > 50_000) {
             offsetMicros = target; // erster Wert oder grosser Sprung: direkt uebernehmen

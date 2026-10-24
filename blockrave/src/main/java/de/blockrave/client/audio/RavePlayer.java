@@ -1,6 +1,5 @@
 package de.blockrave.client.audio;
 
-import de.blockrave.BlockRave;
 import de.blockrave.core.audio.AudioConstants;
 import de.blockrave.core.audio.OpusFrameDecoder;
 import de.blockrave.core.audio.SincResampler;
@@ -33,6 +32,7 @@ import java.util.concurrent.locks.LockSupport;
  * hoerbar; Abweichungen werden per minimaler Tempoanpassung (max. 0,6 %) ausgeglichen.
  */
 public final class RavePlayer {
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger("BlockRave");
     private static final long FRAME = AudioConstants.FRAME_MILLIS * 1000L;
     /** Angestrebte Fuellung der OpenAL-Warteschlange. */
     private static final long TARGET_QUEUE_MICROS = 120_000;
@@ -53,6 +53,8 @@ public final class RavePlayer {
     private volatile String error = "";
     private volatile long bufferedMicros;
     private volatile boolean playing;
+    private volatile long lastErrorMicros;
+    private volatile double lastRate = 1.0;
 
     // Audio-Thread-Zustand
     private long device, context;
@@ -122,6 +124,16 @@ public final class RavePlayer {
         return playing;
     }
 
+    /** Zuletzt gemessene Abweichung gehoert - geplant (Mikrosekunden, Diagnose). */
+    public long syncErrorMicros() {
+        return lastErrorMicros;
+    }
+
+    /** Aktuelle Abspielrate der Driftkorrektur (1.0 = normal). */
+    public double playbackRate() {
+        return lastRate;
+    }
+
     // ------------------------------------------------------------------ Thread
 
     private void run() {
@@ -131,7 +143,7 @@ public final class RavePlayer {
                 try {
                     step();
                 } catch (RuntimeException e) {
-                    BlockRave.LOG.error("BlockRave: Fehler in der Wiedergabe", e);
+                    LOG.error("BlockRave: Fehler in der Wiedergabe", e);
                     error = "Wiedergabefehler: " + e.getMessage();
                     reset();
                 }
@@ -172,10 +184,10 @@ public final class RavePlayer {
                 AL10.alSourcei(s, AL10.AL_SOURCE_RELATIVE, AL10.AL_FALSE);
                 AL10.alSourcef(s, AL10.AL_GAIN, 0f);
             }
-            BlockRave.LOG.info("BlockRave: Rave-Audio bereit (OpenAL, Latenzabfrage {})", hasLatencyExt ? "ja" : "nein");
+            LOG.info("BlockRave: Rave-Audio bereit (OpenAL, Latenzabfrage {})", hasLatencyExt ? "ja" : "nein");
             return true;
         } catch (Throwable t) {
-            BlockRave.LOG.error("BlockRave: OpenAL-Initialisierung fehlgeschlagen", t);
+            LOG.error("BlockRave: OpenAL-Initialisierung fehlgeschlagen", t);
             error = "OpenAL-Fehler: " + t.getMessage();
             return false;
         }
@@ -218,13 +230,15 @@ public final class RavePlayer {
     private void correctDrift(long now) {
         double heard = heardPlayout();
         if (Double.isNaN(heard)) return;
-        DriftController.Decision d = drift.update((long) (heard - now));
+        lastErrorMicros = (long) (heard - now);
+        DriftController.Decision d = drift.update(lastErrorMicros);
         switch (d.action()) {
             case HARD -> reset();
             case SOFT -> rate = d.playbackRate();
             case NONE -> rate = 1.0;
         }
         resampler.setRatio(rate, 1.0);
+        lastRate = rate;
     }
 
     private void fill(long now) {
@@ -262,7 +276,14 @@ public final class RavePlayer {
                 // nichts mehr da: Warteschlange einfach auslaufen lassen
                 return false;
             }
-            int n = decoder.decode(null, pcm);
+            long gap = f == null ? Long.MAX_VALUE : f.playoutMicros() - nextInputPlayout;
+            int n;
+            if (gap <= 3 * FRAME) {
+                n = decoder.decode(null, pcm); // kurze Luecke: Opus-Verlustverschleierung
+            } else {
+                java.util.Arrays.fill(pcm, 0f); // laengere Luecke (z.B. Pause -> Fortsetzen): Stille
+                n = AudioConstants.FRAME_SAMPLES;
+            }
             resampler.push(pcm, 0, n);
             nextInputPlayout += FRAME;
             return true;
@@ -397,7 +418,7 @@ public final class RavePlayer {
             }
             if (device != 0) ALC10.alcCloseDevice(device);
         } catch (Throwable t) {
-            BlockRave.LOG.warn("BlockRave: Fehler beim Freigeben von OpenAL", t);
+            LOG.warn("BlockRave: Fehler beim Freigeben von OpenAL", t);
         }
         srcL = srcR = 0;
         context = device = 0;

@@ -48,7 +48,9 @@ jobs:
         run: ./gradlew build --no-daemon --console=plain
 
       - name: Dedizierter GameTest-Server
-        run: ./gradlew runGameTestServer --no-daemon --console=plain
+        run: |
+          set -o pipefail
+          ./gradlew runGameTestServer --no-daemon --console=plain 2>&1 | tee gametest.log
 
       - name: Mod-JAR hochladen
         if: always()
@@ -68,3 +70,11 @@ jobs:
             blockrave/core-check/build/reports/
             blockrave/runs/gameTestServer/logs/
           if-no-files-found: ignore
+
+      - name: Zusammenfassung GameTests
+        if: always()
+        run: |
+          if [ -f gametest.log ]; then
+            grep -aE "BlockRave|blockrave|GameTest|game test|tests? (passed|failed)|Exception|AssertionException|ERROR" gametest.log \
+              | grep -avE "DEBUG|Registering|REGISTRIES" | tail -60
+          fi
