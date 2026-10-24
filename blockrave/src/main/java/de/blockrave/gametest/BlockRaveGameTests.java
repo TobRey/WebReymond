@@ -63,8 +63,7 @@ public final class BlockRaveGameTests {
      * Pruefen, Aufbauen (nur nach passender Bestaetigung), zweite Buehne ablehnen, Einpacken ohne
      * fremde Bloecke zu loeschen, Bauset genau einmal zurueck, erneut aufbauen.
      */
-    @GameTest(template = "stage_area", timeoutTicks = 200, batch = "buehne")
-    public static void stageLifecycle(GameTestHelper h) {
+    private static void stageLifecycle(GameTestHelper h) {
         ServerLevel level = h.getLevel();
         StageManager m = StageManager.get(level.getServer());
         if (m.hasStage()) m.packUp(m.level());
@@ -136,18 +135,15 @@ public final class BlockRaveGameTests {
         StageManager.ConfirmResult again = m.confirm(player, fp2, c2.hash());
         h.assertTrue(again.status() == Payloads.PlacementResult.PLACED, "Erneuter Aufbau fehlgeschlagen");
         h.assertTrue(m.packUp(level) == null, "Abschliessendes Einpacken fehlgeschlagen");
-        h.succeed();
     }
 
     /** Ohne Bauset in der Hand wird nichts geprueft/gebaut. */
-    @GameTest(template = "stage_area", batch = "buehne")
-    public static void noKitNoStage(GameTestHelper h) {
+    private static void noKitNoStage(GameTestHelper h) {
         StageManager m = StageManager.get(h.getLevel().getServer());
         BlockPos anchor = h.absolutePos(new BlockPos(20, 1, 1));
         ServerPlayer p = h.makeMockServerPlayerInLevel();
         p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.STICK));
         h.assertFalse(m.check(p, new StageFootprint(anchor, 1)).ok(), "Ohne Bauset darf nichts gebaut werden");
-        h.succeed();
     }
 
     /**
@@ -187,21 +183,29 @@ public final class BlockRaveGameTests {
             h.fail("Start fehlgeschlagen: " + e);
             return;
         }
-        h.succeedWhen(() -> {
+        java.util.concurrent.atomic.AtomicBoolean finished = new java.util.concurrent.atomic.AtomicBoolean();
+        h.onEachTick(() -> {
+            if (finished.get()) return;
             if (failure.get() != null) {
+                finished.set(true);
                 engine.shutdown();
-                throw new IllegalStateException("Engine-Fehler: " + failure.get());
+                h.fail("Engine-Fehler: " + failure.get());
             }
             long end = endMicros.get();
-            h.assertTrue(end > 0, "Titelende noch nicht erreicht");
+            if (end <= 0) return;
+            finished.set(true);
             long frames = engine.framesProduced();
             double seconds = (end - start) / 1e6;
+            long now = ServerClock.nowMicros();
             engine.shutdown();
-            // 4 s Datei (+40 ms Analyseverzoegerung, +Decoder-Vorlauf)
-            h.assertTrue(Math.abs(seconds - 4.0) < 0.3, "Unerwartete Titeldauer " + seconds + " s");
-            h.assertTrue(Math.abs(frames - seconds * 50) <= 2, "Frameanzahl passt nicht: " + frames);
-            // Taktung: Ende wird hoechstens ~1 s (Vorlauf) vor Ablauf gemeldet, nicht sofort
-            h.assertTrue(ServerClock.nowMicros() > start + 2_000_000, "Engine hat nicht in Echtzeit getaktet");
+            String info = String.format("Dauer %.3f s, %d Frames, Ende gemeldet %.2f s nach Start", seconds, frames, (now - start) / 1e6);
+            BlockRave.LOG.info("BlockRave-GameTest Audio-Engine: {}", info);
+            // 4 s Datei (+40 ms Analyseverzoegerung, +Encoder-Vorlauf der MP3)
+            if (Math.abs(seconds - 4.0) > 0.3) h.fail("Unerwartete Titeldauer: " + info);
+            if (Math.abs(frames - seconds * 50) > 2) h.fail("Frameanzahl passt nicht: " + info);
+            // Taktung in Echtzeit: Ende wird hoechstens ~1 s (Vorlauf) vor Ablauf gemeldet
+            if (now < start + 2_000_000) h.fail("Engine hat nicht in Echtzeit getaktet: " + info);
+            h.succeed();
         });
     }
 
@@ -255,8 +259,18 @@ public final class BlockRaveGameTests {
      * Pruefung im Hintergrund), Wiedergabestart durch einen anderen Spieler, Zuhoerer nach Reichweite,
      * Live-Rechte (nur der freigegebene Sender), Live-Disconnect und "Neustart" (Zustand neu laden).
      */
-    @GameTest(template = "stage_area", timeoutTicks = 20_000, batch = "mehrspieler")
-    public static void multiplayerFlow(GameTestHelper h) {
+    /**
+     * Alle Tests, die den (globalen) Buehnenzustand des Servers veraendern, laufen nacheinander in
+     * diesem einen Test: Lebenszyklus der Buehne, ohne Bauset, danach der Mehrspieler-Ablauf.
+     */
+    @GameTest(template = "stage_area", timeoutTicks = 20_000)
+    public static void stageAndMultiplayer(GameTestHelper h) {
+        stageLifecycle(h);
+        noKitNoStage(h);
+        multiplayerFlow(h);
+    }
+
+    private static void multiplayerFlow(GameTestHelper h) {
         ServerLevel level = h.getLevel();
         StageManager m = StageManager.get(level.getServer());
         if (m.hasStage()) m.packUp(m.level());

@@ -63,9 +63,9 @@ stop_server
 status=0
 for f in clientA.log clientB.log clientA2.log; do
   echo "=== $f ==="
-  grep -aE "BlockRave-E2E|Exception|FATAL" "$f" | grep -avE "DEBUG" | tail -45
+  grep -aE "BlockRave-E2E|BlockRave:|Exception|FATAL" "$f" | grep -avE "DEBUG|flite|Narrator|resource path" | tail -45
   grep -aq "ERGEBNIS: alle Pruefungen bestanden" "$f" || status=1
 done
 echo "=== Server ==="
-grep -ahE "BlockRave|Exception|ERROR" server_e2e_1.log server_e2e_2.log | grep -avE "Failed to load properties|DEBUG" | tail -40
+grep -ahE "BlockRave|Exception|ERROR" server_e2e_1.log server_e2e_2.log | grep -avE "Failed to load properties|DEBUG|resource path" | tail -40
 exit $status

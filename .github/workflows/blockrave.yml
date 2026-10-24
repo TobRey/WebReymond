@@ -1,7 +1,8 @@
 name: BlockRave (Minecraft-Mod)
 
-# Baut die NeoForge-Mod, fuehrt die Kern-Unit-Tests aus und startet einen echten dedizierten
-# GameTest-Server (ohne Grafik/Audio), der die Buehnen-Tests ausfuehrt.
+# Job 1: Kern-Tests, Mod-Build, GameTests auf einem echten dedizierten GameTest-Server.
+# Job 2: Produktiver NeoForge-Server (offizieller Installer + gebaute JAR), Client-Rauchtest und
+#        Mehrspieler-Ende-zu-Ende-Test mit zwei echten Clients (Xvfb, Software-OpenGL).
 on:
   push:
     paths:
@@ -22,9 +23,9 @@ permissions:
 
 jobs:
   build:
-    name: Build, Tests, dedizierter Server
+    name: Build, Unit- und GameTests
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: blockrave
@@ -52,25 +53,13 @@ jobs:
           set -o pipefail
           ./gradlew runGameTestServer --no-daemon --console=plain 2>&1 | tee gametest.log
 
-      - name: Produktiver dedizierter Server (NeoForge-Installer + gebaute JAR)
+      - name: Zusammenfassung GameTests
         if: always()
-        run: tools/ci/prod_server.sh
-
-      - name: Client-Rauchtest (echter Client, Xvfb, Software-OpenGL)
-        if: always()
-        env:
-          ALSOFT_DRIVERS: 'null'
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 mesa-utils >/dev/null
-          set -o pipefail
-          tools/ci/client_options.sh runs/clientSmokeTest
-          timeout 600 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClientSmokeTest --no-daemon --console=plain 2>&1 | tee client.log
-
-      - name: Mehrspieler-E2E (echter Server + zwei echte Clients)
-        if: always()
-        env:
-          ALSOFT_DRIVERS: 'null'
-        run: timeout 1800 tools/ci/e2e.sh
+          if [ -f gametest.log ]; then
+            grep -aE "BlockRave|GameTest|game test|failed at|tests? (passed|failed)|required tests|Exception" gametest.log \
+              | grep -avE "DEBUG|Registering|REGISTRIES|resource path" | tail -50
+          fi
 
       - name: Mod-JAR hochladen
         if: always()
@@ -80,30 +69,55 @@ jobs:
           path: blockrave/build/libs/*.jar
           if-no-files-found: warn
 
-      - name: Testberichte hochladen
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: blockrave-reports
-          path: |
-            blockrave/build/reports/
-            blockrave/core-check/build/reports/
-            blockrave/runs/gameTestServer/logs/
-          if-no-files-found: ignore
+  integration:
+    name: Produktivserver, Client-Rauchtest, Mehrspieler-E2E
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 75
+    defaults:
+      run:
+        working-directory: blockrave
+    env:
+      ALSOFT_DRIVERS: 'null'
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v5
 
-      - name: Zusammenfassung GameTests
+      - name: Java 21 einrichten
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Gradle einrichten
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Xvfb und Software-OpenGL installieren
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 mesa-utils >/dev/null
+
+      - name: Mod bauen
+        run: ./gradlew build -x test --no-daemon --console=plain
+
+      - name: Produktiver dedizierter Server (NeoForge-Installer + gebaute JAR)
+        run: tools/ci/prod_server.sh
+
+      - name: Client-Rauchtest (echter Client, Xvfb, Software-OpenGL)
         if: always()
         run: |
-          if [ -f gametest.log ]; then
-            grep -aE "BlockRave|blockrave|GameTest|game test|tests? (passed|failed)|Exception|AssertionException|ERROR" gametest.log \
-              | grep -avE "DEBUG|Registering|REGISTRIES" | tail -60
-          fi
+          set -o pipefail
+          tools/ci/client_options.sh runs/clientSmokeTest
+          timeout --kill-after=20 400 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClientSmokeTest --no-daemon --console=plain 2>&1 | tee client.log
+
+      - name: Mehrspieler-E2E (echter Server + zwei echte Clients)
+        if: always()
+        run: timeout --kill-after=30 2400 tools/ci/e2e.sh
 
       - name: Zusammenfassung Client-Rauchtest
         if: always()
         run: |
           if [ -f client.log ]; then
-            grep -aE "BlockRave-Smoke|Exception|ERROR|FATAL|OpenGL|Renderer" client.log | grep -avE "DEBUG|Failed to load properties" | tail -60
+            grep -aE "BlockRave-Smoke|BlockRave:|Exception|FATAL" client.log \
+              | grep -avE "DEBUG|Failed to load properties|flite|Narrator|resource path" | tail -50
           fi
           pip install -q pillow >/dev/null 2>&1 || true
           for f in runs/clientSmokeTest/screenshots/blockrave_*.png; do
