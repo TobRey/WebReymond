@@ -78,10 +78,23 @@ nutzen.
 
 ## Verzögerung
 
-Für eine stabile, knackfreie Übertragung wird gepuffert. Die Live-Verzögerung beträgt standardmäßig
-ca. **1,5 s (Server-Puffer, `liveDelayMs`) + Aufnahmepuffer + ca. 40 ms Analyse**. Die geschätzte
-Verzögerung wird im DJ-Pult und im HUD angezeigt. Die Lichtshow richtet sich nach der **gehörten**
-Wiedergabezeit, nicht nach dem Aufnahmezeitpunkt.
+Für eine stabile, knackfreie Übertragung wird gepuffert. Die Live-Verzögerung für die **Zuhörer** beträgt
+standardmäßig ca. **0,5 s** (Server-Puffer `liveBufferMs`) + ca. 0,1 s für Aufnahme, Paketbildung und Analyse.
+Die geschätzte Verzögerung wird im DJ-Pult angezeigt. Bei Aussetzern (LAN-fremde Spieler mit schwankendem
+Ping) den Wert in `serverconfig/blockrave-server.toml` erhöhen, z. B. auf 800–1000.
+
+**Du als DJ hörst deinen Mix ohne Verzögerung direkt aus rekordbox** (Kopfhörer/Lautsprecher bzw.
+Controller). Minecraft spielt deinen eigenen Live-Stream bei dir bewusst nicht ab, und die Lichtshow wird
+bei dir um den Puffer vorgezogen, damit die Lichter zu dem passen, was du direkt hörst. Bei den anderen
+Spielern passen Ton und Licht zueinander (beides mit der Pufferverzögerung).
+
+Wenn du dich trotzdem verzögert hörst:
+
+* Ist „Eigenen Live-Stream mithören“ (`monitorOwnLive` in `config/blockrave-client.toml`) eingeschaltet? → ausschalten.
+* Gibt rekordbox auf ein **virtuelles Kabel** aus, hörst du rekordbox selbst nicht. Dann in rekordbox
+  einen Kopfhörer-/Cue-Ausgang auf dein echtes Gerät legen oder in Windows beim virtuellen Kabel
+  „Dieses Gerät als Wiedergabequelle verwenden“ aktivieren.
+* Ein zweiter PC/Account im selben Raum hört natürlich die Zuhörer-Version mit Verzögerung.
 
 ## Fehlersuche
 

@@ -107,6 +107,23 @@ public final class ClientRaveState {
         return clock.toServer(ClockSync.nowMicros());
     }
 
+    /**
+     * Zeitpunkt, fuer den die Lichtshow gezeichnet wird. Normalerweise die gehoerte Abspielzeit (= Serverzeit).
+     * Der Live-Sender hoert seinen Mix aber direkt (rekordbox), nicht ueber Minecraft: Bei ihm laeuft die Show
+     * deshalb um den Live-Puffer vorgezogen, abzueglich Uebertragungszeit, damit die Lichter zu dem passen,
+     * was er gerade hoert.
+     */
+    public long showTimeMicros() {
+        long now = serverNow();
+        Payloads.RaveStatus s = status;
+        if (s == null || !suppressOwnAudio()) return now;
+        long lead = s.liveDelayMs() * 1000L - SENDER_SHOW_LAG_MICROS - clock.lastRttMicros();
+        return now + Math.max(0, lead);
+    }
+
+    /** Aufnahme, Paketbildung (2 Frames), Analyse (2 Frames) und Reserve, bis Showdaten beim Sender zurueck sind. */
+    private static final long SENDER_SHOW_LAG_MICROS = 150_000;
+
     /** Sende ich gerade selbst live (und will mich nicht selbst hoeren)? */
     private boolean suppressOwnAudio() {
         Payloads.RaveStatus s = status;

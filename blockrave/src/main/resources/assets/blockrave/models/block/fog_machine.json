@@ -1,7 +1,8 @@
 {
   "parent": "minecraft:block/block",
   "textures": {
-    "particle": "blockrave:block/fog_machine"
+    "particle": "blockrave:block/fog_machine",
+    "fixture_body": "blockrave:block/fixture_body"
   },
   "elements": [
     {
@@ -17,22 +18,22 @@
       ],
       "faces": {
         "north": {
-          "texture": "blockrave:block/fog_machine"
+          "texture": "#particle"
         },
         "south": {
-          "texture": "blockrave:block/fog_machine"
+          "texture": "#particle"
         },
         "east": {
-          "texture": "blockrave:block/fog_machine"
+          "texture": "#particle"
         },
         "west": {
-          "texture": "blockrave:block/fog_machine"
+          "texture": "#particle"
         },
         "up": {
-          "texture": "blockrave:block/fog_machine"
+          "texture": "#particle"
         },
         "down": {
-          "texture": "blockrave:block/fog_machine"
+          "texture": "#particle"
         }
       }
     },
@@ -49,22 +50,22 @@
       ],
       "faces": {
         "north": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "south": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "east": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "west": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "up": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "down": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         }
       }
     },
@@ -81,22 +82,22 @@
       ],
       "faces": {
         "north": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "south": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "east": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "west": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "up": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "down": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         }
       }
     }

@@ -20,7 +20,7 @@ Pro Welt. Änderungen an Puffer/Bitrate werden beim Neuladen der Konfiguration �
 | `playback.hearingRange` | `128` | 16–256 | Hörreichweite ab Bühnenmitte (Blöcke). Bis 16 Blöcke volle Lautstärke, danach sanft (Kosinuskurve) bis 0 am Rand, außerhalb stumm. Audio wird bis Reichweite+16 gesendet. |
 | `playback.showRange` | `256` | 32–512 | Spieler bis zu dieser Entfernung erhalten nur Lichtshow-Daten (ohne Audio, ca. 0,4 KB/s) |
 | `playback.mp3BufferMs` | `1000` | 300–5000 | Vorlauf der MP3-Wiedergabe (Netzwerkpuffer) |
-| `playback.liveDelayMs` | `1500` | 400–6000 | Pufferverzögerung für Live-Streams |
+| `playback.liveBufferMs` | `500` | 200–6000 | Pufferverzögerung für Live-Streams. LAN/guter Server: 300–500, Internet mit schwankendem Ping: 500–1000. Zu klein → Aussetzer. (Hieß bis Version 1.0.0 `liveDelayMs` mit 1500 ms; der alte Eintrag wird ignoriert.) |
 | `playback.opusBitrate` | `160000` | 48000–320000 | Opus-Bitrate für die MP3-Wiedergabe (Bit/s) |
 | `playback.allowLive` | `true` | – | Dürfen alle Spieler live senden? |
 

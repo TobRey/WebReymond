@@ -82,7 +82,7 @@ public final class StageEffectsRenderer {
         float dt = lastFrameNanos == 0 ? 0.016f : Math.min(0.1f, (nanos - lastFrameNanos) / 1e9f);
         lastFrameNanos = nanos;
 
-        long now = state.serverNow();
+        long now = state.showTimeMicros();
         state.timeline.fill(now, input);
         program.evaluate(input, out);
         BlockRaveConfig.Quality q = BlockRaveConfig.EFFECT_QUALITY.get();

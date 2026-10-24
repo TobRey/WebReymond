@@ -3,6 +3,7 @@
 Aufruf (aus dem Projektordner): python3 tools/make_assets.py
 Die Texturen sind handgesetzte Pixelgrafik (prozedural beschrieben), keine Fremdgrafiken.
 """
+import copy
 import json
 import math
 import os
@@ -328,6 +329,23 @@ def b(name):
 
 
 def model(name, data):
+    # Flaechen duerfen nur Textur-Variablen ("#name") referenzieren; direkte Pfade ergeben im Spiel die
+    # violett-schwarze Fehltextur. Direkte Pfade daher in Variablen der "textures"-Tabelle umwandeln.
+    data = copy.deepcopy(data)  # Flaechen-Objekte werden zwischen Modellen geteilt
+    textures = data.setdefault("textures", {})
+    by_path = {v: k for k, v in textures.items() if not v.startswith('#')}
+    for e in data.get("elements", []):
+        for face in e["faces"].values():
+            t = face["texture"]
+            if t.startswith('#'):
+                continue
+            if t not in by_path:
+                key = t.split('/')[-1]
+                if key in textures:
+                    key = f'{key}_{len(textures)}'
+                textures[key] = t
+                by_path[t] = key
+            face["texture"] = '#' + by_path[t]
     write_json(f'models/block/{name}.json', data)
 
 

@@ -57,6 +57,7 @@ neoForge {
             systemProperty 'blockrave.e2e', 'A'
             systemProperty 'blockrave.e2e.dir', e2eDir
             systemProperty 'blockrave.e2e.mp3', e2eMp3
+            systemProperty 'blockrave.e2e.testTone', 'true'
             programArguments.addAll '--username', 'RaveDJ', '--quickPlayMultiplayer', 'localhost:25565'
             gameDirectory = project.file('runs/e2eA')
         }

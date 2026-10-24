@@ -67,8 +67,10 @@ public final class BlockRaveConfig {
                 .translation("blockrave.config.showRange").defineInRange("showRange", 256, 32, 512);
         MP3_BUFFER_MS = b.comment("Vorlauf der MP3-Wiedergabe in Millisekunden (Puffer gegen Netzwerkschwankungen).")
                 .translation("blockrave.config.mp3BufferMs").defineInRange("mp3BufferMs", 1000, 300, 5000);
-        LIVE_DELAY_MS = b.comment("Zusaetzliche Puffer-Verzoegerung fuer Live-Streams in Millisekunden.")
-                .translation("blockrave.config.liveDelayMs").defineInRange("liveDelayMs", 1500, 400, 6000);
+        // Neuer Schluessel (frueher "liveDelayMs" mit 1500 ms), damit bestehende Server den kleineren Standard bekommen.
+        LIVE_DELAY_MS = b.comment("Puffer-Verzoegerung fuer Live-Streams in Millisekunden. Kleiner = weniger Verzoegerung,",
+                        "aber anfaelliger fuer Aussetzer bei schwankendem Ping (LAN/guter Server: 300-500, Internet: 500-1000).")
+                .translation("blockrave.config.liveBufferMs").defineInRange("liveBufferMs", 500, 200, 6000);
         OPUS_BITRATE = b.comment("Opus-Bitrate fuer MP3-Wiedergabe in Bit/s.")
                 .translation("blockrave.config.opusBitrate").defineInRange("opusBitrate", 160_000, 48_000, 320_000);
         ALLOW_LIVE = b.comment("Duerfen alle Spieler Live-Audio senden?")

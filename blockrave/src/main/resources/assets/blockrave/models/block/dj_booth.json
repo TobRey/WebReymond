@@ -1,7 +1,11 @@
 {
   "parent": "minecraft:block/block",
   "textures": {
-    "particle": "blockrave:block/dj_booth_front"
+    "particle": "blockrave:block/dj_booth_front",
+    "dj_booth_side": "blockrave:block/dj_booth_side",
+    "dj_booth_top": "blockrave:block/dj_booth_top",
+    "fixture_body": "blockrave:block/fixture_body",
+    "led_panel_front": "blockrave:block/led_panel_front"
   },
   "elements": [
     {
@@ -17,22 +21,22 @@
       ],
       "faces": {
         "north": {
-          "texture": "blockrave:block/dj_booth_front"
+          "texture": "#particle"
         },
         "south": {
-          "texture": "blockrave:block/dj_booth_side"
+          "texture": "#dj_booth_side"
         },
         "east": {
-          "texture": "blockrave:block/dj_booth_side"
+          "texture": "#dj_booth_side"
         },
         "west": {
-          "texture": "blockrave:block/dj_booth_side"
+          "texture": "#dj_booth_side"
         },
         "up": {
-          "texture": "blockrave:block/dj_booth_top"
+          "texture": "#dj_booth_top"
         },
         "down": {
-          "texture": "blockrave:block/dj_booth_side"
+          "texture": "#dj_booth_side"
         }
       }
     },
@@ -49,22 +53,22 @@
       ],
       "faces": {
         "north": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "south": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "east": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "west": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "up": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "down": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         }
       }
     },
@@ -81,22 +85,22 @@
       ],
       "faces": {
         "north": {
-          "texture": "blockrave:block/led_panel_front"
+          "texture": "#led_panel_front"
         },
         "south": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "east": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "west": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "up": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         },
         "down": {
-          "texture": "blockrave:block/fixture_body"
+          "texture": "#fixture_body"
         }
       },
       "rotation": {

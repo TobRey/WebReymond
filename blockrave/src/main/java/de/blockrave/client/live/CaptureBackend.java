@@ -30,6 +30,7 @@ public interface CaptureBackend {
     Stream open(CaptureSource source, Sink sink) throws Exception;
 
     static CaptureBackend create() {
+        if (Boolean.getBoolean("blockrave.e2e.testTone")) return new TestToneBackend();
         String os = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT);
         if (os.contains("win")) {
             try {

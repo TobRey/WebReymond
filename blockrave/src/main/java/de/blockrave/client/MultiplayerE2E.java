@@ -271,7 +271,62 @@ public final class MultiplayerE2E {
                             in.frame.bpmTenths() / 10.0, in.frame.energyClass()));
                     return true;
                 }));
+                // Live-Weg mit kuenstlicher Quelle (Testton statt WASAPI): A sendet, B hoert zu
+                PHASES.add(new Phase("auf B (MP3-Teil) warten", 400_000, () -> Files.exists(DIR.resolve("b_mp3_done"))));
+                PHASES.add(openBooth());
+                PHASES.add(new Phase("Live starten", 30_000, new Step() {
+                    boolean requested, refreshed;
+
+                    @Override
+                    public boolean run() {
+                        var live = st().live;
+                        if (!requested) {
+                            if (live.selected() == null) {
+                                if (!refreshed) live.refreshSources(null);
+                                refreshed = true;
+                                return false;
+                            }
+                            ClientNet.send(new Payloads.DjCommand(DjAction.SET_MODE, "", 1));
+                            live.requestStart();
+                            requested = true;
+                        }
+                        Payloads.RaveStatus s = st().status();
+                        if (live.state() != de.blockrave.client.live.LiveSender.State.SENDING || s == null
+                                || s.state() != Payloads.RaveStatus.LIVE) return false;
+                        ok(true, "Live-Senden laeuft (Quelle '" + live.selected().name() + "', Server-Puffer " + s.liveDelayMs()
+                                + " ms, geschaetzte Gesamtverzoegerung " + live.estimatedDelayMs() + " ms)");
+                        touch("live");
+                        return true;
+                    }
+                }));
+                PHASES.add(new Phase("Sender hoert sich nicht verzoegert", 10_000, () -> {
+                    if (!sleep(4000)) return false;
+                    ok(!st().player.isPlaying(), "Eigener Live-Stream wird beim Sender nicht ueber Minecraft abgespielt");
+                    long lead = st().showTimeMicros() - st().serverNow();
+                    ShowInput in = new ShowInput();
+                    st().timeline.fill(st().showTimeMicros(), in);
+                    ok(lead > 100_000 && lead < st().status().liveDelayMs() * 1000L && in.active,
+                            String.format("Lichtshow beim Sender um %.0f ms vorgezogen und mit Daten (BPM %.1f)", lead / 1000.0,
+                                    in.frame.bpmTenths() / 10.0));
+                    return true;
+                }));
                 PHASES.add(new Phase("auf B warten", 400_000, () -> Files.exists(DIR.resolve("b_done")) && sleep(1000)));
+                PHASES.add(new Phase("Live beenden", 15_000, new Step() {
+                    boolean stopped;
+
+                    @Override
+                    public boolean run() {
+                        if (!stopped) {
+                            st().live.stop();
+                            stopped = true;
+                        }
+                        Payloads.RaveStatus s = st().status();
+                        if (s == null || s.state() == Payloads.RaveStatus.LIVE) return false;
+                        ok(true, "Live beendet, Status " + s.state());
+                        mc().player.closeContainer();
+                        return true;
+                    }
+                }));
             }
             case "B" -> {
                 PHASES.add(new Phase("Spaeteinstieg", 20_000, () -> {
@@ -303,6 +358,25 @@ public final class MultiplayerE2E {
                 PHASES.add(new Phase("Audio wieder da", 15_000, () -> {
                     if (!st().player.isPlaying()) return false;
                     ok(true, String.format("Zurueck in Reichweite: Audio laeuft wieder (Position %.2f s)", positionSec()));
+                    return true;
+                }));
+                PHASES.add(new Phase("MP3-Teil fertig", 2_000, () -> {
+                    touch("b_mp3_done");
+                    return true;
+                }));
+                PHASES.add(new Phase("Live-Empfang", 90_000, () -> {
+                    Payloads.RaveStatus s = st().status();
+                    if (!Files.exists(DIR.resolve("live")) || s == null || s.state() != Payloads.RaveStatus.LIVE
+                            || !st().player.isPlaying() || !sleep(2000)) return false;
+                    ok(true, "Live-Stream von " + s.liveSender() + " hoerbar (Server-Puffer " + s.liveDelayMs() + " ms)");
+                    return true;
+                }));
+                PHASES.add(new Phase("Live-Sync messen", 40_000, measureSync(15)));
+                PHASES.add(new Phase("Live-Sync auswerten", 1_000, () -> {
+                    evaluateSync();
+                    ShowInput in = new ShowInput();
+                    st().timeline.fill(st().serverNow(), in);
+                    ok(in.active, String.format("Lichtshow aus Live-Analyse (BPM %.1f, Test-Kick 128 BPM)", in.frame.bpmTenths() / 10.0));
                     return true;
                 }));
                 PHASES.add(new Phase("Ende B", 2_000, () -> {
