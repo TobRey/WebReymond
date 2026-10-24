@@ -22,7 +22,7 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /** Serverseitige Ereignisse (laufen auch auf dem integrierten Server im Einzelspieler). */
-@EventBusSubscriber(modid = BlockRave.MOD_ID, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = BlockRave.MOD_ID)
 public final class ServerEvents {
     private ServerEvents() {}
 

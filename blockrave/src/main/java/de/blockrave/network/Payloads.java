@@ -25,7 +25,7 @@ public final class Payloads {
     public static final int MAX_FRAMES_PER_PACKET = 8;
     public static final int MAX_AFFECTED = 20_000;
 
-    private static <T extends CustomPacketPayload> CustomPacketPayload.Type<T> type(String name) {
+    private static <T extends CustomPacketPayload> CustomPacketPayload.Type<T> payloadType(String name) {
         return new CustomPacketPayload.Type<>(BlockRave.id(name));
     }
 
@@ -46,7 +46,7 @@ public final class Payloads {
 
     /** Bitte um serverseitige Pruefung eines Bauplatzes. */
     public record PlacementCheck(int requestId, BlockPos anchor, int rotation) implements CustomPacketPayload {
-        public static final Type<PlacementCheck> TYPE = type("placement_check");
+        public static final Type<PlacementCheck> TYPE = payloadType("placement_check");
         public static final StreamCodec<FriendlyByteBuf, PlacementCheck> CODEC = StreamCodec.of(
                 (b, p) -> { b.writeVarInt(p.requestId); b.writeBlockPos(p.anchor); b.writeByte(p.rotation); },
                 b -> new PlacementCheck(b.readVarInt(), b.readBlockPos(), b.readByte()));
@@ -57,7 +57,7 @@ public final class Payloads {
 
     /** Ausdrueckliche Bestaetigung; {@code hash} beschreibt den bestaetigten Weltzustand. */
     public record PlacementConfirm(int requestId, BlockPos anchor, int rotation, long hash) implements CustomPacketPayload {
-        public static final Type<PlacementConfirm> TYPE = type("placement_confirm");
+        public static final Type<PlacementConfirm> TYPE = payloadType("placement_confirm");
         public static final StreamCodec<FriendlyByteBuf, PlacementConfirm> CODEC = StreamCodec.of(
                 (b, p) -> { b.writeVarInt(p.requestId); b.writeBlockPos(p.anchor); b.writeByte(p.rotation); b.writeLong(p.hash); },
                 b -> new PlacementConfirm(b.readVarInt(), b.readBlockPos(), b.readByte(), b.readLong()));
@@ -68,7 +68,7 @@ public final class Payloads {
 
     /** Bedienbefehl am DJ-Pult, siehe {@link DjAction}. */
     public record DjCommand(int action, String trackId, int arg) implements CustomPacketPayload {
-        public static final Type<DjCommand> TYPE = type("dj_command");
+        public static final Type<DjCommand> TYPE = payloadType("dj_command");
         public static final StreamCodec<FriendlyByteBuf, DjCommand> CODEC = StreamCodec.of(
                 (b, p) -> { b.writeVarInt(p.action); b.writeUtf(p.trackId, 64); b.writeVarInt(p.arg); },
                 b -> new DjCommand(b.readVarInt(), b.readUtf(64), b.readVarInt()));
@@ -78,7 +78,7 @@ public final class Payloads {
     }
 
     public record UploadBegin(int clientUploadId, String fileName, long size) implements CustomPacketPayload {
-        public static final Type<UploadBegin> TYPE = type("upload_begin");
+        public static final Type<UploadBegin> TYPE = payloadType("upload_begin");
         public static final StreamCodec<FriendlyByteBuf, UploadBegin> CODEC = StreamCodec.of(
                 (b, p) -> { b.writeVarInt(p.clientUploadId); b.writeUtf(p.fileName, 256); b.writeVarLong(p.size); },
                 b -> new UploadBegin(b.readVarInt(), b.readUtf(256), b.readVarLong()));
@@ -88,7 +88,7 @@ public final class Payloads {
     }
 
     public record UploadChunk(String uploadId, long offset, byte[] data) implements CustomPacketPayload {
-        public static final Type<UploadChunk> TYPE = type("upload_chunk");
+        public static final Type<UploadChunk> TYPE = payloadType("upload_chunk");
         public static final StreamCodec<FriendlyByteBuf, UploadChunk> CODEC = StreamCodec.of(
                 (b, p) -> { b.writeUtf(p.uploadId, 40); b.writeVarLong(p.offset); b.writeByteArray(p.data); },
                 b -> new UploadChunk(b.readUtf(40), b.readVarLong(), b.readByteArray(MAX_CHUNK)));
@@ -98,7 +98,7 @@ public final class Payloads {
     }
 
     public record UploadCancel(String uploadId) implements CustomPacketPayload {
-        public static final Type<UploadCancel> TYPE = type("upload_cancel");
+        public static final Type<UploadCancel> TYPE = payloadType("upload_cancel");
         public static final StreamCodec<FriendlyByteBuf, UploadCancel> CODEC = StreamCodec.of(
                 (b, p) -> b.writeUtf(p.uploadId, 40), b -> new UploadCancel(b.readUtf(40)));
 
@@ -108,7 +108,7 @@ public final class Payloads {
 
     /** Der sendende Spieler moechte live senden (nur er selbst kann dies ausloesen). */
     public record LiveStart(String sourceName) implements CustomPacketPayload {
-        public static final Type<LiveStart> TYPE = type("live_start");
+        public static final Type<LiveStart> TYPE = payloadType("live_start");
         public static final StreamCodec<FriendlyByteBuf, LiveStart> CODEC = StreamCodec.of(
                 (b, p) -> b.writeUtf(p.sourceName, 128), b -> new LiveStart(b.readUtf(128)));
 
@@ -121,7 +121,7 @@ public final class Payloads {
      * (48 kHz, fortlaufend seit Sendebeginn) mit Opus-Daten und Analyse.
      */
     public record LiveAudio(int sessionId, long firstPts, byte[][] opus, byte[][] analysis) implements CustomPacketPayload {
-        public static final Type<LiveAudio> TYPE = type("live_audio");
+        public static final Type<LiveAudio> TYPE = payloadType("live_audio");
         public static final StreamCodec<FriendlyByteBuf, LiveAudio> CODEC = StreamCodec.of(
                 (b, p) -> { b.writeVarInt(p.sessionId); b.writeVarLong(p.firstPts); writeFrames(b, p.opus); writeFrames(b, p.analysis); },
                 b -> new LiveAudio(b.readVarInt(), b.readVarLong(), readFrames(b, AudioConstants.MAX_OPUS_PACKET),
@@ -132,7 +132,7 @@ public final class Payloads {
     }
 
     public record LiveStop(int sessionId) implements CustomPacketPayload {
-        public static final Type<LiveStop> TYPE = type("live_stop");
+        public static final Type<LiveStop> TYPE = payloadType("live_stop");
         public static final StreamCodec<FriendlyByteBuf, LiveStop> CODEC = StreamCodec.of(
                 (b, p) -> b.writeVarInt(p.sessionId), b -> new LiveStop(b.readVarInt()));
 
@@ -141,7 +141,7 @@ public final class Payloads {
     }
 
     public record TimeSyncRequest(long clientMicros) implements CustomPacketPayload {
-        public static final Type<TimeSyncRequest> TYPE = type("time_sync_request");
+        public static final Type<TimeSyncRequest> TYPE = payloadType("time_sync_request");
         public static final StreamCodec<FriendlyByteBuf, TimeSyncRequest> CODEC = StreamCodec.of(
                 (b, p) -> b.writeLong(p.clientMicros), b -> new TimeSyncRequest(b.readLong()));
 
@@ -152,7 +152,7 @@ public final class Payloads {
     // =====================================================================  Server -> Client
 
     public record StageInfo(boolean present, String dimension, BlockPos anchor, int rotation) implements CustomPacketPayload {
-        public static final Type<StageInfo> TYPE = type("stage_info");
+        public static final Type<StageInfo> TYPE = payloadType("stage_info");
         public static final StreamCodec<FriendlyByteBuf, StageInfo> CODEC = StreamCodec.of(
                 (b, p) -> { b.writeBoolean(p.present); b.writeUtf(p.dimension, 256); b.writeBlockPos(p.anchor); b.writeByte(p.rotation); },
                 b -> new StageInfo(b.readBoolean(), b.readUtf(256), b.readBlockPos(), b.readByte()));
@@ -166,7 +166,7 @@ public final class Payloads {
                                   int affectedCount, int containerCount, long hash, List<Component> summary,
                                   long[] affected) implements CustomPacketPayload {
         public static final int CHECK_OK = 0, CHECK_FAILED = 1, CHANGED = 2, PLACED = 3, PLACE_FAILED = 4;
-        public static final Type<PlacementResult> TYPE = type("placement_result");
+        public static final Type<PlacementResult> TYPE = payloadType("placement_result");
         public static final StreamCodec<RegistryFriendlyByteBuf, PlacementResult> CODEC = StreamCodec.of(
                 (b, p) -> {
                     b.writeVarInt(p.requestId);
@@ -213,7 +213,7 @@ public final class Payloads {
             implements CustomPacketPayload {
         public static final int MODE_MP3 = 0, MODE_LIVE = 1;
         public static final int STOPPED = 0, PLAYING = 1, PAUSED = 2, LIVE = 3;
-        public static final Type<RaveStatus> TYPE = type("rave_status");
+        public static final Type<RaveStatus> TYPE = payloadType("rave_status");
         public static final StreamCodec<RegistryFriendlyByteBuf, RaveStatus> CODEC = StreamCodec.of(
                 (b, p) -> {
                     b.writeByte(p.mode);
@@ -255,7 +255,7 @@ public final class Payloads {
     /** Bibliothek, Playlist und Warteschlange (nur an Spieler mit geoeffnetem DJ-Pult). */
     public record Library(int revision, List<TrackInfo> tracks, List<String> playlist, List<String> queue,
                           long usedBytes, long limitBytes) implements CustomPacketPayload {
-        public static final Type<Library> TYPE = type("library");
+        public static final Type<Library> TYPE = payloadType("library");
         public static final StreamCodec<FriendlyByteBuf, Library> CODEC = StreamCodec.of(
                 (b, p) -> {
                     b.writeVarInt(p.revision);
@@ -292,7 +292,7 @@ public final class Payloads {
      */
     public record AudioFrames(int streamId, int firstSeq, long firstPlayoutMicros, int frameMicros, boolean audio,
                               byte[][] opus, byte[][] analysis) implements CustomPacketPayload {
-        public static final Type<AudioFrames> TYPE = type("audio_frames");
+        public static final Type<AudioFrames> TYPE = payloadType("audio_frames");
         public static final StreamCodec<FriendlyByteBuf, AudioFrames> CODEC = StreamCodec.of(
                 (b, p) -> {
                     b.writeVarInt(p.streamId);
@@ -312,7 +312,7 @@ public final class Payloads {
 
     /** Alle Frames des Segments ab {@code cutMicros} verwerfen (Pause, Stopp, naechster Titel). */
     public record StreamCut(int streamId, long cutMicros) implements CustomPacketPayload {
-        public static final Type<StreamCut> TYPE = type("stream_cut");
+        public static final Type<StreamCut> TYPE = payloadType("stream_cut");
         public static final StreamCodec<FriendlyByteBuf, StreamCut> CODEC = StreamCodec.of(
                 (b, p) -> { b.writeVarInt(p.streamId); b.writeLong(p.cutMicros); },
                 b -> new StreamCut(b.readVarInt(), b.readLong()));
@@ -322,7 +322,7 @@ public final class Payloads {
     }
 
     public record TimeSyncResponse(long clientMicros, long serverMicros) implements CustomPacketPayload {
-        public static final Type<TimeSyncResponse> TYPE = type("time_sync_response");
+        public static final Type<TimeSyncResponse> TYPE = payloadType("time_sync_response");
         public static final StreamCodec<FriendlyByteBuf, TimeSyncResponse> CODEC = StreamCodec.of(
                 (b, p) -> { b.writeLong(p.clientMicros); b.writeLong(p.serverMicros); },
                 b -> new TimeSyncResponse(b.readLong(), b.readLong()));
@@ -334,7 +334,7 @@ public final class Payloads {
     public record UploadStatus(int clientUploadId, String uploadId, int state, long received, long total,
                                int windowChunks, Component message) implements CustomPacketPayload {
         public static final int ACCEPTED = 0, PROGRESS = 1, PROCESSING = 2, DONE = 3, FAILED = 4;
-        public static final Type<UploadStatus> TYPE = type("upload_status");
+        public static final Type<UploadStatus> TYPE = payloadType("upload_status");
         public static final StreamCodec<RegistryFriendlyByteBuf, UploadStatus> CODEC = StreamCodec.of(
                 (b, p) -> {
                     b.writeVarInt(p.clientUploadId);
@@ -355,7 +355,7 @@ public final class Payloads {
     /** Steuerung der Live-Aufnahme beim Sender: Freigabe, Ablehnung oder Stopp. */
     public record LiveControl(int action, int sessionId, int delayMs, Component message) implements CustomPacketPayload {
         public static final int GRANTED = 0, REJECTED = 1, STOP = 2;
-        public static final Type<LiveControl> TYPE = type("live_control");
+        public static final Type<LiveControl> TYPE = payloadType("live_control");
         public static final StreamCodec<RegistryFriendlyByteBuf, LiveControl> CODEC = StreamCodec.of(
                 (b, p) -> { b.writeByte(p.action); b.writeVarInt(p.sessionId); b.writeVarInt(p.delayMs);
                     ComponentSerialization.TRUSTED_STREAM_CODEC.encode(b, p.message); },
