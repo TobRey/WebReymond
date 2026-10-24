@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "blockrave:block/strobe"
+    },
+    "facing=east": {
+      "model": "blockrave:block/strobe",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "blockrave:block/strobe",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "blockrave:block/strobe",
+      "y": 270
+    }
+  }
+}

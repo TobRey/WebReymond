@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "blockrave:block/dj_booth_side"
+    },
+    "facing=east": {
+      "model": "blockrave:block/dj_booth_side",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "blockrave:block/dj_booth_side",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "blockrave:block/dj_booth_side",
+      "y": 270
+    }
+  }
+}

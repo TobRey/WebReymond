@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=y": {
+      "model": "blockrave:block/truss"
+    },
+    "axis=z": {
+      "model": "blockrave:block/truss_horizontal",
+      "x": 90
+    },
+    "axis=x": {
+      "model": "blockrave:block/truss_horizontal",
+      "x": 90,
+      "y": 90
+    }
+  }
+}

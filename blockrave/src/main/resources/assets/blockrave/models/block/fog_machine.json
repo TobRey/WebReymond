@@ -1,0 +1,104 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "blockrave:block/fog_machine"
+  },
+  "elements": [
+    {
+      "from": [
+        2,
+        0,
+        3
+      ],
+      "to": [
+        14,
+        7,
+        14
+      ],
+      "faces": {
+        "north": {
+          "texture": "blockrave:block/fog_machine"
+        },
+        "south": {
+          "texture": "blockrave:block/fog_machine"
+        },
+        "east": {
+          "texture": "blockrave:block/fog_machine"
+        },
+        "west": {
+          "texture": "blockrave:block/fog_machine"
+        },
+        "up": {
+          "texture": "blockrave:block/fog_machine"
+        },
+        "down": {
+          "texture": "blockrave:block/fog_machine"
+        }
+      }
+    },
+    {
+      "from": [
+        6,
+        2,
+        1
+      ],
+      "to": [
+        10,
+        6,
+        3
+      ],
+      "faces": {
+        "north": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "south": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "east": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "west": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "up": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "down": {
+          "texture": "blockrave:block/fixture_body"
+        }
+      }
+    },
+    {
+      "from": [
+        4,
+        7,
+        6
+      ],
+      "to": [
+        12,
+        9,
+        10
+      ],
+      "faces": {
+        "north": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "south": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "east": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "west": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "up": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "down": {
+          "texture": "blockrave:block/fixture_body"
+        }
+      }
+    }
+  ]
+}

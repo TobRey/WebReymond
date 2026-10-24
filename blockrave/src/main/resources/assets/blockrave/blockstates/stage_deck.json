@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "blockrave:block/stage_deck"
+    }
+  }
+}

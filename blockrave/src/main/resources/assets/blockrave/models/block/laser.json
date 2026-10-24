@@ -1,0 +1,72 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "blockrave:block/fixture_body"
+  },
+  "elements": [
+    {
+      "from": [
+        2,
+        4,
+        2
+      ],
+      "to": [
+        14,
+        12,
+        14
+      ],
+      "faces": {
+        "north": {
+          "texture": "blockrave:block/laser_front"
+        },
+        "south": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "east": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "west": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "up": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "down": {
+          "texture": "blockrave:block/fixture_body"
+        }
+      }
+    },
+    {
+      "from": [
+        6,
+        12,
+        6
+      ],
+      "to": [
+        10,
+        16,
+        10
+      ],
+      "faces": {
+        "north": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "south": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "east": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "west": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "up": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "down": {
+          "texture": "blockrave:block/fixture_body"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "north": "blockrave:block/led_panel_front",
+    "south": "blockrave:block/led_panel_side",
+    "east": "blockrave:block/led_panel_side",
+    "west": "blockrave:block/led_panel_side",
+    "up": "blockrave:block/led_panel_side",
+    "down": "blockrave:block/led_panel_side",
+    "particle": "blockrave:block/led_panel_front"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "LJL",
+    "NIN",
+    "CCC"
+  ],
+  "key": {
+    "L": { "item": "minecraft:redstone_lamp" },
+    "J": { "item": "minecraft:jukebox" },
+    "N": { "item": "minecraft:note_block" },
+    "I": { "item": "minecraft:iron_block" },
+    "C": { "item": "minecraft:black_concrete" }
+  },
+  "result": {
+    "id": "blockrave:stage_kit",
+    "count": 1
+  }
+}

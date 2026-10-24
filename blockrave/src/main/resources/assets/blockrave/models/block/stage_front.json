@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "north": "blockrave:block/stage_front",
+    "south": "blockrave:block/stage_deck",
+    "east": "blockrave:block/stage_deck",
+    "west": "blockrave:block/stage_deck",
+    "up": "blockrave:block/stage_deck",
+    "down": "blockrave:block/stage_deck",
+    "particle": "blockrave:block/stage_front"
+  }
+}

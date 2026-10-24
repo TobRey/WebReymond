@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_column_horizontal",
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "side": "blockrave:block/truss",
+    "end": "blockrave:block/truss_end"
+  }
+}

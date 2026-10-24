@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "blockrave:block/laser"
+    },
+    "facing=east": {
+      "model": "blockrave:block/laser",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "blockrave:block/laser",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "blockrave:block/laser",
+      "y": 270
+    }
+  }
+}

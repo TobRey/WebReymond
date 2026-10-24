@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "north": "blockrave:block/speaker_front",
+    "south": "blockrave:block/speaker_side",
+    "east": "blockrave:block/speaker_side",
+    "west": "blockrave:block/speaker_side",
+    "up": "blockrave:block/speaker_side",
+    "down": "blockrave:block/speaker_side",
+    "particle": "blockrave:block/speaker_front"
+  }
+}

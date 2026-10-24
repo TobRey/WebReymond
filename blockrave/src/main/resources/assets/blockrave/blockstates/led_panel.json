@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "blockrave:block/led_panel"
+    },
+    "facing=east": {
+      "model": "blockrave:block/led_panel",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "blockrave:block/led_panel",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "blockrave:block/led_panel",
+      "y": 270
+    }
+  }
+}

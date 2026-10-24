@@ -1,0 +1,145 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "blockrave:block/fixture_body"
+  },
+  "elements": [
+    {
+      "from": [
+        3,
+        0,
+        3
+      ],
+      "to": [
+        13,
+        3,
+        13
+      ],
+      "faces": {
+        "north": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "south": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "east": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "west": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "up": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "down": {
+          "texture": "blockrave:block/fixture_body"
+        }
+      }
+    },
+    {
+      "from": [
+        3,
+        3,
+        7
+      ],
+      "to": [
+        4,
+        12,
+        9
+      ],
+      "faces": {
+        "north": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "south": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "east": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "west": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "up": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "down": {
+          "texture": "blockrave:block/fixture_body"
+        }
+      }
+    },
+    {
+      "from": [
+        12,
+        3,
+        7
+      ],
+      "to": [
+        13,
+        12,
+        9
+      ],
+      "faces": {
+        "north": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "south": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "east": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "west": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "up": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "down": {
+          "texture": "blockrave:block/fixture_body"
+        }
+      }
+    },
+    {
+      "from": [
+        4,
+        5,
+        4
+      ],
+      "to": [
+        12,
+        12,
+        12
+      ],
+      "faces": {
+        "north": {
+          "texture": "blockrave:block/fixture_lens"
+        },
+        "south": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "east": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "west": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "up": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "down": {
+          "texture": "blockrave:block/fixture_body"
+        }
+      },
+      "rotation": {
+        "origin": [
+          8,
+          8,
+          8
+        ],
+        "axis": "x",
+        "angle": -22.5
+      }
+    }
+  ]
+}

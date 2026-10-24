@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "blockrave:block/stage_front"
+    },
+    "facing=east": {
+      "model": "blockrave:block/stage_front",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "blockrave:block/stage_front",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "blockrave:block/stage_front",
+      "y": 270
+    }
+  }
+}

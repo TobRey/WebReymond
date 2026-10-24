@@ -1,0 +1,40 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "blockrave:block/dj_booth_side"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        1
+      ],
+      "to": [
+        16,
+        12,
+        16
+      ],
+      "faces": {
+        "north": {
+          "texture": "blockrave:block/dj_booth_front"
+        },
+        "south": {
+          "texture": "blockrave:block/dj_booth_side"
+        },
+        "east": {
+          "texture": "blockrave:block/dj_booth_side"
+        },
+        "west": {
+          "texture": "blockrave:block/dj_booth_side"
+        },
+        "up": {
+          "texture": "blockrave:block/dj_booth_side_top"
+        },
+        "down": {
+          "texture": "blockrave:block/dj_booth_side"
+        }
+      }
+    }
+  ]
+}

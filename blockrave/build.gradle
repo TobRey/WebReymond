@@ -69,6 +69,11 @@ dependencies {
 
 test {
     useJUnitPlatform()
+    testLogging {
+        events "failed"
+        exceptionFormat "full"
+        showStandardStreams = false
+    }
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {

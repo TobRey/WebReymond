@@ -1,0 +1,113 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "blockrave:block/dj_booth_front"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        1
+      ],
+      "to": [
+        16,
+        12,
+        16
+      ],
+      "faces": {
+        "north": {
+          "texture": "blockrave:block/dj_booth_front"
+        },
+        "south": {
+          "texture": "blockrave:block/dj_booth_side"
+        },
+        "east": {
+          "texture": "blockrave:block/dj_booth_side"
+        },
+        "west": {
+          "texture": "blockrave:block/dj_booth_side"
+        },
+        "up": {
+          "texture": "blockrave:block/dj_booth_top"
+        },
+        "down": {
+          "texture": "blockrave:block/dj_booth_side"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        12,
+        10
+      ],
+      "to": [
+        11,
+        12.5,
+        15
+      ],
+      "faces": {
+        "north": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "south": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "east": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "west": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "up": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "down": {
+          "texture": "blockrave:block/fixture_body"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        12.5,
+        14.5
+      ],
+      "to": [
+        11,
+        17,
+        15
+      ],
+      "faces": {
+        "north": {
+          "texture": "blockrave:block/led_panel_front"
+        },
+        "south": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "east": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "west": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "up": {
+          "texture": "blockrave:block/fixture_body"
+        },
+        "down": {
+          "texture": "blockrave:block/fixture_body"
+        }
+      },
+      "rotation": {
+        "origin": [
+          8,
+          12.5,
+          15
+        ],
+        "axis": "x",
+        "angle": -22.5
+      }
+    }
+  ]
+}
