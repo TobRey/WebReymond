@@ -92,7 +92,7 @@ jobs:
           sha256sum blockrave/dist/*.jar | sed 's|blockrave/dist/||' > blockrave/dist/SHA256SUMS.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add blockrave/dist
+          git add -f blockrave/dist
           git commit -m "BlockRave: gebaute JAR (${GITHUB_SHA::7}) [skip ci]" || exit 0
           git push
 
