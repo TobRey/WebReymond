@@ -37,7 +37,7 @@ for name in ("RaveDJ", "RaveGast"):
     ops.append({"uuid": str(u), "name": name, "level": 4, "bypassesPlayerLimit": False})
 print(json.dumps(ops))
 PY
-printf 'level-type=minecraft\\:flat\nonline-mode=false\nspawn-protection=0\nenforce-secure-profile=false\n' > "$SRV/server.properties"
+printf 'level-type=minecraft\\:flat\nonline-mode=false\nspawn-protection=0\nenforce-secure-profile=false\ndifficulty=peaceful\nspawn-monsters=false\n' > "$SRV/server.properties"
 
 start_server "$ROOT/server_e2e_1.log"
 
