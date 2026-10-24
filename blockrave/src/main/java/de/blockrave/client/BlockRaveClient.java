@@ -40,6 +40,9 @@ public final class BlockRaveClient {
         if (Boolean.getBoolean("blockrave.clientSmokeTest")) {
             net.neoforged.neoforge.common.NeoForge.EVENT_BUS.register(ClientSmokeTest.class);
         }
+        if (MultiplayerE2E.enabled()) {
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.register(MultiplayerE2E.class);
+        }
     }
 
     private static void registerScreens(RegisterMenuScreensEvent e) {

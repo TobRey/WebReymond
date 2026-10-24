@@ -73,6 +73,19 @@ public final class PlaybackController implements AudioEngine.Callbacks {
         this.uploads = new UploadManager(server, library, io, this::broadcastLibrary);
         this.engine = new AudioEngine(this);
         applyConfig();
+        selfCheck();
+    }
+
+    /** Prueft beim Start, dass die eingebetteten Audio-Bibliotheken nutzbar sind (verstaendliche Logs). */
+    private static void selfCheck() {
+        try {
+            byte[] pkt = new de.blockrave.core.audio.OpusFrameEncoder(64_000, 1).encode(new float[AudioConstants.FRAME_SAMPLES * 2]);
+            new de.blockrave.core.audio.OpusFrameDecoder().decode(pkt, new float[AudioConstants.FRAME_SAMPLES * 2]);
+            Class.forName("javazoom.jl.decoder.Decoder");
+            BlockRave.LOG.info("BlockRave: Audio-Bibliotheken geladen (Opus/Concentus, MP3/JLayer)");
+        } catch (Throwable t) {
+            BlockRave.LOG.error("BlockRave: Audio-Bibliotheken nicht nutzbar – MP3/Live-Wiedergabe funktioniert nicht", t);
+        }
     }
 
     public void applyConfig() {

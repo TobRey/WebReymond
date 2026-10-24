@@ -51,6 +51,21 @@ public final class ClientSmokeTest {
 
     private ClientSmokeTest() {}
 
+    static {
+        // Unabhaengig von Ticks: nach 5 Minuten hart beenden (CI darf nie haengen bleiben)
+        Thread t = new Thread(() -> {
+            try {
+                Thread.sleep(300_000);
+                BlockRave.LOG.error("BlockRave-Smoke: FAIL globale Zeitueberschreitung (Bildschirm: {})",
+                        Minecraft.getInstance().screen == null ? "-" : Minecraft.getInstance().screen.getClass().getName());
+                Runtime.getRuntime().halt(4);
+            } catch (InterruptedException ignored) {
+            }
+        }, "BlockRave-Smoke-Watchdog");
+        t.setDaemon(true);
+        t.start();
+    }
+
     private static void log(String s) {
         BlockRave.LOG.info("BlockRave-Smoke: {}", s);
     }
@@ -62,7 +77,8 @@ public final class ClientSmokeTest {
 
     @SubscribeEvent
     public static void onScreen(ScreenEvent.Init.Post e) {
-        if (worldRequested || !(e.getScreen() instanceof TitleScreen)) return;
+        if (worldRequested || !(e.getScreen() instanceof TitleScreen
+                || e.getScreen() instanceof net.minecraft.client.gui.screens.AccessibilityOnboardingScreen)) return;
         worldRequested = true;
         Minecraft mc = Minecraft.getInstance();
         log("Titelbildschirm erreicht, lege Testwelt an");

@@ -70,4 +70,22 @@ class SyncTest {
         assertTrue(d.playbackRate() > 1.0);
         assertEquals(DriftController.Action.HARD, dc.update(500_000).action());
     }
+
+    @Test
+    void lautstaerkeNimmtSanftAbUndIstAusserhalbStumm() {
+        float prev = 2f;
+        for (int d = 0; d <= 140; d += 4) {
+            float g = de.blockrave.core.audio.DistanceFalloff.gain(d, 128);
+            assertTrue(g <= prev + 1e-6, "monoton fallend");
+            prev = g;
+        }
+        assertEquals(1f, de.blockrave.core.audio.DistanceFalloff.gain(10, 128));
+        assertTrue(de.blockrave.core.audio.DistanceFalloff.gain(64, 128) > 0.5f, "in mittlerer Entfernung noch deutlich hoerbar");
+        assertEquals(0f, de.blockrave.core.audio.DistanceFalloff.gain(128, 128));
+        assertEquals(0f, de.blockrave.core.audio.DistanceFalloff.gain(200, 128));
+        // kein Sprung: benachbarte Werte unterscheiden sich wenig
+        for (double d = 16; d < 128; d += 0.5) {
+            assertTrue(Math.abs(de.blockrave.core.audio.DistanceFalloff.gain(d, 128) - de.blockrave.core.audio.DistanceFalloff.gain(d + 0.5, 128)) < 0.02);
+        }
+    }
 }

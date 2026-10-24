@@ -102,6 +102,11 @@ public final class ClientUploader {
         }
     }
 
+    /** Datei zum Upload einreihen (ohne Dialog; z.B. fuer automatisierte Tests). */
+    public void upload(Path p) {
+        add(p);
+    }
+
     private void add(Path p) {
         long size;
         try {

@@ -437,14 +437,8 @@ public final class RavePlayer {
         }
     }
 
-    /**
-     * Lautstaerkekurve: bis 16 Bloecke voll, dann sanft (Kosinus) bis zur Reichweite auf 0.
-     */
+    /** Lautstaerkekurve, siehe {@link de.blockrave.core.audio.DistanceFalloff}. */
     public static float distanceGain(double distance, double range) {
-        double full = Math.min(16, range * 0.25);
-        if (distance <= full) return 1f;
-        if (distance >= range) return 0f;
-        double t = (distance - full) / (range - full);
-        return (float) (0.5 * (1 + Math.cos(Math.PI * t)));
+        return de.blockrave.core.audio.DistanceFalloff.gain(distance, range);
     }
 }

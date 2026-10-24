@@ -37,8 +37,8 @@ public final class DriftController {
         if (Math.abs(filteredError) < DEADBAND) {
             return new Decision(Action.NONE, 1.0, 0);
         }
-        // Proportionale Korrektur: 40 ms Fehler -> volle Abweichung, ueber ca. 7 s ausgeglichen.
-        double rateDev = Math.max(-MAX_RATE_DEVIATION, Math.min(MAX_RATE_DEVIATION, filteredError / 40_000.0 * MAX_RATE_DEVIATION));
+        // Proportionale Korrektur: ab 20 ms Fehler volle Abweichung (Zeitkonstante ca. 3 s).
+        double rateDev = Math.max(-MAX_RATE_DEVIATION, Math.min(MAX_RATE_DEVIATION, filteredError / 20_000.0 * MAX_RATE_DEVIATION));
         // Fehler positiv (zu frueh) -> langsamer (Rate < 1)
         return new Decision(Action.SOFT, 1.0 - rateDev, 0);
     }

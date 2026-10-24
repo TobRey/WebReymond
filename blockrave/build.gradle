@@ -18,6 +18,9 @@ base {
 // Minecraft 1.21.1 laeuft mit Java 21.
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
+def e2eDir = (project.findProperty('e2eDir') ?: project.file('runs/e2e').absolutePath).toString()
+def e2eMp3 = (project.findProperty('e2eMp3') ?: project.file('src/test/resources/audio/techno128_44k.mp3').absolutePath).toString()
+
 neoForge {
     version = project.neo_version
 
@@ -47,6 +50,29 @@ neoForge {
             client()
             systemProperty 'blockrave.clientSmokeTest', 'true'
             programArguments.addAll '--username', 'BlockRaveTest'
+        }
+        // Mehrspieler-Ende-zu-Ende-Test: echte Clients gegen einen echten dedizierten Server (CI)
+        e2eClientA {
+            client()
+            systemProperty 'blockrave.e2e', 'A'
+            systemProperty 'blockrave.e2e.dir', e2eDir
+            systemProperty 'blockrave.e2e.mp3', e2eMp3
+            programArguments.addAll '--username', 'RaveDJ', '--quickPlayMultiplayer', 'localhost:25565'
+            gameDirectory = project.file('runs/e2eA')
+        }
+        e2eClientB {
+            client()
+            systemProperty 'blockrave.e2e', 'B'
+            systemProperty 'blockrave.e2e.dir', e2eDir
+            programArguments.addAll '--username', 'RaveGast', '--quickPlayMultiplayer', 'localhost:25565'
+            gameDirectory = project.file('runs/e2eB')
+        }
+        e2eClientA2 {
+            client()
+            systemProperty 'blockrave.e2e', 'A2'
+            systemProperty 'blockrave.e2e.dir', e2eDir
+            programArguments.addAll '--username', 'RaveDJ', '--quickPlayMultiplayer', 'localhost:25565'
+            gameDirectory = project.file('runs/e2eA2')
         }
         configureEach {
             logLevel = org.slf4j.event.Level.INFO
