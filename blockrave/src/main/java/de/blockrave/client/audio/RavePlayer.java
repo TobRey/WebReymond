@@ -210,7 +210,7 @@ public final class RavePlayer {
             offsetSamples = v[0] * AudioConstants.SAMPLE_RATE;
             latencySamples = v[1] * AudioConstants.SAMPLE_RATE;
         } else {
-            offsetSamples = AL10.alGetSourcei(srcL, AL10.AL_SAMPLE_OFFSET);
+            offsetSamples = AL10.alGetSourcei(srcL, org.lwjgl.openal.AL11.AL_SAMPLE_OFFSET);
         }
         return head.startPlayout + (offsetSamples - latencySamples) * head.step;
     }

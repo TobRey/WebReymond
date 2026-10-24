@@ -144,8 +144,10 @@ public final class StageManager {
     }
 
     public Payloads.StageInfo stageInfo() {
-        if (state == null) return new Payloads.StageInfo(false, "", BlockPos.ZERO, 0);
-        return new Payloads.StageInfo(true, state.dimension, new BlockPos(state.anchorX, state.anchorY, state.anchorZ), state.rotation);
+        int range = de.blockrave.BlockRaveConfig.HEARING_RANGE.get();
+        if (state == null) return new Payloads.StageInfo(false, "", BlockPos.ZERO, 0, range);
+        return new Payloads.StageInfo(true, state.dimension, new BlockPos(state.anchorX, state.anchorY, state.anchorZ),
+                state.rotation, range);
     }
 
     public void sendStageInfo(ServerPlayer player) {
