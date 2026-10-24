@@ -42,6 +42,12 @@ neoForge {
             type = "gameTestServer"
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
+        // Automatischer Client-Rauchtest (CI: Xvfb + Software-OpenGL), siehe ClientSmokeTest
+        clientSmokeTest {
+            client()
+            systemProperty 'blockrave.clientSmokeTest', 'true'
+            programArguments.addAll '--username', 'BlockRaveTest'
+        }
         configureEach {
             logLevel = org.slf4j.event.Level.INFO
         }

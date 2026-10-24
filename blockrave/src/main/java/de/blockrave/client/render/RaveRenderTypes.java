@@ -31,7 +31,7 @@ public final class RaveRenderTypes extends RenderType {
                     .setShaderState(POSITION_COLOR_SHADER)
                     .setTransparencyState(NO_TRANSPARENCY)
                     .setWriteMaskState(COLOR_DEPTH_WRITE)
-                    .setCullState(CULL)
+                    .setCullState(NO_CULL)
                     .setDepthTestState(LEQUAL_DEPTH_TEST)
                     .setLayeringState(POLYGON_OFFSET_LAYERING)
                     .createCompositeState(false));

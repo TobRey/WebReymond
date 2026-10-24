@@ -219,15 +219,11 @@ public final class StageEffectsRenderer {
                                  double z1, double y, int rgb) {
         double[] a = t.toWorld(x0, y, z0), b = t.toWorld(x1, y, z0), cc = t.toWorld(x1, y, z1), d = t.toWorld(x0, y, z1);
         int r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, bl = rgb & 0xFF;
-        // Je nach Drehung aendert sich der Umlaufsinn; beide Seiten zeichnen ist bei CULL noetig
+        // Render-Typ ohne Backface-Culling: Umlaufsinn (abhaengig von der Drehung) spielt keine Rolle
         vtx(vc, m, cam, a, r, g, bl, 255);
         vtx(vc, m, cam, b, r, g, bl, 255);
         vtx(vc, m, cam, cc, r, g, bl, 255);
         vtx(vc, m, cam, d, r, g, bl, 255);
-        vtx(vc, m, cam, a, r, g, bl, 255);
-        vtx(vc, m, cam, d, r, g, bl, 255);
-        vtx(vc, m, cam, cc, r, g, bl, 255);
-        vtx(vc, m, cam, b, r, g, bl, 255);
     }
 
     private static void vtx(VertexConsumer vc, Matrix4f m, Vec3 cam, double[] p, int r, int g, int b, int a) {

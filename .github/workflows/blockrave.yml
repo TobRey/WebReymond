@@ -52,6 +52,15 @@ jobs:
           set -o pipefail
           ./gradlew runGameTestServer --no-daemon --console=plain 2>&1 | tee gametest.log
 
+      - name: Client-Rauchtest (echter Client, Xvfb, Software-OpenGL)
+        if: always()
+        env:
+          ALSOFT_DRIVERS: 'null'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 mesa-utils >/dev/null
+          set -o pipefail
+          timeout 900 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClientSmokeTest --no-daemon --console=plain 2>&1 | tee client.log
+
       - name: Mod-JAR hochladen
         if: always()
         uses: actions/upload-artifact@v4
@@ -78,3 +87,15 @@ jobs:
             grep -aE "BlockRave|blockrave|GameTest|game test|tests? (passed|failed)|Exception|AssertionException|ERROR" gametest.log \
               | grep -avE "DEBUG|Registering|REGISTRIES" | tail -60
           fi
+
+      - name: Zusammenfassung Client-Rauchtest
+        if: always()
+        run: |
+          if [ -f client.log ]; then
+            grep -aE "BlockRave-Smoke|Exception|ERROR|FATAL|OpenGL|Renderer" client.log | grep -avE "DEBUG|Failed to load properties" | tail -60
+          fi
+          pip install -q pillow >/dev/null 2>&1 || true
+          for f in runs/clientSmokeTest/screenshots/blockrave_*.png; do
+            [ -f "$f" ] || continue
+            python3 -c "import sys,base64,io;from PIL import Image;im=Image.open(sys.argv[1]).convert('RGB');im.thumbnail((256,144));b=io.BytesIO();im.save(b,'JPEG',quality=70);print('IMG',sys.argv[1].split('/')[-1],base64.b64encode(b.getvalue()).decode())" "$f"
+          done

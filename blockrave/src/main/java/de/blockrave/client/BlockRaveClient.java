@@ -37,6 +37,9 @@ public final class BlockRaveClient {
         modBus.addListener(BlockRaveClient::registerScreens);
         modBus.addListener(BlockRaveClient::registerKeys);
         modBus.addListener(BlockRaveClient::registerLayers);
+        if (Boolean.getBoolean("blockrave.clientSmokeTest")) {
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.register(ClientSmokeTest.class);
+        }
     }
 
     private static void registerScreens(RegisterMenuScreensEvent e) {
