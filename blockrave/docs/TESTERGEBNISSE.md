@@ -69,7 +69,7 @@ Produktiver NeoForge-Server, Clients „RaveDJ“ (A) und „RaveGast“ (B) als
 | Prüfung | Ergebnis |
 |---|---|
 | A: Bühne per Vorschau → Serverprüfung (700 betroffene Blöcke markiert) → Bestätigen → Aufbau | OK |
-| A: DJ-Pult sofort nach Aufbau im Client sichtbar | FAIL in Lauf 16 – Testablauf prüfte im selben Tick, bevor die Blockupdates ankamen; Prüfung wartet jetzt bis 4 s (Lauf 17, s. u.) |
+| A: DJ-Pult sofort nach Aufbau im Client sichtbar | FAIL in Lauf 16 – Testablauf prüfte im selben Tick, bevor die Blockupdates ankamen; Prüfung wartet jetzt bis 4 s, in Lauf 18 OK |
 | A: MP3-Upload über das Netzwerk (321 085 Bytes in 838 ms), Titel aus ID3 | OK |
 | A: synchroner Start, 25 Messungen über 2 Titeldurchläufe | OK, 25/25 innerhalb ±40 ms, **max. 11,7 ms** |
 | A: Lichtshow aus Audioanalyse aktiv | OK (BPM 127,8 beim 128-BPM-Testtrack) |
@@ -84,7 +84,21 @@ Produktiver NeoForge-Server, Clients „RaveDJ“ (A) und „RaveGast“ (B) als
 Vor der Korrektur (Lauf 15) lag B nach dem Spätbeitritt anfangs bis 70 ms daneben, und beim Start traten
 `ArrayIndexOutOfBoundsException`s auf (Anfangsstille passte nicht in den Puffer). Beides ist behoben (Lauf 16).
 
-<!-- LAUF17 -->
+### Abschlusslauf 18 (Commit c61a922, 24.10.2026) – ALLE JOBS GRÜN
+
+| Teil | Ergebnis |
+|---|---|
+| Kern-Tests, Mod-Build, GameTest-Server | bestanden |
+| Produktiver dedizierter Server | bestanden |
+| Client-Rauchtest | „alle Pruefungen bestanden“, Sync-Fehler −2 ms |
+| E2E A (Aufbau, Pult sichtbar, Upload 473 ms, Start, Sync) | alle bestanden, 25/25 Messungen, **max. 11,5 ms** |
+| E2E B (Spätbeitritt bei 13,46 s, Sync, Reichweite) | alle bestanden, 15/15 Messungen, **max. 11,3 ms** |
+| E2E A2 (Neustart-Persistenz, Einpacken mit Spitzhacke, Bauset 1×, Neuaufbau) | alle bestanden |
+
+Hinweis zur Messung: „Fehler“ ist die Abweichung der von OpenAL gemeldeten Abspielposition (inkl. gemeldeter
+Gerätelatenz) von der Serveruhr. Mit OpenAL „null“-Ausgabe ist das eine Software-Messung; der akustische
+Gleichlauf an echten Lautsprechern zweier PCs ist UNGETESTET.
+
 
 ## 7. UNGETESTET (nicht ausführbar in dieser Umgebung)
 
