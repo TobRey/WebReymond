@@ -37,7 +37,6 @@ import java.util.function.BooleanSupplier;
 public final class MultiplayerE2E {
     private static final String ROLE = System.getProperty("blockrave.e2e", "");
     private static final Path DIR = Path.of(System.getProperty("blockrave.e2e.dir", "."));
-    private static final BlockPos ANCHOR = new BlockPos(0, -61, 12);
 
     private interface Step {
         /** @return true, wenn erledigt */
@@ -93,8 +92,10 @@ public final class MultiplayerE2E {
         return c.getAsBoolean();
     }
 
+    /** DJ-Pult der tatsaechlich gebauten Buehne (aus den Serverdaten). */
     private static BlockPos booth() {
-        return new StageFootprint(ANCHOR, 0).boothPos();
+        Payloads.StageInfo info = st().stage();
+        return new StageFootprint(info.anchor(), info.rotation()).boothPos();
     }
 
     private static int findSlot(net.minecraft.world.item.Item item) {
