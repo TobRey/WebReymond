@@ -63,7 +63,7 @@ public final class BlockRaveGameTests {
      * Pruefen, Aufbauen (nur nach passender Bestaetigung), zweite Buehne ablehnen, Einpacken ohne
      * fremde Bloecke zu loeschen, Bauset genau einmal zurueck, erneut aufbauen.
      */
-    @GameTest(template = "stage_area", timeoutTicks = 200)
+    @GameTest(template = "stage_area", timeoutTicks = 200, batch = "buehne")
     public static void stageLifecycle(GameTestHelper h) {
         ServerLevel level = h.getLevel();
         StageManager m = StageManager.get(level.getServer());
@@ -140,7 +140,7 @@ public final class BlockRaveGameTests {
     }
 
     /** Ohne Bauset in der Hand wird nichts geprueft/gebaut. */
-    @GameTest(template = "stage_area")
+    @GameTest(template = "stage_area", batch = "buehne")
     public static void noKitNoStage(GameTestHelper h) {
         StageManager m = StageManager.get(h.getLevel().getServer());
         BlockPos anchor = h.absolutePos(new BlockPos(20, 1, 1));
@@ -154,7 +154,8 @@ public final class BlockRaveGameTests {
      * Audio-Engine auf dem dedizierten Server: MP3 decodieren, analysieren, Opus-codieren, in Echtzeit
      * takten und das Titelende melden.
      */
-    @GameTest(template = "stage_area", timeoutTicks = 300)
+    // Der GameTest-Server tickt ungebremst: Echtzeit-Tests brauchen viele Ticks als Zeitlimit.
+    @GameTest(template = "stage_area", timeoutTicks = 20_000)
     public static void audioEngineDecodesAndPaces(GameTestHelper h) {
         Path file;
         try (InputStream in = BlockRave.class.getResourceAsStream("/assets/blockrave/gametest/beat.mp3")) {
@@ -237,5 +238,123 @@ public final class BlockRaveGameTests {
         Payloads.Library.CODEC.encode(lb, lib);
         h.assertTrue(Payloads.Library.CODEC.decode(lb).tracks().get(0).title().equals("A"), "Library-Rundreise");
         h.succeed();
+    }
+
+    // ------------------------------------------------------------------ Mehrspieler-Ablauf
+
+    private static ServerPlayer playerAt(GameTestHelper h, BlockPos booth, double dx, double dz) {
+        ServerPlayer p = h.makeMockServerPlayerInLevel();
+        p.setGameMode(GameType.SURVIVAL);
+        p.teleportTo(booth.getX() + 0.5 + dx, booth.getY() + 1, booth.getZ() + 0.5 + dz);
+        p.containerMenu = new de.blockrave.menu.DjBoothMenu(1, p.getInventory(), booth);
+        return p;
+    }
+
+    /**
+     * Serverseitiger Mehrspieler-Ablauf mit simulierten Spielern: MP3-Upload in Bloecken (inkl.
+     * Pruefung im Hintergrund), Wiedergabestart durch einen anderen Spieler, Zuhoerer nach Reichweite,
+     * Live-Rechte (nur der freigegebene Sender), Live-Disconnect und "Neustart" (Zustand neu laden).
+     */
+    @GameTest(template = "stage_area", timeoutTicks = 20_000, batch = "mehrspieler")
+    public static void multiplayerFlow(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        StageManager m = StageManager.get(level.getServer());
+        if (m.hasStage()) m.packUp(m.level());
+        BlockPos anchor = h.absolutePos(new BlockPos(20, 1, 1));
+        StageFootprint fp = new StageFootprint(anchor, 0);
+        ServerPlayer builder = playerWithKit(h, anchor);
+        StageManager.Check c = m.check(builder, fp);
+        h.assertTrue(c.ok(), "Pruefung: " + c.error().getString());
+        h.assertTrue(m.confirm(builder, fp, c.hash()).status() == Payloads.PlacementResult.PLACED, "Aufbau");
+        BlockPos booth = fp.boothPos();
+
+        ServerPlayer a = playerAt(h, booth, 0, -3);     // DJ / Uploader
+        ServerPlayer b = playerAt(h, booth, 5, -20);    // Zuhoerer
+        ServerPlayer far = playerAt(h, booth, 0, -200); // nur Lichtshow
+        ServerPlayer gone = playerAt(h, booth, 0, -400); // gar nichts
+        var pb = m.playback();
+        int tracksBefore = pb.library().lib().tracks().size();
+
+        byte[] mp3;
+        try (InputStream in = BlockRave.class.getResourceAsStream("/assets/blockrave/gametest/beat.mp3")) {
+            mp3 = in.readAllBytes();
+        } catch (Exception e) {
+            h.fail("Testdatei: " + e);
+            return;
+        }
+        pb.uploads().begin(a, new Payloads.UploadBegin(1, "Mein Track.mp3", mp3.length));
+        // Upload-ID aus der Upload-Verwaltung holen (Client wuerde sie per Paket bekommen)
+        String uploadId = pb.uploads().activeUploadIds(a.getUUID()).stream().findFirst().orElse(null);
+        h.assertTrue(uploadId != null, "Upload wurde nicht angenommen");
+        for (int off = 0; off < mp3.length; off += Payloads.MAX_CHUNK) {
+            int n = Math.min(Payloads.MAX_CHUNK, mp3.length - off);
+            byte[] chunk = java.util.Arrays.copyOfRange(mp3, off, off + n);
+            pb.uploads().chunk(a, new Payloads.UploadChunk(uploadId, off, chunk));
+        }
+        AtomicReference<String> phase = new AtomicReference<>("upload");
+        AtomicLong t = new AtomicLong();
+        h.succeedWhen(() -> {
+            switch (phase.get()) {
+                case "upload" -> {
+                    h.assertTrue(pb.library().lib().tracks().size() == tracksBefore + 1, "Upload noch nicht in der Bibliothek");
+                    var track = pb.library().lib().tracks().get(pb.library().lib().tracks().size() - 1);
+                    h.assertTrue(track.title.equals("Mein Track"), "Titel aus Dateiname erwartet, war: " + track.title);
+                    h.assertTrue(pb.library().store().exists(track.id), "Datei fehlt im Speicher");
+                    // B startet die Wiedergabe (keine OP-Rechte noetig)
+                    pb.handleCommand(b, new Payloads.DjCommand(de.blockrave.network.DjAction.PLAY_TRACK, track.id, 0));
+                    h.assertTrue(pb.state() == Payloads.RaveStatus.PLAYING, "Wiedergabe startet nicht");
+                    t.set(level.getGameTime());
+                    phase.set("listeners");
+                    throw new net.minecraft.gametest.framework.GameTestAssertException("naechste Phase");
+                }
+                case "listeners" -> {
+                    h.assertTrue(level.getGameTime() - t.get() > 25, "warte auf Zuhoerer-Aktualisierung");
+                    h.assertTrue(pb.audioListenerIds().contains(a.getUUID()) && pb.audioListenerIds().contains(b.getUUID()),
+                            "Spieler in Reichweite muessen Audio erhalten");
+                    h.assertTrue(pb.showListenerIds().contains(far.getUUID()) && !pb.audioListenerIds().contains(far.getUUID()),
+                            "Spieler in 200 Bloecken: nur Lichtshow");
+                    h.assertFalse(pb.audioListenerIds().contains(gone.getUUID()) || pb.showListenerIds().contains(gone.getUUID()),
+                            "Spieler in 400 Bloecken: gar keine Daten");
+                    h.assertTrue(pb.engine().framesProduced() > 20, "Audio-Engine erzeugt keine Frames");
+                    // Live: A sendet, B darf nicht zusaetzlich senden
+                    pb.liveStart(a, new Payloads.LiveStart("Testquelle"));
+                    h.assertTrue(pb.state() == Payloads.RaveStatus.LIVE, "Live-Start fehlgeschlagen");
+                    int session = pb.liveSessionId();
+                    pb.liveStart(b, new Payloads.LiveStart("Fremd"));
+                    h.assertTrue(pb.isLiveSender(a.getUUID()) && !pb.isLiveSender(b.getUUID()), "Nur eine Live-Quelle erlaubt");
+                    var frame = new byte[][]{new byte[]{1, 2, 3}, new byte[]{4, 5}};
+                    var an = new byte[][]{AnalysisFrameBytes.SILENT, AnalysisFrameBytes.SILENT};
+                    h.assertFalse(pb.engine().onLiveAudio(b.getUUID(), new Payloads.LiveAudio(session, 0, frame, an)),
+                            "Live-Audio eines anderen Spielers muss abgelehnt werden");
+                    h.assertTrue(pb.engine().onLiveAudio(a.getUUID(), new Payloads.LiveAudio(session, 0, frame, an)),
+                            "Live-Audio des Senders muss angenommen werden");
+                    // Disconnect des Senders beendet die Uebertragung
+                    pb.onLogout(a);
+                    h.assertTrue(pb.liveSessionId() == 0, "Live-Sitzung nach Disconnect nicht beendet");
+                    h.assertTrue(pb.state() == Payloads.RaveStatus.PAUSED || pb.state() == Payloads.RaveStatus.STOPPED,
+                            "Zustand nach Live-Ende");
+                    // "Neustart": Verwaltung beenden und aus den gespeicherten Dateien neu laden
+                    StageManager.stop();
+                    StageManager.start(level.getServer());
+                    StageManager m2 = StageManager.get(level.getServer());
+                    h.assertTrue(m2.hasStage() && m2.isStageBooth(level, booth), "Buehne nach Neustart nicht geladen");
+                    h.assertTrue(m2.playback().library().lib().tracks().size() == tracksBefore + 1, "Bibliothek nach Neustart");
+                    h.assertTrue(m2.playback().state() == Payloads.RaveStatus.STOPPED, "Nach Neustart muss die Wiedergabe gestoppt sein");
+                    h.assertTrue(m2.playback().liveSessionId() == 0, "Live darf nach Neustart nicht laufen");
+                    // Aufraeumen: Titel loeschen, Buehne einpacken
+                    String id = m2.playback().library().lib().tracks().get(m2.playback().library().lib().tracks().size() - 1).id;
+                    b.containerMenu = new de.blockrave.menu.DjBoothMenu(2, b.getInventory(), booth);
+                    m2.playback().handleCommand(b, new Payloads.DjCommand(de.blockrave.network.DjAction.DELETE_TRACK, id, 0));
+                    h.assertTrue(m2.packUp(level) == null, "Einpacken");
+                    phase.set("done");
+                }
+                default -> {}
+            }
+        });
+    }
+
+    /** Ein leerer, als "still" markierter Analyseframe. */
+    private static final class AnalysisFrameBytes {
+        static final byte[] SILENT = de.blockrave.core.analysis.AnalysisFrame.SILENCE.encode();
     }
 }

@@ -279,6 +279,11 @@ public final class UploadManager {
         onLibraryChanged.run();
     }
 
+    /** Laufende Upload-IDs eines Spielers (Diagnose/Tests). */
+    public java.util.List<String> activeUploadIds(UUID owner) {
+        return sessions.values().stream().filter(x -> x.owner.equals(owner) && !x.closed).map(x -> x.uploadId).toList();
+    }
+
     /** Hauptthread. */
     public void cancel(ServerPlayer player, String uploadId) {
         Session s = sessions.get(uploadId);

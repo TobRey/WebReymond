@@ -380,6 +380,28 @@ public final class PlaybackController implements AudioEngine.Callbacks {
         changed();
     }
 
+    /** Aktuelle Live-Sitzung (0 = keine). */
+    public int liveSessionId() {
+        return liveSender == null ? 0 : liveSession;
+    }
+
+    public int state() {
+        return state;
+    }
+
+    public String currentTrackId() {
+        return trackId;
+    }
+
+    /** UUIDs der Spieler, die gerade Audio bzw. nur Lichtshow-Daten erhalten (Diagnose/Tests). */
+    public java.util.Set<UUID> audioListenerIds() {
+        return java.util.Set.copyOf(audioListeners);
+    }
+
+    public java.util.Set<UUID> showListenerIds() {
+        return java.util.Set.copyOf(showListeners);
+    }
+
     public boolean isLiveSender(UUID id) {
         return liveSender != null && liveSender.equals(id);
     }
