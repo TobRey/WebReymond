@@ -1,0 +1,12 @@
+.gradle/
+build/
+run/
+runs/
+out/
+*.iml
+.idea/
+core-check/.gradle/
+core-check/build/
+repo/
+prodserver/
+dist/

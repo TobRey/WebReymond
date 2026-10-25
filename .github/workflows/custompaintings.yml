@@ -1,0 +1,156 @@
+name: Custom Paintings (Minecraft-Mod)
+
+# Job 1: Kern-Tests, Mod-Build, GameTests auf einem echten dedizierten GameTest-Server.
+# Job 2: Produktiver NeoForge-Server (offizieller Installer + gebaute JAR), Client-Rauchtest und
+#        Mehrspieler-Ende-zu-Ende-Test mit zwei echten Clients (Xvfb, Software-OpenGL).
+on:
+  push:
+    paths:
+      - 'custompaintings/**'
+      - '.github/workflows/custompaintings.yml'
+  pull_request:
+    paths:
+      - 'custompaintings/**'
+      - '.github/workflows/custompaintings.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, Unit- und GameTests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: custompaintings
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v5
+
+      - name: Java 21 einrichten
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Gradle einrichten
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Kern-Tests (ohne Minecraft)
+        run: ./gradlew -p core-check test --no-daemon --console=plain
+
+      - name: Mod bauen und testen
+        run: ./gradlew build --no-daemon --console=plain
+
+      - name: Dedizierter GameTest-Server
+        run: |
+          set -o pipefail
+          ./gradlew runGameTestServer --no-daemon --console=plain 2>&1 | tee gametest.log
+
+      - name: Zusammenfassung GameTests
+        if: always()
+        run: |
+          if [ -f gametest.log ]; then
+            grep -aE "Custom Paintings|custompaintings|GameTest|game test|failed at|tests? (passed|failed)|required tests|Exception" gametest.log \
+              | grep -avE "DEBUG|Registering|REGISTRIES|resource path" | tail -50
+          fi
+
+      - name: Mod-JAR hochladen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: custompaintings-mod
+          path: custompaintings/build/libs/*.jar
+          if-no-files-found: warn
+
+  # Legt die gebaute JAR auf Wunsch (Commit-Nachricht enthaelt "[dist]") unter custompaintings/dist/ in den Branch,
+  # damit sie auch ohne Zugriff auf Actions-Artefakte per git abgeholt werden kann.
+  dist:
+    name: JAR in den Branch legen
+    needs: build
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[dist]')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: custompaintings-mod
+          path: jar
+      - name: JAR committen
+        run: |
+          mkdir -p custompaintings/dist
+          rm -f custompaintings/dist/*.jar
+          cp jar/*.jar custompaintings/dist/
+          sha256sum custompaintings/dist/*.jar | sed 's|custompaintings/dist/||' > custompaintings/dist/SHA256SUMS.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f custompaintings/dist
+          git commit -m "Custom Paintings: gebaute JAR (${GITHUB_SHA::7}) [skip ci]" || exit 0
+          git push
+
+  integration:
+    name: Produktivserver, Client-Rauchtest, Mehrspieler-E2E
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 75
+    defaults:
+      run:
+        working-directory: custompaintings
+    env:
+      ALSOFT_DRIVERS: 'null'
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v5
+
+      - name: Java 21 einrichten
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Gradle einrichten
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Xvfb und Software-OpenGL installieren
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 mesa-utils >/dev/null
+
+      - name: Mod bauen
+        run: ./gradlew build -x test --no-daemon --console=plain
+
+      - name: Produktiver dedizierter Server (NeoForge-Installer + gebaute JAR)
+        run: tools/ci/prod_server.sh
+
+      - name: Client-Rauchtest (echter Client, Xvfb, Software-OpenGL)
+        if: always()
+        run: |
+          tools/ci/client_options.sh runs/clientSmokeTest
+          rc=0
+          timeout --kill-after=20 400 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClientSmokeTest --no-daemon --console=plain > client.log 2>&1 || rc=$?
+          pkill -f DevLaunch || true; pkill -f Xvfb || true
+          grep -q "CustomPaintings-Smoke: ERGEBNIS: alle Pruefungen bestanden" client.log || rc=1
+          exit $rc
+
+      - name: Mehrspieler-E2E (echter Server + zwei echte Clients)
+        if: always()
+        run: timeout --kill-after=30 2400 tools/ci/e2e.sh
+
+      - name: Zusammenfassung Client-Rauchtest
+        if: always()
+        run: |
+          if [ -f client.log ]; then
+            grep -aE "CustomPaintings-Smoke|Custom Paintings:|Exception|FATAL" client.log \
+              | grep -avE "DEBUG|Failed to load properties|flite|Narrator|resource path" | tail -50
+          fi
+          pip install -q pillow >/dev/null 2>&1 || true
+          for f in runs/clientSmokeTest/screenshots/custompaintings_*.png; do
+            [ -f "$f" ] || continue
+            python3 -c "import sys,base64,io;from PIL import Image;im=Image.open(sys.argv[1]).convert('RGB');im.thumbnail((256,144));b=io.BytesIO();im.save(b,'JPEG',quality=70);print('IMG',sys.argv[1].split('/')[-1],base64.b64encode(b.getvalue()).decode())" "$f"
+          done

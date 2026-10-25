@@ -1,0 +1,29 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+issueTrackerURL="https://github.com/tobrey/webreymond/issues"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="Custom-Paintings-Team"
+description='''
+Eigene Bilder auf normalen Minecraft-Gemaelden: Gemaelde wie gewohnt aufhaengen, dann mit
+Shift + Rechtsklick ein PNG/JPEG/BMP/GIF auswaehlen. Das Bild fuellt das Gemaelde und ist fuer
+alle Spieler sichtbar. Muss auf Server UND Clients installiert sein.
+'''
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"

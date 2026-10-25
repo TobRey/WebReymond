@@ -1,0 +1,53 @@
+plugins {
+    id 'java'
+}
+
+// Baut und testet nur den Minecraft-unabhaengigen Kern (de/custompaintings/core).
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+sourceSets {
+    main {
+        java {
+            srcDir '../src/main/java'
+            include 'de/custompaintings/core/**'
+        }
+    }
+    test {
+        java {
+            srcDir '../src/test/java'
+            include 'de/custompaintings/core/**'
+        }
+    }
+}
+
+// Optional: -PofflineLibs=<Ordner mit JARs> fuer Umgebungen ohne Maven-Central-Zugriff.
+def offline = project.findProperty('offlineLibs')
+if (offline) {
+    repositories { flatDir { dirs offline } }
+    dependencies {
+        testImplementation name: 'junit-jupiter-api-5.11.4'
+        testImplementation name: 'opentest4j-1.3.0'
+        testImplementation name: 'apiguardian-api-1.1.2'
+        testImplementation name: 'junit-platform-commons-1.11.4'
+        testRuntimeOnly name: 'junit-jupiter-engine-5.11.4'
+        testRuntimeOnly name: 'junit-platform-engine-1.11.4'
+        testRuntimeOnly name: 'junit-platform-launcher-1.11.4'
+    }
+} else {
+    repositories { mavenCentral() }
+    dependencies {
+        testImplementation platform('org.junit:junit-bom:5.11.4')
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "failed", "skipped"
+        exceptionFormat "full"
+    }
+}
+
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }

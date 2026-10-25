@@ -1,0 +1,127 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.148'
+    id 'idea'
+}
+
+tasks.named('wrapper', Wrapper).configure {
+    distributionType = Wrapper.DistributionType.BIN
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = mod_id
+}
+
+// Minecraft 1.21.1 laeuft mit Java 21.
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+def e2eDir = (project.findProperty('e2eDir') ?: project.file('runs/e2e').absolutePath).toString()
+
+neoForge {
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        // Echter dedizierter GameTest-Server: fuehrt alle Custom-Paintings-GameTests aus und beendet sich.
+        gameTestServer {
+            type = "gameTestServer"
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        // Automatischer Client-Rauchtest (CI: Xvfb + Software-OpenGL), siehe ClientSmokeTest
+        clientSmokeTest {
+            client()
+            systemProperty 'custompaintings.clientSmokeTest', 'true'
+            programArguments.addAll '--username', 'MalerTest'
+        }
+        // Mehrspieler-Ende-zu-Ende-Test: echte Clients gegen einen echten dedizierten Server (CI)
+        e2eClientA {
+            client()
+            systemProperty 'custompaintings.e2e', 'A'
+            systemProperty 'custompaintings.e2e.dir', e2eDir
+            programArguments.addAll '--username', 'Maler', '--quickPlayMultiplayer', 'localhost:25565'
+            gameDirectory = project.file('runs/e2eA')
+        }
+        e2eClientB {
+            client()
+            systemProperty 'custompaintings.e2e', 'B'
+            systemProperty 'custompaintings.e2e.dir', e2eDir
+            programArguments.addAll '--username', 'Besucher', '--quickPlayMultiplayer', 'localhost:25565'
+            gameDirectory = project.file('runs/e2eB')
+        }
+        e2eClientA2 {
+            client()
+            systemProperty 'custompaintings.e2e', 'A2'
+            systemProperty 'custompaintings.e2e.dir', e2eDir
+            programArguments.addAll '--username', 'Maler', '--quickPlayMultiplayer', 'localhost:25565'
+            gameDirectory = project.file('runs/e2eA2')
+        }
+        configureEach {
+            logLevel = org.slf4j.event.Level.INFO
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events "failed"
+        exceptionFormat "full"
+        showStandardStreams = false
+    }
+}
+
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            loader_version_range   : loader_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-Xlint:deprecation'
+}
+
+tasks.named('jar') {
+    from(rootProject.file('LICENSE')) { into 'META-INF' ; rename { 'LICENSE_custompaintings' } }
+}
