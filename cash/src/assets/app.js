@@ -649,7 +649,7 @@
             statCard('Fixkosten', 'repeat', 'amber', f.fixedPerMonth, 'pro Monat', '#/fixkosten')))),
       h('div', { class: 'card flush mt' },
         h('div', { class: 'card-h' }, h('h2', { text: 'Konten' }), h('a', { class: 'link', href: '#/konten', text: 'Verwalten' })),
-        accs.map((a) => h('a', { class: 'row', href: '#/konten', style: { color: 'inherit' } },
+        accs.map((a) => h('button', { class: 'row', type: 'button', 'aria-label': 'Kontostand ' + a.name + ' ändern', onclick: () => openBalance(a) },
           h('span', { class: 'ic ' + (a.available ? 'mint' : '') }, icon(ACCOUNT_ICONS[a.type] || 'bank', 's')),
           h('span', { class: 'tx' }, h('div', { class: 't1', text: a.name }), h('div', { class: 't2', text: a.available ? 'zählt zum freien Geld' : 'nicht eingerechnet' })),
           h('span', { class: 'amt num' + (a.balance < 0 ? ' neg' : ''), text: fmt(a.balance) })))),
@@ -1216,7 +1216,8 @@
       const err = errBox();
       const save = h('button', { class: 'btn mint block', type: 'submit' }, a ? 'Speichern' : 'Konto anlegen');
       const form = h('form', { class: 'form' },
-        a ? h('div', { class: 'detail-head' }, h('div', { class: 'sub', text: 'Aktueller Kontostand' }), h('div', { class: 'big num', text: chf(a.balance) })) : null,
+        a ? h('div', { class: 'detail-head' }, h('div', { class: 'sub', text: 'Aktueller Kontostand' }), h('div', { class: 'big num', text: chf(a.balance) }),
+          h('button', { class: 'btn light sm mt', type: 'button', onclick: () => { ctl.close(); openBalance(a); } }, icon('edit', 's'), 'Kontostand ändern')) : null,
         field('Name', name), h('div', { class: 'row2' }, field('Art', type), field('Anfangssaldo (CHF)', opening)),
         h('label', { class: 'check' }, av, h('span', null, 'Alltagskonto', h('br'), h('span', { class: 'small muted', text: 'Guthaben zählt zu «Frei für Freizeit». Für Sparkonten ausschalten.' }))),
         note(a ? 'Der Anfangssaldo ist der Stand bei der Einrichtung und zählt nicht als Einnahme. Eine Änderung wirkt sich auf den Kontostand aus.' : 'Gib den heutigen Kontostand ein. Er zählt nicht als Einnahme.', 'info'),
@@ -1236,6 +1237,43 @@
         ctl.close();
       }));
       body.appendChild(form);
+    });
+  }
+
+  /** Aktuellen Kontostand direkt setzen (z. B. Wert aus der Bank-App). */
+  function openBalance(a) {
+    const requestId = uid();
+    sheet('Kontostand ändern', (body, ctl) => {
+      const amt = amountField(toInput(a.balance));
+      amt.input.setAttribute('aria-label', 'Neuer Kontostand');
+      const diffEl = h('div', { class: 'preview', 'aria-live': 'polite' });
+      const parse = () => {
+        const raw = amt.input.value.trim().replace(/^[\u2212-]\s*/, '');
+        const v = parseAmount(raw);
+        return v === null ? null : (/^\s*[\u2212-]/.test(amt.input.value) ? -v : v);
+      };
+      const update = () => {
+        const v = parse();
+        diffEl.textContent = '';
+        if (v === null) { diffEl.textContent = 'Bitte einen gültigen Betrag eingeben (minus mit «-» davor).'; return; }
+        const d = v - a.balance;
+        append(diffEl, d === 0 ? 'Keine Änderung.' : ['Korrektur ', h('b', { text: (d > 0 ? '+ ' : MINUS + ' ') + fmt(Math.abs(d)) }), h('div', { class: 'small muted', text: 'Zählt nicht als Einnahme oder Ausgabe. Deine Buchungen bleiben unverändert.' })]);
+      };
+      amt.input.addEventListener('input', update);
+      const err = errBox();
+      const save = h('button', { class: 'btn mint block', type: 'submit' }, 'Kontostand speichern');
+      const form = h('form', { class: 'form' },
+        h('div', { class: 'small muted', text: a.name + ' · bisher ' + chf(a.balance) }),
+        amt.wrap, diffEl, err, save);
+      form.addEventListener('submit', runner(save, err, async () => {
+        const v = parse();
+        if (v === null) throw new Error('Bitte einen gültigen Betrag eingeben.');
+        await mutate('account.setBalance', { id: a.id, balance: (v < 0 ? '-' : '') + toInput(Math.abs(v)) }, requestId);
+        ctl.close();
+      }));
+      body.appendChild(form);
+      update();
+      setTimeout(() => { amt.input.focus(); amt.input.select(); }, 60);
     });
   }
 

@@ -145,6 +145,18 @@ async function noOverflow(page, label) {
   ok((await hero()).includes('1’626.70'), 'Einnahme erhöht «frei»: 1’626.70', await hero());
   await shot('10-uebersicht');
 
+  console.log('== Kontostand ändern ==');
+  await page.getByRole('button', { name: 'Kontostand Privatkonto ändern' }).click();
+  const bd = page.getByRole('dialog').last();
+  await bd.getByLabel('Neuer Kontostand').fill('1700');
+  ok((await bd.locator('.preview').innerText()).includes('+ 73.30'), 'Korrektur +73.30 wird vor dem Speichern angezeigt', await bd.locator('.preview').innerText());
+  await shot('10b-kontostand');
+  await noOverflow(page, 'Kontostand ändern');
+  await bd.getByRole('button', { name: 'Kontostand speichern' }).dblclick();
+  await page.waitForTimeout(700);
+  ok((await hero()).includes('1’700.00'), '«Frei» = neuer Kontostand 1’700.00', await hero());
+  ok(await page.locator('.row', { hasText: 'Privatkonto' }).filter({ hasText: '1’700.00' }).count() === 1, 'Privatkonto zeigt 1’700.00');
+
   for (const r of ['konten', 'einstellungen']) {
     await page.goto(BASE + '#/' + r);
     await page.waitForTimeout(400);

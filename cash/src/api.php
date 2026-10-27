@@ -10,7 +10,7 @@ require __DIR__ . '/app/bootstrap.php';
 Http::securityHeaders(false);
 
 const FINANCE_ACTIONS = [
-    'onboarding.complete', 'account.save', 'account.archive', 'account.delete',
+    'onboarding.complete', 'account.save', 'account.setBalance', 'account.archive', 'account.delete',
     'category.save', 'category.archive', 'category.delete', 'tx.save', 'tx.delete', 'rate.set',
     'budget.save', 'budget.archive', 'budget.delete', 'bill.save', 'bill.active', 'bill.delete',
     'occ.pay', 'occ.unpay', 'occ.skip', 'occ.unskip', 'goal.save', 'goal.delete', 'goal.allocate',

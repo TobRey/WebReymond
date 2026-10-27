@@ -244,6 +244,7 @@ final class Finance
             'account.save' => self::accountSave($d, $in, $today),
             'account.archive' => self::accountArchive($d, $in),
             'account.delete' => self::accountDelete($d, $in),
+            'account.setBalance' => self::accountSetBalance($d, $in),
             'category.save' => self::categorySave($d, $in),
             'category.archive' => self::categoryArchive($d, $in),
             'category.delete' => self::categoryDelete($d, $in),
@@ -361,6 +362,28 @@ final class Finance
         $d['accounts'][$i]['opening'] = $opening;
         $d['accounts'][$i]['available'] = $available;
         return ['message' => 'Konto gespeichert.'];
+    }
+
+    /**
+     * Setzt den aktuellen Kontostand auf den tatsächlichen Wert (z. B. aus der Bank-App).
+     * Die Differenz wird im Anfangssaldo verrechnet: keine Buchung, keine Einnahme/Ausgabe,
+     * bestehende Buchungen bleiben unverändert.
+     */
+    private static function accountSetBalance(array &$d, array $in): array
+    {
+        $i = self::mustFind($d['accounts'], self::idOf($in['id'] ?? null), 'Das Konto');
+        $target = self::money($in['balance'] ?? '', 'Kontostand', true, true);
+        $current = self::balances($d)[$d['accounts'][$i]['id']] ?? 0;
+        $diff = $target - $current;
+        if ($diff === 0) {
+            return ['message' => 'Kontostand stimmt bereits.'];
+        }
+        $newOpening = $d['accounts'][$i]['opening'] + $diff;
+        if (abs($newOpening) > Money::MAX) {
+            self::err('Der Betrag ist zu gross.');
+        }
+        $d['accounts'][$i]['opening'] = $newOpening;
+        return ['message' => 'Kontostand auf CHF ' . Money::format($target) . ' gesetzt (Korrektur ' . ($diff > 0 ? '+' : '') . Money::format($diff) . ').'];
     }
 
     private static function accountArchive(array &$d, array $in): array
