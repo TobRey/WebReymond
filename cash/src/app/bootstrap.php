@@ -9,7 +9,7 @@ if (!defined('CASH_ENTRY')) {
     exit;
 }
 
-const CASH_VERSION = '1.2.0';
+const CASH_VERSION = '1.3.0';
 
 date_default_timezone_set('Europe/Zurich');
 mb_internal_encoding('UTF-8');
@@ -21,6 +21,8 @@ require __DIR__ . '/Store.php';
 require __DIR__ . '/Money.php';
 require __DIR__ . '/Http.php';
 require __DIR__ . '/Auth.php';
+require __DIR__ . '/Pin.php';
+require __DIR__ . '/Import.php';
 require __DIR__ . '/Finance.php';
 require __DIR__ . '/Backup.php';
 

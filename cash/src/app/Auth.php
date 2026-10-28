@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+if (!defined('CASH_ENTRY')) {
+    http_response_code(404);
+    exit;
+}
+
 /**
  * Anmeldung, Sessions, "Angemeldet bleiben"-Tokens, CSRF und Login-Limitierung.
  */
@@ -298,6 +303,31 @@ final class Auth
         }
         $selector = $remember ? self::issueRemember($found['id']) : null;
         self::establish($found, $selector);
+        return $found;
+    }
+
+    /** Prüft Benutzername + Passwort (rate-limitiert), ohne anzumelden. */
+    public static function checkCredentials(string $username, string $password): array
+    {
+        $username = trim($username);
+        if ($username === '' || $password === '') {
+            throw new ApiError('Bitte Benutzername und Passwort eingeben.');
+        }
+        $ip = Http::clientIp();
+        self::rateCheck($ip, $username);
+        $found = null;
+        foreach (self::usersData()['users'] as $u) {
+            if (strcasecmp($u['username'], $username) === 0) {
+                $found = $u;
+                break;
+            }
+        }
+        $hash = $found['hash'] ?? password_hash(bin2hex(random_bytes(12)), PASSWORD_DEFAULT);
+        if (!password_verify($password, $hash) || $found === null) {
+            self::rateFail($ip, $username);
+            throw new ApiError('Benutzername oder Passwort ist falsch.', 401);
+        }
+        self::rateClear($username);
         return $found;
     }
 

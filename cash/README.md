@@ -13,7 +13,8 @@ Alle Daten liegen serverseitig in geschützten JSON-Dateien (Beträge intern als
 2. In `public_html/cash` die Datei **`cash.zip` hochladen**.
 3. Rechtsklick auf `cash.zip` → **Extract** → Ziel `/public_html/cash` → danach `cash.zip` löschen.
 4. Unter **cPanel → MultiPHP Manager** für die Domain **PHP 8.4** wählen (8.1 oder neuer funktioniert auch).
-5. **https://reymond-tobias.ch/cash** öffnen und den eigenen Account einrichten
+5. **https://reymond-tobias.ch/cash** öffnen und zuerst die **PIN festlegen** (4–8 Ziffern),
+   danach den eigenen Account einrichten
    (Name, Benutzername, Passwort mit mind. 10 Zeichen).
 6. Danach fragt CASH die **aktuellen Kontostände** von *Privatkonto* und *E-Jugendsparkonto* ab
    (0 ist erlaubt). Das Privatkonto zählt als Alltagskonto, das Sparkonto nicht.
@@ -39,6 +40,13 @@ Eigenen Ort festlegen (optional): Datei `public_html/cash/config.local.php` anle
 ### Updates
 
 Neue `cash.zip` genauso in `public_html/cash` entpacken und vorhandene Dateien überschreiben lassen.
+
+**Update auf 1.3 (PIN-Schutz):** Beim ersten Aufruf nach dem Update erscheint «PIN festlegen».
+Benutzername und Passwort des Hauptaccounts eingeben und die gewünschte PIN zweimal eintippen.
+Die PIN steht nirgends im Code oder in Git – sie wird nur als Hash im Datenordner gespeichert.
+PIN vergessen? Im cPanel-Datei-Manager die Datei `cash_data/pin.json.php` löschen – danach kann die PIN
+mit Benutzername und Passwort des Hauptaccounts neu festgelegt werden.
+
 Die ZIP enthält **keine** Daten und keine `config.local.php` – Accounts, Buchungen und Einstellungen
 bleiben erhalten. Dateien der Hauptwebsite werden nie berührt (alles bleibt in `/cash`).
 
@@ -78,7 +86,55 @@ wenn alle Fixkosten bezahlt und die Sparraten gespart sind:
 - Früher erfasste Budgets, Fremdwährungsbuchungen und Darlehen bleiben unverändert gespeichert
   (Kontostände stimmen weiterhin), werden aber nicht mehr separat angezeigt.
 
+## PostFinance-Import
+
+### Gibt es eine offizielle Schnittstelle? (Stand Oktober 2026)
+
+| Weg | Voraussetzung | Für dich nutzbar? |
+|---|---|---|
+| **bLink (SIX, Open Banking – Kontoinformationen/AIS)** | Zulassung als «Service User» mit Teilnahmevertrag, Zulassungsprüfung und Client-Zertifikat | Nein – nur für zugelassene Firmen |
+| **EBICS (camt.053 direkt von PostFinance)** | Geschäftskunden-Kanal, EBICS-Vereinbarung, unterzeichnete Initialisierungsbriefe | Nein – nicht für Privatkonten |
+| **PostFinance-Multibanking** | holt Konten *anderer* Banken in die PostFinance-App | Keine Schnittstelle nach aussen |
+| **Export aus E-Finance / App (CSV, camt.053)** | normales E-Finance-Login | **Ja – wird verwendet** |
+
+Darum importiert CASH **Kontoauszugs-Dateien**. Es werden keine Bank-Zugangsdaten verlangt oder gespeichert,
+und es gibt kein Screen-Scraping. TWINT wird nicht angebunden (TWINT-Zahlungen erscheinen ganz normal als Zeilen im Auszug).
+
+### So geht's
+
+1. PostFinance E-Finance → Konto → Bewegungen → Zeitraum wählen → **Export als CSV**
+   (alternativ den Kontoauszug als **camt.053-XML**, falls bei deinem Konto verfügbar).
+2. In CASH **Buchungen → ⬆ (Import)** oder **Einstellungen → PostFinance-Kontoauszug importieren**.
+3. Datei wählen. Das Konto wird per IBAN erkannt (IBAN unter Konten hinterlegen).
+4. In der **Vorschau** siehst du jede Zeile:
+   - **Neu** – mit vorgeschlagener Kategorie (änderbar, CASH merkt sich Korrekturen),
+   - **Schon erfasst** – du hast den Betrag schon von Hand eingetragen → wird verknüpft statt doppelt gebucht,
+   - **Bereits importiert** – überlappende Zeiträume oder CSV und camt gemischt → wird übersprungen,
+   - **Vor Einrichtung** – liegt vor dem Anfangssaldo und ist dort schon enthalten → standardmässig übersprungen,
+   - Überweisungen auf dein eigenes Sparkonto werden als **Umbuchung** erkannt,
+   - passende offene **Fixkosten** werden als bezahlt markiert.
+5. **Kontostand übernehmen**: Der Schlusssaldo der Bank wird übernommen; die Differenz gleicht CASH ohne Einnahme
+   oder Ausgabe aus.
+6. Jeder Import lässt sich unter «Letzte Importe» **rückgängig machen**; vorher wird automatisch eine Sicherung angelegt.
+
+Die hochgeladene Datei wird nur im Arbeitsspeicher verarbeitet. Die Vorschau liegt höchstens 2 Stunden im
+geschützten Datenordner und wird nach dem Übernehmen oder Abbrechen gelöscht.
+
 ## Sicherheit
+
+- **PIN vor allem:** Ohne gültige PIN-Session liefert der Server nur das PIN-Formular aus – keinen App-Code,
+  keine API-Antwort mit Daten (jede API-Anfrage → 401). Der App-Code liegt im gesperrten Ordner `app/`.
+- **PIN-Speicherung:** nur `password_hash(HMAC-SHA256(PIN, Geheimschlüssel))`; der Schlüssel liegt in einer anderen Datei.
+- **PIN-Sperren:** pro IP 5 Fehlversuche → 15 min gesperrt, jede weitere Sperre doppelt so lang (max. 24 h);
+  global 10 Fehlversuche in 24 h von unbekannten Geräten → 24 h Sperre für alle unbekannten Geräte. Geräte, die
+  schon einmal richtig entsperrt wurden, bleiben nutzbar (ein Angreifer kann dich nicht aussperren).
+  Jeder Fehlversuch wird zusätzlich verzögert. PIN-Session: 1 h Inaktivität, max. 12 h; «Sperren»-Knopf auf der Übersicht.
+- **Hinweis:** Eine 4-stellige PIN hat nur 10’000 Kombinationen und bietet **nur begrenzten Schutz** – sie ist
+  eine zusätzliche Hürde, kein Ersatz für ein starkes Passwort. Darum bleibt die Anmeldung mit Passwort aktiv.
+  Wer kann, wählt 6–8 Ziffern (Einstellungen → PIN ändern).
+- **HTTPS:** Seiten werden auf HTTPS umgeleitet, die API verweigert unverschlüsselte Anfragen, Cookies sind `Secure`.
+  HSTS ist optional, weil es für die ganze Domain gilt: `config.local.php` → `'hsts' => true`.
+- **Logs:** Fehler werden ohne Inhalte protokolliert (Zahlenfolgen wie IBAN oder Beträge maskiert).
 
 - Passwörter mit `password_hash` / `password_verify`, automatisches Re-Hashing.
 - Sessions: eigener Speicherort, `HttpOnly`, `Secure` (unter HTTPS), `SameSite=Lax`, Pfad `/cash/`, Timeout 2 h Inaktivität.

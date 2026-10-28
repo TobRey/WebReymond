@@ -1,0 +1,8 @@
+﻿Datum von:;="2026-10-01"
+Datum bis:;="2026-10-31"
+Konto:;="CH7609000000123456789"
+Währung:;="CHF"
+
+Datum;Bewegungstyp;Avisierungstext;Gutschrift in CHF;Lastschrift in CHF;Label;Kategorie
+="2026-10-28";Belastung;"KAUF/ONLINE SHOPPING VOM 27.10.2026 KARTEN NR. XXXX1234 GALAXUS.CH";;="-129.00";;
+="2026-10-28";Gutschrift;"GUTSCHRIFT VON ANNA MUSTER RUECKZAHLUNG";="30.00";;;

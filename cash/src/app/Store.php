@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+if (!defined('CASH_ENTRY')) {
+    http_response_code(404);
+    exit;
+}
+
 /**
  * Dateibasierte JSON-Ablage mit Dateisperren und atomaren Schreibvorgängen.
  *

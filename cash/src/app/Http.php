@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+if (!defined('CASH_ENTRY')) {
+    http_response_code(404);
+    exit;
+}
+
 final class ApiError extends RuntimeException
 {
     public function __construct(string $message, public readonly int $status = 400)
@@ -52,6 +57,9 @@ final class Http
         header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
         header('Cross-Origin-Opener-Policy: same-origin');
         header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+        if (self::isHttps() && !empty(cash_local_config()['hsts'])) {
+            header('Strict-Transport-Security: max-age=31536000');
+        }
         if (!$html) {
             header('Cache-Control: no-store, max-age=0');
             header('Pragma: no-cache');

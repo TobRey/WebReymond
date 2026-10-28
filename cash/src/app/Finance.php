@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+if (!defined('CASH_ENTRY')) {
+    http_response_code(404);
+    exit;
+}
+
 /**
  * Finanzlogik pro Benutzer. Alle Beträge in Rappen (int).
  *
@@ -46,6 +51,7 @@ final class Finance
             'goals' => [],
             'debts' => [],
             'requests' => [],
+            'imports' => [],
         ];
     }
 
@@ -109,6 +115,9 @@ final class Finance
         unset($g);
         $d['settings']['lastRates'] ??= [];
         $d['settings']['lastAccountId'] ??= null;
+        if (!isset($d['settings']['importRules']) || !is_array($d['settings']['importRules'])) {
+            $d['settings']['importRules'] = [];
+        }
         $d['version'] = self::VERSION;
     }
 
@@ -345,7 +354,14 @@ final class Finance
         $type = in_array($in['type'] ?? '', self::ACCOUNT_TYPES, true) ? $in['type'] : 'checking';
         $opening = self::money($in['opening'] ?? '0', 'Anfangssaldo', true, true);
         $available = isset($in['available']) ? (bool)$in['available'] : self::defaultAvailable($type);
+        $iban = Import::compactIban($in['iban'] ?? '');
+        if ($iban !== '' && !Import::validIban($iban)) {
+            self::err('Die IBAN ist ungültig.');
+        }
         foreach ($d['accounts'] as $a) {
+            if ($iban !== '' && ($a['iban'] ?? '') === $iban && $a['id'] !== ($in['id'] ?? null)) {
+                self::err('Diese IBAN gehört bereits zu «' . $a['name'] . '».', 409);
+            }
             if (mb_strtolower($a['name']) === mb_strtolower($name) && $a['id'] !== ($in['id'] ?? null)) {
                 self::err('Ein Konto mit diesem Namen existiert bereits.', 409);
             }
@@ -353,6 +369,7 @@ final class Finance
         $id = self::idOf($in['id'] ?? null);
         if ($id === null) {
             $a = self::newAccount($name, $type, $opening, $today, $available);
+            $a['iban'] = $iban;
             $d['accounts'][] = $a;
             return ['message' => 'Konto angelegt.', 'id' => $a['id']];
         }
@@ -361,6 +378,7 @@ final class Finance
         $d['accounts'][$i]['type'] = $type;
         $d['accounts'][$i]['opening'] = $opening;
         $d['accounts'][$i]['available'] = $available;
+        $d['accounts'][$i]['iban'] = $iban;
         return ['message' => 'Konto gespeichert.'];
     }
 
@@ -576,6 +594,7 @@ final class Finance
             'description' => $description,
             'fx' => $fx,
             'link' => $old['link'] ?? null,
+            'imports' => $old['imports'] ?? [],
             'created' => $old['created'] ?? date('c'),
             'updated' => date('c'),
         ];
@@ -1561,6 +1580,11 @@ final class Finance
             'budgets' => $budgets,
             'bills' => $bills,
             'occurrences' => $d['occurrences'],
+            'imports' => array_reverse(array_map(fn($b) => [
+                'id' => $b['id'], 'created' => $b['created'], 'accountId' => $b['accountId'], 'format' => $b['format'],
+                'from' => $b['from'], 'to' => $b['to'], 'created_count' => count($b['createdTx']),
+                'linked_count' => count($b['linkedTx']), 'skipped' => $b['skipped'], 'balanceDiff' => $b['balanceDiff'],
+            ], array_slice($d['imports'], -10))),
             'goals' => $goals,
             'debts' => $debts,
             'summary' => [

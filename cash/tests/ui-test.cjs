@@ -5,6 +5,12 @@
  */
 const { chromium, devices } = require('playwright');
 const fs = require('fs');
+const PIN = '4826';   // nur Test-PIN – die echte PIN steht nie im Code
+async function enterPin(pg) {
+  await pg.getByRole('heading', { name: 'PIN eingeben' }).waitFor();
+  await pg.getByLabel('PIN').fill(PIN);
+  await pg.getByRole('button', { name: 'Entsperren' }).click();
+}
 
 const BASE = process.argv[2] || 'http://127.0.0.1:8099/cash/';
 const OUT = process.argv[3] || 'screens';
@@ -38,6 +44,13 @@ async function noOverflow(page, label) {
 
   console.log('== Einrichtung (iPhone SE, 375 px) ==');
   await page.goto(BASE);
+  await page.getByRole('heading', { name: 'PIN festlegen' }).waitFor();
+  ok(await page.locator('script[src*="app.js"]').count() === 0, 'Vor der PIN wird kein App-Code ausgeliefert');
+  await shot('00-pin-festlegen');
+  await noOverflow(page, 'PIN festlegen');
+  await page.getByLabel('Neue PIN').fill(PIN);
+  await page.getByLabel('Wiederholen').fill(PIN);
+  await page.getByRole('button', { name: 'PIN speichern' }).click();
   await page.getByText('Willkommen').waitFor();
   await shot('01-setup');
   await noOverflow(page, 'Setup');
@@ -157,6 +170,36 @@ async function noOverflow(page, label) {
   ok((await hero()).includes('1’700.00'), '«Frei» = neuer Kontostand 1’700.00', await hero());
   ok(await page.locator('.row', { hasText: 'Privatkonto' }).filter({ hasText: '1’700.00' }).count() === 1, 'Privatkonto zeigt 1’700.00');
 
+  console.log('== PostFinance-Import ==');
+  const t = new Date();
+  const dd = (d) => String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + d.getFullYear();
+  const tomorrow = new Date(t.getTime() + 86400000);
+  const csv = 'Konto:;CH76 0900 0000 1234 5678 9\r\nWährung:;CHF\r\n\r\nBuchungsdatum;Avisierungstext;Gutschrift in CHF;Lastschrift in CHF;Valuta;Saldo in CHF\r\n'
+    + dd(tomorrow) + ';"KAUF/DIENSTLEISTUNG VOM ' + dd(t) + ' KARTEN NR. XXXX1234 KINO PATHE ZUERICH";;-18.00;' + dd(tomorrow) + ';1682.00\r\n'
+    + dd(t) + ';"KAUF/DIENSTLEISTUNG VOM ' + dd(t) + ' KARTEN NR. XXXX1234 MIGROS M ZUERICH";;-23.80;' + dd(t) + ';1700.00\r\n';
+  await page.goto(BASE + '#/buchungen');
+  await page.getByRole('link', { name: 'Kontoauszug importieren' }).click();
+  await page.getByRole('heading', { name: 'Import' }).waitFor();
+  await page.locator('input[type=file]').setInputFiles({ name: 'postfinance.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'latin1') });
+  await page.locator('.imp-row').first().waitFor();
+  ok(await page.locator('.imp-row', { hasText: 'Kino Pathe' }).count() === 1, 'Neue Kinobuchung in der Vorschau');
+  ok(await page.locator('.imp-row', { hasText: 'Migros' }).getByText('Schon erfasst').count() === 1, 'Von Hand erfasste Ausgabe (23.80) wird erkannt statt doppelt importiert');
+  const kinoCat = page.locator('.imp-row', { hasText: 'Kino Pathe' }).getByLabel('Kategorie');
+  ok((await kinoCat.inputValue()).startsWith('cat:') && (await kinoCat.locator('option:checked').innerText()) === 'Freizeit', 'Kino → Freizeit vorgeschlagen');
+  await shot('12-import-vorschau');
+  await noOverflow(page, 'Import-Vorschau');
+  await page.getByRole('button', { name: /übernehmen/ }).last().click();
+  await page.waitForTimeout(900);
+  ok(await page.getByText('Letzte Importe').isVisible(), 'Import übernommen, Verlauf sichtbar');
+  await goHome();
+  ok((await hero()).includes('1’682.00'), 'Kontostand aus der Bank übernommen → frei 1’682.00', await hero());
+  await page.goto(BASE + '#/import');
+  await page.getByRole('button', { name: 'Rückgängig' }).first().click();
+  await page.getByRole('dialog').last().getByRole('button', { name: 'Rückgängig' }).click();
+  await page.waitForTimeout(800);
+  await goHome();
+  ok((await hero()).includes('1’700.00'), 'Rückgängig stellt den vorherigen Stand her', await hero());
+
   for (const r of ['konten', 'einstellungen']) {
     await page.goto(BASE + '#/' + r);
     await page.waitForTimeout(400);
@@ -171,15 +214,23 @@ async function noOverflow(page, label) {
   await ctx2.addCookies(cookies.filter((c) => c.name === 'CASHREM'));
   const p2 = await ctx2.newPage();
   await p2.goto(BASE);
+  ok(await p2.getByRole('heading', { name: 'PIN eingeben' }).isVisible(), 'Neues Gerät: zuerst PIN');
+  await p2.getByLabel('PIN').fill('0000');
+  await p2.getByRole('button', { name: 'Entsperren' }).click();
+  ok(await p2.getByText('Falsche PIN.').isVisible(), 'Falsche PIN wird abgelehnt');
+  await p2.screenshot({ path: `${OUT}/14b-pin-eingeben.png` });
+  await enterPin(p2);
   await p2.locator('.hero.free .big').waitFor({ timeout: 5000 });
-  ok(true, 'Neuer Browser mit Token automatisch angemeldet (iPhone 13, 390 px)');
+  ok(true, 'Nach PIN mit Token automatisch angemeldet (iPhone 13, 390 px)');
   await noOverflow(p2, 'iPhone 13');
   await p2.screenshot({ path: `${OUT}/15-iphone13.png`, fullPage: true });
   await p2.goto(BASE + '#/einstellungen');
   await p2.getByRole('button', { name: /Abmelden/ }).last().click();
+  await p2.getByRole('heading', { name: 'PIN eingeben' }).waitFor();
+  ok(true, 'Logout sperrt auch die PIN-Session');
+  await enterPin(p2);
   await p2.getByRole('heading', { name: 'Anmelden' }).waitFor();
-  await p2.reload();
-  ok(await p2.getByRole('heading', { name: 'Anmelden' }).isVisible(), 'Nach Logout kein automatisches Anmelden mehr');
+  ok(await p2.getByRole('heading', { name: 'Anmelden' }).isVisible(), 'Nach Logout kein automatisches Anmelden mehr (Token widerrufen)');
   await p2.screenshot({ path: `${OUT}/16-login.png` });
 
   console.log('== iPad & Desktop ==');

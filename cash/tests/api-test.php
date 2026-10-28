@@ -5,6 +5,8 @@
  * Erwartet ein frisches, leeres Datenverzeichnis.
  */
 declare(strict_types=1);
+const CASH_ENTRY = true;
+require __DIR__ . '/../src/app/Store.php';
 
 $BASE = rtrim($argv[1] ?? 'http://127.0.0.1:8099/cash/', '/') . '/';
 $DATA = $argv[2] ?? '';
@@ -28,10 +30,13 @@ final class Client
 {
     public $ch;
     public string $csrf = '';
-    public function __construct(public string $base, array $cookies = [])
+    public function __construct(public string $base, array $cookies = [], ?string $iface = null)
     {
         $this->ch = curl_init();
         curl_setopt_array($this->ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_COOKIEFILE => '', CURLOPT_HEADER => false]);
+        if ($iface !== null) {
+            curl_setopt($this->ch, CURLOPT_INTERFACE, $iface);   // andere Absender-IP simulieren
+        }
         foreach ($cookies as $line) {
             curl_setopt($this->ch, CURLOPT_COOKIELIST, $line);
         }
@@ -62,6 +67,33 @@ final class Client
     public function post(string $a, array $b = []): array { return $this->req('POST', $a, $b); }
     public function status(): array { $r = $this->get('auth.status'); return $r; }
     public function cookies(): array { return curl_getinfo($this->ch, CURLINFO_COOKIELIST) ?: []; }
+    /** Lädt die Startseite (PIN-Seite oder App-Hülle). */
+    public function page(string $q = ''): array
+    {
+        curl_setopt($this->ch, CURLOPT_URL, $this->base . $q);
+        curl_setopt($this->ch, CURLOPT_HTTPGET, true);
+        curl_setopt($this->ch, CURLOPT_HTTPHEADER, []);
+        $raw = (string)curl_exec($this->ch);
+        return ['status' => curl_getinfo($this->ch, CURLINFO_RESPONSE_CODE), 'raw' => $raw];
+    }
+    /** Sendet das PIN-Formular (wie der Browser) und liefert die Folgeseite. */
+    public function pinForm(array $fields): array
+    {
+        $html = $this->page()['raw'];
+        preg_match('/name="csrf" value="([a-f0-9]+)"/', $html, $m);
+        curl_setopt($this->ch, CURLOPT_URL, $this->base);
+        curl_setopt($this->ch, CURLOPT_POST, true);
+        curl_setopt($this->ch, CURLOPT_POSTFIELDS, http_build_query($fields + ['csrf' => $m[1] ?? '']));
+        curl_setopt($this->ch, CURLOPT_HTTPHEADER, ['Content-Type: application/x-www-form-urlencoded']);
+        curl_exec($this->ch);
+        $code = curl_getinfo($this->ch, CURLINFO_RESPONSE_CODE);
+        return ['post' => $code] + $this->page();
+    }
+    public function unlock(string $pin = TEST_PIN): bool
+    {
+        $r = $this->pinForm(['do' => 'pin', 'pin' => $pin]);
+        return str_contains($r['raw'], 'index.php?asset=app.js');
+    }
     public function cookie(string $name): ?string
     {
         foreach ($this->cookies() as $line) {
@@ -104,11 +136,61 @@ function catByName(array $st, string $name): array
 }
 
 $today = date('Y-m-d');
+const TEST_PIN = '4826';   // nur für Tests – die echte PIN steht nie im Code
+function pinClient(string $base, array $cookies = [], ?string $iface = null): Client
+{
+    $c = new Client($base, $cookies, $iface);
+    $c->unlock();
+    return $c;
+}
 $month = date('Y-m');
 
 // ------------------------------------------------------------------ Einrichtung
-section('Erstes Einrichten');
+section('PIN-Schutz: ohne PIN keine Daten');
 $owner = new Client($BASE);
+foreach (['auth.status', 'state', 'sessions.list', 'backup.download', 'export.csv'] as $a) {
+    $r = $owner->get($a);
+    check($r['status'] === 401 && ($r['json']['pin'] ?? false) === true && !isset($r['json']['csrf']), "GET $a ohne PIN → 401", $r['status']);
+}
+$r = $owner->req('POST', 'tx.save', ['type' => 'expense', 'amount' => '1'], [], ['X-CSRF-Token: x']);
+check($r['status'] === 401, 'POST ohne PIN → 401');
+$pg = $owner->page();
+check(str_contains($pg['raw'], 'PIN festlegen') && !str_contains($pg['raw'], 'asset=app.js'), 'Startseite zeigt nur die PIN-Einrichtung, keinen App-Code');
+check($owner->page('index.php?asset=app.js')['status'] === 403, 'App-Code ohne PIN → 403');
+$cj = $owner->page('app/client.js.php');
+check($cj['status'] === 404 && $cj['raw'] === '', 'app/client.js.php direkt → 404 ohne Inhalt');
+$r = $owner->pinForm(['do' => 'setup', 'pin' => '4826', 'pin2' => '4827']);
+check(str_contains($r['raw'], 'stimmen nicht überein'), 'PIN-Wiederholung wird geprüft');
+$r = $owner->pinForm(['do' => 'setup', 'pin' => '12a4', 'pin2' => '12a4']);
+check(str_contains($r['raw'], '4 bis 8 Ziffern'), 'Nur Ziffern erlaubt');
+$evil = new Client($BASE);
+$evil->page();
+curl_setopt($evil->ch, CURLOPT_URL, $BASE);
+curl_setopt($evil->ch, CURLOPT_POST, true);
+curl_setopt($evil->ch, CURLOPT_POSTFIELDS, http_build_query(['do' => 'setup', 'pin' => '1111', 'pin2' => '1111', 'csrf' => 'falsch']));
+curl_exec($evil->ch);
+check(!str_contains($evil->page()['raw'], 'asset=app.js'), 'PIN-Formular ohne gültiges CSRF-Token wirkungslos');
+foreach (['app/Pin.php', 'app/Import.php', 'app/Auth.php', 'app/bootstrap.php', 'data/index.php'] as $f) {
+    $x = $owner->page($f);
+    check($x['status'] === 404 && $x['raw'] === '', "$f direkt → 404 ohne Inhalt");
+}
+$xo = new Client($BASE);
+$xo->page();
+curl_setopt($xo->ch, CURLOPT_HTTPHEADER, ['Origin: https://evil.example']);
+$html = $xo->page()['raw'];
+preg_match('/name="csrf" value="([a-f0-9]+)"/', $html, $mm);
+curl_setopt($xo->ch, CURLOPT_URL, $BASE);
+curl_setopt($xo->ch, CURLOPT_POST, true);
+curl_setopt($xo->ch, CURLOPT_POSTFIELDS, http_build_query(['do' => 'setup', 'pin' => '1111', 'pin2' => '1111', 'csrf' => $mm[1] ?? '']));
+curl_setopt($xo->ch, CURLOPT_HTTPHEADER, ['Origin: https://evil.example', 'Content-Type: application/x-www-form-urlencoded']);
+curl_exec($xo->ch);
+check(!file_exists($DATA . '/pin.json.php') || !str_contains((string)@file_get_contents($DATA . '/pin.json.php'), '$2y$'), 'PIN-Formular von fremder Website wird abgelehnt');
+$r = $owner->pinForm(['do' => 'setup', 'pin' => TEST_PIN, 'pin2' => TEST_PIN]);
+check($r['post'] === 303 && str_contains($r['raw'], 'index.php?asset=app.js'), 'PIN eingerichtet → App freigegeben');
+check(str_starts_with((string)$owner->page('index.php?asset=app.js')['raw'], '/* CASH'), 'App-Code nach PIN abrufbar');
+check($evil->pinForm(['do' => 'setup', 'pin' => '1111', 'pin2' => '1111'])['raw'] !== '' && !$evil->unlock('1111'), 'PIN kann nicht ein zweites Mal «eingerichtet» werden');
+
+section('Erstes Einrichten');
 $s = $owner->status();
 check($s['json']['installed'] === false && $s['json']['user'] === null, 'Noch nicht installiert');
 $r = $owner->req('POST', 'auth.setup', ['name' => 'Tobias', 'username' => 'tobias', 'password' => 'sehr-geheim-123', 'remember' => true], [], ['X-CSRF-Token: falsch']);
@@ -122,7 +204,7 @@ $r = $owner->post('auth.setup', ['name' => 'Tobias Reymond', 'username' => 'tobi
 check($r['status'] === 200 && $r['json']['user']['role'] === 'owner', 'Hauptaccount erstellt', $r['json']);
 check($r['json']['registrationOpen'] === false, 'Registrierung danach deaktiviert');
 check($owner->cookie('CASHREM') !== null, 'Angemeldet-bleiben-Cookie gesetzt');
-$r2 = (new Client($BASE));
+$r2 = pinClient($BASE);
 $r2->status();
 $x = $r2->post('auth.setup', ['name' => 'Hacker', 'username' => 'hacker', 'password' => 'sehr-geheim-123']);
 check($x['status'] === 409, 'Zweites Setup unmöglich', $x['status']);
@@ -411,7 +493,7 @@ check(accByName($st, 'E-Jugendsparkonto')['balance'] === 60000 && !array_filter(
 section('Datentrennung zwischen Benutzern');
 $r = $owner->post('admin.registration', ['open' => true]);
 check($r['json']['registrationOpen'] === true, 'Hauptaccount öffnet Registrierung');
-$u2 = new Client($BASE);
+$u2 = pinClient($BASE);
 $u2->status();
 $r = $u2->post('auth.register', ['name' => 'Gast', 'username' => 'gast', 'password' => 'gast-passwort-1']);
 check($r['status'] === 200 && $r['json']['user']['role'] === 'user', 'Zweiter Benutzer registriert');
@@ -435,12 +517,12 @@ check(!str_contains((string)$x['raw'], 'Pad Thai'), 'Backup des Gasts enthält k
 // ------------------------------------------------------------------ Login / Angemeldet bleiben
 section('Anmeldung, Angemeldet bleiben, Logout');
 $rem = $owner->cookie('CASHREM');
-$c3 = new Client($BASE, array_values(array_filter($owner->cookies(), fn($l) => str_contains($l, "\tCASHREM\t"))));
+$c3 = pinClient($BASE, array_values(array_filter($owner->cookies(), fn($l) => str_contains($l, "\tCASHREM\t"))));
 $s = $c3->status();
 check(($s['json']['user']['username'] ?? null) === 'tobias', 'Automatisch angemeldet nur mit Token-Cookie (ohne Session)');
 $rotated = $c3->cookie('CASHREM');
 check($rotated !== null && $rotated !== $rem, 'Token wurde rotiert');
-$c4 = new Client($BASE);
+$c4 = pinClient($BASE);
 $c4->status();
 for ($i = 0; $i < 5; $i++) {
     $r = $c4->post('auth.login', ['username' => 'tobias', 'password' => 'falsch-' . $i]);
@@ -449,16 +531,17 @@ check($r['status'] === 401, 'Falsches Passwort abgelehnt');
 $r = $c4->post('auth.login', ['username' => 'tobias', 'password' => 'sehr-geheim-123']);
 check($r['status'] === 429, 'Nach 5 Fehlversuchen gesperrt (auch mit richtigem Passwort)', $r['status']);
 $r = $c3->post('auth.logout');
-check($r['json']['user'] === null, 'Logout');
-$c5 = new Client($BASE, ["127.0.0.1\tFALSE\t/cash/\tFALSE\t0\tCASHREM\t" . $rotated]);
+check($r['status'] === 200 && ($r['json']['pin'] ?? false) === true, 'Logout (sperrt auch die PIN-Session)');
+check($c3->get('state')['status'] === 401, 'Nach Logout keine Daten mehr');
+$c5 = pinClient($BASE, ["127.0.0.1\tFALSE\t/cash/\tFALSE\t0\tCASHREM\t" . $rotated]);
 $s = $c5->status();
 check($s['json']['user'] === null, 'Logout hat das Token widerrufen');
 // Gestohlenes Token: alter Prüfwert nach Ablauf der Gnadenfrist → alles widerrufen (hier: Selektor mit falschem Prüfwert)
 $sel = explode(':', (string)$owner->cookie('CASHREM'))[0];
-$c6 = new Client($BASE, ["127.0.0.1\tFALSE\t/cash/\tFALSE\t0\tCASHREM\t" . $sel . ':' . str_repeat('0', 64)]);
+$c6 = pinClient($BASE, ["127.0.0.1\tFALSE\t/cash/\tFALSE\t0\tCASHREM\t" . $sel . ':' . str_repeat('0', 64)]);
 $s = $c6->status();
 check($s['json']['user'] === null, 'Gefälschter Prüfwert wird abgelehnt');
-$s = (new Client($BASE, ["127.0.0.1\tFALSE\t/cash/\tFALSE\t0\tCASHREM\t" . $owner->cookie('CASHREM')]))->status();
+$s = (pinClient($BASE, ["127.0.0.1\tFALSE\t/cash/\tFALSE\t0\tCASHREM\t" . $owner->cookie('CASHREM')]))->status();
 check($s['json']['user'] === null, 'Bei Missbrauchsverdacht werden alle Tokens des Benutzers widerrufen');
 $s = $owner->status();
 check(($s['json']['user']['username'] ?? null) === 'tobias', 'Aktive Session bleibt bestehen');
@@ -472,7 +555,7 @@ $r = $owner->post('password.change', ['current' => 'falsch', 'password' => 'neue
 check($r['status'] === 403, 'Passwortwechsel braucht aktuelles Passwort');
 $r = $owner->post('password.change', ['current' => 'sehr-geheim-123', 'password' => 'neues-passwort-1']);
 check($r['status'] === 200, 'Passwort geändert');
-$c7 = new Client($BASE);
+$c7 = pinClient($BASE);
 $c7->status();
 $r = $c7->post('auth.login', ['username' => 'gast', 'password' => 'gast-passwort-1', 'remember' => false]);
 check($r['status'] === 200 && $c7->cookie('CASHREM') === null, 'Login ohne «Angemeldet bleiben» setzt kein Token');
@@ -633,6 +716,104 @@ check($r['status'] === 404, 'Fremdes Konto nicht änderbar');
 $x = $owner->get('backup.download');
 $r = $owner->post('backup.restore', ['backup' => json_decode((string)$x['raw'], true)]);
 check($r['status'] === 200 && accByName($r['json']['state'], 'Privatkonto')['balance'] === -1230, 'Backup enthält den korrigierten Stand');
+
+section('PostFinance-Import über die API');
+$st = state($owner);
+$pa = accByName($st, 'Privatkonto');
+$sa = accByName($st, 'E-Jugendsparkonto');
+$r = $owner->act('account.save', ['id' => $pa['id'], 'name' => $pa['name'], 'type' => $pa['type'], 'opening' => number_format($pa['opening'] / 100, 2, '.', ''), 'available' => true, 'iban' => 'CH76 0900 0000 1234 5678 9']);
+check($r['status'] === 200 && accByName($r['json']['state'], 'Privatkonto')['iban'] === 'CH7609000000123456789', 'IBAN beim Konto hinterlegt');
+$r = $owner->act('account.save', ['id' => $sa['id'], 'name' => $sa['name'], 'type' => $sa['type'], 'opening' => number_format($sa['opening'] / 100, 2, '.', ''), 'available' => false, 'iban' => 'CH7709000000123456789']);
+check($r['status'] === 400, 'Ungültige IBAN abgelehnt');
+$r = $owner->act('account.save', ['id' => $sa['id'], 'name' => $sa['name'], 'type' => $sa['type'], 'opening' => number_format($sa['opening'] / 100, 2, '.', ''), 'available' => false, 'iban' => 'CH2809000000987654321']);
+$st = $r['json']['state'];
+$bal0 = accByName($st, 'Privatkonto')['balance'];
+$sp0 = accByName($st, 'E-Jugendsparkonto')['balance'];
+$inc0 = $st['summary']['income'];
+$d0 = date('d.m.Y');
+$d1 = date('d.m.Y', strtotime('+1 day'));
+$dy = date('d.m.Y', strtotime('-1 day'));
+$csv = "Konto:;CH76 0900 0000 1234 5678 9\r\nWährung:;CHF\r\n\r\nBuchungsdatum;Avisierungstext;Gutschrift in CHF;Lastschrift in CHF;Valuta;Saldo in CHF\r\n"
+    . "$d1;\"E-FINANCE CH28 0900 0000 9876 5432 1\";;-50.00;$d1;1000.00\r\n"
+    . "$d0;\"KAUF/DIENSTLEISTUNG VOM $d0 KARTEN NR. XXXX1234 COOP-1234 BERN\";;-4.50;$d0;1050.00\r\n"
+    . "$d0;\"KAUF/DIENSTLEISTUNG VOM $d0 KARTEN NR. XXXX1234 COOP-1234 BERN\";;-4.50;$d0;1054.50\r\n"
+    . "$d0;\"GUTSCHRIFT AUFTRAGGEBER: MUSTER AG LOHN\";100.00;;$d0;1059.00\r\n"
+    . "$dy;\"KAUF/DIENSTLEISTUNG VOM $dy KARTEN NR. XXXX1234 VOLG\";;-9.00;$dy;959.00\r\n";
+$csv = mb_convert_encoding($csv, 'Windows-1252', 'UTF-8');
+$r = $u2->post('import.preview', ['content' => base64_encode($csv), 'filename' => 'a.csv', 'accountId' => $pa['id']]);
+check($r['status'] === 404 && !isset($r['json']['preview']), 'Fremder Benutzer kann nicht auf dieses Konto importieren');
+$r = $owner->post('import.preview', ['content' => 'kein base64!!', 'filename' => 'x.csv']);
+check($r['status'] === 400, 'Ungültiger Dateiinhalt abgelehnt');
+$r = $owner->post('import.preview', ['content' => base64_encode('<?xml version="1.0"?><!DOCTYPE d [<!ENTITY x SYSTEM "file:///etc/passwd">]><Document>&x;</Document>'), 'filename' => 'x.xml']);
+check($r['status'] === 400 && !str_contains((string)$r['raw'], 'root:'), 'XXE-Versuch abgelehnt, keine Dateiinhalte');
+$r = $owner->post('import.preview', ['content' => base64_encode($csv), 'filename' => 'auszug.csv']);
+$pv = $r['json']['preview'] ?? null;
+check($r['status'] === 200 && $pv && $pv['accountId'] === $pa['id'], 'Vorschau, Konto per IBAN erkannt', $r['json']['error'] ?? null);
+check(!str_contains((string)$r['raw'], 'CH7609000000123456789'), 'IBAN in der Antwort maskiert');
+$st1 = state($owner);
+check(count($st1['transactions']) === count($st['transactions']), 'Vorschau speichert noch keine Buchungen');
+$rows = $pv['rows'];
+$tr = array_values(array_filter($rows, fn($x) => $x['type'] === 'transfer'))[0] ?? null;
+check($tr && $tr['transferAccountId'] === $sa['id'], 'Überweisung aufs Sparkonto als Umbuchung erkannt');
+check(count(array_filter($rows, fn($x) => $x['status'] === 'before')) === 1, 'Buchung vor Kontoeinrichtung markiert');
+$r = $owner->post('import.commit', ['previewId' => $pv['id'], 'rows' => [], 'syncBalance' => true]);
+check($r['status'] === 200, 'Import übernommen: ' . ($r['json']['message'] ?? ''), $r['json']['error'] ?? null);
+$st2 = $r['json']['state'];
+check(accByName($st2, 'Privatkonto')['balance'] === 100000, 'Kontostand = Bank-Schlusssaldo 1000.00', accByName($st2, 'Privatkonto')['balance']);
+check(accByName($st2, 'E-Jugendsparkonto')['balance'] === $sp0 + 5000, 'Sparkonto +50 (Umbuchung)');
+check($st2['summary']['income'] === $inc0 + 10000, 'Lohn als Einnahme, Umbuchung nicht');
+check(count($st2['transactions']) === count($st['transactions']) + 4, '4 neue Buchungen (Volg vor Einrichtung übersprungen)');
+$r = $owner->post('import.commit', ['previewId' => $pv['id'], 'rows' => [], 'syncBalance' => true]);
+check($r['status'] === 409, 'Dieselbe Vorschau kann nicht zweimal übernommen werden');
+$r = $owner->post('import.preview', ['content' => base64_encode($csv), 'filename' => 'auszug.csv']);
+$pv2 = $r['json']['preview'];
+check(($pv2['counts']['duplicate'] ?? 0) === 4, 'Erneuter Import: 4 Duplikate erkannt', $pv2['counts']);
+$batch = $st2['imports'][0]['id'] ?? '';
+$r = $owner->post('import.undo', ['batchId' => $batch]);
+check($r['status'] === 200 && count($r['json']['state']['transactions']) === count($st['transactions']) && accByName($r['json']['state'], 'Privatkonto')['balance'] === $bal0, 'Import rückgängig: alles wie vorher');
+$r = $u2->post('import.undo', ['batchId' => $batch]);
+check($r['status'] === 404, 'Fremder Benutzer kann keinen Import rückgängig machen');
+$r = $owner->post('import.preview', ['content' => base64_encode(str_repeat('a', 5_100_000)), 'filename' => 'gross.csv']);
+check(in_array($r['status'], [400, 413], true), 'Zu grosse Datei abgelehnt', $r['status']);
+
+section('PIN: Rate-Limiting und Sperren');
+$owner->post('pin.lock');
+check($owner->get('state')['status'] === 401, '«Sperren» beendet die PIN-Session');
+check($owner->unlock(), 'Mit PIN wieder entsperrt');
+$att = new Client($BASE, [], '127.0.0.2');
+$t0 = microtime(true);
+for ($i = 0; $i < 4; $i++) {
+    $att->pinForm(['do' => 'pin', 'pin' => sprintf('%04d', 1000 + $i)]);
+}
+check(microtime(true) - $t0 > 1.0, 'Fehlversuche werden gebremst');
+$r = $att->pinForm(['do' => 'pin', 'pin' => '1004']);
+check(str_contains($r['raw'], 'Zu viele Fehlversuche'), 'Nach 5 Fehlversuchen gesperrt');
+check(!$att->unlock(TEST_PIN) && $att->get('state')['status'] === 401, 'Gesperrt: auch die richtige PIN wird nicht angenommen');
+$lim = Store::decode(file_get_contents($DATA . '/pinlimit.json.php'));
+$locked = array_values(array_filter($lim['keys'], fn($k) => ($k['lockedUntil'] ?? 0) > time()));
+check(count($locked) === 1 && abs($locked[0]['lockedUntil'] - time() - 900) < 30, 'Erste Sperre dauert 15 Minuten');
+check(!str_contains(json_encode($lim), '127.0.0.2'), 'Keine Klartext-IP in der Sperrdatei');
+foreach (['127.0.0.3', '127.0.0.4'] as $ip) {
+    $a = new Client($BASE, [], $ip);
+    for ($i = 0; $i < 3; $i++) {
+        $a->pinForm(['do' => 'pin', 'pin' => '9' . $i . '99']);
+    }
+}
+$fresh = new Client($BASE, [], '127.0.0.5');
+check(!$fresh->unlock(TEST_PIN), 'Nach 10 Fehlversuchen insgesamt: unbekannte Geräte global gesperrt');
+$dev = array_values(array_filter($owner->cookies(), fn($l) => str_contains($l, "\tCASHDEV\t")));
+check(count($dev) === 1, 'Besitzer-Gerät hat ein Geräte-Cookie');
+$trusted = new Client($BASE, $dev, '127.0.0.6');
+check($trusted->unlock(TEST_PIN), 'Bekanntes Gerät kann trotz globaler Sperre entsperren (kein Aussperren durch Angreifer)');
+$pinData = Store::decode(file_get_contents($DATA . '/pin.json.php'));
+check(str_starts_with($pinData['hash'], '$2y$') && !str_contains(file_get_contents($DATA . '/pin.json.php'), TEST_PIN), 'PIN nur als bcrypt-Hash gespeichert');
+$cfg = Store::decode(file_get_contents($DATA . '/config.json.php'));
+check(strlen($cfg['pin_pepper'] ?? '') === 64 && !isset($pinData['pin_pepper']), 'Geheimschlüssel getrennt vom Hash');
+check(substr(sprintf('%o', fileperms($DATA . '/pin.json.php')), -3) === '600', 'PIN-Datei nur für den Server lesbar (600)');
+$leak = shell_exec('grep -rl -e ' . escapeshellarg(TEST_PIN) . ' ' . escapeshellarg($DATA) . ' 2>/dev/null') ?? '';
+check(trim($leak) === '', 'PIN nirgends im Klartext im Datenordner (inkl. Logs/Sessions)', $leak);
+$logs = (string)@file_get_contents($DATA . '/logs/php-error.log');
+check(!preg_match('/CH\d{2}\s?0900|MUSTER AG|COOP/i', $logs), 'Keine Bank- oder Buchungsdaten in Logs');
 
 echo "\n" . $passes . ' bestanden, ' . $fails . " fehlgeschlagen\n";
 exit($fails ? 1 : 0);

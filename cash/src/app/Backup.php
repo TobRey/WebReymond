@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+if (!defined('CASH_ENTRY')) {
+    http_response_code(404);
+    exit;
+}
+
 /**
  * Backups (Download, automatische Tagessicherung, validierte Wiederherstellung) und CSV-Export.
  */
@@ -49,7 +54,7 @@ final class Backup
     private static function prune(string $uid): void
     {
         $dir = self::dir($uid);
-        foreach (['auto' => self::KEEP_AUTO, 'vor-wiederherstellung' => self::KEEP_MANUAL] as $kind => $keep) {
+        foreach (['auto' => self::KEEP_AUTO, 'vor-wiederherstellung' => self::KEEP_MANUAL, 'vor-import' => self::KEEP_MANUAL] as $kind => $keep) {
             $files = glob($dir . '/*-' . $kind . '-*.json.php') ?: [];
             sort($files);
             while (count($files) > $keep) {
@@ -68,7 +73,7 @@ final class Backup
             if (preg_match('/^(\d{8})-(\d{6})-([a-z\-]+)-/', $b, $m)) {
                 $out[] = [
                     'date' => DateTimeImmutable::createFromFormat('Ymd His', $m[1] . ' ' . $m[2])->format('c'),
-                    'kind' => $m[3] === 'auto' ? 'Automatische Tagessicherung' : 'Vor Wiederherstellung',
+                    'kind' => match ($m[3]) { 'auto' => 'Automatische Tagessicherung', 'vor-import' => 'Vor Import', default => 'Vor Wiederherstellung' },
                     'size' => filesize($f),
                 ];
             }
@@ -132,7 +137,8 @@ final class Backup
         foreach ($d['accounts'] as $a) {
             if (!$isStr($a['name'] ?? null, 60) || $a['name'] === '' || !in_array($a['type'] ?? '', Finance::ACCOUNT_TYPES, true)
                 || !$isAmt($a['opening'] ?? null, true) || !is_bool($a['archived'] ?? null) || !$optDate($a['openingDate'] ?? null)
-                || (isset($a['available']) && !is_bool($a['available']))) {
+                || (isset($a['available']) && !is_bool($a['available']))
+                || (isset($a['iban']) && (!is_string($a['iban']) || strlen($a['iban']) > 34))) {
                 $fail('Konto «' . (is_string($a['name'] ?? null) ? $a['name'] : '?') . '»');
             }
         }
@@ -190,6 +196,12 @@ final class Backup
             if ($fx !== null && (!is_array($fx) || !in_array($fx['currency'] ?? '', Finance::CURRENCIES, true)
                     || !$isAmt($fx['original'] ?? null) || !is_int($fx['rateMicro'] ?? null) || $fx['rateMicro'] <= 0 || !is_string($fx['rate'] ?? null))) {
                 $fail($where . ' (Währung)');
+            }
+            foreach ($t['imports'] ?? [] as $m) {
+                if (!is_array($m) || !isset($acc[$m['account'] ?? '']) || !$isDate($m['date'] ?? null) || !$isAmt($m['amount'] ?? null, true)
+                    || !is_string($m['batch'] ?? null) || !$isStr($m['text'] ?? '', 300) || !$isStr($m['ref'] ?? '', 80)) {
+                    $fail($where . ' (Import)');
+                }
             }
             $link = $t['link'] ?? null;
             if ($link !== null) {
@@ -280,7 +292,21 @@ final class Backup
             }
         }
         $last = $settings['lastAccountId'] ?? null;
-        $d['settings'] = ['lastAccountId' => is_string($last) && isset($acc[$last]) ? $last : null, 'lastRates' => $rates];
+        $rules = [];
+        foreach ((array)($settings['importRules'] ?? []) as $k => $v) {
+            if (is_string($k) && mb_strlen($k) <= 80 && is_string($v) && isset($cat[$v])) {
+                $rules[$k] = $v;
+            }
+        }
+        $d['settings'] = ['lastAccountId' => is_string($last) && isset($acc[$last]) ? $last : null, 'lastRates' => $rates, 'importRules' => $rules];
+        $imports = [];
+        foreach ((array)($d['imports'] ?? []) as $b) {
+            if (is_array($b) && $isId($b['id'] ?? null) && isset($acc[$b['accountId'] ?? ''])
+                && is_array($b['createdTx'] ?? null) && is_array($b['linkedTx'] ?? null) && is_int($b['balanceDiff'] ?? null)) {
+                $imports[] = $b;
+            }
+        }
+        $d['imports'] = $imports;
         $d['requests'] = [];
         $d['version'] = Finance::VERSION;
         return $d;

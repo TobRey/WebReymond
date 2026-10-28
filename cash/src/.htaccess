@@ -8,6 +8,7 @@ DirectoryIndex index.php
     RewriteRule (^|/)(app|data)(/|$) - [F,L]
     RewriteRule (^|/)\. - [F,L]
     RewriteRule (^|/)config\.local\.php$ - [F,L]
+    RewriteRule (^|/)assets/app\.js$ - [F,L]
 </IfModule>
 
 <FilesMatch "\.(json|lock|log|md|txt|bak|tmp|ini|sh|dist)$">

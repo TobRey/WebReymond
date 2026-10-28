@@ -1,3 +1,4 @@
+<?php http_response_code(404); exit; ?>
 /* CASH – privates Finanzsystem. Vanilla JS, keine Abhängigkeiten. */
 (() => {
   'use strict';
@@ -222,6 +223,10 @@
     try { data = await res.json(); } catch (e) { data = { ok: false, error: 'Unerwartete Antwort vom Server.' }; }
     if (data && data.csrf) S.csrf = data.csrf;
     if (!res.ok || !data.ok) {
+      if (res.status === 401 && data && data.pin) {
+        location.reload();   // PIN-Session abgelaufen → Server zeigt die PIN-Seite
+        throw new ApiFail('PIN erforderlich.', 401);
+      }
       if (res.status === 401 && action !== 'auth.login') {
         S.user = null; S.st = null;
         closeAllSheets();
@@ -579,10 +584,13 @@
   }
 
   async function logout() {
-    try { const r = await api('auth.logout', {}); S.status = r; } catch (e) { /* ignorieren */ }
-    S.user = null; S.st = null; S.lastRoute = '';
+    try { await api('auth.logout', {}); } catch (e) { /* ignorieren */ }
     location.hash = '';
-    render();
+    location.reload();   // zurück zur PIN-Seite
+  }
+  async function lockApp() {
+    try { await api('pin.lock', {}); } catch (e) { /* ignorieren */ }
+    location.reload();
   }
 
   // ================================================================ Übersicht
@@ -626,7 +634,9 @@
     goalsDue.forEach((g) => todo.appendChild(goalDueRow(g)));
 
     append(p, [
-      topbar('Übersicht', { right: h('a', { class: 'icon-btn', href: '#/einstellungen', 'aria-label': 'Einstellungen' }, icon('settings', 's')) }),
+      topbar('Übersicht', { right: h('div', { class: 'flex' },
+        h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Sperren', title: 'Sperren', onclick: lockApp }, icon('lock', 's')),
+        h('a', { class: 'icon-btn', href: '#/einstellungen', 'aria-label': 'Einstellungen' }, icon('settings', 's'))) }),
       h('div', { class: 'grid g-dash' },
         h('div', null,
           h('div', { class: 'card hero free' + (neg ? ' neg' : '') },
@@ -674,7 +684,7 @@
       sub = 'Darlehen · ' + (a ? a.name : '');
     } else {
       title = t.description || (c ? c.name : TYPE_LABEL[t.type]);
-      sub = [t.description ? (c ? c.name : '') : null, a ? a.name : null, t.link && t.link.kind === 'bill' ? 'Fixkosten' : null].filter(Boolean).join(' · ');
+      sub = [t.description ? (c ? c.name : '') : null, a ? a.name : null, t.link && t.link.kind === 'bill' ? 'Fixkosten' : null, t.imports && t.imports.length ? 'importiert' : null].filter(Boolean).join(' · ');
     }
     const b = t.budgetId ? bud(t.budgetId) : null;
     const cls = t.type === 'income' ? 'pos' : t.type === 'expense' ? 'neg' : 'neu';
@@ -746,7 +756,7 @@
     const csvLink = h('a', { class: 'icon-btn', href: 'api.php?a=export.csv' + (f.month && f.month !== 'all' ? '&month=' + f.month : ''), 'aria-label': 'CSV exportieren', title: 'CSV exportieren', download: '' }, icon('download', 's'));
     monthSel.addEventListener('change', () => { csvLink.href = 'api.php?a=export.csv' + (f.month !== 'all' ? '&month=' + f.month : ''); });
     append(p, [
-      topbar('Buchungen', { right: h('div', { class: 'flex' }, csvLink, h('button', { class: 'icon-btn mint', type: 'button', 'aria-label': 'Neue Buchung', onclick: () => openTx({ type: 'expense' }) }, icon('plus'))) }),
+      topbar('Buchungen', { right: h('div', { class: 'flex' }, h('a', { class: 'icon-btn', href: '#/import', 'aria-label': 'Kontoauszug importieren', title: 'Kontoauszug importieren' }, icon('upload', 's')), csvLink, h('button', { class: 'icon-btn mint', type: 'button', 'aria-label': 'Neue Buchung', onclick: () => openTx({ type: 'expense' }) }, icon('plus'))) }),
       h('div', { class: 'filters' },
         h('div', { class: 'search' }, icon('search', 's'), search),
         typeSeg,
@@ -1187,6 +1197,183 @@
     });
   }
 
+  // ================================================================ Import (PostFinance)
+  const IMPORT = { preview: null, content: null, filename: '', accountId: '', decisions: {}, sync: true, busy: false, error: '' };
+  const STATUS_LABEL = {
+    new: ['Neu', 'mint'], duplicate: ['Bereits importiert', ''], match: ['Schon erfasst', 'blue'],
+    transfer: ['Umbuchung erfasst', 'blue'], before: ['Vor Einrichtung', 'amber'],
+  };
+
+  function toBase64(buf) {
+    const bytes = new Uint8Array(buf);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+
+  async function runPreview() {
+    IMPORT.busy = true; IMPORT.error = ''; render();
+    try {
+      const r = await api('import.preview', { content: IMPORT.content, filename: IMPORT.filename, accountId: IMPORT.accountId || null });
+      if (r.needAccount) {
+        IMPORT.preview = null;
+        IMPORT.error = 'Zu welchem Konto gehört diese Datei' + (r.iban ? ' (IBAN ' + r.iban + ')' : '') + '? Bitte oben wählen.';
+      } else {
+        IMPORT.preview = r.preview;
+        IMPORT.accountId = r.preview.accountId;
+        IMPORT.decisions = {};
+        IMPORT.sync = !!r.preview.closing;
+      }
+    } catch (e) { IMPORT.error = e.message; IMPORT.preview = null; }
+    IMPORT.busy = false;
+    render();
+  }
+
+  function decisionFor(row) {
+    if (!IMPORT.decisions[row.i]) {
+      IMPORT.decisions[row.i] = {
+        i: row.i, action: row.action, type: row.type, categoryId: row.categoryId,
+        transferAccountId: row.transferAccountId, payBill: !!row.billOccId,
+      };
+    }
+    return IMPORT.decisions[row.i];
+  }
+
+  function importRow(row) {
+    const dec = decisionFor(row);
+    const [label, cls] = STATUS_LABEL[row.status] || ['', ''];
+    const amtCls = row.amount > 0 ? 'pos' : 'neg';
+    const box = h('div', { class: 'imp-row' + (dec.action === 'skip' ? ' off' : '') });
+    const head = h('div', { class: 'imp-top' },
+      h('div', { class: 'tx' }, h('div', { class: 't1', text: row.text }),
+        h('div', { class: 't2' }, fmtDate(row.date), ' · ', h('span', { class: 'badge ' + cls, text: label }))),
+      h('div', { class: 'amt ' + amtCls, text: (row.amount > 0 ? '+ ' : MINUS + ' ') + fmt(Math.abs(row.amount)) }));
+    box.appendChild(head);
+    if (row.status === 'duplicate') return box;
+
+    const ctrl = h('div', { class: 'imp-ctrl' });
+    if (row.status === 'match' || row.status === 'transfer') {
+      const sel = selectInput([
+        { value: 'link', label: 'Verknüpfen: ' + row.matchLabel },
+        { value: 'import', label: 'Trotzdem als neue Buchung' },
+        { value: 'skip', label: 'Überspringen' },
+      ], dec.action, { 'aria-label': 'Aktion' });
+      sel.addEventListener('change', () => { dec.action = sel.value; render(); });
+      ctrl.appendChild(sel);
+    } else {
+      const inc = h('input', { type: 'checkbox', checked: dec.action !== 'skip', 'aria-label': 'Übernehmen' });
+      inc.addEventListener('change', () => { dec.action = inc.checked ? 'import' : 'skip'; render(); });
+      ctrl.appendChild(h('label', { class: 'check imp-inc' }, inc, h('span', { text: row.status === 'before' ? 'trotzdem übernehmen' : 'übernehmen' })));
+    }
+    if (dec.action === 'import') {
+      const type = row.amount > 0 ? 'income' : 'expense';
+      const own = activeAccounts().filter((a) => a.id !== IMPORT.accountId);
+      const opts = [{ group: row.amount > 0 ? 'Einnahme' : 'Ausgabe', options: S.st.categories.filter((c) => c.type === type && (!c.archived || c.id === dec.categoryId)).map((c) => ({ value: 'cat:' + c.id, label: c.name })) }];
+      if (own.length) opts.push({ group: 'Umbuchung (eigenes Konto)', options: own.map((a) => ({ value: 'acc:' + a.id, label: (row.amount > 0 ? 'von ' : 'auf ') + a.name })) });
+      const cur = dec.type === 'transfer' ? 'acc:' + dec.transferAccountId : 'cat:' + dec.categoryId;
+      const sel = selectInput(opts, cur, { 'aria-label': 'Kategorie' });
+      sel.addEventListener('change', () => {
+        const [k, id] = sel.value.split(':');
+        if (k === 'acc') { dec.type = 'transfer'; dec.transferAccountId = id; } else { dec.type = type; dec.categoryId = id; }
+      });
+      ctrl.appendChild(sel);
+      if (row.billOccId && dec.type !== 'transfer') {
+        const pb = h('input', { type: 'checkbox', checked: dec.payBill });
+        pb.addEventListener('change', () => { dec.payBill = pb.checked; });
+        ctrl.appendChild(h('label', { class: 'check small' }, pb, h('span', { text: 'Fixkosten als bezahlt markieren: ' + row.billLabel })));
+      }
+    }
+    box.appendChild(ctrl);
+    return box;
+  }
+
+  PAGES.import = (p) => {
+    const accs = activeAccounts();
+    if (!IMPORT.accountId && accs.length) {
+      IMPORT.accountId = (accs.find((a) => a.iban) || accs.find((a) => a.available) || accs[0]).id;
+    }
+    const accSel = selectInput(accs.map((a) => ({ value: a.id, label: a.name + (a.iban ? ' · ' + a.iban.slice(-4) : '') })), IMPORT.accountId, { 'aria-label': 'Konto' });
+    accSel.addEventListener('change', () => { IMPORT.accountId = accSel.value; if (IMPORT.content) runPreview(); });
+    const file = h('input', { type: 'file', accept: '.csv,.xml,.txt,text/csv,application/xml,text/xml', class: 'hidden' });
+    file.addEventListener('change', async () => {
+      const f = file.files[0];
+      file.value = '';
+      if (!f) return;
+      if (f.size > 5 * 1024 * 1024) { toast('Die Datei ist zu gross (max. 5 MB).', true); return; }
+      IMPORT.content = toBase64(await f.arrayBuffer());
+      IMPORT.filename = f.name;
+      runPreview();
+    });
+    const pv = IMPORT.preview;
+    append(p, [
+      topbar('Import', { back: 'buchungen' }),
+      h('div', { class: 'card' },
+        h('div', { class: 'form' },
+          field('Konto', accSel),
+          h('button', { class: 'btn mint block', type: 'button', disabled: IMPORT.busy, onclick: () => file.click() }, icon('upload', 's'), IMPORT.busy ? 'Wird gelesen …' : (IMPORT.content ? 'Andere Datei wählen' : 'PostFinance-Datei wählen')),
+          file,
+          IMPORT.filename ? h('div', { class: 'small muted', text: 'Datei: ' + IMPORT.filename }) : null,
+          IMPORT.error ? h('div', { class: 'err', role: 'alert', text: IMPORT.error }) : null,
+          !pv ? note('So geht’s: In PostFinance E-Finance → Konto → Bewegungen den Zeitraum wählen und als CSV exportieren (oder den Kontoauszug als camt.053-XML). Datei hier wählen – du siehst zuerst eine Vorschau, gespeichert wird erst nach Bestätigung. Bereits importierte Buchungen werden erkannt.', 'info') : null)),
+      pv ? importPreviewView(pv) : null,
+      importHistory(),
+    ]);
+  };
+
+  function importPreviewView(pv) {
+    const rows = pv.rows;
+    const dupes = rows.filter((r) => r.status === 'duplicate');
+    const shown = rows.filter((r) => r.status !== 'duplicate');
+    const n = () => rows.filter((r) => r.status !== 'duplicate' && decisionFor(r).action !== 'skip').length;
+    const err = errBox();
+    const commit = h('button', { class: 'btn mint block', type: 'button' }, icon('check', 's'), n() + (n() === 1 ? ' Eintrag übernehmen' : ' Einträge übernehmen'));
+    commit.addEventListener('click', runner(commit, err, async () => {
+      const decisions = rows.filter((r) => r.status !== 'duplicate').map((r) => decisionFor(r));
+      await mutate('import.commit', { previewId: pv.id, rows: decisions, syncBalance: IMPORT.sync });
+      IMPORT.preview = null; IMPORT.content = null; IMPORT.filename = '';
+      render();
+    }));
+    const syncBox = pv.closing ? (() => {
+      const cb = h('input', { type: 'checkbox', checked: IMPORT.sync });
+      cb.addEventListener('change', () => { IMPORT.sync = cb.checked; });
+      return h('label', { class: 'check' }, cb, h('span', null, h('b', { text: 'Kontostand übernehmen: ' + chf(pv.closing.amount) }), h('br'),
+        h('span', { class: 'small muted', text: 'Stand der Bank per ' + fmtDate(pv.closing.date) + '. CASH gleicht die Differenz aus – ohne Einnahme oder Ausgabe.' })));
+    })() : null;
+    return h('div', null,
+      h('div', { class: 'card' },
+        h('div', { class: 'card-h' }, h('h2', { text: 'Vorschau' })),
+        kv('Zeitraum', pv.from ? fmtDate(pv.from) + ' – ' + fmtDate(pv.to) : '–'),
+        kv('Format', pv.format === 'camt' ? 'ISO 20022 (camt)' : 'PostFinance CSV'),
+        pv.iban ? kv('IBAN', pv.iban) : null,
+        kv('Neu', String(pv.counts.new || 0)),
+        (pv.counts.match || pv.counts.transfer) ? kv('Schon erfasst', String((pv.counts.match || 0) + (pv.counts.transfer || 0))) : null,
+        dupes.length ? kv('Bereits importiert', String(dupes.length)) : null,
+        pv.counts.before ? kv('Vor Kontoeinrichtung', String(pv.counts.before)) : null,
+        syncBox ? h('div', { class: 'mt' }, syncBox) : null),
+      shown.length ? h('div', { class: 'card flush imp-list' }, shown.map(importRow)) : h('div', { class: 'card' }, empty('check', 'Alles bereits importiert – nichts Neues.')),
+      dupes.length ? h('details', { class: 'mb' }, h('summary', { class: 'section-t', style: { cursor: 'pointer' }, text: dupes.length + ' bereits importiert (werden übersprungen)' }),
+        h('div', { class: 'card flush imp-list' }, dupes.map(importRow))) : null,
+      err,
+      h('div', { class: 'stack' }, commit,
+        h('button', { class: 'btn light block', type: 'button', onclick: () => { IMPORT.preview = null; IMPORT.content = null; IMPORT.filename = ''; api('import.cancel', {}).catch(() => {}); render(); } }, 'Abbrechen')));
+  }
+
+  function importHistory() {
+    const list = S.st.imports || [];
+    if (!list.length) return null;
+    return [h('span', { class: 'section-t', text: 'Letzte Importe' }),
+      h('div', { class: 'card flush' }, list.map((b) => h('div', { class: 'row' },
+        h('span', { class: 'ic mint' }, icon('download', 's')),
+        h('span', { class: 'tx' }, h('div', { class: 't1', text: ((acc(b.accountId) || {}).name || 'Konto') + ' · ' + b.created_count + ' neu' + (b.linked_count ? ', ' + b.linked_count + ' verknüpft' : '') }),
+          h('div', { class: 't2', text: new Date(b.created).toLocaleDateString('de-CH') + (b.from ? ' · ' + fmtDate(b.from, false) + ' – ' + fmtDate(b.to, false) : '') })),
+        h('button', { class: 'btn sm light', type: 'button', onclick: async (e) => {
+          const btn = e.currentTarget;
+          if (!(await confirmBox('Import rückgängig machen?', 'Alle durch diesen Import erstellten Buchungen werden gelöscht (auch wenn du sie danach bearbeitet hast) und der Kontostand-Abgleich wird zurückgenommen.', 'Rückgängig', true))) return;
+          btn.disabled = true;
+          try { await mutate('import.undo', { batchId: b.id }); } catch (ex) { toast(ex.message, true); btn.disabled = false; }
+        } }, 'Rückgängig'))))];
+  }
+
   // ================================================================ Konten
   PAGES.konten = (p) => {
     const active = activeAccounts();
@@ -1200,6 +1387,7 @@
       h('div', { class: 'card hero' }, h('div', { class: 'label', text: 'Kontostand · aktive Konten' }), h('div', { class: 'big num' }, h('small', { text: 'CHF' }), fmt(S.st.summary.totalBalance))),
       h('div', { class: 'card flush' }, active.map(row)),
       h('button', { class: 'btn light block', type: 'button', onclick: () => openTx({ type: 'transfer' }) }, icon('transfer', 's'), 'Umbuchung zwischen Konten'),
+      h('a', { class: 'btn light block mt', href: '#/import' }, icon('upload', 's'), 'PostFinance-Kontoauszug importieren'),
       arch.length ? [h('span', { class: 'section-t', text: 'Archiviert' }), h('div', { class: 'card flush' }, arch.map(row))] : null,
       h('div', { class: 'mt' }), note('«Frei für Freizeit» rechnet mit den Alltagskonten. Sparkonten zählen nicht dazu – Geld dorthin verschiebst du mit einer Umbuchung oder «Gespart».', 'info'),
     ]);
@@ -1211,6 +1399,7 @@
       const name = textInput(a ? a.name : '', { maxlength: '60' });
       const type = selectInput(Object.entries(ACCOUNT_TYPES).map(([v, l]) => ({ value: v, label: l })), a ? a.type : 'checking');
       const opening = moneyInput(a ? toInput(a.opening) : '', { placeholder: 'Aktueller Stand bei Einrichtung' });
+      const iban = textInput(a ? (a.iban || '') : '', { placeholder: 'CH.. (für den Import)', autocapitalize: 'characters', spellcheck: 'false', maxlength: '42' });
       const av = h('input', { type: 'checkbox', checked: a ? a.available : true });
       if (!a) type.addEventListener('change', () => { av.checked = type.value !== 'savings'; });
       const err = errBox();
@@ -1219,6 +1408,7 @@
         a ? h('div', { class: 'detail-head' }, h('div', { class: 'sub', text: 'Aktueller Kontostand' }), h('div', { class: 'big num', text: chf(a.balance) }),
           h('button', { class: 'btn light sm mt', type: 'button', onclick: () => { ctl.close(); openBalance(a); } }, icon('edit', 's'), 'Kontostand ändern')) : null,
         field('Name', name), h('div', { class: 'row2' }, field('Art', type), field('Anfangssaldo (CHF)', opening)),
+        field('IBAN', iban, true),
         h('label', { class: 'check' }, av, h('span', null, 'Alltagskonto', h('br'), h('span', { class: 'small muted', text: 'Guthaben zählt zu «Frei für Freizeit». Für Sparkonten ausschalten.' }))),
         note(a ? 'Der Anfangssaldo ist der Stand bei der Einrichtung und zählt nicht als Einnahme. Eine Änderung wirkt sich auf den Kontostand aus.' : 'Gib den heutigen Kontostand ein. Er zählt nicht als Einnahme.', 'info'),
         err, save,
@@ -1233,7 +1423,7 @@
           } }, icon('trash', 's'), 'Löschen')) : null);
       form.addEventListener('submit', runner(save, err, async () => {
         if (opening.value.trim() === '') throw new Error('Bitte den Anfangssaldo eingeben (0 ist erlaubt).');
-        await mutate('account.save', { id: a ? a.id : undefined, name: name.value, type: type.value, opening: opening.value.replace(/^\u2212/, '-'), available: av.checked }, requestId);
+        await mutate('account.save', { id: a ? a.id : undefined, name: name.value, type: type.value, opening: opening.value.replace(/^\u2212/, '-'), available: av.checked, iban: iban.value }, requestId);
         ctl.close();
       }));
       body.appendChild(form);
@@ -1291,6 +1481,21 @@
       const r = await api('profile.save', { name: name.value, username: user.value, email: mail.value });
       S.user = r.user; toast(r.message); render();
     }));
+    const openPinChange = () => sheet('PIN ändern', (b, ctl) => {
+      const pinAttrs = { type: 'password', inputmode: 'numeric', maxlength: '8', autocomplete: 'off' };
+      const cur = textInput('', pinAttrs);
+      const nw = textInput('', pinAttrs);
+      const nw2 = textInput('', pinAttrs);
+      const e = errBox();
+      const btn = h('button', { class: 'btn mint block', type: 'submit' }, 'PIN ändern');
+      const f = h('form', { class: 'form' }, field('Aktuelle PIN', cur), h('div', { class: 'row2' }, field('Neue PIN (4–8 Ziffern)', nw), field('Wiederholen', nw2)),
+        note('Alle anderen Geräte müssen danach die neue PIN eingeben.', 'lock'), e, btn);
+      f.addEventListener('submit', runner(btn, e, async () => {
+        const r = await api('pin.change', { current: cur.value, pin: nw.value, pin2: nw2.value });
+        toast(r.message); ctl.close();
+      }));
+      b.appendChild(f);
+    });
     // Passwort (kleines Formular im Sheet)
     const openPassword = () => sheet('Passwort ändern', (b, ctl) => {
       const cur = textInput('', { type: 'password', autocomplete: 'current-password' });
@@ -1382,7 +1587,15 @@
         h('div', null,
           h('div', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: 'Profil' })), pForm),
           h('div', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: 'Sicherheit' })),
-            h('button', { class: 'btn light block', type: 'button', onclick: openPassword }, icon('lock', 's'), 'Passwort ändern')),
+            h('div', { class: 'stack' },
+              h('button', { class: 'btn light block', type: 'button', onclick: lockApp }, icon('lock', 's'), 'Jetzt sperren'),
+              u.role === 'owner' ? h('button', { class: 'btn light block', type: 'button', onclick: openPinChange }, icon('lock', 's'), 'PIN ändern') : null,
+              h('button', { class: 'btn light block', type: 'button', onclick: openPassword }, icon('lock', 's'), 'Passwort ändern'),
+              u.role === 'owner' ? h('button', { class: 'btn ghost block', type: 'button', onclick: async () => {
+                if (!(await confirmBox('Andere Geräte vergessen?', 'Alle anderen Geräte gelten danach als unbekannt und unterliegen wieder der strengeren globalen PIN-Sperre.', 'Vergessen', true))) return;
+                try { const r = await api('pin.forgetDevices', {}); toast(r.message); } catch (e) { toast(e.message, true); }
+              } }, 'Bekannte PIN-Geräte vergessen') : null,
+              note('Hinweis: Eine 4-stellige PIN hat nur 10’000 Kombinationen und bietet nur begrenzten Schutz. CASH sperrt nach Fehlversuchen; für mehr Sicherheit eine 6–8-stellige PIN wählen.', 'info', 'amber'))),
           h('div', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: 'Angemeldete Geräte' })), sessBox,
             h('button', { class: 'btn light block mt', type: 'button', onclick: async () => {
               if (!(await confirmBox('Alle anderen Geräte abmelden?', 'Alle «Angemeldet bleiben»-Tokens anderer Geräte werden widerrufen.', 'Abmelden', true))) return;
@@ -1398,6 +1611,7 @@
             note('Kurs als «Fremdwährung pro CHF», z. B. 38.50 THB pro CHF. Änderungen wirken nur auf neue Buchungen.', 'info'), h('div', { class: 'mt' }), rateBox),
           h('div', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: 'Daten & Backup' })),
             h('div', { class: 'stack' },
+              h('a', { class: 'btn mint block', href: '#/import' }, icon('upload', 's'), 'PostFinance-Kontoauszug importieren'),
               h('a', { class: 'btn light block', href: 'api.php?a=backup.download', download: '' }, icon('download', 's'), 'JSON-Backup herunterladen'),
               h('button', { class: 'btn light block', type: 'button', onclick: () => file.click() }, icon('upload', 's'), 'Backup wiederherstellen'),
               h('a', { class: 'btn light block', href: 'api.php?a=export.csv', download: '' }, icon('file', 's'), 'Alle Buchungen als CSV'),

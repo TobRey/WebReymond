@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+if (!defined('CASH_ENTRY')) {
+    http_response_code(404);
+    exit;
+}
+
 /**
  * Geldbeträge werden intern immer als ganze Rappen (int) geführt.
  * Wechselkurse als ganze Millionstel ("micro"), z. B. 38.5 THB/CHF = 38500000.

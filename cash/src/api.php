@@ -45,11 +45,31 @@ function cash_status(): array
     ];
 }
 
+/** Liest die Import-Vorschau des Benutzers (max. 2 h gültig). */
+function cash_import_preview(string $uid, string $id): array
+{
+    $file = Import::previewFile($uid);
+    $p = is_file($file) ? Store::read($file) : [];
+    if (($p['id'] ?? '') === '' || !hash_equals((string)$p['id'], $id) || ($p['created'] ?? 0) < time() - Import::PREVIEW_TTL) {
+        throw new ApiError('Die Import-Vorschau ist abgelaufen. Bitte die Datei erneut wählen.', 409);
+    }
+    return $p;
+}
+
 try {
     cash_data_dir();
     Auth::startSession();
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $action = is_string($_GET['a'] ?? null) ? $_GET['a'] : '';
+
+    // 1) Nur über HTTPS (lokale Tests ausgenommen).
+    if (!Http::isHttps() && !Http::isLocalHost() && (cash_local_config()['force_https'] ?? true)) {
+        Http::json(['ok' => false, 'error' => 'Nur über HTTPS erreichbar.'], 403);
+    }
+    // 2) Ohne gültige PIN-Session keine einzige Aktion – auch keine Statusabfrage.
+    if (!Pin::verified()) {
+        Http::json(['ok' => false, 'error' => 'PIN erforderlich.', 'pin' => true], 401);
+    }
 
     if ($method === 'GET') {
         switch ($action) {
@@ -62,7 +82,7 @@ try {
 
             case 'sessions.list':
                 $user = Auth::requireUser();
-                Http::json(['ok' => true, 'sessions' => Auth::listTokens($user['id']), 'backups' => Backup::list($user['id'])]);
+                Http::json(['ok' => true, 'sessions' => Auth::listTokens($user['id']), 'backups' => Backup::list($user['id']), 'pinDevices' => Pin::deviceCount()]);
 
             case 'backup.download':
                 $user = Auth::requireUser();
@@ -112,7 +132,11 @@ try {
 
         case 'auth.logout':
             Auth::logout();
-            Http::json(['ok' => true] + cash_status());
+            Http::json(['ok' => true, 'pin' => true]);
+
+        case 'pin.lock':
+            Pin::lock();
+            Http::json(['ok' => true, 'pin' => true]);
     }
 
     $user = Auth::requireUser();
@@ -141,6 +165,61 @@ try {
             }
             Auth::setRegistration(!empty($in['open']));
             Http::json(['ok' => true, 'message' => !empty($in['open']) ? 'Registrierung geöffnet.' : 'Registrierung deaktiviert.', 'registrationOpen' => Auth::registrationOpen()]);
+
+        case 'pin.change':
+            if ($user['role'] !== 'owner') {
+                throw new ApiError('Nur der Hauptaccount darf die PIN ändern.', 403);
+            }
+            Pin::change($in['current'] ?? '', $in['pin'] ?? '', $in['pin2'] ?? '');
+            Http::json(['ok' => true, 'message' => 'PIN geändert. Alle anderen Geräte müssen die neue PIN eingeben.', 'csrf' => Auth::csrf()]);
+
+        case 'pin.forgetDevices':
+            if ($user['role'] !== 'owner') {
+                throw new ApiError('Nur der Hauptaccount darf dies ändern.', 403);
+            }
+            Pin::forgetDevices();
+            Http::json(['ok' => true, 'message' => 'Andere Geräte vergessen.', 'pinDevices' => Pin::deviceCount()]);
+
+        case 'import.preview':
+            $content = is_string($in['content'] ?? null) ? base64_decode($in['content'], true) : false;
+            if ($content === false || $content === '') {
+                throw new ApiError('Die Datei konnte nicht gelesen werden.');
+            }
+            $accId = is_string($in['accountId'] ?? null) && $in['accountId'] !== '' ? $in['accountId'] : null;
+            $d = Store::read(Finance::file($uid), Finance::blank());
+            $p = Import::buildPreview($d, $content, $accId, is_string($in['filename'] ?? null) ? $in['filename'] : '');
+            unset($content);
+            if (!empty($p['needAccount'])) {
+                Http::json(['ok' => true, 'needAccount' => true, 'iban' => $p['iban'], 'format' => $p['format']]);
+            }
+            Store::replace(Import::previewFile($uid), $p);
+            Http::json(['ok' => true, 'preview' => Import::publicPreview($p, $d)]);
+
+        case 'import.commit':
+            $p = cash_import_preview($uid, is_string($in['previewId'] ?? null) ? $in['previewId'] : '');
+            $decisions = is_array($in['rows'] ?? null) ? $in['rows'] : [];
+            Backup::snapshot($uid, 'vor-import');
+            $today = cash_today();
+            $out = Store::mutate(Finance::file($uid), function (array &$d) use ($p, $decisions, $in, $today) {
+                $res = Import::commit($d, $p, $decisions, !empty($in['syncBalance']), $today);
+                Finance::generateBills($d, $today);
+                return ['result' => $res, 'state' => Finance::state($d, cash_month($in['month'] ?? null), $today)];
+            }, Finance::blank());
+            @unlink(Import::previewFile($uid));
+            Http::json(['ok' => true] + $out['result'] + ['state' => $out['state']]);
+
+        case 'import.cancel':
+            @unlink(Import::previewFile($uid));
+            Http::json(['ok' => true]);
+
+        case 'import.undo':
+            $today = cash_today();
+            $out = Store::mutate(Finance::file($uid), function (array &$d) use ($in, $today) {
+                Finance::normalize($d);
+                $res = Import::undo($d, is_string($in['batchId'] ?? null) ? $in['batchId'] : '');
+                return ['result' => $res, 'state' => Finance::state($d, cash_month($in['month'] ?? null), $today)];
+            }, Finance::blank());
+            Http::json(['ok' => true] + $out['result'] + ['state' => $out['state']]);
 
         case 'backup.restore':
             Backup::restore($uid, $in['backup'] ?? null);
@@ -184,11 +263,13 @@ try {
     Http::json(['ok' => true, 'user' => Auth::publicUser($user)] + $out['result'] + ['state' => $out['state']]);
 } catch (ApiError $e) {
     $payload = ['ok' => false, 'error' => $e->getMessage()];
-    if (session_status() === PHP_SESSION_ACTIVE) {
+    if (session_status() === PHP_SESSION_ACTIVE && Pin::verified()) {
         $payload['csrf'] = Auth::csrf();
     }
     Http::json($payload, $e->status);
 } catch (Throwable $e) {
-    error_log('[CASH] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+    // Keine Inhalte loggen: Meldung gekürzt, längere Zahlenfolgen (Beträge, IBAN, Konten) maskiert.
+    $safe = mb_substr(preg_replace('/\d{4,}/', '#', $e->getMessage()) ?? '', 0, 160);
+    error_log('[CASH] ' . $e::class . ': ' . $safe . ' @ ' . basename($e->getFile()) . ':' . $e->getLine());
     Http::json(['ok' => false, 'error' => 'Ein interner Fehler ist aufgetreten. Bitte erneut versuchen.'], 500);
 }
