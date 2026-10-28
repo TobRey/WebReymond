@@ -30,6 +30,9 @@ final class Http
 
     public static function isLocalHost(): bool
     {
+        if (PHP_SAPI !== 'cli-server') {
+            return false;   // Ausnahme nur für den lokalen PHP-Testserver, nie auf dem Webserver
+        }
         $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
         $host = preg_replace('/:\d+$/', '', $host);
         return in_array($host, ['localhost', '127.0.0.1', '[::1]'], true);
@@ -57,7 +60,7 @@ final class Http
         header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
         header('Cross-Origin-Opener-Policy: same-origin');
         header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
-        if (self::isHttps() && !empty(cash_local_config()['hsts'])) {
+        if (self::isHttps() && (cash_local_config()['hsts'] ?? true)) {
             header('Strict-Transport-Security: max-age=31536000');
         }
         if (!$html) {

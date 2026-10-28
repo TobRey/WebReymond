@@ -776,6 +776,24 @@ check($r['status'] === 404, 'Fremder Benutzer kann keinen Import rückgängig ma
 $r = $owner->post('import.preview', ['content' => base64_encode(str_repeat('a', 5_100_000)), 'filename' => 'gross.csv']);
 check(in_array($r['status'], [400, 413], true), 'Zu grosse Datei abgelehnt', $r['status']);
 
+section('Login-Limit hält parallelen Anfragen stand');
+$par = [];
+for ($i = 0; $i < 20; $i++) {
+    $par[] = pinClient($BASE);   // je eigene Session (PHP serialisiert sonst pro Session)
+    $par[$i]->status();
+}
+$mh = curl_multi_init();
+foreach ($par as $c) {
+    curl_setopt_array($c->ch, [CURLOPT_URL => $BASE . 'api.php?a=auth.login', CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode(['username' => 'gast', 'password' => 'falsch-falsch-1']),
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'X-CSRF-Token: ' . $c->csrf]]);
+    curl_multi_add_handle($mh, $c->ch);
+}
+do { curl_multi_exec($mh, $running); curl_multi_select($mh, 0.1); } while ($running);
+$codes = array_count_values(array_map(fn($c) => curl_getinfo($c->ch, CURLINFO_RESPONSE_CODE), $par));
+check(($codes[401] ?? 0) === 5 && ($codes[429] ?? 0) === 15, '20 gleichzeitige Fehlversuche: genau 5 geprüft, 15 gesperrt', $codes);
+foreach ($par as $c) { curl_multi_remove_handle($mh, $c->ch); }
+
 section('PIN: Rate-Limiting und Sperren');
 $owner->post('pin.lock');
 check($owner->get('state')['status'] === 401, '«Sperren» beendet die PIN-Session');
@@ -805,6 +823,18 @@ $dev = array_values(array_filter($owner->cookies(), fn($l) => str_contains($l, "
 check(count($dev) === 1, 'Besitzer-Gerät hat ein Geräte-Cookie');
 $trusted = new Client($BASE, $dev, '127.0.0.6');
 check($trusted->unlock(TEST_PIN), 'Bekanntes Gerät kann trotz globaler Sperre entsperren (kein Aussperren durch Angreifer)');
+$nd = new Client($BASE, [], '127.0.0.7');
+$r = $nd->pinForm(['do' => 'pin', 'pin' => TEST_PIN]);
+check(!str_contains($r['raw'], 'asset=app.js') && str_contains($r['raw'], 'name="username"'), 'Global gesperrt: neues Gerät braucht zusätzlich Benutzername + Passwort');
+@unlink($DATA . '/ratelimit.json.php');   // Login-Sperren aus früheren Tests zurücksetzen («15 Minuten später»)
+$r = $nd->pinForm(['do' => 'pin', 'pin' => TEST_PIN, 'username' => 'gast', 'password' => 'gast-passwort-1']);
+check(!str_contains($r['raw'], 'asset=app.js') && str_contains($r['raw'], 'Nur der Hauptaccount'), 'Gast-Zugangsdaten heben die Sperre nicht auf');
+$r = $nd->pinForm(['do' => 'pin', 'pin' => TEST_PIN, 'username' => 'tobias', 'password' => 'falsches-pw-1']);
+check(!str_contains($r['raw'], 'asset=app.js'), 'Falsches Passwort hebt die Sperre nicht auf');
+$r = $nd->pinForm(['do' => 'pin', 'pin' => '0001', 'username' => 'tobias', 'password' => 'neues-passwort-1']);
+check(!str_contains($r['raw'], 'asset=app.js'), 'Richtige Zugangsdaten, falsche PIN → kein Zugang');
+$r = $nd->pinForm(['do' => 'pin', 'pin' => TEST_PIN, 'username' => 'tobias', 'password' => 'neues-passwort-1']);
+check(str_contains($r['raw'], 'asset=app.js'), 'PIN + Zugangsdaten des Hauptaccounts: Besitzer kommt trotz globaler Sperre auf ein neues Gerät');
 $pinData = Store::decode(file_get_contents($DATA . '/pin.json.php'));
 check(str_starts_with($pinData['hash'], '$2y$') && !str_contains(file_get_contents($DATA . '/pin.json.php'), TEST_PIN), 'PIN nur als bcrypt-Hash gespeichert');
 $cfg = Store::decode(file_get_contents($DATA . '/config.json.php'));

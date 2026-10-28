@@ -201,11 +201,18 @@ final class Pin
         return 'ip:' . hash('sha256', Http::clientIp());   // keine Klartext-IP gespeichert
     }
 
-    /** Aktuelle Sperrmeldung für dieses Gerät (für die Anzeige). */
+    /** Sperrmeldung der IP-Sperre (Formular gesperrt) für die Anzeige. */
     public static function currentLock(): ?string
     {
         $l = Store::read(self::limitFile(), ['keys' => [], 'global' => []]);
-        return self::lockMessage($l, self::key(), self::deviceTrusted(self::data()), time());
+        return self::lockMessage($l, self::key(), true, time());
+    }
+
+    /** Gilt für dieses (unbekannte) Gerät gerade die globale Sperre? Dann sind zusätzlich Zugangsdaten nötig. */
+    public static function needsCredentials(): bool
+    {
+        $l = Store::read(self::limitFile(), ['keys' => [], 'global' => []]);
+        return (int)($l['global']['lockedUntil'] ?? 0) > time() && !self::deviceTrusted(self::data());
     }
 
     /**
@@ -213,7 +220,7 @@ final class Pin
      * serialisiert, damit parallele Anfragen das Limit nicht umgehen können.
      * @return string|null Fehlermeldung oder null bei Erfolg
      */
-    public static function attempt(mixed $pin): ?string
+    public static function attempt(mixed $pin, ?array $creds = null): ?string
     {
         $d = self::data();
         if (!isset($d['hash'])) {
@@ -221,6 +228,26 @@ final class Pin
         }
         $trusted = self::deviceTrusted($d);
         $key = self::key();
+        // Globale Sperre aktiv und Gerät unbekannt: nur mit PIN UND Zugangsdaten des Hauptaccounts.
+        // So kann ein Angreifer den Besitzer nicht dauerhaft von neuen Geräten aussperren.
+        if (!$trusted && self::needsCredentials()) {
+            $u = (string)($creds['username'] ?? '');
+            $pw = (string)($creds['password'] ?? '');
+            if ($u === '' || $pw === '') {
+                return 'Wegen vieler Fehlversuche sind unbekannte Geräte gesperrt. Bitte zusätzlich Benutzername und Passwort des Hauptaccounts eingeben.';
+            }
+            if (self::currentLock() === null) {
+                try {
+                    $user = Auth::checkCredentials($u, $pw);   // eigenes, atomares Rate-Limit
+                } catch (ApiError $e) {
+                    return $e->getMessage();
+                }
+                if ($user['role'] !== 'owner') {
+                    return 'Nur der Hauptaccount kann die Sperre aufheben.';
+                }
+                $trusted = true;   // nur für diesen Versuch: globale Sperre gilt nicht
+            }
+        }
         $result = Store::mutate(self::limitFile(), function (array &$l) use ($pin, $d, $trusted, $key) {
             $now = time();
             $l['keys'] ??= [];

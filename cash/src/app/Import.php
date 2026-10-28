@@ -177,8 +177,11 @@ final class Import
     public static function parseCamt(string $xml): array
     {
         // Schutz vor XXE / Entity-Expansion: keine DTDs zulassen.
-        if (preg_match('/<!DOCTYPE|<!ENTITY/i', $xml)) {
-            self::err('Die XML-Datei enthält nicht erlaubte Definitionen.');
+        if (str_contains($xml, "\0") || preg_match('/<!DOCTYPE|<!ENTITY/i', $xml)) {
+            self::err('Die XML-Datei enthält nicht erlaubte Definitionen oder Zeichen (bitte UTF-8).');
+        }
+        if (substr_count($xml, '<Ntry') + substr_count($xml, ':Ntry') > self::MAX_ROWS) {
+            self::err('Die Datei enthält zu viele Buchungen (max. ' . self::MAX_ROWS . ').');
         }
         $prev = libxml_use_internal_errors(true);
         $doc = new DOMDocument();
@@ -187,6 +190,9 @@ final class Import
         libxml_use_internal_errors($prev);
         if (!$ok) {
             self::err('Die XML-Datei konnte nicht gelesen werden.');
+        }
+        if ($doc->doctype !== null) {   // zweite Linie: keine DTD, egal in welcher Kodierung
+            self::err('Die XML-Datei enthält nicht erlaubte Definitionen.');
         }
         $xp = new DOMXPath($doc);
         $q = fn(string $path, ?DOMNode $ctx = null) => $xp->query($path, $ctx);

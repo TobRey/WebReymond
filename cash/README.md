@@ -127,13 +127,19 @@ geschützten Datenordner und wird nach dem Übernehmen oder Abbrechen gelöscht.
 - **PIN-Speicherung:** nur `password_hash(HMAC-SHA256(PIN, Geheimschlüssel))`; der Schlüssel liegt in einer anderen Datei.
 - **PIN-Sperren:** pro IP 5 Fehlversuche → 15 min gesperrt, jede weitere Sperre doppelt so lang (max. 24 h);
   global 10 Fehlversuche in 24 h von unbekannten Geräten → 24 h Sperre für alle unbekannten Geräte. Geräte, die
-  schon einmal richtig entsperrt wurden, bleiben nutzbar (ein Angreifer kann dich nicht aussperren).
+  schon einmal richtig entsperrt wurden, bleiben nutzbar. Ein neues Gerät (z. B. neues iPhone oder die
+  Home-Bildschirm-App) kommt während einer solchen Sperre mit **PIN + Benutzername + Passwort des Hauptaccounts**
+  hinein – ein Angreifer kann dich also nicht aussperren. Notfall: `cash_data/pinlimit.json.php` löschen.
+- Auch das Passwort-Login ist gegen parallele Anfragen abgesichert (Prüfen, Vergleichen und Zählen unter einer Dateisperre).
   Jeder Fehlversuch wird zusätzlich verzögert. PIN-Session: 1 h Inaktivität, max. 12 h; «Sperren»-Knopf auf der Übersicht.
 - **Hinweis:** Eine 4-stellige PIN hat nur 10’000 Kombinationen und bietet **nur begrenzten Schutz** – sie ist
   eine zusätzliche Hürde, kein Ersatz für ein starkes Passwort. Darum bleibt die Anmeldung mit Passwort aktiv.
   Wer kann, wählt 6–8 Ziffern (Einstellungen → PIN ändern).
 - **HTTPS:** Seiten werden auf HTTPS umgeleitet, die API verweigert unverschlüsselte Anfragen, Cookies sind `Secure`.
-  HSTS ist optional, weil es für die ganze Domain gilt: `config.local.php` → `'hsts' => true`.
+  HSTS ist eingeschaltet (Browser verwenden danach für reymond-tobias.ch nur noch HTTPS – das gilt für die ganze
+  Domain, nicht nur für /cash). Abschalten nur falls nötig: `config.local.php` → `'hsts' => false`.
+- **Import-Dateien:** XML ohne DTD/Entities (auch in anderen Kodierungen), Grössen- und Zeilenlimit; offene
+  Vorschauen werden bei Sperren, Abmelden oder nach 2 Stunden gelöscht.
 - **Logs:** Fehler werden ohne Inhalte protokolliert (Zahlenfolgen wie IBAN oder Beträge maskiert).
 
 - Passwörter mit `password_hash` / `password_verify`, automatisches Re-Hashing.

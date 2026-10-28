@@ -145,6 +145,8 @@ check($xg['closing'] === ['amount' => 249870, 'date' => '2026-10-31'], 'camt.053
 check($byText($xg['rows'], 'Anna')[0]['text'] === 'Anna Muster · Pizza Freitag', 'Gegenpartei statt generischem Text');
 check(throws(fn() => Import::parse('<?xml version="1.0"?><!DOCTYPE x [<!ENTITY e SYSTEM "file:///etc/passwd">]><Document>&e;</Document>')), 'XXE/DTD wird abgelehnt');
 check(throws(fn() => Import::parse("Datum;Text\n01.01.2026;x\n")), 'CSV ohne Betragsspalte abgelehnt');
+$u16 = mb_convert_encoding('<?xml version="1.0"?><!DOCTYPE d [<!ENTITY a "x">]><Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08">&a;</Document>', 'UTF-16LE', 'UTF-8');
+check(throws(fn() => Import::parse($u16)), 'UTF-16-XML mit DTD (Filter-Umgehung) abgelehnt');
 check(throws(fn() => Import::parse(str_replace('Ccy>CHF', 'Ccy>EUR', file_get_contents($fx . 'camt053.xml')))), 'Nicht-CHF-Konto abgelehnt');
 foreach (["1'234.50" => 123450, '1.234,50' => 123450, '-23.80' => -2380, '12,5' => 1250, '23.80-' => -2380, '1,234.50' => 123450] as $in => $exp) {
     check(Import::amount($in) === $exp, "Betrag «{$in}»");

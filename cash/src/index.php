@@ -53,7 +53,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         } elseif (($_POST['do'] ?? '') === 'setup') {
             $msg = Pin::setup($_POST);
         } else {
-            $msg = Pin::attempt($_POST['pin'] ?? '');
+            $msg = Pin::attempt($_POST['pin'] ?? '', ['username' => $_POST['username'] ?? '', 'password' => $_POST['password'] ?? '']);
         }
     } catch (ApiError $ex) {
         $msg = $ex->getMessage();
@@ -98,6 +98,7 @@ $v = rawurlencode(CASH_VERSION . '-' . substr((string)@filemtime(__DIR__ . '/app
     unset($_SESSION['pin_flash']);
     $configured = Pin::isConfigured();
     $lock = $configured ? Pin::currentLock() : null;
+    $creds = $configured && !$lock && Pin::needsCredentials();
     $needCreds = !$configured && Auth::hasUsers();
 ?>
 <div class="auth"><div class="auth-box">
@@ -111,6 +112,11 @@ $v = rawurlencode(CASH_VERSION . '-' . substr((string)@filemtime(__DIR__ . '/app
       <label class="field"><span>PIN</span>
         <input class="inp pin-inp" type="password" name="pin" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" required autofocus<?= $lock ? ' disabled' : '' ?>>
       </label>
+      <?php if ($creds): ?>
+        <div class="note amber"><span>Nach vielen Fehlversuchen sind unbekannte Geräte gesperrt. Zum Entsperren zusätzlich die Zugangsdaten des Hauptaccounts eingeben.</span></div>
+        <label class="field"><span>Benutzername</span><input class="inp" type="text" name="username" autocomplete="username" autocapitalize="none" required></label>
+        <label class="field"><span>Passwort</span><input class="inp" type="password" name="password" autocomplete="current-password" required></label>
+      <?php endif; ?>
       <?php if ($flash || $lock): ?><div class="err" role="alert"><?= $e((string)($lock ?? $flash)) ?></div><?php endif; ?>
       <button class="btn mint block" type="submit"<?= $lock ? ' disabled' : '' ?>>Entsperren</button>
     </form>

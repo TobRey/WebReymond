@@ -45,6 +45,15 @@ function cash_status(): array
     ];
 }
 
+/** Löscht eine offene Import-Vorschau des angemeldeten Benutzers. */
+function cash_drop_preview(): void
+{
+    $u = Auth::current();
+    if ($u) {
+        @unlink(Import::previewFile($u['id']));
+    }
+}
+
 /** Liest die Import-Vorschau des Benutzers (max. 2 h gültig). */
 function cash_import_preview(string $uid, string $id): array
 {
@@ -57,15 +66,14 @@ function cash_import_preview(string $uid, string $id): array
 }
 
 try {
+    // 1) Nur über HTTPS (lokale Tests ausgenommen) – noch bevor eine Session entsteht.
+    if (!Http::isHttps() && !Http::isLocalHost() && (cash_local_config()['force_https'] ?? true)) {
+        Http::json(['ok' => false, 'error' => 'Nur über HTTPS erreichbar.'], 403);
+    }
     cash_data_dir();
     Auth::startSession();
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $action = is_string($_GET['a'] ?? null) ? $_GET['a'] : '';
-
-    // 1) Nur über HTTPS (lokale Tests ausgenommen).
-    if (!Http::isHttps() && !Http::isLocalHost() && (cash_local_config()['force_https'] ?? true)) {
-        Http::json(['ok' => false, 'error' => 'Nur über HTTPS erreichbar.'], 403);
-    }
     // 2) Ohne gültige PIN-Session keine einzige Aktion – auch keine Statusabfrage.
     if (!Pin::verified()) {
         Http::json(['ok' => false, 'error' => 'PIN erforderlich.', 'pin' => true], 401);
@@ -78,6 +86,10 @@ try {
 
             case 'state':
                 $user = Auth::requireUser();
+                $pf = Import::previewFile($user['id']);
+                if (is_file($pf) && filemtime($pf) < time() - Import::PREVIEW_TTL) {
+                    @unlink($pf);   // abgelaufene Import-Vorschau (enthält Bankdaten) entfernen
+                }
                 Http::json(['ok' => true, 'user' => Auth::publicUser($user), 'state' => cash_state($user['id'], cash_month($_GET['month'] ?? null))]);
 
             case 'sessions.list':
@@ -131,10 +143,12 @@ try {
             Http::json(['ok' => true] + cash_status());
 
         case 'auth.logout':
+            cash_drop_preview();
             Auth::logout();
             Http::json(['ok' => true, 'pin' => true]);
 
         case 'pin.lock':
+            cash_drop_preview();
             Pin::lock();
             Http::json(['ok' => true, 'pin' => true]);
     }

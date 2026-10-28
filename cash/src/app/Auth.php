@@ -279,8 +279,6 @@ final class Auth
             throw new ApiError('Bitte Benutzername und Passwort eingeben.');
         }
         $ip = Http::clientIp();
-        self::rateCheck($ip, $username);
-
         $found = null;
         foreach (self::usersData()['users'] as $u) {
             if (strcasecmp($u['username'], $username) === 0
@@ -291,12 +289,9 @@ final class Auth
         }
         // Gleicher Rechenaufwand, auch wenn der Benutzer nicht existiert.
         $hash = $found['hash'] ?? password_hash(bin2hex(random_bytes(12)), PASSWORD_DEFAULT);
-        $ok = password_verify($password, $hash) && $found !== null;
-        if (!$ok) {
-            self::rateFail($ip, $username);
+        if (!self::guardedVerify($ip, $username, fn() => password_verify($password, $hash) && $found !== null)) {
             throw new ApiError('Benutzername oder Passwort ist falsch.', 401);
         }
-        self::rateClear($username);
         if (password_needs_rehash($found['hash'], PASSWORD_DEFAULT)) {
             $newHash = password_hash($password, PASSWORD_DEFAULT);
             self::updateUser($found['id'], function (array &$u) use ($newHash) { $u['hash'] = $newHash; });
@@ -314,7 +309,6 @@ final class Auth
             throw new ApiError('Bitte Benutzername und Passwort eingeben.');
         }
         $ip = Http::clientIp();
-        self::rateCheck($ip, $username);
         $found = null;
         foreach (self::usersData()['users'] as $u) {
             if (strcasecmp($u['username'], $username) === 0) {
@@ -323,11 +317,9 @@ final class Auth
             }
         }
         $hash = $found['hash'] ?? password_hash(bin2hex(random_bytes(12)), PASSWORD_DEFAULT);
-        if (!password_verify($password, $hash) || $found === null) {
-            self::rateFail($ip, $username);
+        if (!self::guardedVerify($ip, $username, fn() => password_verify($password, $hash) && $found !== null)) {
             throw new ApiError('Benutzername oder Passwort ist falsch.', 401);
         }
-        self::rateClear($username);
         return $found;
     }
 
@@ -575,19 +567,47 @@ final class Auth
         return ['ip:' . $ip, 'user:' . mb_strtolower(trim($username))];
     }
 
-    private static function rateCheck(string $ip, string $username): void
+    /**
+     * Limit prüfen, Passwort prüfen und Fehlversuch zählen – alles unter EINER exklusiven
+     * Dateisperre. Dadurch können parallele Anfragen das Limit nicht umgehen.
+     */
+    private static function guardedVerify(string $ip, string $username, callable $verify): bool
     {
         $now = time();
-        $d = Store::read(self::rateFile(), ['entries' => []]);
         [$kIp, $kUser] = self::rateKeys($ip, $username);
-        $fails = fn($k) => array_values(array_filter($d['entries'][$k] ?? [], fn($t) => $t > $now - self::FAIL_WINDOW));
-        $u = $fails($kUser);
-        $i = $fails($kIp);
-        if (count($u) >= self::MAX_FAILS_USER || count($i) >= self::MAX_FAILS_IP) {
-            $oldest = min(count($u) >= self::MAX_FAILS_USER ? $u : $i);
-            $wait = max(1, (int)ceil(($oldest + self::FAIL_WINDOW - $now) / 60));
-            throw new ApiError("Zu viele Fehlversuche. Bitte in {$wait} Minuten erneut versuchen.", 429);
+        $res = Store::mutate(self::rateFile(), function (array &$d) use ($kIp, $kUser, $now, $verify) {
+            $d['entries'] ??= [];
+            $fails = fn($k) => array_values(array_filter($d['entries'][$k] ?? [], fn($t) => $t > $now - self::FAIL_WINDOW));
+            $u = $fails($kUser);
+            $i = $fails($kIp);
+            if (count($u) >= self::MAX_FAILS_USER || count($i) >= self::MAX_FAILS_IP) {
+                $oldest = min(count($u) >= self::MAX_FAILS_USER ? $u : $i);
+                return ['locked' => max(1, (int)ceil(($oldest + self::FAIL_WINDOW - $now) / 60))];
+            }
+            if ($verify()) {
+                unset($d['entries'][$kUser]);
+                return ['ok' => true];
+            }
+            foreach ([$kIp, $kUser] as $k) {
+                $d['entries'][$k][] = $now;
+            }
+            foreach ($d['entries'] as $k => $list) {
+                $list = array_values(array_filter($list, fn($t) => $t > $now - self::FAIL_WINDOW));
+                if ($list) {
+                    $d['entries'][$k] = array_slice($list, -50);
+                } else {
+                    unset($d['entries'][$k]);
+                }
+            }
+            return ['ok' => false];
+        }, ['entries' => []]);
+        if (isset($res['locked'])) {
+            throw new ApiError('Zu viele Fehlversuche. Bitte in ' . $res['locked'] . ' Minuten erneut versuchen.', 429);
         }
+        if (!$res['ok']) {
+            usleep(random_int(200000, 500000));
+        }
+        return $res['ok'];
     }
 
     private static function rateFail(string $ip, string $username): void
@@ -606,13 +626,6 @@ final class Auth
                     unset($d['entries'][$k]);
                 }
             }
-        }, ['entries' => []]);
-    }
-
-    private static function rateClear(string $username): void
-    {
-        Store::mutate(self::rateFile(), function (array &$d) use ($username) {
-            unset($d['entries']['user:' . mb_strtolower(trim($username))]);
         }, ['entries' => []]);
     }
 }
