@@ -1,1 +1,1 @@
-e8431615d88fc728dc7785e414fd1ef52ae7637ea30834acfe551c870f57ea68  custompaintings-1.0.0.jar
+5340960e1c5c9ba0abb098b5ec95b083e38bdcf552b6f2e8c1cd70c81c6e3503  custompaintings-1.0.0.jar
