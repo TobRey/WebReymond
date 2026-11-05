@@ -8,7 +8,7 @@ auf dem Client verweigert NeoForge die Verbindung.
 | | Server | Client (Spieler) |
 |---|---|---|
 | Minecraft | Java Edition **1.21.1** | Java Edition **1.21.1** |
-| Modloader | **NeoForge 21.1.264** oder neuer (21.1.x) | **NeoForge 21.1.264** oder neuer (21.1.x) |
+| Modloader | **NeoForge 21.1.262** oder neuer (21.1.x) | **NeoForge 21.1.262** oder neuer (21.1.x) |
 | Java | **Java 21** (64 Bit) | Java 21 (der Minecraft-Launcher bringt es mit) |
 | Betriebssystem | beliebig (Linux, Windows, macOS); **kein** Grafik- oder Audiogerät nötig | Windows, Linux, macOS. **Live-Senden nur unter Windows** (64 Bit). |
 | Weitere Mods | keine | keine |

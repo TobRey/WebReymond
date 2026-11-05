@@ -2,7 +2,7 @@
 
 ## Voraussetzungen
 
-* Minecraft **1.21.1** mit **NeoForge 21.1.264 oder neuer** (wie BlockRave – beide Mods vertragen sich und
+* Minecraft **1.21.1** mit **NeoForge 21.1.262 oder neuer** (wie BlockRave – beide Mods vertragen sich und
   können zusammen in einem Profil liegen).
 * Die Mod-Datei `custompaintings-1.0.0.jar` muss **auf dem Server und bei allen Spielern** im Ordner `mods`
   liegen. Ohne Mod auf dem Client kann man nicht beitreten.

@@ -4,7 +4,7 @@
 
 ### 1.1 NeoForge für Minecraft 1.21.1
 * Versionen aus dem offiziellen NeoForge-MDK für 1.21.1 (`NeoForgeMDKs/MDK-1.21.1-ModDevGradle`):
-  **NeoForge 21.1.264**, **ModDevGradle 2.0.148**, **Gradle 9.2.1**, **Java 21**, Parchment 2024.11.17.
+  **NeoForge 21.1.262**, **ModDevGradle 2.0.148**, **Gradle 9.2.1**, **Java 21**, Parchment 2024.11.17.
 * APIs wurden am NeoForge-Quelltext (Branch `1.21.1`) geprüft: `RegisterPayloadHandlersEvent` /
   `PayloadRegistrar` (inkl. `executesOn(HandlerThread.NETWORK)`), `PacketDistributor`,
   `RenderLevelStageEvent` (Stufe `AFTER_PARTICLES` mit Modelview-Matrix im RenderSystem),

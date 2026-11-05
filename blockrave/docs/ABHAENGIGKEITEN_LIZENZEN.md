@@ -4,7 +4,7 @@
 |---|---|---|---|---|
 | BlockRave | 1.0.0 | diese Mod | MIT (`LICENSE`) | – |
 | Minecraft Java Edition | 1.21.1 | Spiel | Mojang EULA | vom Spieler/Server bereitgestellt |
-| NeoForge | 21.1.264+ | Modloader | LGPL-2.1 | vom Spieler/Server installiert |
+| NeoForge | 21.1.262+ | Modloader | LGPL-2.1 | vom Spieler/Server installiert |
 | Concentus (`io.github.jaredmdobson:concentus`) | 1.0.2 | Opus-Codec in reinem Java (Live + MP3-Streaming) | BSD-3-Clause (Opus-Lizenz) | Jar-in-Jar, unverändert |
 | JLayer (`com.googlecode.soundlibs:jlayer`) | 1.0.1.4 | MP3-Decoder in reinem Java | **LGPL-2.1** | Jar-in-Jar, unverändert und austauschbar (eigene JAR unter `META-INF/jarjar/`) |
 | JNA | (mit Minecraft) | Windows-Audio (WASAPI/COM) | Apache-2.0 / LGPL-2.1 | von Minecraft mitgeliefert, nicht eingebettet |
