@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="t">
+  <title id="t">Quarter Clown – frecher Clownskopf mit Küchenuhr-Nase auf 15</title>
+  <defs>
+    <radialGradient id="face" cx="45%" cy="40%" r="65%">
+      <stop offset="0" stop-color="#FFFDF6"/>
+      <stop offset="1" stop-color="#E9E4D8"/>
+    </radialGradient>
+    <radialGradient id="dial" cx="40%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#E4FF7A"/>
+      <stop offset="1" stop-color="#A6EB00"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Badge -->
+  <circle cx="256" cy="256" r="248" fill="#2B2D31"/>
+  <circle cx="256" cy="256" r="248" fill="none" stroke="#B6FF2E" stroke-width="8"/>
+
+  <!-- Haarbüschel (Acid Lime) -->
+  <g fill="#B6FF2E" stroke="#1E1F22" stroke-width="6">
+    <circle cx="112" cy="250" r="46"/>
+    <circle cx="92" cy="300" r="40"/>
+    <circle cx="120" cy="196" r="38"/>
+    <circle cx="400" cy="250" r="46"/>
+    <circle cx="420" cy="300" r="40"/>
+    <circle cx="392" cy="196" r="38"/>
+  </g>
+
+  <!-- Gesicht -->
+  <ellipse cx="256" cy="282" rx="142" ry="152" fill="url(#face)" stroke="#1E1F22" stroke-width="8"/>
+
+  <!-- Schiefer Hut (knalliges Lila) -->
+  <g transform="rotate(-14 256 140)">
+    <path d="M196 150 L262 22 L322 150 Z" fill="#A23BFF" stroke="#1E1F22" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M222 100 L300 100" stroke="#B6FF2E" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="262" cy="24" r="20" fill="#B6FF2E" stroke="#1E1F22" stroke-width="6"/>
+    <rect x="178" y="140" width="164" height="22" rx="11" fill="#7A1FD1" stroke="#1E1F22" stroke-width="6"/>
+  </g>
+
+  <!-- Augen: links zwinkernd, rechts mit Lila-Raute und hochgezogener Braue -->
+  <path d="M168 238 Q196 218 224 238" fill="none" stroke="#1E1F22" stroke-width="10" stroke-linecap="round"/>
+  <path d="M170 206 L222 196" stroke="#1E1F22" stroke-width="9" stroke-linecap="round"/>
+  <path d="M318 196 L340 230 L318 264 L296 230 Z" fill="#A23BFF" stroke="#1E1F22" stroke-width="5"/>
+  <circle cx="318" cy="230" r="13" fill="#1E1F22"/>
+  <circle cx="322" cy="225" r="4" fill="#FFFFFF"/>
+  <path d="M288 180 Q318 160 350 176" fill="none" stroke="#1E1F22" stroke-width="9" stroke-linecap="round"/>
+
+  <!-- Freches, schiefes Grinsen -->
+  <path d="M170 334 Q250 420 352 318 Q338 360 300 378 Q240 402 170 334 Z" fill="#1E1F22"/>
+  <path d="M232 384 Q262 404 296 376 Q276 372 262 380 Q246 372 232 384 Z" fill="#A23BFF"/>
+  <path d="M188 340 Q252 370 338 326" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/>
+  <path d="M352 318 L368 306" stroke="#1E1F22" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Nase = Küchenuhr, Zeiger auf 15 -->
+  <g>
+    <rect x="248" y="232" width="16" height="16" rx="3" fill="#A23BFF" stroke="#1E1F22" stroke-width="5"/>
+    <circle cx="256" cy="292" r="52" fill="url(#dial)" stroke="#1E1F22" stroke-width="8"/>
+    <circle cx="256" cy="292" r="40" fill="none" stroke="#1E1F22" stroke-width="2" opacity=".35"/>
+    <g stroke="#1E1F22" stroke-width="5" stroke-linecap="round">
+      <line x1="256" y1="248" x2="256" y2="258"/>
+      <line x1="300" y1="292" x2="290" y2="292"/>
+      <line x1="256" y1="336" x2="256" y2="326"/>
+      <line x1="212" y1="292" x2="222" y2="292"/>
+    </g>
+    <g stroke="#1E1F22" stroke-width="2.5" stroke-linecap="round" opacity=".7">
+      <line x1="278" y1="254" x2="275" y2="260"/>
+      <line x1="294" y1="270" x2="288" y2="273"/>
+      <line x1="294" y1="314" x2="288" y2="311"/>
+      <line x1="278" y1="330" x2="275" y2="324"/>
+      <line x1="234" y1="330" x2="237" y2="324"/>
+      <line x1="218" y1="314" x2="224" y2="311"/>
+      <line x1="218" y1="270" x2="224" y2="273"/>
+      <line x1="234" y1="254" x2="237" y2="260"/>
+    </g>
+    <text x="267" y="282" font-family="Arial Black, Impact, sans-serif" font-size="17" font-weight="900" fill="#1E1F22">15</text>
+    <path d="M256 292 L288 292" stroke="#A23BFF" stroke-width="9" stroke-linecap="round"/>
+    <path d="M256 292 L256 266" stroke="#1E1F22" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="256" cy="292" r="8" fill="#1E1F22"/>
+    <ellipse cx="238" cy="270" rx="12" ry="7" fill="#FFFFFF" opacity=".55" transform="rotate(-30 238 270)"/>
+  </g>
+</svg>

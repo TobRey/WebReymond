@@ -1,0 +1,2 @@
+# Optional: lokale Transkription kurzer Ausschnitte (QC_TRANSCRIBE=1)
+faster-whisper>=1.0
