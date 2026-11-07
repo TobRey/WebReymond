@@ -187,8 +187,13 @@ def test_analyzer_finds_moments_in_sample_material():
 
 def test_tile_detection_on_discord_grid():
     img = np.asarray(Image.fromarray(SampleCallSource().grab()).convert("L").resize((192, 108)), dtype=np.float32) / 255
-    tiles = detect_tiles(img)
-    assert len(tiles) == 4
+    assert len(detect_tiles(img)) == 4
+    # Und genau so, wie der Analyzer im Live-Betrieb arbeitet:
+    analyzer = FrameAnalyzer()
+    src = SampleCallSource()
+    for i in range(3):
+        m = analyzer.analyze(src.grab(), t=float(i))
+    assert len(analyzer.tiles) == 4 and m.focus in analyzer.tiles
 
 
 class LocalCaptionerService(CaptionService):

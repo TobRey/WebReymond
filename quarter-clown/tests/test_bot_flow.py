@@ -23,7 +23,7 @@ def test_slash_commands_and_buttons(tmp_path):
         return names, ids
 
     names, ids = asyncio.run(run())
-    assert names == ["setup", "status", "stop"]
+    assert names == ["setup", "status", "stop", "testmodus"]
     assert ids == ["qc:consent", "qc:decline", "qc:stop"]
 
 
@@ -84,3 +84,55 @@ def test_consent_pause_and_stop(tmp_path):
         await ctl.shutdown()
 
     asyncio.run(run())
+
+
+def test_testmodus_command_registered(tmp_path):
+    from quarter_clown.bot import QuarterClownBot
+
+    async def run():
+        s = load_settings()
+        s.data_dir = tmp_path
+        ctl = Controller(s)
+        bot = QuarterClownBot(ctl, s, ctl.store)
+        cmd = next(c for c in bot.tree.get_command("quarter").commands if c.name == "testmodus")
+        params = {p.name: p for p in cmd.parameters}
+        await ctl.shutdown()
+        return params
+
+    params = asyncio.run(run())
+    assert set(params) == {"takt", "quelle", "anzahl", "kanal"}
+    assert [c.value for c in params["takt"].choices] == [10, 30, 60]
+
+
+def test_quick_test_run_posts_n_drops_then_stops(tmp_path, monkeypatch):
+    """Testlauf: genau N Drops im Schnelltakt, danach automatisch Stopp; Normalbetrieb bleibt 15 min."""
+    import time
+
+    from quarter_clown import session as session_mod
+
+    monkeypatch.setattr(session_mod, "TEST_INTERVALS", (2,))  # 2-s-Takt, damit der Test schnell ist
+
+    async def run():
+        s = load_settings()
+        s.data_dir = tmp_path
+        s.output_dir = tmp_path / "out"
+        s.caption_mode = "local"
+        ctl = Controller(s)
+        ctl.set_caption_mode("local")
+        ctl.loop = asyncio.get_running_loop()
+        assert ctl.timing.interval == 900
+        assert "Erlaubte Takte" in await ctl.request_test(interval=7)
+        msg = await ctl.request_test(interval=2, sample=True, max_drops=3)
+        assert "Testlauf gestartet" in msg and ctl.timing.interval == 2
+        start = time.time()
+        while ctl.session_active and time.time() - start < 15:
+            await asyncio.sleep(0.1)
+        await asyncio.sleep(2.5)                     # weiterer Takt: darf nichts mehr posten
+        files = sorted(p.name for p in (tmp_path / "out" / "test").glob("*.png"))
+        interval_after = ctl.timing.interval
+        await ctl.shutdown()
+        return files, interval_after, ctl
+
+    files, interval_after, ctl = asyncio.run(run())
+    assert len(files) == 3 and [f[-7:-4] for f in files] == ["001", "002", "003"]
+    assert not ctl.session_active and interval_after == 900

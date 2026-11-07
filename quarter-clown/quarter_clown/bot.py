@@ -113,6 +113,47 @@ class QuarterGroup(app_commands.Group):
         embed.set_footer(text="Start/Stop in der Windows-App. Gestartet wird erst, wenn alle im Call zugestimmt haben.")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
+    @app_commands.command(name="testmodus", description="Testlauf im Schnelltakt (10 s / 30 s / 1 min) – nur Berechtigte")
+    @app_commands.describe(takt="Wie oft ein Test-Meme kommt",
+                           quelle="Beispielmaterial (sofort, ohne Call) oder dein echter Call (mit Zustimmung)",
+                           anzahl="Wie viele Test-Drops, danach stoppt der Testlauf (1–10)",
+                           kanal="Testkanal (Standard: eingerichteter Testkanal, sonst dieser Kanal)")
+    @app_commands.choices(
+        takt=[app_commands.Choice(name="10 Sekunden", value=10), app_commands.Choice(name="30 Sekunden", value=30),
+              app_commands.Choice(name="1 Minute", value=60)],
+        quelle=[app_commands.Choice(name="Beispielmaterial", value="beispiel"),
+                app_commands.Choice(name="Live-Call (mit Zustimmung)", value="live")])
+    async def testmodus(self, interaction: discord.Interaction, takt: Optional[app_commands.Choice[int]] = None,
+                        quelle: Optional[app_commands.Choice[str]] = None,
+                        anzahl: Optional[app_commands.Range[int, 1, 10]] = 5,
+                        kanal: Optional[discord.TextChannel] = None):
+        bot = self.bot
+        if not is_authorized(interaction.user, bot.settings.admin_role):
+            await interaction.response.send_message(
+                f"Nur Mitglieder mit „Server verwalten“ oder der Rolle **{bot.settings.admin_role}** dürfen das.", ephemeral=True)
+            return
+        g = bot.store.guild
+        channel = kanal
+        if channel is None and g.test_channel_id and g.guild_id == interaction.guild.id:
+            channel = interaction.guild.get_channel(g.test_channel_id)
+        if channel is None and isinstance(interaction.channel, discord.TextChannel):
+            channel = interaction.channel   # Command im Kanal ausgeführt = Kanal explizit gewählt
+        if not isinstance(channel, discord.TextChannel):
+            await interaction.response.send_message("Bitte einen Textkanal als `kanal` angeben.", ephemeral=True)
+            return
+        perms = channel.permissions_for(channel.guild.me)
+        if not (perms.view_channel and perms.send_messages and perms.attach_files):
+            await interaction.response.send_message(f"Ich darf in {channel.mention} nicht posten (Senden + Dateien).", ephemeral=True)
+            return
+        live = quelle is not None and quelle.value == "live"
+        if live and g.guild_id != interaction.guild.id:
+            await interaction.response.send_message("Für einen Live-Test zuerst `/quarter setup` ausführen.", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        msg = await bot.controller.request_test(interval=takt.value if takt else 60, sample=not live,
+                                                max_drops=int(anzahl or 5), channel_id=channel.id, channel_name=channel.name)
+        await interaction.followup.send(msg, ephemeral=True)
+
     @app_commands.command(name="status", description="Aufnahmestatus und Countdown bis zum nächsten Meme")
     async def status(self, interaction: discord.Interaction):
         st = self.bot.controller.status()
@@ -125,7 +166,7 @@ class QuarterGroup(app_commands.Group):
             embed.add_field(name="Zustimmung", value="\n".join(
                 f"{'✅' if p['ok'] else '⏳'} {p['name']}" for p in st["participants"]), inline=False)
         if st["test_mode"]:
-            embed.set_footer(text="TESTMODUS · 30-Sekunden-Takt")
+            embed.set_footer(text=st["test_label"])
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(name="stop", description="Aufnahme sofort beenden (nur Berechtigte)")

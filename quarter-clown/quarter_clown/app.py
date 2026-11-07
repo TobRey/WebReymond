@@ -135,9 +135,10 @@ class App:
         titles.pack(side="left", padx=12)
         self._label(titles, "QUARTER CLOWN", 20, LIME, True).pack(anchor="w")
         self._label(titles, "Alle 15 Minuten genau ein Meme aus eurem Call", 10, MUTED).pack(anchor="w")
+        self.test_badge = tk.Label(head, text="", bg=PURPLE, fg="white", font=(FONT, 10, "bold"), pady=4)
         if self.settings.test_mode:
-            tk.Label(head, text="  TESTMODUS · 30-s-Takt · Beispielmaterial  ", bg=PURPLE, fg="white",
-                     font=(FONT, 10, "bold"), pady=4).pack(side="right")
+            self.test_badge.configure(text="  TESTMODUS · 30-s-Takt · Beispielmaterial  ")
+            self.test_badge.pack(side="right")
         self.bot_label = self._label(head, "Bot: verbinde …", 10, MUTED)
         self.bot_label.pack(side="right", padx=14)
 
@@ -235,6 +236,17 @@ class App:
                                    font=(FONT, 16, "bold"), pady=10, cursor="hand2")
         self.start_btn.grid(row=r, column=0, columnspan=3, sticky="ew", pady=(14, 0))
         r += 1
+        tr = tk.Frame(ctl, bg=CARD)
+        tr.grid(row=r, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        self._label(tr, "Testlauf:", 10, MUTED).pack(side="left")
+        self.test_takt = tk.StringVar(value="10 s")
+        ttk.Combobox(tr, textvariable=self.test_takt, values=["10 s", "30 s", "60 s"], width=6,
+                     state="readonly").pack(side="left", padx=6)
+        self.test_src = tk.StringVar(value="Beispielmaterial")
+        ttk.Combobox(tr, textvariable=self.test_src, values=["Beispielmaterial", "Live-Call"], width=16,
+                     state="readonly").pack(side="left")
+        self._small_button(tr, "🧪 5 Test-Drops", self.on_test_run).pack(side="left", padx=6)
+        r += 1
         self.invite_btn = self._small_button(ctl, "Bot-Invite-Link öffnen", self.open_invite)
         self.invite_btn.grid(row=r, column=0, columnspan=3, sticky="w", pady=(10, 0))
 
@@ -291,6 +303,18 @@ class App:
         if not self.settings.test_mode:
             self.on_source()
         fut = self.ctl.submit(self.ctl.request_start())
+        if fut is not None:
+            fut.add_done_callback(lambda f: self.root.after(0, self._start_result, f))
+
+    def on_test_run(self) -> None:
+        if self.ctl.session_active:
+            messagebox.showinfo("Quarter Clown", "Es läuft schon eine Session.")
+            return
+        if not self.settings.test_mode:
+            self.on_source()
+        interval = int(self.test_takt.get().split()[0])
+        live = self.test_src.get() == "Live-Call"
+        fut = self.ctl.submit(self.ctl.request_test(interval=interval, sample=not live, max_drops=5))
         if fut is not None:
             fut.add_done_callback(lambda f: self.root.after(0, self._start_result, f))
 
@@ -356,6 +380,13 @@ class App:
         bot = "Bot: online" if st["bot_ready"] else ("Bot: offline" if not self.settings.discord_token else "Bot: verbinde …")
         self.bot_label.configure(text=bot, fg=LIME if st["bot_ready"] else MUTED)
         self.capture_note.configure(text=st["capture_note"])
+        if not self.settings.test_mode:
+            if st["test_label"]:
+                self.test_badge.configure(text=f"  {st['test_label']}  ")
+                if not self.test_badge.winfo_ismapped():
+                    self.test_badge.pack(side="right")
+            elif self.test_badge.winfo_ismapped():
+                self.test_badge.pack_forget()
         self.start_btn.configure(
             text="■  STOP" if self.ctl.session_active else "▶  START",
             bg=RED if self.ctl.session_active else LIME, fg="white" if self.ctl.session_active else BG)

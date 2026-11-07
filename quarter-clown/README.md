@@ -54,6 +54,7 @@ Voraussetzung: **Windows 11** und **Python 3.11 oder neuer** von <https://www.py
 | `/quarter setup` | „Server verwalten“ oder Rolle **Quarter Clown Admin** | Voice-Channel, Meme-Kanal, optional Testkanal |
 | `/quarter status` | alle | Aufnahmestatus, Countdown, Zustimmungen |
 | `/quarter stop` | „Server verwalten“ oder Rolle **Quarter Clown Admin** | Aufnahme sofort beenden |
+| `/quarter testmodus` | „Server verwalten“ oder Rolle **Quarter Clown Admin** | Testlauf im Schnelltakt (10 s / 30 s / 1 min), siehe unten |
 
 Den Rollennamen kannst du mit `QC_ADMIN_ROLE` ändern. Zusätzlich lässt sich in Discord unter
 *Servereinstellungen → Integrationen → Quarter Clown* einschränken, wer die Commands überhaupt sieht.
@@ -131,7 +132,30 @@ Gruppenreaktion, **2-Panel** aus Auslöser und Reaktion. Immer mit kleinem **QUA
   Vorlage genommen – das Meme kommt trotzdem pünktlich.
 - **Lokaler Modus** (`QC_CAPTION_MODE=local` oder in der App „Nur lokale Vorlagen“): komplett ohne API-Key.
 
-## 5. Testmodus (30-Sekunden-Takt, Beispielmaterial)
+## 5. Schnell testen: `/quarter testmodus`
+
+Damit du nicht 15 Minuten warten musst – die Windows-App muss laufen:
+
+```
+/quarter testmodus takt:10 Sekunden quelle:Beispielmaterial anzahl:5
+```
+
+| Option | Werte | Standard |
+|---|---|---|
+| `takt` | 10 Sekunden, 30 Sekunden, 1 Minute | 1 Minute |
+| `quelle` | **Beispielmaterial** (synthetischer Call, startet sofort, ohne Zustimmung) oder **Live-Call** (dein echter Call, mit Zustimmung wie im Normalbetrieb) | Beispielmaterial |
+| `anzahl` | 1–10 Test-Drops, danach stoppt der Testlauf automatisch | 5 |
+| `kanal` | Testkanal | eingerichteter Testkanal, sonst der Kanal, in dem du den Command eintippst |
+
+- Test-Drops heissen „🧪 Test-Drop #n“ und landen nur im gewählten Testkanal.
+- `/quarter stop` beendet den Testlauf jederzeit.
+- Bei 10 Sekunden bleiben der KI nur ca. 4 Sekunden; ist Claude langsamer, kommt pünktlich eine lokale Vorlage.
+  Für Claude-Captions eignet sich 1 Minute besser.
+- Dasselbe gibt es in der App: **Testlauf** (Takt + Quelle wählen) → **🧪 5 Test-Drops**.
+
+Danach startet **▶ START** wieder ganz normal mit dem festen 15-Minuten-Takt.
+
+## 6. Testmodus der App (30-Sekunden-Takt, Beispielmaterial)
 
 ```
 start-test.bat
@@ -145,7 +169,8 @@ start-test.bat
   `QC_TEST_CHANNEL_ID`). Ist keiner gesetzt, landen die Memes nur lokal in `output/test/`.
 - Ohne Fenster, z. B. zum schnellen Prüfen: `.venv\Scripts\python -m quarter_clown --test --headless --blocks 3 --local`
 
-Der Normalbetrieb verwendet **immer** den festen 15-Minuten-Takt; es gibt keine Einstellung, die ihn ändert.
+Der Normalbetrieb (▶ START) verwendet **immer** den festen 15-Minuten-Takt; es gibt keine Einstellung, die ihn
+ändert. Kürzere Takte gibt es nur für ausdrücklich gestartete Testläufe.
 
 ### Automatische Tests
 
@@ -159,7 +184,7 @@ schon vorbereitet war), kein Doppelpost bei Wiederverbindung oder Neustart, kein
 lokaler Fallback bei API-Fehler und hängender API, Ablehnung unzulässiger Captions, alle Layouts und Formate,
 Zustimmung/Pause bei neuen Leuten, Slash-Commands und Buttons.
 
-## 6. Datenschutz
+## 7. Datenschutz
 
 - Der Call bleibt lokal. Es wird **keine komplette Aufnahme** gespeichert – weder Video noch Ton.
   Im Speicher liegen nur ein paar Sekunden Verlauf und die 5 besten Kandidaten des laufenden Blocks;
@@ -167,7 +192,7 @@ Zustimmung/Pause bei neuen Leuten, Slash-Commands und Buttons.
 - Gepostete Memes werden nur lokal gespeichert, wenn du `QC_SAVE_POSTED=1` setzt (Testmodus: `output/test/`).
 - Bot-Token und API-Key stehen nur in deiner lokalen `.env`. `.env.example` enthält keine Secrets.
 
-## 7. Ton, OBS und Tipps
+## 8. Ton, OBS und Tipps
 
 - **Ton:** Aufgenommen wird per WASAPI-Loopback das Ausgabegerät (Standard: dein Windows-Standardgerät).
   Damit nur Discord-Ton ankommt, stell in Discord *Einstellungen → Sprache & Video → Ausgabegerät* auf ein

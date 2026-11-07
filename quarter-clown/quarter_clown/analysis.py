@@ -196,12 +196,12 @@ class FrameAnalyzer:
         self.grid = grid
         self.prev: np.ndarray | None = None
         self.scene_base = 0.01
-        self.cell_base = np.full(grid[0] * grid[1], 0.01, dtype=np.float32)
+        self.cell_base = np.full(grid[0] * grid[1], 0.003, dtype=np.float32)
         self.face_cascade = None
         self.smile_cascade = None
         self.prev_faces: list[tuple[int, int, int, int]] = []
         self.tiles: list[tuple[float, float, float, float]] = []
-        self._tiles_at = 0.0
+        self._tiles_at = float("-inf")
         if use_faces and cv2 is not None:
             try:
                 base = cv2.data.haarcascades
@@ -218,19 +218,28 @@ class FrameAnalyzer:
         self.prev = None
         self.prev_faces = []
         self.tiles = []
-        self._tiles_at = 0.0
+        self._tiles_at = float("-inf")
 
-    def _regions(self, small: np.ndarray, t: float) -> list[tuple[float, float, float, float]]:
+    def _regions(self, frame: np.ndarray, t: float) -> list[tuple[float, float, float, float]]:
         if t - self._tiles_at > 2.0:
-            found = detect_tiles(small)
+            found = detect_tiles(self._tile_gray(frame))
             if found != self.tiles:
                 self.tiles = found
-                self.cell_base = np.full(max(1, len(found)) if found else self.grid[0] * self.grid[1], 0.01, dtype=np.float32)
+                self.cell_base = np.full(max(1, len(found)) if found else self.grid[0] * self.grid[1], 0.003, dtype=np.float32)
             self._tiles_at = t
         if self.tiles:
             return self.tiles
         gh, gw = self.grid
         return [(c / gw, r / gh, (c + 1) / gw, (r + 1) / gh) for r in range(gh) for c in range(gw)]
+
+    @staticmethod
+    def _tile_gray(frame: np.ndarray, w: int = 480) -> np.ndarray:
+        """Schärferes Graubild für die Kachel-Erkennung (die Fugen sind nur wenige Pixel breit)."""
+        h = max(1, round(frame.shape[0] * w / frame.shape[1]))
+        if cv2 is not None:
+            g = cv2.resize(cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY), (w, h), interpolation=cv2.INTER_NEAREST)
+            return g.astype(np.float32) / 255.0
+        return np.asarray(Image.fromarray(frame).convert("L").resize((w, h), Image.NEAREST), dtype=np.float32) / 255.0
 
     @staticmethod
     def _gray_small(frame: np.ndarray, w: int = 192) -> np.ndarray:
@@ -256,16 +265,17 @@ class FrameAnalyzer:
             signals["scene"] = float(np.clip((scene - 3.0 * self.scene_base - 0.02) / 0.12, 0, 1))
             self.scene_base = 0.97 * self.scene_base + 0.03 * min(scene, 0.2)
 
-            regions = self._regions(small, t)
+            regions = self._regions(frame, t)
             if len(self.cell_base) != len(regions):
-                self.cell_base = np.full(len(regions), 0.01, dtype=np.float32)
+                self.cell_base = np.full(len(regions), 0.003, dtype=np.float32)
             cells = np.zeros(len(regions), dtype=np.float32)
             for i, (x0, y0, x1, y1) in enumerate(regions):
                 cell = diff[int(y0 * h):max(int(y1 * h), int(y0 * h) + 1), int(x0 * w):max(int(x1 * w), int(x0 * w) + 1)]
                 cells[i] = float(cell.mean())
-            excess = cells - np.maximum(0.025, 2.5 * self.cell_base)
+            # Bewegung pro Kachel relativ zum eigenen Grundrauschen (Webcam-Rauschen ist pro Kachel verschieden)
+            excess = cells - np.maximum(0.005, 2.5 * self.cell_base)
             active = int((excess > 0).sum())
-            signals["gesture"] = float(np.clip(excess.max() / 0.08, 0, 1))
+            signals["gesture"] = float(np.clip(excess.max() / 0.03, 0, 1))
             signals["multi"] = float(np.clip((active - 1) / 3.0, 0, 1)) if signals["scene"] < 0.6 else 0.0
             self.cell_base = 0.95 * self.cell_base + 0.05 * np.minimum(cells, 0.15)
             focus = regions[int(cells.argmax())]

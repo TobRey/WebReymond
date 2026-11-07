@@ -10,6 +10,7 @@ import logging
 import threading
 import time
 from collections import deque
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable
@@ -21,7 +22,7 @@ from .analysis import CandidatePool, FrameAnalyzer, FrameHistory
 from .audio import AudioMonitor, LoopbackRecorder, SampleAudio
 from .captions import CaptionService
 from .capture.sample import FileSource, SampleCallSource, SampleClock, sample_audio_levels
-from .config import Settings
+from .config import TEST_INTERVAL_S, TEST_INTERVALS, Settings, Timing
 from .posting import DiscordPoster, LocalPoster, TestChannelRequired
 from .producer import Meme, MemeProducer
 from .scheduler import BlockScheduler
@@ -29,6 +30,16 @@ from .state import StateStore
 
 log = logging.getLogger(__name__)
 RESUME_MAX_AGE_S = 6 * 3600
+
+
+@dataclass
+class TestRun:
+    """Testlauf mit verkürztem Takt. Posts nur in den gewählten Testkanal, Stopp nach `max_drops`."""
+    interval: int = TEST_INTERVAL_S
+    sample: bool = True             # Beispielmaterial statt echtem Call (dann ohne Zustimmung)
+    max_drops: int | None = None
+    channel_id: int | None = None
+    channel_name: str = ""
 
 
 class Phase(str, Enum):
@@ -93,6 +104,8 @@ class Controller:
         self.last_meme_block = 0
         self.blocks_posted = 0
         self.sample_clock = SampleClock()
+        self.test_run: TestRun | None = TestRun() if settings.test_mode else None
+        self.run_drops = 0
         self._capture_thread = threading.Thread(target=self._capture_loop, name="qc-capture", daemon=True)
         self._capture_thread.start()
         self.log("Quarter Clown bereit" + (" – TESTMODUS (30-s-Takt, Beispielmaterial)" if settings.test_mode else ""))
@@ -123,17 +136,30 @@ class Controller:
         return self.phase != Phase.IDLE
 
     @property
+    def is_test(self) -> bool:
+        return self.test_run is not None
+
+    @property
+    def use_sample(self) -> bool:
+        return self.test_run is not None and self.test_run.sample
+
+    @property
+    def timing(self) -> Timing:
+        # Normalbetrieb: immer fest 15 Minuten. Nur Testläufe haben einen kürzeren Takt.
+        return Timing.for_interval(self.test_run.interval) if self.test_run else self.settings.timing
+
+    @property
     def target_channel_id(self) -> int | None:
         g = self.store.guild
-        if self.settings.test_mode:
-            return g.test_channel_id or self.settings.test_channel_id
+        if self.test_run is not None:
+            return self.test_run.channel_id or g.test_channel_id or self.settings.test_channel_id
         return g.text_channel_id
 
     def target_label(self) -> str:
         g = self.store.guild
-        if self.settings.test_mode:
+        if self.test_run is not None:
             if self.bot is not None and self.target_channel_id:
-                name = g.test_channel_name or str(self.target_channel_id)
+                name = self.test_run.channel_name or g.test_channel_name or str(self.target_channel_id)
                 return f"#{name} (Testkanal)"
             return "Nur lokal (Ordner output/test) – kein Testkanal gesetzt"
         if g.text_channel_id:
@@ -161,7 +187,7 @@ class Controller:
             self._start_audio()
 
     def set_source(self, kind: str, hwnd: int | None = None, title: str = "") -> None:
-        if self.settings.test_mode:
+        if self.settings.test_mode or self.session_active:
             return
         with self._source_lock:
             if self._source is not None:
@@ -189,7 +215,11 @@ class Controller:
             "next_block": next_block,
             "target": self.target_label(),
             "participants": [{"id": pid, "name": n, "ok": pid in self.consented} for pid, n in self.participants.items()],
-            "test_mode": self.settings.test_mode,
+            "test_mode": self.is_test,
+            "test_label": (f"TESTLAUF · {self.test_run.interval}-s-Takt"
+                           + (" · Beispielmaterial" if self.test_run.sample else " · Live-Call")
+                           + (f" · {self.run_drops}/{self.test_run.max_drops} Drops" if self.test_run.max_drops else "")
+                           ) if self.test_run else "",
             "bot_ready": bool(self.bot is not None and self.bot.is_ready()),
             "invite": getattr(self.bot, "invite", "") if self.bot is not None else "",
             "ai": "Claude (" + self.settings.anthropic_model + ")" if self.captions.ai_enabled else "Lokale Vorlagen",
@@ -197,15 +227,15 @@ class Controller:
             "capture_note": self.capture_note,
             "blocks_posted": self.blocks_posted,
             "pool_best": self.pool.best_score(),
-            "interval": self.settings.timing.interval,
+            "interval": self.timing.interval,
         }
 
     # ------------------------------------------------------- bot events
     async def on_bot_ready(self) -> None:
         s = self.store.session
-        if self.settings.test_mode or not s.active:
+        if self.settings.test_mode or s.test_mode or not s.active:
             if s.active:
-                self.store.stop_session("Neustart (Testmodus)")
+                self.store.stop_session("Neustart (Testlauf wird nicht fortgesetzt)")
             return
         if time.time() - s.t0 > RESUME_MAX_AGE_S:
             self.store.stop_session("Neustart – Session zu alt")
@@ -289,49 +319,71 @@ class Controller:
             self.log(f"Zustimmungsnachricht nicht aktualisierbar: {exc}")
 
     # ------------------------------------------------------------ actions
+    async def request_test(self, interval: int = 60, sample: bool = True, max_drops: int | None = 5,
+                           channel_id: int | None = None, channel_name: str = "") -> str:
+        """Testlauf im Schnelltakt (für /quarter testmodus und den Testlauf-Button)."""
+        if self.phase != Phase.IDLE:
+            return "Es läuft schon eine Session. Erst `/quarter stop`."
+        if interval not in TEST_INTERVALS:
+            return f"Erlaubte Takte: {', '.join(f'{i} s' for i in TEST_INTERVALS)}."
+        self.test_run = TestRun(interval, sample, max_drops, channel_id, channel_name)
+        msg = await self.request_start()
+        if self.phase == Phase.IDLE:   # Start abgelehnt
+            self.test_run = TestRun() if self.settings.test_mode else None
+        return msg
+
     async def request_start(self) -> str:
         if self.phase != Phase.IDLE:
             return "Läuft bereits."
-        if self.settings.test_mode:
+        self.run_drops = 0
+        if self.use_sample:
             try:
                 self.poster = self._make_poster()
             except TestChannelRequired as exc:
                 return str(exc)
             self.participants, self.consented = {}, set()
             await self._confirm_start(test=True)
-            return "Testmodus gestartet."
+            t = self.test_run
+            return (f"🧪 Testlauf gestartet: alle {t.interval} s ein Meme"
+                    + (f", {t.max_drops} Stück" if t.max_drops else "") + f" → {self.target_label()}")
         if self.bot is None or not self.bot.is_ready():
             return "Discord-Bot ist nicht verbunden. Prüfe DISCORD_BOT_TOKEN in .env."
         g = self.store.guild
         if not (g.voice_channel_id and g.text_channel_id):
             return "Bitte zuerst in Discord /quarter setup ausführen."
         if self.capture_kind == "window" and not self.window_hwnd:
-            return "Bitte zuerst das Discord-Fenster auswählen."
+            return "Bitte zuerst in der Windows-App das Discord-Fenster auswählen."
         self.participants = self.bot.voice_members()
         if not self.participants:
             return f"Niemand im Voice-Channel „{g.voice_channel_name}“."
-        self.poster = self._make_poster()
+        try:
+            self.poster = self._make_poster()
+        except TestChannelRequired as exc:
+            return str(exc)
         self.consented = set()
         self.phase = Phase.AWAITING
         self.log("Start angefragt – warte auf Zustimmung aller im Call")
-        await self._post_consent("🤡⏰ Quarter Clown möchte diese Session aufnehmen")
+        await self._post_consent("🧪 Quarter Clown möchte einen Testlauf aufnehmen" if self.is_test
+                                 else "🤡⏰ Quarter Clown möchte diese Session aufnehmen")
         return "Anfrage im Textkanal gepostet. Start, sobald alle zugestimmt haben."
 
     def _make_poster(self):
-        interval = self.settings.timing.interval
+        interval = self.timing.interval
         save_dir = self.settings.output_dir / "posted" if self.settings.save_posted else None
-        if self.settings.test_mode:
-            test_ch = self.store.guild.test_channel_id or self.settings.test_channel_id
+        if self.test_run is not None:
+            test_ch = self.target_channel_id
             if self.bot is not None and self.bot.is_ready() and test_ch:
                 return DiscordPoster(self.bot, test_ch, interval, True, test_channel_id=test_ch,
                                      save_dir=self.settings.output_dir / "test")
+            if not self.use_sample:
+                raise TestChannelRequired("Live-Testlauf braucht einen Testkanal in Discord.")
             return LocalPoster(self.settings.output_dir / "test", interval)
         return DiscordPoster(self.bot, self.store.guild.text_channel_id, interval, False, save_dir=save_dir)
 
     async def _confirm_start(self, test: bool = False) -> None:
         t0 = time.time()
-        timing = self.settings.timing
-        rec = self.store.start_session(t0, timing.interval, self.settings.test_mode, self.target_channel_id)
+        timing = self.timing
+        rec = self.store.start_session(t0, timing.interval, self.is_test, self.target_channel_id)
         self.pool.rotate()
         self.phase = Phase.RUNNING
         self._start_recording()
@@ -339,16 +391,22 @@ class Controller:
         mins = int(timing.interval // 60) or timing.interval
         unit = "Minuten" if timing.interval >= 60 else "Sekunden"
         self.log(f"Session {rec.id} bestätigt – erster Drop in {fmt(timing.interval)}")
-        if self.bot is not None and self.target_channel_id and (not test or isinstance(self.poster, DiscordPoster)):
-            await self.bot.say(self.target_channel_id,
-                               f"🔴 **Aufnahme läuft.** Diese Session wird aufgenommen und automatisch zu Memes verarbeitet. "
-                               f"Alle {mins if unit == 'Minuten' else int(timing.interval)} {unit} kommt genau ein Meme. "
-                               f"Stoppen: ⛔-Button oder `/quarter stop`." + (" *(Testmodus mit Beispielmaterial)*" if test else ""))
+        if self.bot is not None and self.target_channel_id and isinstance(self.poster, DiscordPoster):
+            every = f"{mins} {unit}" if unit == "Minuten" and mins > 1 else ("Minute" if unit == "Minuten" else f"{int(timing.interval)} {unit}")
+            if self.use_sample:
+                text = (f"🧪 **Testlauf gestartet** mit Beispielmaterial (kein echter Call). Alle {every} kommt ein Test-Meme"
+                        + (f", insgesamt {self.test_run.max_drops}." if self.test_run.max_drops else ".")
+                        + " Stoppen: `/quarter stop`.")
+            else:
+                text = (f"🔴 **Aufnahme läuft.** Diese Session wird aufgenommen und automatisch zu Memes verarbeitet. "
+                        f"Alle {every} kommt genau ein Meme. Stoppen: ⛔-Button oder `/quarter stop`."
+                        + (f" *(Testlauf, {self.test_run.max_drops} Drops)*" if self.is_test and self.test_run.max_drops else ""))
+            await self.bot.say(self.target_channel_id, text)
 
     def _start_scheduler(self, session_id: str, t0: float) -> None:
         if self.poster is None:
             self.poster = self._make_poster()
-        self.scheduler = BlockScheduler(session_id=session_id, t0=t0, timing=self.settings.timing, pool=self.pool,
+        self.scheduler = BlockScheduler(session_id=session_id, t0=t0, timing=self.timing, pool=self.pool,
                                         producer=self.producer, poster=self.poster, store=self.store,
                                         on_event=self._on_sched_event)
         self.scheduler.start()
@@ -365,7 +423,15 @@ class Controller:
             m = data["meme"]
             self.last_meme, self.last_meme_block = m, b
             self.blocks_posted += 1
-            self.log(f"✅ Drop #{b} gepostet: {m.caption.top} / {m.caption.bottom}".rstrip(" /"))
+            self.run_drops += 1
+            label = m.caption.top or f"{m.caption.left} / {m.caption.right}"
+            self.log(f"✅ Drop #{b} gepostet: {label} / {m.caption.bottom}".rstrip(" /"))
+            t = self.test_run
+            if t is not None and t.max_drops and self.run_drops >= t.max_drops and self.phase != Phase.IDLE:
+                # Testlauf fertig: sofort stoppen, damit kein weiterer Drop vorbereitet wird.
+                if self.scheduler is not None:
+                    self.scheduler.stop()
+                asyncio.get_running_loop().create_task(self.stop(f"Testlauf fertig ({self.run_drops} Drops)"))
         elif kind == "rotated":
             self.log(f"Block #{b} abgeschlossen – {data['dropped']} Kandidaten verworfen")
         elif kind == "skipped":
@@ -402,11 +468,12 @@ class Controller:
             self.preview = None
         self.participants, self.consented = {}, set()
         self.log(f"■ Gestoppt: {reason} ({dropped} Kandidaten gelöscht)")
-        if was != Phase.IDLE and self.bot is not None and self.target_channel_id and (
-                not self.settings.test_mode or isinstance(self.poster, DiscordPoster)):
+        if was != Phase.IDLE and self.bot is not None and self.target_channel_id and isinstance(self.poster, DiscordPoster):
             await self.bot.say(self.target_channel_id, f"⛔ **Aufnahme beendet** ({reason}). Es werden keine weiteren Memes gepostet.")
         self.scheduler = None
         self.consent_message = None
+        self.poster = None
+        self.test_run = TestRun() if self.settings.test_mode else None
 
     async def shutdown(self) -> None:
         if self.phase != Phase.IDLE:
@@ -416,7 +483,7 @@ class Controller:
     # ------------------------------------------------------------ capture
     def _make_source(self):
         s = self.settings
-        if s.test_mode:
+        if self.use_sample:
             if s.sample_path and Path(s.sample_path).exists():
                 return FileSource(s.sample_path, s.capture_fps)
             return SampleCallSource(self.sample_clock)
@@ -454,7 +521,7 @@ class Controller:
         self._start_audio()
 
     def _start_audio(self) -> None:
-        if self.settings.test_mode:
+        if self.use_sample:
             self._audio_rec = SampleAudio(self.audio, sample_audio_levels(self.sample_clock))
         elif self.settings.audio_enabled:
             self._audio_rec = LoopbackRecorder(self.audio, self.settings.audio_device, self.mic_enabled, on_error=self.log)

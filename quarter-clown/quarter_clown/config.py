@@ -21,6 +21,7 @@ ASSETS = Path(__file__).resolve().parent / "assets"
 # Fester Takt. Normalbetrieb: 15 Minuten. Testmodus: 30 Sekunden.
 NORMAL_INTERVAL_S = 15 * 60
 TEST_INTERVAL_S = 30
+TEST_INTERVALS = (10, 30, 60)   # erlaubte Takte für /quarter testmodus
 
 # Discord-Berechtigungen für den Invite-Link:
 # View Channel (1024) + Send Messages (2048) + Embed Links (16384)
@@ -69,7 +70,15 @@ class Timing:
 
     @classmethod
     def test(cls) -> "Timing":
-        return cls(interval=TEST_INTERVAL_S, lead=9.0, margin=1.0, ai_timeout=5.0, post_grace=8.0)
+        return cls.for_interval(TEST_INTERVAL_S)
+
+    @classmethod
+    def for_interval(cls, interval: float) -> "Timing":
+        """Verkürzter Takt für Testläufe (10 s, 30 s, 1 min …)."""
+        lead = max(6.0, min(120.0, interval * 0.3))
+        margin = 4.0 if interval >= 300 else (0.5 if interval <= 15 else 1.0)
+        return cls(interval=float(interval), lead=lead, margin=margin,
+                   ai_timeout=min(30.0, lead - margin - 1.0), post_grace=min(60.0, interval * 0.25))
 
 
 @dataclass
