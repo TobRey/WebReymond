@@ -1,0 +1,15 @@
+# Zentraler Quarter-Clown-Server: Discord-Bot + Relay zu den Windows-Apps + Startseite.
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 QC_SERVER_DATA=/data PORT=8080
+WORKDIR /app
+COPY requirements-server.txt .
+RUN pip install --no-cache-dir -r requirements-server.txt
+COPY quarter_clown/__init__.py quarter_clown/bot.py quarter_clown/config.py quarter_clown/state.py quarter_clown/link.py quarter_clown/
+COPY quarter_clown/server quarter_clown/server
+COPY quarter_clown/assets/logo.svg quarter_clown/assets/logo.svg
+RUN useradd -r -u 10001 qc && mkdir -p /data && chown qc /data
+USER qc
+VOLUME /data
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s CMD python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8080/health')"
+CMD ["python", "-m", "quarter_clown.server"]

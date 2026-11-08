@@ -5,3 +5,7 @@ __pycache__/
 data/
 output/
 .env
+quarter_clown/_build.py
+build/
+dist/
+server-data/

@@ -6,7 +6,9 @@ es gibt bewusst keine Umgebungsvariable, die ihn verändert.
 """
 from __future__ import annotations
 
+import json
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -15,8 +17,33 @@ try:
 except ImportError:  # pragma: no cover - dotenv ist in requirements.txt
     load_dotenv = None
 
+FROZEN = bool(getattr(sys, "frozen", False))      # als Setup.exe installiert (PyInstaller)
 APP_ROOT = Path(__file__).resolve().parent.parent
 ASSETS = Path(__file__).resolve().parent / "assets"
+APP_NAME = "Quarter Clown"
+
+
+def user_dir() -> Path:
+    """Wo Einstellungen, Zustand, Testausgaben und eigene Sticker liegen."""
+    if FROZEN or os.getenv("QC_USER_DIR"):
+        base = Path(os.getenv("QC_USER_DIR") or Path(os.getenv("LOCALAPPDATA") or Path.home() / "AppData" / "Local") / "QuarterClown")
+    else:
+        base = APP_ROOT
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def _build_server_url() -> str:
+    try:  # wird beim Release-Build von GitHub Actions erzeugt
+        from ._build import SERVER_URL  # type: ignore
+
+        return SERVER_URL
+    except Exception:
+        return ""
+
+
+def default_server_url() -> str:
+    return (os.getenv("QC_SERVER_URL") or _build_server_url()).strip().rstrip("/")
 
 # Fester Takt. Normalbetrieb: 15 Minuten. Testmodus: 30 Sekunden.
 NORMAL_INTERVAL_S = 15 * 60
@@ -111,9 +138,40 @@ class Settings:
     test_channel_id: int | None = None
     sample_path: str = ""            # Video/Bilderordner für den Testmodus, leer = synthetisch
 
-    data_dir: Path = field(default_factory=lambda: APP_ROOT / "data")
-    output_dir: Path = field(default_factory=lambda: APP_ROOT / "output")
+    data_dir: Path = field(default_factory=lambda: user_dir() / "data")
+    output_dir: Path = field(default_factory=lambda: user_dir() / "output")
     save_posted: bool = False
+
+    # Verbindung zum zentralen Quarter-Clown-Server (Standard für Kunden)
+    server_url: str = ""
+    link_token: str = ""
+    linked_guild: str = ""
+
+    @property
+    def hosted(self) -> bool:
+        """Gehosteter Modus: kein eigener Bot-Token, sondern Verbindung zum Quarter-Clown-Server."""
+        return not self.discord_token
+
+    @property
+    def settings_file(self) -> Path:
+        return self.data_dir / "settings.json"
+
+    def save_user(self) -> None:
+        """Speichert die in der App gemachten Einstellungen (Kopplung, API-Key) lokal."""
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        data = {"link_token": self.link_token, "linked_guild": self.linked_guild,
+                "anthropic_api_key": self._user_api_key, "server_url": self._user_server_url}
+        tmp = self.settings_file.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        os.replace(tmp, self.settings_file)
+
+    def set_api_key(self, key: str) -> None:
+        self._user_api_key = key.strip()
+        self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "").strip() or self._user_api_key
+        self.save_user()
+
+    _user_api_key: str = ""
+    _user_server_url: str = ""
 
     @property
     def timing(self) -> Timing:
@@ -127,6 +185,7 @@ class Settings:
 def load_settings(test_mode: bool = False, env_file: Path | None = None) -> Settings:
     if load_dotenv is not None:
         load_dotenv(env_file or APP_ROOT / ".env", override=False)
+        load_dotenv(user_dir() / ".env", override=False)
     s = Settings(
         discord_token=os.getenv("DISCORD_BOT_TOKEN", "").strip(),
         discord_guild_id=_int("DISCORD_GUILD_ID"),
@@ -158,6 +217,18 @@ def load_settings(test_mode: bool = False, env_file: Path | None = None) -> Sett
     if s.caption_mode not in {"auto", "claude", "local"}:
         s.caption_mode = "auto"
     s.data_dir.mkdir(parents=True, exist_ok=True)
+    user: dict = {}
+    if s.settings_file.exists():
+        try:
+            user = json.loads(s.settings_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            user = {}
+    s._user_api_key = str(user.get("anthropic_api_key", ""))
+    s._user_server_url = str(user.get("server_url", ""))
+    s.anthropic_api_key = s.anthropic_api_key or s._user_api_key
+    s.link_token = str(user.get("link_token", ""))
+    s.linked_guild = str(user.get("linked_guild", ""))
+    s.server_url = (os.getenv("QC_SERVER_URL") or s._user_server_url or default_server_url()).strip().rstrip("/")
     return s
 
 

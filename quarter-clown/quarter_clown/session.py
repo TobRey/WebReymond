@@ -86,7 +86,8 @@ class Controller:
         # Zustimmung
         self.participants: dict[int, str] = {}
         self.consented: set[int] = set()
-        self.consent_message = None
+        self.consent_message: int | None = None
+        self.consent_title = ""
 
         # Aufnahme
         self.recording = threading.Event()
@@ -109,6 +110,74 @@ class Controller:
         self._capture_thread = threading.Thread(target=self._capture_loop, name="qc-capture", daemon=True)
         self._capture_thread.start()
         self.log("Quarter Clown bereit" + (" – TESTMODUS (30-s-Takt, Beispielmaterial)" if settings.test_mode else ""))
+
+    # ------------------------------------------------------------- discord
+    def attach_bot(self) -> None:
+        """Bot-Verbindung herstellen (im asyncio-Loop aufrufen)."""
+        s = self.settings
+        loop = asyncio.get_running_loop()
+        self.loop = loop
+        if s.discord_token:   # eigener Bot (Entwickler / Selbsthoster)
+            from .bot import LocalBackend, LocalBotLink, QuarterClownBot
+
+            link = LocalBotLink(QuarterClownBot(LocalBackend(self, s.admin_role), s.discord_guild_id), self)
+            self.bot = link
+
+            async def run() -> None:
+                try:
+                    await link.run(s.discord_token)
+                except Exception as exc:  # falscher Token, kein Netz …
+                    self.log(f"Discord-Bot konnte nicht starten: {exc}")
+
+            loop.create_task(run())
+        elif s.server_url:    # gehostet: zentraler Quarter-Clown-Server
+            from .remote import RemoteBotLink
+
+            self.bot = RemoteBotLink(self, s)
+            if s.link_token:
+                self.bot.start()
+            else:
+                self.log("App ist noch nicht mit Discord gekoppelt – Code aus /quarter setup eingeben")
+        else:
+            self.log("Kein Server und kein Bot-Token konfiguriert – Bot offline"
+                     + (" (Testmodus postet lokal)" if s.test_mode else ""))
+
+    @property
+    def needs_pairing(self) -> bool:
+        return self.settings.hosted and not self.settings.link_token
+
+    async def pair(self, code: str) -> str:
+        """Koppelt die App mit dem Discord-Server (Code aus /quarter setup)."""
+        from .remote import RemoteBotLink, pair
+
+        data = await pair(self.settings.server_url, code)
+        self.settings.link_token = data["token"]
+        self.settings.linked_guild = data.get("guild_name", "")
+        self.settings.save_user()
+        if self.bot is not None and hasattr(self.bot, "close"):
+            await self.bot.close()
+        self.bot = RemoteBotLink(self, self.settings)
+        self.bot.start()
+        self.log(f"✅ Gekoppelt mit {self.settings.linked_guild}")
+        return self.settings.linked_guild
+
+    async def unpair(self) -> None:
+        if self.session_active:
+            await self.stop("Kopplung aufgehoben")
+        if self.bot is not None and hasattr(self.bot, "close"):
+            await self.bot.close()
+        self.settings.link_token = ""
+        self.settings.linked_guild = ""
+        self.settings.save_user()
+        from .remote import RemoteBotLink
+
+        self.bot = RemoteBotLink(self, self.settings)
+
+    def set_api_key(self, key: str) -> None:
+        self.settings.set_api_key(key)
+        self.captions = self._make_captions()
+        self.producer.captions = self.captions
+        self.log("Claude-API-Key gespeichert" if key.strip() else "Claude-API-Key entfernt – lokale Vorlagen")
 
     # ---------------------------------------------------------------- misc
     def _make_captions(self) -> CaptionService:
@@ -221,6 +290,7 @@ class Controller:
                            + (f" · {self.run_drops}/{self.test_run.max_drops} Drops" if self.test_run.max_drops else "")
                            ) if self.test_run else "",
             "bot_ready": bool(self.bot is not None and self.bot.is_ready()),
+            "bot_label": getattr(self.bot, "label", "") if self.bot is not None else "",
             "invite": getattr(self.bot, "invite", "") if self.bot is not None else "",
             "ai": "Claude (" + self.settings.anthropic_model + ")" if self.captions.ai_enabled else "Lokale Vorlagen",
             "ai_error": self.captions.last_error,
@@ -293,30 +363,48 @@ class Controller:
         elif self.phase == Phase.PAUSED and self._all_consented():
             self._resume()
             if self.bot:
-                await self.bot.say(self.target_channel_id, "▶️ Alle haben zugestimmt – Aufnahme läuft weiter.")
+                await self._say( "▶️ Alle haben zugestimmt – Aufnahme läuft weiter.")
         elif self.phase == Phase.RUNNING and not self.participants:
             self._pause("niemand mehr im Voice-Channel")
 
     async def _post_consent(self, title: str, note: str = "", mention: int | None = None) -> None:
         if self.bot is None:
             return
-        from .bot import ConsentView
-
-        embed = self.bot.consent_embed(title, self.participants, self.consented, note)
         text = f"<@{mention}>" if mention else " ".join(f"<@{p}>" for p in self.participants if p not in self.consented)
-        self.consent_message = await self.bot.say(self.target_channel_id, text, embed=embed, view=ConsentView(self.bot))
+        try:
+            self.consent_message = await self.bot.post_consent(self.target_channel_id, title, dict(self.participants),
+                                                               set(self.consented), note, text)
+            self.consent_title = title
+        except Exception as exc:
+            self.log(f"Zustimmungsanfrage fehlgeschlagen: {exc}")
 
     async def _update_consent_message(self) -> None:
         if self.bot is None or self.consent_message is None:
             return
         try:
-            embed = self.consent_message.embeds[0] if self.consent_message.embeds else None
-            title = embed.title if embed else "Quarter Clown"
-            new = self.bot.consent_embed(title, self.participants, self.consented,
-                                         "Alle haben zugestimmt – Aufnahme läuft." if self._all_consented() else "")
-            await self.consent_message.edit(embed=new)
+            await self.bot.update_consent(self.target_channel_id, self.consent_message, self.consent_title,
+                                          dict(self.participants), set(self.consented),
+                                          "Alle haben zugestimmt – Aufnahme läuft." if self._all_consented() else "")
         except Exception as exc:
             self.log(f"Zustimmungsnachricht nicht aktualisierbar: {exc}")
+
+    async def _say(self, text: str) -> None:
+        if self.bot is None:
+            return
+        try:
+            await self.bot.say(self.target_channel_id, text)
+        except Exception as exc:
+            self.log(f"Discord-Nachricht fehlgeschlagen: {exc}")
+
+    def apply_guild_config(self, cfg) -> None:
+        """Neue Server-Einstellungen aus /quarter setup übernehmen."""
+        g = self.store.guild
+        for key in ("guild_id", "guild_name", "voice_channel_id", "voice_channel_name", "text_channel_id",
+                    "text_channel_name", "test_channel_id", "test_channel_name"):
+            setattr(g, key, getattr(cfg, key))
+        self.store.save()
+        self.log(f"Setup: Voice {g.voice_channel_name}, Memes in #{g.text_channel_name}"
+                 + (f", Test in #{g.test_channel_name}" if g.test_channel_name else ""))
 
     # ------------------------------------------------------------ actions
     async def request_test(self, interval: int = 60, sample: bool = True, max_drops: int | None = 5,
@@ -347,7 +435,9 @@ class Controller:
             return (f"🧪 Testlauf gestartet: alle {t.interval} s ein Meme"
                     + (f", {t.max_drops} Stück" if t.max_drops else "") + f" → {self.target_label()}")
         if self.bot is None or not self.bot.is_ready():
-            return "Discord-Bot ist nicht verbunden. Prüfe DISCORD_BOT_TOKEN in .env."
+            if self.needs_pairing:
+                return "Die App ist noch nicht mit Discord gekoppelt (⚙ Einstellungen → Neu koppeln)."
+            return "Keine Verbindung zu Discord – bitte kurz warten oder Internet prüfen."
         g = self.store.guild
         if not (g.voice_channel_id and g.text_channel_id):
             return "Bitte zuerst in Discord /quarter setup ausführen."
@@ -401,7 +491,7 @@ class Controller:
                 text = (f"🔴 **Aufnahme läuft.** Diese Session wird aufgenommen und automatisch zu Memes verarbeitet. "
                         f"Alle {every} kommt genau ein Meme. Stoppen: ⛔-Button oder `/quarter stop`."
                         + (f" *(Testlauf, {self.test_run.max_drops} Drops)*" if self.is_test and self.test_run.max_drops else ""))
-            await self.bot.say(self.target_channel_id, text)
+            await self._say( text)
 
     def _start_scheduler(self, session_id: str, t0: float) -> None:
         if self.poster is None:
@@ -469,9 +559,10 @@ class Controller:
         self.participants, self.consented = {}, set()
         self.log(f"■ Gestoppt: {reason} ({dropped} Kandidaten gelöscht)")
         if was != Phase.IDLE and self.bot is not None and self.target_channel_id and isinstance(self.poster, DiscordPoster):
-            await self.bot.say(self.target_channel_id, f"⛔ **Aufnahme beendet** ({reason}). Es werden keine weiteren Memes gepostet.")
+            await self._say( f"⛔ **Aufnahme beendet** ({reason}). Es werden keine weiteren Memes gepostet.")
         self.scheduler = None
-        self.consent_message = None
+        self.consent_message: int | None = None
+        self.consent_title = ""
         self.poster = None
         self.test_run = TestRun() if self.settings.test_mode else None
 

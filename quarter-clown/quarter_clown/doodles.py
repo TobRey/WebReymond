@@ -13,10 +13,10 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-from .config import APP_ROOT
+from .config import user_dir
 
 DOODLES = ("scream", "stare", "cry", "smug", "shock")
-STICKER_DIR = APP_ROOT / "stickers"
+STICKER_DIR = user_dir() / "stickers"
 INK = (12, 12, 12)
 TEAR = (60, 140, 255)
 

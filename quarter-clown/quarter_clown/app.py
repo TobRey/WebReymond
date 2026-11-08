@@ -30,29 +30,19 @@ FONT = "Segoe UI" if IS_WINDOWS else "DejaVu Sans"
 
 
 def start_backend(controller: Controller, settings: Settings) -> threading.Thread:
-    """asyncio-Loop (Bot + Takt) in eigenem Thread starten."""
+    """asyncio-Loop (Bot-Verbindung + Takt) in eigenem Thread starten."""
     ready = threading.Event()
 
     def runner() -> None:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         controller.loop = loop
-        if settings.discord_token:
-            from .bot import QuarterClownBot
 
-            bot = QuarterClownBot(controller, settings, controller.store)
-            controller.bot = bot
+        async def boot() -> None:
+            controller.attach_bot()
+            ready.set()
 
-            async def run_bot() -> None:
-                try:
-                    await bot.start(settings.discord_token)
-                except Exception as exc:  # falscher Token, kein Netz …
-                    controller.log(f"Discord-Bot konnte nicht starten: {exc}")
-
-            loop.create_task(run_bot())
-        else:
-            controller.log("Kein DISCORD_BOT_TOKEN – Bot offline" + (" (Testmodus postet lokal)" if settings.test_mode else ""))
-        ready.set()
+        loop.create_task(boot())
         loop.run_forever()
 
     th = threading.Thread(target=runner, name="qc-async", daemon=True)
@@ -90,6 +80,8 @@ class App:
         self.refresh_windows()
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         self.root.after(200, self.tick)
+        if self.ctl.needs_pairing and not settings.test_mode:
+            self.root.after(400, self.open_wizard)
 
     # ------------------------------------------------------------------ ui
     def _style(self) -> None:
@@ -139,6 +131,7 @@ class App:
         if self.settings.test_mode:
             self.test_badge.configure(text="  TESTMODUS · 30-s-Takt · Beispielmaterial  ")
             self.test_badge.pack(side="right")
+        self._small_button(head, "⚙ Einstellungen", self.open_settings).pack(side="right")
         self.bot_label = self._label(head, "Bot: verbinde …", 10, MUTED)
         self.bot_label.pack(side="right", padx=14)
 
@@ -329,10 +322,146 @@ class App:
 
     def open_invite(self) -> None:
         url = self.ctl.status().get("invite")
+        if not url and self.settings.server_url:
+            url = self._server_info().get("invite_url") or self.settings.server_url
         if url:
             webbrowser.open(url)
         else:
-            messagebox.showinfo("Quarter Clown", "Der Bot ist noch nicht verbunden. Prüfe DISCORD_BOT_TOKEN in .env.")
+            messagebox.showinfo("Quarter Clown", "Kein Invite-Link verfügbar – der Server ist nicht erreichbar.")
+
+    def _server_info(self) -> dict:
+        from .remote import fetch_info
+
+        fut = self.ctl.submit(fetch_info(self.settings.server_url))
+        try:
+            return fut.result(timeout=8) if fut else {}
+        except Exception:
+            return {}
+
+    # ------------------------------------------------------- Assistent
+    def open_wizard(self) -> None:
+        """Erster Start: Bot einladen, /quarter setup, Code eingeben – fertig."""
+        if getattr(self, "_wizard", None) is not None and self._wizard.winfo_exists():
+            self._wizard.lift()
+            return
+        w = tk.Toplevel(self.root, bg=BG, padx=28, pady=24)
+        self._wizard = w
+        w.title("Quarter Clown einrichten")
+        w.transient(self.root)
+        w.resizable(False, False)
+        try:
+            self._wiz_logo = ImageTk.PhotoImage(Image.open(ASSETS / "logo.png").resize((84, 84), Image.LANCZOS))
+            tk.Label(w, image=self._wiz_logo, bg=BG).grid(row=0, column=0, rowspan=2, sticky="n", padx=(0, 16))
+        except Exception:
+            pass
+        tk.Label(w, text="Willkommen bei Quarter Clown!", bg=BG, fg=LIME, font=(FONT, 18, "bold")).grid(row=0, column=1, sticky="w")
+        tk.Label(w, text="In drei Schritten bist du startklar.", bg=BG, fg=MUTED, font=(FONT, 11)).grid(row=1, column=1, sticky="w")
+
+        def step(row, num, title, text):
+            f = tk.Frame(w, bg=CARD, padx=16, pady=12)
+            f.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(14, 0))
+            tk.Label(f, text=num, bg=PURPLE, fg="white", font=(FONT, 13, "bold"), width=2).pack(side="left", anchor="n")
+            body = tk.Frame(f, bg=CARD, padx=12)
+            body.pack(side="left", fill="x", expand=True)
+            tk.Label(body, text=title, bg=CARD, fg=TEXT, font=(FONT, 12, "bold")).pack(anchor="w")
+            tk.Label(body, text=text, bg=CARD, fg=MUTED, font=(FONT, 10), justify="left", wraplength=430).pack(anchor="w", pady=(2, 6))
+            return body
+
+        b1 = step(2, "1", "Bot zu deinem Discord-Server hinzufügen",
+                  "Öffnet Discord im Browser: Server auswählen und „Autorisieren“ klicken.")
+        tk.Button(b1, text="Bot einladen", command=self.open_invite, bg=LIME, fg=BG, bd=0, padx=14, pady=6,
+                  font=(FONT, 10, "bold"), cursor="hand2").pack(anchor="w")
+        step(3, "2", "In Discord einrichten",
+             "Tippe in einem Textkanal  /quarter setup  und wähle Voice-Channel und Meme-Kanal. "
+             "Der Bot zeigt dir einen Code wie  ABCD-1234.")
+        b3 = step(4, "3", "Code hier eingeben", "Danach verbindet sich die App bei jedem Start automatisch.")
+        row = tk.Frame(b3, bg=CARD)
+        row.pack(anchor="w")
+        code = tk.StringVar()
+        entry = tk.Entry(row, textvariable=code, font=("Consolas" if IS_WINDOWS else "DejaVu Sans Mono", 16), width=11,
+                         bg=CARD2, fg=LIME, insertbackground=LIME, bd=0, justify="center")
+        entry.pack(side="left", ipady=6)
+        status = tk.Label(b3, text="", bg=CARD, fg="#FFB547", font=(FONT, 10), wraplength=430, justify="left")
+
+        def done(fut) -> None:
+            try:
+                guild = fut.result()
+            except Exception as exc:
+                status.configure(text=str(exc), fg="#FFB547")
+                btn.configure(state="normal")
+                return
+            status.configure(text=f"✅ Verbunden mit {guild}!", fg=LIME)
+            w.after(1200, w.destroy)
+            w.after(1300, lambda: messagebox.showinfo(
+                "Quarter Clown", f"Fertig! Verbunden mit {guild}.\n\nZum Ausprobieren in Discord:\n"
+                "/quarter testmodus takt:10 Sekunden\n\nFür echte Calls: Discord-Fenster wählen und ▶ START."))
+
+        def connect() -> None:
+            if len(code.get().replace("-", "").strip()) < 8:
+                status.configure(text="Der Code hat 8 Zeichen, z. B. ABCD-1234.")
+                return
+            btn.configure(state="disabled")
+            status.configure(text="Verbinde …", fg=MUTED)
+            fut = self.ctl.submit(self.ctl.pair(code.get()))
+            if fut is not None:
+                fut.add_done_callback(lambda f: self.root.after(0, done, f))
+
+        btn = tk.Button(row, text="Verbinden", command=connect, bg=PURPLE, fg="white", bd=0, padx=14, pady=8,
+                        font=(FONT, 10, "bold"), cursor="hand2")
+        btn.pack(side="left", padx=(10, 0))
+        status.pack(anchor="w", pady=(8, 0))
+        entry.bind("<Return>", lambda _e: connect())
+        if not self.settings.server_url:
+            status.configure(text="Diese Version kennt keinen Quarter-Clown-Server (QC_SERVER_URL fehlt).")
+        tk.Button(w, text="Später", command=w.destroy, bg=BG, fg=MUTED, bd=0, font=(FONT, 9), cursor="hand2"
+                  ).grid(row=5, column=1, sticky="e", pady=(14, 0))
+        entry.focus_set()
+
+    # --------------------------------------------------- Einstellungen
+    def open_settings(self) -> None:
+        w = tk.Toplevel(self.root, bg=BG, padx=24, pady=20)
+        w.title("Quarter Clown – Einstellungen")
+        w.transient(self.root)
+        w.resizable(False, False)
+        tk.Label(w, text="Einstellungen", bg=BG, fg=LIME, font=(FONT, 16, "bold")).grid(row=0, column=0, columnspan=2, sticky="w")
+        r = 1
+        if self.settings.hosted:
+            linked = self.settings.linked_guild or "nicht gekoppelt"
+            tk.Label(w, text=f"Discord-Server: {linked}", bg=BG, fg=TEXT, font=(FONT, 10)).grid(row=r, column=0, sticky="w", pady=(12, 0))
+            tk.Button(w, text="Neu koppeln", command=lambda: (w.destroy(), self.open_wizard()), bg=CARD2, fg=TEXT, bd=0,
+                      padx=10, pady=4, cursor="hand2").grid(row=r, column=1, sticky="e", pady=(12, 0))
+            r += 1
+        tk.Label(w, text="Claude-API-Key (optional – sonst lokale Brainrot-Vorlagen)", bg=BG, fg=MUTED,
+                 font=(FONT, 10)).grid(row=r, column=0, columnspan=2, sticky="w", pady=(16, 2))
+        r += 1
+        key = tk.StringVar(value=self.settings._user_api_key)
+        tk.Entry(w, textvariable=key, show="•", width=48, bg=CARD2, fg=TEXT, insertbackground=TEXT, bd=0
+                 ).grid(row=r, column=0, sticky="w", ipady=5)
+        tk.Button(w, text="Speichern", command=lambda: (self.ctl.set_api_key(key.get()), messagebox.showinfo(
+            "Quarter Clown", "Gespeichert.", parent=w)), bg=PURPLE, fg="white", bd=0, padx=10, pady=4,
+            cursor="hand2").grid(row=r, column=1, sticky="e", padx=(8, 0))
+        r += 1
+        tk.Label(w, text="Key gibt es auf console.anthropic.com – er bleibt nur auf diesem PC.", bg=BG, fg=MUTED,
+                 font=(FONT, 9)).grid(row=r, column=0, columnspan=2, sticky="w")
+        r += 1
+        tk.Label(w, text="Eigene Reaktionsbilder für Vergleichs-Memes", bg=BG, fg=MUTED, font=(FONT, 10)
+                 ).grid(row=r, column=0, sticky="w", pady=(16, 0))
+        tk.Button(w, text="Sticker-Ordner öffnen", command=self.open_stickers, bg=CARD2, fg=TEXT, bd=0, padx=10, pady=4,
+                  cursor="hand2").grid(row=r, column=1, sticky="e", pady=(16, 0))
+
+    def open_stickers(self) -> None:
+        import os
+        import subprocess
+        import sys
+
+        from .doodles import STICKER_DIR
+
+        for sub in ("scream", "stare", "cry", "smug", "shock"):
+            (STICKER_DIR / sub).mkdir(parents=True, exist_ok=True)
+        if sys.platform.startswith("win"):
+            os.startfile(str(STICKER_DIR))  # type: ignore[attr-defined]
+        else:
+            subprocess.Popen(["xdg-open", str(STICKER_DIR)])
 
     def on_close(self) -> None:
         if self.ctl.session_active and not messagebox.askyesno("Quarter Clown", "Session läuft. Stoppen und beenden?"):
@@ -377,8 +506,8 @@ class App:
             ai += f" · letzter Fallback: {st['ai_error']}"
         self.ai_label.configure(text=ai[:110])
         self.consent_label.configure(text="\n".join(f"{'✅' if p['ok'] else '⏳'} {p['name']}" for p in st["participants"]))
-        bot = "Bot: online" if st["bot_ready"] else ("Bot: offline" if not self.settings.discord_token else "Bot: verbinde …")
-        self.bot_label.configure(text=bot, fg=LIME if st["bot_ready"] else MUTED)
+        bot = st.get("bot_label") or ("Bot: online" if st["bot_ready"] else "Bot: offline")
+        self.bot_label.configure(text=bot[:60], fg=LIME if st["bot_ready"] else MUTED)
         self.capture_note.configure(text=st["capture_note"])
         if not self.settings.test_mode:
             if st["test_label"]:

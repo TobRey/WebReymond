@@ -1,0 +1,4 @@
+{$QC_DOMAIN} {
+	encode gzip
+	reverse_proxy quarterclown:8080
+}

@@ -1,0 +1,33 @@
+# Quarter-Clown-Server mit automatischem HTTPS (Caddy + Let's Encrypt).
+# Start:  cd deploy && cp .env.example .env && nano .env && docker compose up -d --build
+services:
+  quarterclown:
+    build:
+      context: ..
+      dockerfile: Dockerfile.server
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - qc-data:/data
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      QC_DOMAIN: ${QC_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - quarterclown
+
+volumes:
+  qc-data:
+  caddy-data:
+  caddy-config:

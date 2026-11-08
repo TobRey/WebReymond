@@ -8,13 +8,13 @@ from quarter_clown.session import Controller, Phase
 
 
 def test_slash_commands_and_buttons(tmp_path):
-    from quarter_clown.bot import ConsentView, QuarterClownBot
+    from quarter_clown.bot import ConsentView, LocalBackend, QuarterClownBot
 
     async def run():
         s = load_settings()
         s.data_dir = tmp_path
         ctl = Controller(s)
-        bot = QuarterClownBot(ctl, s, ctl.store)
+        bot = QuarterClownBot(LocalBackend(ctl))
         group = bot.tree.get_command("quarter")
         names = sorted(c.name for c in group.commands)
         view = ConsentView(bot)
@@ -23,7 +23,7 @@ def test_slash_commands_and_buttons(tmp_path):
         return names, ids
 
     names, ids = asyncio.run(run())
-    assert names == ["setup", "status", "stop", "testmodus"]
+    assert names == ["setup", "status", "stop", "testmodus", "verbinden"]
     assert ids == ["qc:consent", "qc:decline", "qc:stop"]
 
 
@@ -38,10 +38,14 @@ class FakeBot:
     def voice_members(self):
         return dict(self.members)
 
-    def consent_embed(self, *a, **kw):
+    async def post_consent(self, channel_id, title, participants, consented, note="", mention=""):
+        self.said.append(title)
+        return 1
+
+    async def update_consent(self, *a, **kw):
         return None
 
-    async def say(self, channel_id, text="", embed=None, view=None):
+    async def say(self, channel_id, text):
         self.said.append(text)
         return None
 
@@ -87,13 +91,13 @@ def test_consent_pause_and_stop(tmp_path):
 
 
 def test_testmodus_command_registered(tmp_path):
-    from quarter_clown.bot import QuarterClownBot
+    from quarter_clown.bot import LocalBackend, QuarterClownBot
 
     async def run():
         s = load_settings()
         s.data_dir = tmp_path
         ctl = Controller(s)
-        bot = QuarterClownBot(ctl, s, ctl.store)
+        bot = QuarterClownBot(LocalBackend(ctl))
         cmd = next(c for c in bot.tree.get_command("quarter").commands if c.name == "testmodus")
         params = {p.name: p for p in cmd.parameters}
         await ctl.shutdown()

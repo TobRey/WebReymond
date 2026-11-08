@@ -5,43 +5,37 @@
 Du bist mit Freunden in einem Discord-Videocall – und **alle 15 Minuten erscheint genau ein Meme**
 aus eurem Call im gewählten Textkanal. Erstes Meme bei 15:00, zweites bei 30:00, drittes bei 45:00 …
 
-- **Discord-Bot** (offiziell, Bot-Token, Slash-Commands): Setup, Zustimmung, Status, Posting
-- **Windows-App** (Python, läuft lokal): Aufnahme des Discord-Fensters + Discord-Ton, Analyse, Meme-Rendering
-- **Claude API** für die Caption – oder **lokaler Modus** mit Vorlagen ganz ohne API-Key
+- **Discord-Bot** (offiziell, Slash-Commands): Setup, Zustimmung, Status, Posting – läuft zentral auf deinem Server
+- **Windows-App** (`QuarterClown-Setup.exe`, kein Python nötig): Aufnahme des Discord-Fensters + Discord-Ton,
+  Analyse, Meme-Rendering – alles lokal
+- **Brainrot-Captions** aus eingebauten Vorlagen, optional per **Claude API** mit eigenem Key
 
-Keine User-Tokens, keine Client-Mods: Der Bot nutzt nur die offizielle Bot-API. Video und Ton nimmt die
-Windows-App lokal von deinem Bildschirm/Audioausgang ab.
+Keine User-Tokens, keine Client-Mods: Der Bot nutzt nur die offizielle Bot-API.
 
 ---
 
-## 1. Bot in Discord anlegen und einladen
+## 1. Für Kunden: drei Klicks
 
-1. <https://discord.com/developers/applications> → **New Application** → Name „Quarter Clown“.
-   Als App-Icon kannst du `quarter_clown/assets/logo.png` hochladen.
-2. Links **Bot** → **Reset Token** → Token kopieren (kommt gleich in `.env`).
-   *Privileged Gateway Intents* braucht es **keine** (alle drei bleiben aus).
-3. Invite-Link öffnen (ersetze `DEINE_APP_ID` durch die *Application ID* von der Seite **General Information**):
+1. **Startseite öffnen** (z. B. `https://quarterclown.deinedomain.ch`) → **Bot einladen** → Server wählen → Autorisieren.
+2. **Für Windows herunterladen** → `QuarterClown-Setup.exe` doppelklicken. Windows-Warnung?
+   *Weitere Informationen → Trotzdem ausführen*. Die App startet mit einem Assistenten.
+3. In Discord `/quarter setup voice:#Voice text:#memes` → der Bot zeigt einen **Code** → in der App eingeben. Fertig.
 
-   ```
-   https://discord.com/oauth2/authorize?client_id=DEINE_APP_ID&scope=bot+applications.commands&permissions=117760
-   ```
+Ausprobieren ohne Warten: `/quarter testmodus takt:10 Sekunden`. Claude-Captions: in der App
+**⚙ Einstellungen → Claude-API-Key**. Eigene Reaktionsbilder: **⚙ Einstellungen → Sticker-Ordner öffnen**.
 
-   `117760` = Kanal ansehen, Nachrichten senden, Links einbetten, Dateien anhängen, Nachrichtenverlauf lesen.
-   Den fertigen Link zeigt dir auch die App (Button **Bot-Invite-Link öffnen**), sobald der Bot online ist.
+## 2. Für dich als Betreiber (einmalig)
 
-## 2. Windows-App einrichten und starten
+Server mit dem zentralen Bot starten, öffentliches Repo anlegen, Release bauen:
+**[deploy/BETREIBER.md](deploy/BETREIBER.md)** – Schritt für Schritt, inkl. Kosten und Sicherheit.
 
-Voraussetzung: **Windows 11** und **Python 3.11 oder neuer** von <https://www.python.org/downloads/>
-(bei der Installation „Add python.exe to PATH“ anhaken).
+<details>
+<summary>Entwickler: App aus dem Quellcode mit eigenem Bot starten</summary>
 
-1. Ordner `quarter-clown` irgendwohin kopieren.
-2. **`start.bat`** doppelklicken. Beim ersten Start werden eine virtuelle Umgebung und die Pakete
-   installiert, und `.env` wird aus `.env.example` angelegt und im Editor geöffnet.
-3. In `.env` eintragen:
-   - `DISCORD_BOT_TOKEN=` – der Token aus Schritt 1
-   - `ANTHROPIC_API_KEY=` – optional; leer = lokale Caption-Vorlagen
-   - `DISCORD_GUILD_ID=` – optional, deine Server-ID: Slash-Commands erscheinen dann sofort
-4. `start.bat` erneut starten.
+Voraussetzung: Python 3.11+. `start.bat` legt eine virtuelle Umgebung an, installiert die Pakete und öffnet `.env`.
+Mit `DISCORD_BOT_TOKEN` in `.env` läuft der Bot direkt in der App (ohne Server); ohne Token verbindet sich die App mit
+`QC_SERVER_URL`. Server lokal: `python -m quarter_clown.server` (braucht `DISCORD_BOT_TOKEN`).
+</details>
 
 ### In Discord einrichten
 
@@ -55,8 +49,9 @@ Voraussetzung: **Windows 11** und **Python 3.11 oder neuer** von <https://www.py
 | `/quarter status` | alle | Aufnahmestatus, Countdown, Zustimmungen |
 | `/quarter stop` | „Server verwalten“ oder Rolle **Quarter Clown Admin** | Aufnahme sofort beenden |
 | `/quarter testmodus` | „Server verwalten“ oder Rolle **Quarter Clown Admin** | Testlauf im Schnelltakt (10 s / 30 s / 1 min), siehe unten |
+| `/quarter verbinden` | „Server verwalten“ oder Rolle **Quarter Clown Admin** | neuen Code zum Koppeln der App (z. B. neuer PC) |
 
-Den Rollennamen kannst du mit `QC_ADMIN_ROLE` ändern. Zusätzlich lässt sich in Discord unter
+Zusätzlich lässt sich in Discord unter
 *Servereinstellungen → Integrationen → Quarter Clown* einschränken, wer die Commands überhaupt sieht.
 
 ### Session starten
@@ -190,7 +185,10 @@ Zustimmung/Pause bei neuen Leuten, Slash-Commands und Buttons.
   Im Speicher liegen nur ein paar Sekunden Verlauf und die 5 besten Kandidaten des laufenden Blocks;
   nach jedem Block und beim Stopp werden sie gelöscht.
 - Gepostete Memes werden nur lokal gespeichert, wenn du `QC_SAVE_POSTED=1` setzt (Testmodus: `output/test/`).
-- Bot-Token und API-Key stehen nur in deiner lokalen `.env`. `.env.example` enthält keine Secrets.
+- Der zentrale Server reicht nur das fertige Meme an Discord weiter und speichert keine Bilder oder Töne.
+  Er kennt nur Server-/Kanal-IDs und einen gehashten App-Schlüssel.
+- Der Bot-Token liegt nur auf dem Server. Ein eigener Claude-API-Key bleibt lokal auf dem PC
+  (`%LOCALAPPDATA%\QuarterClown\data\settings.json`). `.env.example` enthält keine Secrets.
 
 ## 8. Ton, OBS und Tipps
 
@@ -207,11 +205,16 @@ Zustimmung/Pause bei neuen Leuten, Slash-Commands und Buttons.
 
 ```
 quarter-clown/
-├─ start.bat / start-test.bat     Windows-Startskripte
-├─ .env.example                   Konfigurationsvorlage ohne Secrets
+├─ start.bat / start-test.bat     Start aus dem Quellcode (Entwickler)
+├─ .env.example                   Konfigurationsvorlage ohne Secrets (Entwickler)
+├─ packaging/                     PyInstaller + Inno Setup → QuarterClown-Setup.exe
+├─ .github/workflows/             Tests + Release-Build (im öffentlichen Repo)
+├─ Dockerfile.server, deploy/     zentraler Server (Bot + Relay + Startseite), Betreiber-Anleitung
 ├─ quarter_clown/
 │  ├─ app.py                      Windows-App (tkinter): Vorschau, Countdown, Start/Stop
 │  ├─ bot.py                      Discord-Bot, /quarter-Commands, Zustimmungs-Buttons
+│  ├─ server/                     zentraler Server: Kopplung, Relay, Limits, Startseite
+│  ├─ remote.py / link.py         Verbindung App ↔ Server (WebSocket-RPC)
 │  ├─ session.py                  Ablaufsteuerung: Zustimmung, Pause, Aufnahme, Stopp
 │  ├─ scheduler.py                exakter Block-Takt, Doppelpost-Schutz
 │  ├─ analysis.py / audio.py      Signale, Kachel-Erkennung, Kandidatenpool

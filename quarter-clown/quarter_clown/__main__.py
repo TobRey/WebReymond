@@ -10,6 +10,16 @@ import time
 from .config import load_settings
 
 
+def _out(msg: str) -> None:
+    """print(), das auch in der fensterlosen Windows-App (ohne Konsole) nicht abstürzt."""
+    logging.getLogger("quarter_clown").info(msg)
+    if sys.stdout is not None:
+        try:
+            print(msg)
+        except Exception:
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="quarter_clown", description="Quarter Clown – alle 15 Minuten ein Meme")
     ap.add_argument("--test", action="store_true", help="Testmodus: Beispielmaterial, 30-Sekunden-Takt")
@@ -19,7 +29,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args(argv)
 
-    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
+    handlers: list[logging.Handler] = [logging.StreamHandler()] if sys.stderr is not None else []
+    from .config import FROZEN, user_dir
+
+    if FROZEN:  # installierte App ohne Konsole: Protokoll in Datei
+        from logging.handlers import RotatingFileHandler
+
+        (user_dir() / "logs").mkdir(parents=True, exist_ok=True)
+        handlers = [RotatingFileHandler(user_dir() / "logs" / "quarter-clown.log", maxBytes=1_000_000,
+                                        backupCount=2, encoding="utf-8")]
+    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, handlers=handlers,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logging.getLogger("discord").setLevel(logging.WARNING)
     settings = load_settings(test_mode=args.test)
@@ -28,14 +47,14 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.headless:
         if not args.test:
-            print("Headless ist nur im Testmodus erlaubt (Zustimmung läuft über die App/Discord).")
+            _out("Headless ist nur im Testmodus erlaubt (Zustimmung läuft über die App/Discord).")
             return 2
         return asyncio.run(_headless(settings, args.blocks))
 
     try:
         from .app import App
     except ImportError as exc:
-        print(f"GUI nicht verfügbar ({exc}). Installiere Python mit tkinter oder nutze --test --headless.")
+        _out(f"GUI nicht verfügbar ({exc}). Installiere Python mit tkinter oder nutze --test --headless.")
         return 1
     App(settings).run()
     return 0
@@ -47,18 +66,13 @@ async def _headless(settings, blocks: int) -> int:
     ctl = Controller(settings)
     if settings.caption_mode == "local":
         ctl.set_caption_mode("local")
-    ctl.loop = asyncio.get_running_loop()
-    bot_task = None
-    if settings.discord_token:
-        from .bot import QuarterClownBot
-
-        ctl.bot = QuarterClownBot(ctl, settings, ctl.store)
-        bot_task = asyncio.create_task(ctl.bot.start(settings.discord_token))
-        for _ in range(60):
+    ctl.attach_bot()
+    if ctl.bot is not None and not ctl.needs_pairing:
+        for _ in range(40):
             if ctl.bot.is_ready():
                 break
             await asyncio.sleep(0.5)
-    print(await ctl.request_start())
+    _out(await ctl.request_start())
     started = time.time()
     try:
         while ctl.blocks_posted < blocks and ctl.session_active:
@@ -68,7 +82,7 @@ async def _headless(settings, blocks: int) -> int:
     except (KeyboardInterrupt, asyncio.CancelledError):
         pass
     await ctl.shutdown()
-    if bot_task:
+    if ctl.bot is not None:
         await ctl.bot.close()
     return 0
 
